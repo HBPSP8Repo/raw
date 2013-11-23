@@ -3,6 +3,8 @@
  *
  * FIXME:
  * [MSB] Fix handling of badly-formed expressions in constant
+ * [MSB] Implement explicit type cast nodes if it proves to be helpful (refer to method 'cast()')
+ *       
  */
 package raw.calculus
 
@@ -158,7 +160,6 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     }
   }
   
-  /** TODO: Implement cast */
   def cast(t: MonoidType, e: TypedExpression) = e
     
   def expression: Parser[TypedExpression] = positioned(cmpExpr)
@@ -216,7 +217,7 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     "-" ^^^ Sub())
       
   def multExpr: Parser[TypedExpression] = positioned(
-    merge * (
+    mergeExpr * (
       multDiv ^^ {
         case op => {
           (e1: TypedExpression, e2: TypedExpression) => {
@@ -240,8 +241,8 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     "/" ^^^ Div()
   )
       
-  def merge: Parser[TypedExpression] = positioned(
-    basicExpr * (
+  def mergeExpr: Parser[TypedExpression] = positioned(
+    recordProjExpr * (
       monoidMerge ^^ {
         case m => {
           (e1: TypedExpression, e2: TypedExpression) => {
@@ -271,17 +272,9 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     "or" ^^^ OrMonoid() |
     "and" ^^^ AndMonoid()
   )
-      
-  def basicExpr: Parser[TypedExpression] = positioned(
-    ( constant |
-      zeroAndMonoidCons |
-      recordCons |
-      ifThenElse |
-      funcAbsAppl |
-      comprehension |
-      "(" ~> expression <~ ")" |
-      variable
-    ) ~ opt("." ~> posIdent) ^^ {
+ 
+  def recordProjExpr: Parser[TypedExpression] = positioned(
+    funcAppExpr ~ opt("." ~> posIdent) ^^ {
       case e ~ None => e
       case e ~ Some(ident) => {
         val name = ident.s
@@ -297,51 +290,15 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
       }
     }
   )
-  
+
   /** PositionedIdent and posIdent are used to return identifiers wrapped in Positional */
   case class PositionedIdent(s: String) extends Positional
   def posIdent: Parser[PositionedIdent] = positioned(ident ^^ (PositionedIdent(_)))
-  
-  def constant: Parser[TypedExpression] = positioned(
-    "null" ^^^ Null() |
-    "true" ^^^ BoolConst(true) |
-    "false" ^^^ BoolConst(false) |
-    (numericLit <~  ".") ~ numericLit ^^ { case v1 ~ v2 => FloatConst((v1 + "." + v2).toFloat) } |    
-    numericLit ^^ { case v => IntConst(v.toInt) } |
-    stringLit ^^ { case v => StringConst(v) }
-  )
 
-  def recordCons: Parser[TypedExpression] = positioned(
-    "(" ~> repsep(attrCons, ",") <~ ")" ^^ {
-      case attcons => RecordConstruction(RecordType(attcons.map(att => Attribute(att.name, att.e.monoidType))), attcons)
-    }
-  )
-
-  def attrCons: Parser[AttributeConstruction] = positioned(
-    (ident <~ ":=") ~ expression ^^ {
-      case name ~ e => AttributeConstruction(name, e)
-    }
-  )
-
-  def ifThenElse: Parser[TypedExpression] = positioned(
-    "if" ~> expression ~ ("then" ~> expression) ~ ("else" ~> expression) ^^ {
-      case e1 ~ e2 ~ e3 => {
-        e1.monoidType match {
-          case BoolType => {
-            unify(e2.monoidType, e3.monoidType) match {
-              case Some(ut) => IfThenElse(ut, e1, cast(ut, e2), cast(ut, e3))
-              case _ => throw IfResultMismatch(e2, e3)
-            }
-          }
-          case _ => throw BoolRequired(e1)
-        }
-      }
-    }
-  )
-  
-  def funcAbsAppl: Parser[TypedExpression] = positioned(
-    (funcAbs <~ "(") ~ expression <~ ")" ^^ {
-      case f ~ e => {
+  def funcAppExpr: Parser[TypedExpression] = positioned(
+    basicExpr ~ opt("(" ~> expression <~ ")") ^^ {
+      case f ~ None => f
+      case f ~ Some(e) => {
         f.monoidType match {
           case FunctionType(t1, t2) => {
             if (t1 == e.monoidType)
@@ -355,36 +312,34 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     }
   )
   
-  def funcAbs: Parser[FunctionAbstraction] = positioned(
-    ("\\" ~> ident ~ (":" ~> monoidType) ^^ {
-      case name ~ t => {
-        val v = Variable(t)
-        scope.add()
-        scope.bind(name, v)
-        v
-      }
-    }) ~ ("=>" ~> expression) ^^ {
-      case v ~ e => {
-        scope.del()
-        FunctionAbstraction(FunctionType(v.monoidType, e.monoidType), v, e)
-      }
-    }
+  def basicExpr: Parser[TypedExpression] = positioned(
+    constant |
+    classExtent |
+    zeroAndMonoidCons |
+    recordCons |
+    ifThenElse |
+    funcAbs |
+    comprehension |
+    "(" ~> expression <~ ")" |
+    variable
   )
-   
-  def monoidType: Parser[MonoidType] = 
-    "bool" ^^^ BoolType |
-    "int" ^^^ IntType |
-    "float" ^^^ FloatType |
-    "string" ^^^ StringType |
-    "record" ~ "(" ~> repsep(attribute, ",") <~ ")" ^^ (RecordType(_)) |
-    "set" ~ "(" ~> monoidType <~ ")" ^^ (SetType(_)) |
-    "bag" ~ "(" ~> monoidType <~ ")" ^^ (BagType(_)) |
-    "list" ~ "(" ~> monoidType <~ ")"^^ (ListType(_)) |
-    failure("illegal type")
+       
+  def constant: Parser[TypedExpression] = positioned(
+    "null" ^^^ Null() |
+    "true" ^^^ BoolConst(true) |
+    "false" ^^^ BoolConst(false) |
+    (numericLit <~  ".") ~ numericLit ^^ { case v1 ~ v2 => FloatConst((v1 + "." + v2).toFloat) } |    
+    numericLit ^^ { case v => IntConst(v.toInt) } |
+    stringLit ^^ { case v => StringConst(v) }
+  )
 
-  def attribute: Parser[Attribute] = 
-    (ident <~ ":") ~ monoidType ^^ { case name ~ t => Attribute(name, t) }
-    
+  def classExtent: Parser[ClassExtent] = positioned(
+    "`" ~> ident <~ "`" ^? (
+      { case id if catalog.hasClass(id) => ClassExtent(catalog.getClassType(id), id) },
+      { case id => "class extent '" + id + "' does not exist" }
+    )
+  )
+
   def zeroAndMonoidCons: Parser[TypedExpression] = positioned(
     setZeroAndMonoidCons |
     bagZeroAndMonoidCons |
@@ -426,6 +381,64 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
   def listMonoid: Parser[ListMonoid] = positioned(
     "[" ^^^ ListMonoid()
   )
+    
+  def recordCons: Parser[TypedExpression] = positioned(
+    "(" ~> repsep(attrCons, ",") <~ ")" ^^ {
+      case attcons => RecordConstruction(RecordType(attcons.map(att => Attribute(att.name, att.e.monoidType))), attcons)
+    }
+  )
+
+  def attrCons: Parser[AttributeConstruction] = positioned(
+    (ident <~ ":=") ~ expression ^^ {
+      case name ~ e => AttributeConstruction(name, e)
+    }
+  )
+
+  def ifThenElse: Parser[TypedExpression] = positioned(
+    "if" ~> expression ~ ("then" ~> expression) ~ ("else" ~> expression) ^^ {
+      case e1 ~ e2 ~ e3 => {
+        e1.monoidType match {
+          case BoolType => {
+            unify(e2.monoidType, e3.monoidType) match {
+              case Some(ut) => IfThenElse(ut, e1, cast(ut, e2), cast(ut, e3))
+              case _ => throw IfResultMismatch(e2, e3)
+            }
+          }
+          case _ => throw BoolRequired(e1)
+        }
+      }
+    }
+  )
+  
+  def funcAbs: Parser[TypedExpression] = positioned(
+    ("\\" ~> ident ~ (":" ~> monoidType) ^^ {
+      case name ~ t => {
+        val v = Variable(t)
+        scope.add()
+        scope.bind(name, v)
+        v
+      }
+    }) ~ ("=>" ~> expression) ^^ {
+      case v ~ e => {
+        scope.del()
+        FunctionAbstraction(FunctionType(v.monoidType, e.monoidType), v, e)
+      }
+    }
+  )
+   
+  def monoidType: Parser[MonoidType] = 
+    "bool" ^^^ BoolType |
+    "int" ^^^ IntType |
+    "float" ^^^ FloatType |
+    "string" ^^^ StringType |
+    "record" ~ "(" ~> repsep(attribute, ",") <~ ")" ^^ (RecordType(_)) |
+    "set" ~ "(" ~> monoidType <~ ")" ^^ (SetType(_)) |
+    "bag" ~ "(" ~> monoidType <~ ")" ^^ (BagType(_)) |
+    "list" ~ "(" ~> monoidType <~ ")"^^ (ListType(_)) |
+    failure("illegal type")
+
+  def attribute: Parser[Attribute] = 
+    (ident <~ ":") ~ monoidType ^^ { case name ~ t => Attribute(name, t) }
     
   def comprehension: Parser[TypedExpression] = positioned(
      (("for" ^^^ scope.add()) <~ "(") ~> (repsep(qualifier, ",") <~ ")") ~ ("yield" ~> monoid) ~ expression ^^ {
@@ -470,17 +483,6 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     failure("illegal qualifier"))
 
   def generator: Parser[UntypedExpression] = positioned(
-    (ident <~ "<-") ~ classExtent ^^ {
-      case name ~ ce => {
-        ce.monoidType match {
-          case t : CollectionType => {
-            val v = Variable(t.monoidType)
-            scope.bind(name, v)
-            Generator(v, ce)
-          }
-        }
-      }
-    } |
     (ident <~ "<-") ~ expression ^^ {
       case name ~ e => {
         e.monoidType match {
@@ -495,21 +497,7 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     }
   )
   
-  def classExtent: Parser[ClassExtent] = positioned(
-    "`" ~> ident <~ "`" ^? (
-      { case id if catalog.hasClass(id) => ClassExtent(catalog.getClassType(id), id) },
-      { case id => "class extent '" + id + "' does not exist" }
-    )
-  )
-
   def bind: Parser[UntypedExpression] = positioned(
-    (ident <~ ":=") ~ funcAbs ^^ {
-      case name ~ f => {
-        val v = Variable(f.monoidType)
-        scope.bind(name, v)
-        Bind(v, f)
-      }
-    } |
     (ident <~ ":=") ~ expression ^^ {
       case name ~ e => {
         val v = Variable(e.monoidType)
