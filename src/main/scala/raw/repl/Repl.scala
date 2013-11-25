@@ -3,6 +3,7 @@ package raw.repl
 import raw._
 import raw.calculus._
 import raw.calculus.normalizer._
+import raw.calculus.canonical._
 import raw.catalog._
 
 /** FIXME:
@@ -141,7 +142,7 @@ object Repl extends App {
     case RecordProjection(_, e, name) => pprintExpr(e) + "." + name
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + pprintExpr(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + pprintExpr(e1) + " then " + pprintExpr(e2) + " else " + pprintExpr(e3)
-    case BinaryOperation(_, op, e1, e2) => pprintExpr(e1) + " " + pprintBinaryOperator(op) + " " + pprintExpr(e2)
+    case BinaryOperation(_, op, e1, e2) => "( " + pprintExpr(e1) + " " + pprintBinaryOperator(op) + " " + pprintExpr(e2) + " )"
     case FunctionAbstraction(_, v, e) => "\\" + pprintExpr(v) + " : " + pprintExpr(e) 
     case FunctionApplication(_, e1, e2) => pprintExpr(e1) + "(" + pprintExpr(e2) + ")"
     case EmptySet() => "{}"
@@ -150,7 +151,7 @@ object Repl extends App {
     case ConsCollectionMonoid(_, SetMonoid(), e) => "{ " + pprintExpr(e) + " }"
     case ConsCollectionMonoid(_, BagMonoid(), e) => "bag{ " + pprintExpr(e) + " }"
     case ConsCollectionMonoid(_, ListMonoid(), e) => "[ " + pprintExpr(e) + " ]"
-    case MergeMonoid(_, m, e1, e2) => pprintExpr(e1) + " " + pprintMonoid(m) + " " + pprintExpr(e2)
+    case MergeMonoid(_, m, e1, e2) => "( " + pprintExpr(e1) + " " + pprintMonoid(m) + " " + pprintExpr(e2) + " )"
     case Comprehension(_, m, e, qs) => "for ( " + qs.map(pprintExpr(_)).mkString(", ") + " ) yield " + pprintMonoid(m) + " " + pprintExpr(e)
     case Generator(v, e) => pprintExpr(v) + " <- " + pprintExpr(e)
     case Not(e) => "not(" + pprintExpr(e) + ")"
@@ -186,7 +187,14 @@ object Repl extends App {
       println(pprintExpr(norme))
       println("Result Type: " + pprintType(norme.monoidType))
       println()
-      println(if (e != norme) "Expression normalized" else "Nothing to normalize")
+      println(if (e != norme) "Expression normalized" else "Expression already normalized")
+      println()
+      println("Canonical Form:")
+      val cane = Canonical.canonical(e)
+      println(pprintExpr(cane))
+      println("Result Type: " + pprintType(cane.monoidType))
+      println()
+      println(if (norme != cane) "Expression put in canonical form" else "Expression already in canonical form")
       
     } catch {
       case e : TypeCheckerError => pprintTypeCheckerError(input, e)
