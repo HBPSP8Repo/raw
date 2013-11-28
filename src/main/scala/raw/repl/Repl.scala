@@ -2,9 +2,25 @@ package raw.repl
 
 import raw._
 import raw.calculus._
-import raw.calculus.normalizer._
-import raw.calculus.canonical._
+import raw.calculus.parser.TypeCheckerError
+import raw.calculus.parser.ParserError
+import raw.calculus.parser.BinaryOperationMismatch
+import raw.calculus.parser.BoolRequired
+import raw.calculus.parser.NumberRequired
+import raw.calculus.parser.MonoidMergeMismatch
+import raw.calculus.parser.UnknownAttribute
+import raw.calculus.parser.RecordRequired
+import raw.calculus.parser.IfResultMismatch
+import raw.calculus.parser.FunctionApplicationMismatch
+import raw.calculus.parser.FunctionTypeRequired
+import raw.calculus.parser.CommutativeMonoidRequired
+import raw.calculus.parser.IdempotentMonoidRequired
+import raw.calculus.parser.CollectionTypeRequired
+import raw.calculus.parser.PredicateRequired
+import raw.calculus.normalizer.Normalizer
+import raw.calculus.canonical.Canonical
 import raw.catalog._
+import raw.algebra.unnester.Unnester
 
 /** FIXME:
  *  [MSB] Clean-up pretty printers: they're messy. Use scala.text._ instead.
@@ -12,18 +28,6 @@ import raw.catalog._
  */
 
 object Repl extends App {
-  def pprintType(t: MonoidType): String =
-    t match {
-      case BoolType => "bool"
-	  case FloatType => "float"
-	  case IntType => "int"
-	  case StringType => "string"
-	  case RecordType(atts) => "record(" + atts.map(att => att.name + " = " + pprintType(att.monoidType)).mkString(", ") + ")"
-	  case SetType(t) => "set(" + pprintType(t) + ")"
-	  case BagType(t) => "bag(" + pprintType(t) + ")"
-	  case ListType(t) => "list(" + pprintType(t) + ")"
-	  case _ => "unknown"
-	}
   
   class ErrorFormatter(val err: String, input: String) {
     var map = Map[Int, collection.mutable.Map[Int, String]]()
@@ -70,49 +74,23 @@ object Repl extends App {
       }
     }
   }
-
-  def pprintBinaryOperator(op: BinaryOperator): String =
-    op match {
-      case op : Eq => "="
-      case op : Neq => "<>"
-      case op : Ge => ">="
-      case op : Gt => ">"
-      case op : Le => "<="
-      case op : Lt => "<"
-      case op : Add => "+"
-      case op : Sub => "-"
-      case op : Mult => "*"
-      case op : Div => "/"
-    }
-
-  def pprintMonoid(m: Monoid): String =
-    m match {
-      case m : SumMonoid => "sum"
-      case m : MultiplyMonoid => "multiply"
-      case m : MaxMonoid => "max"
-      case m : OrMonoid => "or"
-      case m : AndMonoid => "and"
-      case m : SetMonoid => "set"        
-      case m : BagMonoid => "bag"
-      case m : ListMonoid => "list"
-    }
   
   def pprintTypeCheckerError(input: String, err: TypeCheckerError) = {
     val fmt = new ErrorFormatter(err.err, input)
     val errs = err match {
-      case BinaryOperationMismatch(op, e1, e2) => { fmt.add(op.pos.line, op.pos.column, pprintBinaryOperator(op)); fmt.add(e1.pos.line, e1.pos.column, pprintType(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, pprintType(e2.monoidType)) }
-      case BoolRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))   
-      case NumberRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))
-      case MonoidMergeMismatch(m, e1, e2) => { fmt.add(m.pos.line, m.pos.column, pprintMonoid(m)); fmt.add(e1.pos.line, e1.pos.column, pprintType(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, pprintType(e2.monoidType)) }
+      case BinaryOperationMismatch(op, e1, e2) => { fmt.add(op.pos.line, op.pos.column, BinaryOperatorPrettyPrinter(op)); fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
+      case BoolRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))   
+      case NumberRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
+      case MonoidMergeMismatch(m, e1, e2) => { fmt.add(m.pos.line, m.pos.column, MonoidPrettyPrinter(m)); fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
       case UnknownAttribute(name, pos) => fmt.add(pos.line, pos.column, name)
-      case RecordRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))
-      case IfResultMismatch(e1, e2) => { fmt.add(e1.pos.line, e1.pos.column, pprintType(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, pprintType(e2.monoidType)) }
-      case FunctionApplicationMismatch(e1, e2) => { fmt.add(e1.pos.line, e1.pos.column, pprintType(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, pprintType(e2.monoidType)) }
-      case FunctionTypeRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))
-      case CommutativeMonoidRequired(m, e) => { fmt.add(m.pos.line, m.pos.column, pprintMonoid(m)); fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType)) }
-      case IdempotentMonoidRequired(m, e) => { fmt.add(m.pos.line, m.pos.column, pprintMonoid(m)); fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType)) }
-      case CollectionTypeRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))
-      case PredicateRequired(e) => fmt.add(e.pos.line, e.pos.column, pprintType(e.monoidType))
+      case RecordRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
+      case IfResultMismatch(e1, e2) => { fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
+      case FunctionApplicationMismatch(e1, e2) => { fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
+      case FunctionTypeRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
+      case CommutativeMonoidRequired(m, e) => { fmt.add(m.pos.line, m.pos.column, MonoidPrettyPrinter(m)); fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType)) }
+      case IdempotentMonoidRequired(m, e) => { fmt.add(m.pos.line, m.pos.column, MonoidPrettyPrinter(m)); fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType)) }
+      case CollectionTypeRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
+      case PredicateRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
     }
     fmt.pprint()
   }
@@ -131,45 +109,20 @@ object Repl extends App {
     pprintInputLine(input, e.line); pprintAtCol(e.column, "^"); pprintAtCol(e.column, e.err) 
   }
   
-  def pprintExpr(e: Expression): String = e match {
-    case Null() => "null"
-    case BoolConst(v) => if (v) "true" else "false"
-    case IntConst(v) => v.toString()
-    case FloatConst(v) => v.toString()
-    case StringConst(v) => "\"" + v.toString() + "\""
-    case Variable(_) => "v" + e.hashCode().toString()
-    case ClassExtent(_, id) => "`" + id + "`"
-    case RecordProjection(_, e, name) => pprintExpr(e) + "." + name
-    case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + pprintExpr(att.e)).mkString(", ") + " )"
-    case IfThenElse(_, e1, e2, e3) => "if " + pprintExpr(e1) + " then " + pprintExpr(e2) + " else " + pprintExpr(e3)
-    case BinaryOperation(_, op, e1, e2) => "( " + pprintExpr(e1) + " " + pprintBinaryOperator(op) + " " + pprintExpr(e2) + " )"
-    case FunctionAbstraction(_, v, e) => "\\" + pprintExpr(v) + " : " + pprintExpr(e) 
-    case FunctionApplication(_, e1, e2) => pprintExpr(e1) + "(" + pprintExpr(e2) + ")"
-    case EmptySet() => "{}"
-    case EmptyBag() => "bag{}"
-    case EmptyList() => "[]"
-    case ConsCollectionMonoid(_, SetMonoid(), e) => "{ " + pprintExpr(e) + " }"
-    case ConsCollectionMonoid(_, BagMonoid(), e) => "bag{ " + pprintExpr(e) + " }"
-    case ConsCollectionMonoid(_, ListMonoid(), e) => "[ " + pprintExpr(e) + " ]"
-    case MergeMonoid(_, m, e1, e2) => "( " + pprintExpr(e1) + " " + pprintMonoid(m) + " " + pprintExpr(e2) + " )"
-    case Comprehension(_, m, e, qs) => "for ( " + qs.map(pprintExpr(_)).mkString(", ") + " ) yield " + pprintMonoid(m) + " " + pprintExpr(e)
-    case Generator(v, e) => pprintExpr(v) + " <- " + pprintExpr(e)
-    case Not(e) => "not(" + pprintExpr(e) + ")"
-    case Bind(v, e) => pprintExpr(v) + " := " + pprintExpr(e)
-  }
-  
   /* Built-in class extends */
   val events = ListType(RecordType(List(Attribute("RunNumber", IntType), Attribute("lbn", IntType), Attribute("muon", RecordType(List(Attribute("mu_pt", FloatType), Attribute("mu_eta", FloatType)))))))
   
   val courses = SetType(RecordType(List(Attribute("name", StringType))))
   val instructors = SetType(RecordType(List(Attribute("name", StringType), Attribute("address", StringType), Attribute("teaches", courses))))
   val departments = SetType(RecordType(List(Attribute("name", StringType), Attribute("instructors", instructors))))
-  // Sample query:
-  // for ( el <- for ( d <- `Departments`, d.name = "CSE" ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
   
-  val cat = new Catalog(Map("events" -> events, "Departments" -> departments))
+  val children = ListType(RecordType(List(Attribute("age", IntType))))
+  val manager = SetType(RecordType(List(Attribute("name", StringType), Attribute("children", children))))
+  val employees = SetType(RecordType(List(Attribute("children", children), Attribute("manager", manager))))
+
+  val cat = new Catalog(Map("events" -> events, "Departments" -> departments, "Employees" -> employees))
   
-  val p = new Parser(cat)
+  val p = new parser.Parser(cat)
   
   var input: String = ""
   do {
@@ -177,24 +130,29 @@ object Repl extends App {
     val input = Console.readLine()
     try {
       val e = p.parse(input)
+      
       println()
       println("Parsed Expression:")
-      println(pprintExpr(e))
-      println("Result Type: " + pprintType(e.monoidType))
+      println(parser.CalculusPrettyPrinter(e))
+      println("Result Type: " + MonoidTypePrettyPrinter(e.monoidType))
+      
       println()
       println("Normalized Expression:")
       val norme = Normalizer.normalize(e)
-      println(pprintExpr(norme))
-      println("Result Type: " + pprintType(norme.monoidType))
-      println()
-      println(if (e != norme) "Expression normalized" else "Expression already normalized")
+      println(normalizer.CalculusPrettyPrinter(norme))
+      println("Result Type: " + MonoidTypePrettyPrinter(norme.monoidType))
+      
       println()
       println("Canonical Form:")
-      val cane = Canonical.canonical(e)
-      println(pprintExpr(cane))
-      println("Result Type: " + pprintType(cane.monoidType))
+      val cane = Canonical.canonical(norme)
+      println(canonical.CalculusPrettyPrinter(cane))
+      println("Result Type: " + MonoidTypePrettyPrinter(cane.monoidType))
+      
       println()
-      println(if (norme != cane) "Expression put in canonical form" else "Expression already in canonical form")
+      println("Algebra:")
+      val alg = Unnester.unnest(cane)
+      println(algebra.AlgebraPrettyPrinter(alg))
+      println()
       
     } catch {
       case e : TypeCheckerError => pprintTypeCheckerError(input, e)
@@ -203,3 +161,15 @@ object Repl extends App {
     }
   } while (input != null)
 }
+
+/* Sample queries:
+
+for ( el <- for ( d <- `Departments`, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)  
+
+for ( el <- for ( d <- `Departments`, y := d.name, if (not (y = "CSE")) then true else false ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
+
+The following query is UNSUPPORTED due to the use of path 'e.manager.children':
+for (e <- `Employees`) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
+
+for (e <- `Employees`) yield set (E := e, M := for (c <- e.children, for (d1 <- e.manager, d <- d1.children) yield and c.age > d.age) yield sum 1)
+*/

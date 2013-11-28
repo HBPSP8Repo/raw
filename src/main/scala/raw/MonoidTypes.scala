@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 /** MonoidType
  */
@@ -44,3 +44,20 @@ case class VariableType extends MonoidType {
  *  Type for expressions 't2 -> t1', i.e. for functions
  */
 case class FunctionType(t1: MonoidType, t2: MonoidType) extends MonoidType
+
+/** MonoidTypePrettyPrinter
+ */
+object MonoidTypePrettyPrinter {
+  def apply(t: MonoidType): String = t match {
+    case BoolType => "bool"
+    case StringType => "string"
+    case FloatType => "float"
+    case IntType => "int"
+    case RecordType(atts) => "record(" + atts.map(att => att.name + " = " + MonoidTypePrettyPrinter(att.monoidType)).mkString(", ") + ")" 
+    case SetType(t) => "set(" + MonoidTypePrettyPrinter(t) + ")"
+    case BagType(t) => "bag(" + MonoidTypePrettyPrinter(t) + ")"
+    case ListType(t) => "list(" + MonoidTypePrettyPrinter(t) + ")"
+    case VariableType() => "unknown"
+    case FunctionType(t1, t2) => "function(" + MonoidTypePrettyPrinter(t) + " -> " + MonoidTypePrettyPrinter(t2) + ")" 
+  }
+}

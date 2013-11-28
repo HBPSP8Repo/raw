@@ -6,7 +6,7 @@
  * [MSB] Implement explicit type cast nodes if it proves to be helpful (refer to method 'cast()')
  *       
  */
-package raw.calculus
+package raw.calculus.parser
 
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.input.Position
@@ -14,6 +14,7 @@ import scala.util.parsing.input.Positional
 
 import raw._
 import raw.catalog._
+import raw.calculus._
 
 /** ParserError
  */

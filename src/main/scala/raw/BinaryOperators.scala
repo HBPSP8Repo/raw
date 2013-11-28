@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 import scala.util.parsing.input.Positional
 
@@ -25,3 +25,20 @@ case class Add extends ArithmeticOperator
 case class Sub extends ArithmeticOperator
 case class Mult extends ArithmeticOperator
 case class Div extends ArithmeticOperator
+
+/** BinaryOperatorPrettyPrinter
+ */
+object BinaryOperatorPrettyPrinter {
+  def apply(op: BinaryOperator) = op match {
+    case Eq() => "="
+    case Neq() => "<>"
+    case Ge() => ">="
+    case Gt() => ">"
+    case Le() => "<="
+    case Lt() => "<"
+    case Add() => "+"
+    case Sub() => "-"
+    case Mult() => "*"
+    case Div() => "/"
+  }
+}

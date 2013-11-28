@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 import scala.util.parsing.input.Positional
 
@@ -93,4 +93,19 @@ case class ListMonoid extends CollectionMonoid {
   def commutative = false
   
   def idempotent = false
+}
+
+/** MonoidPrettyPrinter
+ */
+object MonoidPrettyPrinter {
+  def apply(m: Monoid) = m match {
+    case SumMonoid() => "sum"
+    case MultiplyMonoid() => "multiply"
+    case MaxMonoid() => "max"
+    case OrMonoid() => "or"
+    case AndMonoid() => "and"
+    case SetMonoid() => "set"
+    case BagMonoid() => "bag"
+    case ListMonoid() => "list"
+  }
 }
