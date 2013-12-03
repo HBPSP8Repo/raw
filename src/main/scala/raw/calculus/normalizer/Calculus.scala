@@ -35,11 +35,6 @@ case class StringConst(v: String) extends Constant(StringType)
 
 case class Variable(v: calculus.parser.Variable) extends TypedExpression(v.monoidType)
 
-/** ClassExtent
- */
- 
-case class ClassExtent(t: MonoidType, id: String) extends TypedExpression(t)
-
 /** RecordProjection
  */
 
@@ -104,8 +99,7 @@ object CalculusPrettyPrinter {
     case IntConst(v) => v.toString()
     case FloatConst(v) => v.toString()
     case StringConst(v) => "\"" + v.toString() + "\""
-    case Variable(_) => "v" + e.hashCode().toString()
-    case ClassExtent(_, id) => "`" + id + "`"
+    case Variable(v) => calculus.parser.CalculusPrettyPrinter(v)
     case RecordProjection(_, e, name) => CalculusPrettyPrinter(e) + "." + name
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)

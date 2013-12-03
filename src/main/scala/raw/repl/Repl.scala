@@ -17,6 +17,7 @@ import raw.calculus.parser.CommutativeMonoidRequired
 import raw.calculus.parser.IdempotentMonoidRequired
 import raw.calculus.parser.CollectionTypeRequired
 import raw.calculus.parser.PredicateRequired
+import raw.calculus.parser.RootScope
 import raw.calculus.normalizer.Normalizer
 import raw.calculus.canonical.Canonical
 import raw.catalog._
@@ -122,7 +123,12 @@ object Repl extends App {
 
   val cat = new Catalog(Map("events" -> events, "Departments" -> departments, "Employees" -> employees))
   
-  val p = new parser.Parser(cat)
+  val rootScope = new RootScope()
+  for (name <- cat.classNames)
+    rootScope.bind(name, parser.Variable(cat.getClassType(name)))
+  
+  val p = new parser.Parser(rootScope)
+  println(rootScope.bindings)
   
   var input: String = ""
   do {
@@ -164,12 +170,12 @@ object Repl extends App {
 
 /* Sample queries:
 
-for ( el <- for ( d <- `Departments`, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)  
+for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)  
 
-for ( el <- for ( d <- `Departments`, y := d.name, if (not (y = "CSE")) then true else false ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
+for ( el <- for ( d <- Departments, y := d.name, if (not (y = "CSE")) then true else false ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
 
 The following query is UNSUPPORTED due to the use of path 'e.manager.children':
-for (e <- `Employees`) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
+for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
 
-for (e <- `Employees`) yield set (E := e, M := for (c <- e.children, for (d1 <- e.manager, d <- d1.children) yield and c.age > d.age) yield sum 1)
+for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d1 <- e.manager, d <- d1.children) yield and c.age > d.age) yield sum 1)
 */

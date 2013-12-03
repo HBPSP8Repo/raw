@@ -24,7 +24,6 @@ object Canonical {
     case n : Null => n
     case c : Constant => c
     case v : Variable => v
-    case c : ClassExtent => c
     case RecordProjection(t, e, name) => RecordProjection(t, convertToCNF(e), name)
     case RecordConstruction(t, atts) => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, convertToCNF(att.e))))
     case IfThenElse(t, e1, e2, e3) if e2.monoidType == BoolType => println("here");
@@ -57,11 +56,18 @@ object Canonical {
     case Not(Not(e)) => convertToCNF(e)
     case Not(MergeMonoid(t, AndMonoid(), e1, e2)) => convertToCNF(MergeMonoid(t, OrMonoid(), Not(e1), Not(e2)))
     case Not(MergeMonoid(t, OrMonoid(), e1, e2)) => convertToCNF(MergeMonoid(t, AndMonoid(), Not(e1), Not(e2)))    
-    case Comprehension(t, m, e, qs, pred) =>
-      Comprehension(t, m, convertToCNF(e), qs.map(q => q match { case Generator(v, e) => Generator(v, convertToCNF(e)) }), convertToCNF(pred))
+    case Comprehension(t, m, e, gs, pred) => Comprehension(t, m, convertToCNF(e), gs, convertToCNF(pred))
     case Not(e) => Not(convertToCNF(e))
   }
-    
+  
+  /** This method converts an expression used in the rhs of a generator into a Path.
+   */
+  def convertToPath(e: Expression): Path = e match {
+    case v: Variable => VariablePath(v)
+    case RecordProjection(t, e, name) => InnerPath(convertToPath(e), name)
+    case _ => throw RawInternalException("unexpected expression in rhs of Generator")
+  }
+  
   /** This method converts the calculus expression into its canonical form.
    *  The expression must be normalized. This is enforced by taking as input an instance of the
    *  Normalizer calculus. The canonical form expression is returned Canonical calculus.
@@ -78,7 +84,6 @@ object Canonical {
     case normalizer.FloatConst(v) => FloatConst(v)
     case normalizer.IntConst(v) => IntConst(v)
     case v : normalizer.Variable => Variable(v)
-    case normalizer.ClassExtent(t, id) => ClassExtent(t, id)
     case normalizer.RecordProjection(t, e, name) => RecordProjection(t, canonical(e), name)
     case normalizer.RecordConstruction(t, atts) => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, canonical(att.e))))
     case normalizer.IfThenElse(t, e1, e2, e3) => IfThenElse(t, canonical(e1), canonical(e2), canonical(e3))
@@ -89,7 +94,7 @@ object Canonical {
     case normalizer.ConsCollectionMonoid(t, m, e) => ConsCollectionMonoid(t, m, canonical(e))
     case normalizer.MergeMonoid(t, m, e1, e2) => MergeMonoid(t, m, canonical(e1), canonical(e2))
     case normalizer.Comprehension(t, m, e, qs) => {
-      val gs = qs.collect{ case normalizer.Generator(v : normalizer.Variable, e) => Generator(Variable(v), canonical(e)) }
+      val gs = qs.collect{ case normalizer.Generator(v : normalizer.Variable, e) => Generator(Variable(v), convertToPath(canonical(e))) }
       val ps = qs.collect{ case e: normalizer.TypedExpression => canonical(e) }
       if (ps.isEmpty)
         Comprehension(t, m, canonical(e), gs, BoolConst(true))

@@ -13,7 +13,6 @@ import scala.util.parsing.input.Position
 import scala.util.parsing.input.Positional
 
 import raw._
-import raw.catalog._
 import raw.calculus._
 
 /** ParserError
@@ -41,7 +40,7 @@ case class CollectionTypeRequired(e: TypedExpression) extends TypeCheckerError("
 
 /** Parser
  */
-class Parser(val catalog: Catalog) extends StandardTokenParsers {
+class Parser(val rootScope: RootScope) extends StandardTokenParsers {
   
   lexical.reserved ++= Set(
     "not",
@@ -56,59 +55,26 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
 		"+", "-", "*", "/",
 		".", "(", ")", "[", "]", "{", "}", ",", "\\", ":", "=>", "<-", "`", ":=")
   
-  /** Scope
-   *  
-   *  Scopes are used by the parser to store variable bindings.
-   *  Scopes can be nested so that variable names can be reused in inner nestings.
-   */
-  sealed abstract class Scope {
-    def exists(name: String): Boolean    
-    def get(name: String): Option[Variable]
-  }
-  
-  private case object RootScope extends Scope {
-    def exists(name: String): Boolean = false
-    def get(name: String): Option[Variable] = None
-  }
-  
-  private case class InnerScope(parent: Scope) extends Scope {
-    var bindings = Map[String, Variable]()
-    
-    def bind(name: String, v: Variable) = bindings += (name -> v)
-    
-    def add() = new InnerScope(this)
-    
-    def exists(name: String): Boolean =
-      if (bindings.isDefinedAt(name))
-        true
-      else
-        parent.exists(name)
-        
-    def get(name: String): Option[Variable] =
-      if (bindings.isDefinedAt(name))
-        Some(bindings(name))
-      else
-        parent.get(name)
-  }
-  
   /** CurrentScope
    *  
    *  Holds the current (active) scope and provides wrapper methods to manipulate scopes.
    */
-  private object CurrentScope {
-    var scope: InnerScope = new InnerScope(RootScope)
-    
+  private class CurrentScope(var scope: Scope) {
     def bind(name: String, v: Variable) = scope.bind(name, v)
+    
     def add() = scope = scope.add()
+    
     def exists(name: String) = scope.exists(name)
-    def del() = scope.parent match {
-      case parent : InnerScope => scope = parent
-      case RootScope => throw RawInternalException("parser requested deletion of top scope")
+    
+    def del() = scope match {
+      case RootScope() => throw RawInternalException("parser requested deletion of top scope")
+      case InnerScope(parent) => scope = parent
     }
+    
     def get(name: String) = scope.get(name)
   }
   
-  private val scope = CurrentScope
+  private val scope = new CurrentScope(rootScope)
   
   /** Type Unification Algorithm
    *  
@@ -315,7 +281,6 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
   
   def basicExpr: Parser[TypedExpression] = positioned(
     constant |
-    classExtent |
     zeroAndMonoidCons |
     recordCons |
     ifThenElse |
@@ -332,13 +297,6 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     (numericLit <~  ".") ~ numericLit ^^ { case v1 ~ v2 => FloatConst((v1 + "." + v2).toFloat) } |    
     numericLit ^^ { case v => IntConst(v.toInt) } |
     stringLit ^^ { case v => StringConst(v) }
-  )
-
-  def classExtent: Parser[ClassExtent] = positioned(
-    "`" ~> ident <~ "`" ^? (
-      { case id if catalog.hasClass(id) => ClassExtent(catalog.getClassType(id), id) },
-      { case id => "class extent '" + id + "' does not exist" }
-    )
   )
 
   def zeroAndMonoidCons: Parser[TypedExpression] = positioned(

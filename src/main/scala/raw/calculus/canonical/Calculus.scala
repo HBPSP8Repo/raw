@@ -36,11 +36,6 @@ case class StringConst(v: String) extends Constant(StringType)
 
 case class Variable(v: calculus.normalizer.Variable) extends TypedExpression(v.monoidType)
 
-/** ClassExtent
- */
- 
-case class ClassExtent(t: MonoidType, id: String) extends TypedExpression(t)
-
 /** RecordProjection
  */
 
@@ -84,10 +79,25 @@ case class MergeMonoid(t: MonoidType, m: Monoid, e1: TypedExpression, e2: TypedE
 
 case class Comprehension(t: MonoidType, m: Monoid, e: TypedExpression, gs: List[Generator], pred: TypedExpression) extends TypedExpression(t)
 
+/** Path (Generator)
+ */
+
+abstract class Path(val monoidType: MonoidType)
+case class VariablePath(v: Variable) extends Path(v.monoidType)
+case class InnerPath(p: Path, name: String) extends Path(p.monoidType match { 
+  case RecordType(atts) => {
+    atts.find(_.name == name) match {
+       case Some(att) => att.monoidType
+       case _ => throw RawInternalException("badly formed inner path")
+    }
+  }
+  case _ => throw RawInternalException("unexpected inner path type")
+})
+
 /** Generator
  */
 
-case class Generator(v: Variable, e: TypedExpression) extends UntypedExpression
+case class Generator(v: Variable, p: Path) extends UntypedExpression
 
 /** Unary Functions
  * 
@@ -95,6 +105,16 @@ case class Generator(v: Variable, e: TypedExpression) extends UntypedExpression
  */
 
 case class Not(e: TypedExpression) extends TypedExpression(BoolType)
+
+/** PathPrettyPrinter
+ */
+
+object PathPrettyPrinter {
+  def apply(p: Path): String = p match {
+    case VariablePath(v) => CalculusPrettyPrinter(v)
+    case InnerPath(p, name) => PathPrettyPrinter(p) + "." + name
+  }
+}
 
 /** CalculusPrettyPrinter
  */
@@ -106,8 +126,7 @@ object CalculusPrettyPrinter {
     case IntConst(v) => v.toString()
     case FloatConst(v) => v.toString()
     case StringConst(v) => "\"" + v.toString() + "\""
-    case Variable(_) => "v" + e.hashCode().toString()
-    case ClassExtent(_, id) => "`" + id + "`"
+    case Variable(v) => calculus.normalizer.CalculusPrettyPrinter(v)
     case RecordProjection(_, e, name) => CalculusPrettyPrinter(e) + "." + name
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)
@@ -121,7 +140,7 @@ object CalculusPrettyPrinter {
     case MergeMonoid(_, m, e1, e2) => "( " + CalculusPrettyPrinter(e1) + " " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e2) + " )"
     case Comprehension(_, m, e, qs, pred) => 
       "for ( " + (if (!qs.isEmpty) qs.map(CalculusPrettyPrinter(_)).mkString(", ") + ", ") + CalculusPrettyPrinter(pred) + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
-    case Generator(v, e) => CalculusPrettyPrinter(v) + " <- " + CalculusPrettyPrinter(e)
+    case Generator(v, p) => CalculusPrettyPrinter(v) + " <- " + PathPrettyPrinter(p)
     case Not(e) => "not(" + CalculusPrettyPrinter(e) + ")"
   })
 }

@@ -37,11 +37,6 @@ case class Variable(t: MonoidType) extends TypedExpression(t) {
   override def hashCode = super.hashCode    
 }
 
-/** ClassExtent
- */
- 
-case class ClassExtent(t: MonoidType, id: String) extends TypedExpression(t)
-
 /** RecordProjection
  */
 
@@ -122,7 +117,6 @@ object CalculusPrettyPrinter {
     case FloatConst(v) => v.toString()
     case StringConst(v) => "\"" + v.toString() + "\""
     case Variable(_) => "v" + e.hashCode().toString()
-    case ClassExtent(_, id) => "`" + id + "`"
     case RecordProjection(_, e, name) => CalculusPrettyPrinter(e) + "." + name
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)

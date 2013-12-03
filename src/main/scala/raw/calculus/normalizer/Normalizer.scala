@@ -45,7 +45,6 @@ object Normalizer {
       case c : Constant => c
       case v : Variable if v == x => u
       case v : Variable => v
-      case c : ClassExtent => c
       case RecordProjection(t, e, name) => RecordProjection(t, betaReduction(e, x, u), name)
       case RecordConstruction(t, atts) => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, betaReduction(att.e, x, u))))
       case IfThenElse(t, e1, e2, e3) => IfThenElse(t, betaReduction(e1, x, u), betaReduction(e2, x, u), betaReduction(e3, x, u))
@@ -121,7 +120,7 @@ object Normalizer {
           case Comprehension(_, _, e1, r) => Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)
           
           /** Extra rule */
-          case ce : ClassExtent => c
+          case v : Variable => c
         }
       }
     }
@@ -135,7 +134,6 @@ object Normalizer {
     case parser.FloatConst(v) => FloatConst(v)
     case parser.IntConst(v) => IntConst(v)
     case v : parser.Variable => Variable(v)
-    case parser.ClassExtent(t, id) => ClassExtent(t, id)
     case parser.RecordProjection(t, e, name) => RecordProjection(t, convert(e), name)
     case parser.RecordConstruction(t, atts) => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, convert(att.e))))
     case parser.IfThenElse(t, e1, e2, e3) => IfThenElse(t, convert(e1), convert(e2), convert(e3))
