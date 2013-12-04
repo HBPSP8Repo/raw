@@ -242,8 +242,8 @@ object Unnester {
                 /** Rule C4 */
                 T(CalculusTerm(canonical.Comprehension(t, m, e1, r, p3)),
                                u, VariablePattern(v),
-                               AlgebraTerm(algebra.Selection(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(canonical.MergeMonoid(BoolType, AndMonoid(), p1, p2))),
-                                                             x match { case x : canonical.VariablePath => algebra.Scan(x) })))
+                               AlgebraTerm(algebra.Select(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(canonical.MergeMonoid(BoolType, AndMonoid(), p1, p2))),
+                                                          x match { case x : canonical.VariablePath => algebra.Scan(algebra.FunctionPath(convertVariables(getPatternVariables(VariablePattern(v))), x)) })))
               } else {
                 x match {
                   case x : canonical.VariablePath => {
@@ -252,8 +252,8 @@ object Unnester {
                                    u, PairPattern(w, VariablePattern(v)),
                                    AlgebraTerm(algebra.Join(algebra.Function(convertVariables(getPatternVariables(PairPattern(w, VariablePattern(v)))), convertExpression(p2)),
                                                             E match { case AlgebraTerm(t) => t },
-                                                            algebra.Selection(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(p1)),
-                                                                              algebra.Scan(x)))))
+                                                            algebra.Select(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(p1)),
+                                                                           algebra.Scan(algebra.FunctionPath(convertVariables(getPatternVariables(VariablePattern(v))), x))))))
                   }
                   case x : canonical.InnerPath => {
                     /** Rule C7 */
@@ -273,8 +273,8 @@ object Unnester {
                                  u, PairPattern(w, VariablePattern(v)),
                                  AlgebraTerm(algebra.OuterJoin(algebra.Function(convertVariables(getPatternVariables(PairPattern(w, VariablePattern(v)))), convertExpression(p2)),
                                                                E match { case AlgebraTerm(t) => t },
-                                                               algebra.Selection(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(p1)),
-                                                                                 algebra.Scan(x)))))
+                                                               algebra.Select(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(p1)),
+                                                                              algebra.Scan(algebra.FunctionPath(convertVariables(getPatternVariables(VariablePattern(v))), x))))))
                 }
                 case x : canonical.InnerPath => {
                   /** Rule C10 */

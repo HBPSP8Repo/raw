@@ -12,13 +12,13 @@ sealed abstract class Algebra
 
 case object Empty extends Algebra
 
-case class Scan(v: calculus.canonical.VariablePath) extends Algebra
+case class Scan(p: FunctionPath) extends Algebra
 
 case class Reduce(m: Monoid, e: Function, p: Function, X: Algebra) extends Algebra
 
 case class Nest(m: Monoid, e: Function, f: FunctionVars, p: Function, g: FunctionVars, X: Algebra) extends Algebra
 
-case class Selection(p: Function, X: Algebra) extends Algebra
+case class Select(p: Function, X: Algebra) extends Algebra
 
 case class Join(p: Function, X: Algebra, Y: Algebra) extends Algebra
 
@@ -60,10 +60,10 @@ object FunctionPathPrettyPrinter {
 
 object AlgebraPrettyPrinter {
   def apply(a: Algebra, pre: String = ""): String =  pre + (a match {
-    case Scan(v) => "Scan " + calculus.canonical.PathPrettyPrinter(v)
+    case Scan(p) => "Scan " + FunctionPathPrettyPrinter(p)
     case Reduce(m, e, p, x) => "Reduce " + MonoidPrettyPrinter(m) + " [ e = " + FunctionPrettyPrinter(e) + " ] [ p = " + FunctionPrettyPrinter(p) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case Nest(m, e, f, p, g, x) => "Nest " + MonoidPrettyPrinter(m) + " [ e = " + FunctionPrettyPrinter(e) + " ] [ f = " + FunctionVarsPrettyPrinter(f) + " ] [ p = " + FunctionPrettyPrinter(p) + " ] [ g = " + FunctionVarsPrettyPrinter(g) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    case Selection(p, x) => "Selection [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
+    case Select(p, x) => "Select [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case Join(p, x, y) => "Join [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
     case Unnest(path, p, x) => "Unnest [ path = " + FunctionPathPrettyPrinter(path) + " ] [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case OuterJoin(p, x, y) => "OuterJoin [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")

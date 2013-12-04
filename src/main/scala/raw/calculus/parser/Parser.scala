@@ -127,6 +127,8 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
     }
   }
   
+  /** FIXME: This method could be used to add a new calculus node indicating that an expression
+   *         ought to be typed casted to a different type (e.g. int to float) */
   def cast(t: MonoidType, e: TypedExpression) = e
     
   def expression: Parser[TypedExpression] = positioned(cmpExpr)
@@ -207,7 +209,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
     "*" ^^^ Mult() |
     "/" ^^^ Div()
   )
-      
+
   def mergeExpr: Parser[TypedExpression] = positioned(
     recordProjExpr * (
       monoidMerge ^^ {
@@ -241,19 +243,24 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
   )
  
   def recordProjExpr: Parser[TypedExpression] = positioned(
-    funcAppExpr ~ opt("." ~> posIdent) ^^ {
-      case e ~ None => e
-      case e ~ Some(ident) => {
-        val name = ident.s
-        e.monoidType match {
-          case RecordType(atts) => {
-            atts.find(_.name == name) match {
-              case Some(att) => RecordProjection(att.monoidType, e, name)
-              case _ => throw UnknownAttribute(name, ident.pos)
+    funcAppExpr ~ rep("." ~> posIdent) ^^ {
+      case e ~ projs => {
+        def recurse(e: TypedExpression, names: List[PositionedIdent]): TypedExpression = 
+          if (names.isEmpty)
+            e
+          else {
+            e.monoidType match {
+            case RecordType(atts) => {
+              val head = names.head
+              val name = head.s
+              atts.find(_.name == name) match {
+                case Some(att) => recurse(RecordProjection(att.monoidType, e, name), names.tail)
+                case _ => throw UnknownAttribute(name, head.pos)
+              }
             }
           }
-          case _ => throw RecordRequired(e)
         }
+        recurse(e, projs)
       }
     }
   )
@@ -474,7 +481,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
       { case name if scope.exists(name) => 
           scope.get(name) match {
             case Some(v) => v
-            case _ => throw RawInternalException("parser cannot find variable that exists")
+            case _ => throw RawInternalException("parser cannot find variable ought to exist")
           }
         },
     name => "variable '" + name + "' does not exist")

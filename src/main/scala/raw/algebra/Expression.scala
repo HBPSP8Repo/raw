@@ -2,14 +2,10 @@ package raw.algebra
 
 import raw._
 
-sealed abstract class BasicType
-case class Primitive(p: PrimitiveType) extends BasicType
-case class Record(r: RecordType) extends BasicType
-
 /** Expression for Algebra
  */
 
-sealed abstract class Expression(val monoidType: BasicType)
+sealed abstract class Expression(val expressionType: ExpressionType)
 
 /** Constant
  */
