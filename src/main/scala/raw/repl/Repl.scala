@@ -121,7 +121,7 @@ object Repl extends App {
   val manager = RecordType(List(Attribute("name", StringType), Attribute("children", children)))
   val employees = SetType(RecordType(List(Attribute("children", children), Attribute("manager", manager))))
 
-  val cat = new Catalog(Map("events" -> events, "Departments" -> departments, "Employees" -> employees))
+  val cat = new Catalog(Map("Events" -> events, "Departments" -> departments, "Employees" -> employees))
   
   val rootScope = new RootScope()
   for (name <- cat.classNames)
@@ -175,5 +175,7 @@ for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <
 for ( el <- for ( d <- Departments, y := d.name, if (not (y = "CSE")) then true else false ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
 
 for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
+
+for (e <- Employees, ev <- Events, c <- e.manager.children, c.age = ev.RunNumber) yield set (age := c.age, run := ev.RunNumber)
 
 */

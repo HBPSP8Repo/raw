@@ -91,7 +91,7 @@ case class InnerPath(p: Path, name: String) extends Path(p.monoidType match {
        case _ => throw RawInternalException("badly formed inner path")
     }
   }
-  case _ => throw RawInternalException("unexpected inner path type")
+  case _ => throw RawInternalException("unexpected type in inner path")
 })
 
 /** Generator
