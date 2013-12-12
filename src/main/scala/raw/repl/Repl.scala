@@ -24,6 +24,9 @@ import raw.catalog._
 import raw.algebra.unnester.Unnester
 
 /** FIXME:
+ *  [MSB] Fix 'Path' handling. 
+ *        The normalizer and the calculus both have methods to check or convert sets of record projections/variable to path.
+ *        This code seems repetitive and fragile, so it ought to be reviewed.
  *  [MSB] Clean-up pretty printers: they're messy. Use scala.text._ instead.
  *  [MSB] pprint will render badly when errors cross multiple lines. See use of 'c'. 
  */
@@ -120,8 +123,8 @@ object Repl extends App {
   val children = ListType(RecordType(List(Attribute("age", IntType))))
   val manager = RecordType(List(Attribute("name", StringType), Attribute("children", children)))
   val employees = SetType(RecordType(List(Attribute("children", children), Attribute("manager", manager))))
-
-  val cat = new Catalog(Map("Events" -> events, "Departments" -> departments, "Employees" -> employees))
+  
+  val cat = new Catalog(Map("Events" -> events, "Departments" -> departments, "Employees" -> employees, "Test" -> manager))
   
   val rootScope = new RootScope()
   for (name <- cat.classNames)
@@ -177,5 +180,7 @@ for ( el <- for ( d <- Departments, y := d.name, if (not (y = "CSE")) then true 
 for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
 
 for (e <- Employees, ev <- Events, c <- e.manager.children, c.age = ev.RunNumber) yield set (age := c.age, run := ev.RunNumber)
+
+for (t <- Test.children) yield list t
 
 */

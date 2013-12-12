@@ -243,7 +243,7 @@ object Unnester {
                 T(CalculusTerm(canonical.Comprehension(t, m, e1, r, p3)),
                                u, VariablePattern(v),
                                AlgebraTerm(algebra.Select(algebra.Function(convertVariables(getPatternVariables(VariablePattern(v))), convertExpression(canonical.MergeMonoid(BoolType, AndMonoid(), p1, p2))),
-                                                          x match { case x : canonical.VariablePath => algebra.Scan(algebra.FunctionPath(convertVariables(getPatternVariables(VariablePattern(v))), x)) })))
+                                                          algebra.Scan(algebra.FunctionPath(convertVariables(getPatternVariables(VariablePattern(v))), x)))))
               } else {
                 x match {
                   case x : canonical.VariablePath => {

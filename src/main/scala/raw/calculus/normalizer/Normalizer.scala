@@ -39,6 +39,13 @@ object Normalizer {
     object FirstOfComprehension {
       def unapply(xs: List[Expression]) = splitWith[Expression, Comprehension](xs, { case x: Comprehension => x })
     }
+    
+    object Path {
+      def unapply(e: TypedExpression): Option[TypedExpression] = e match {
+        case v: Variable => Some(v)
+        case RecordProjection(_, Path(_), _) => Some(e)
+      }
+    }
       
     def betaReduction(e: TypedExpression, x: Variable, u: TypedExpression): TypedExpression = e match {
       case n : Null => n
@@ -120,7 +127,7 @@ object Normalizer {
           case Comprehension(_, _, e1, r) => Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)
           
           /** Extra rule */
-          case v : Variable => c
+          case Path(_) => c
         }
       }
     }
