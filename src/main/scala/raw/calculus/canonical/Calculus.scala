@@ -7,6 +7,7 @@ package raw.calculus.canonical
 import scala.util.parsing.input.Positional
 
 import raw._
+import raw.calculus._
 
 /** Expressions for Calculus
  */

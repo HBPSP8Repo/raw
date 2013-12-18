@@ -6,6 +6,7 @@ package raw.calculus.normalizer
 import scala.util.parsing.input.Positional
 
 import raw._
+import raw.calculus._
 
 /** Expressions for Calculus
  */

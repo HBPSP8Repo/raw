@@ -126,12 +126,8 @@ object Repl extends App {
   
   val cat = new Catalog(Map("Events" -> events, "Departments" -> departments, "Employees" -> employees, "Test" -> manager))
   
-  val rootScope = new RootScope()
-  for (name <- cat.classNames)
-    rootScope.bind(name, parser.Variable(cat.getClassType(name)))
-  
-  val p = new parser.Parser(rootScope)
-  println(rootScope.bindings)
+  val p = new parser.Parser(cat.rootScope)
+  println(cat.rootScope.bindings)
   
   var input: String = ""
   do {
@@ -159,7 +155,7 @@ object Repl extends App {
       
       println()
       println("Algebra:")
-      val alg = Unnester.unnest(cane)
+      val alg = new Unnester(cat).unnest(cane)
       println(algebra.AlgebraPrettyPrinter(alg))
       println()
       
@@ -182,5 +178,9 @@ for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.m
 for (e <- Employees, ev <- Events, c <- e.manager.children, c.age = ev.RunNumber) yield set (age := c.age, run := ev.RunNumber)
 
 for (t <- Test.children) yield list t
+
+for (e <- Employees, c <- e.manager.children) yield max c.age
+
+for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
 
 */

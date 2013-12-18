@@ -1,4 +1,4 @@
-package raw
+package raw.calculus
 
 import scala.util.parsing.input.Positional
 

@@ -2,9 +2,9 @@ package raw.algebra
 
 import raw._
 
-case class Function(vs: Set[Variable], e: Expression)
-case class FunctionVars(vs: Set[Variable], ps: Set[Variable])
-case class FunctionPath(vs: Set[Variable], p: calculus.canonical.Path)
+case class Function(vs: Set[calculus.canonical.Variable], e: Expression)
+case class FunctionVars(vs: Set[calculus.canonical.Variable], ps: Set[calculus.canonical.Variable])
+case class FunctionPath(vs: Set[calculus.canonical.Variable], p: calculus.canonical.Path)
 
 /** Algebra
  */
@@ -12,7 +12,7 @@ sealed abstract class Algebra
 
 case object Empty extends Algebra
 
-case class Scan(p: FunctionPath) extends Algebra
+case class Scan(name: String) extends Algebra
 
 case class Reduce(m: Monoid, e: Function, p: Function, X: Algebra) extends Algebra
 
@@ -33,7 +33,7 @@ case class OuterUnnest(path: FunctionPath, p: Function, X: Algebra) extends Alge
 
 object FunctionPrettyPrinter {
   def apply(f: Function) = f match {
-    case Function(vs, e) =>  "\\(" + vs.map(v => ExpressionPrettyPrinter(v)).mkString(", ") + ") : " + ExpressionPrettyPrinter(e)
+    case Function(vs, e) =>  "\\(" + vs.map(v => calculus.canonical.CalculusPrettyPrinter(v)).mkString(", ") + ") : " + ExpressionPrettyPrinter(e)
   }
 }
 
@@ -42,7 +42,7 @@ object FunctionPrettyPrinter {
 
 object FunctionVarsPrettyPrinter {
   def apply(f: FunctionVars) = f match {
-    case FunctionVars(vs, ps) => "\\(" + vs.map(v => ExpressionPrettyPrinter(v)).mkString(", ") + ") : " + ps.map(v => ExpressionPrettyPrinter(v)).mkString(", ") 
+    case FunctionVars(vs, ps) => "\\(" + vs.map(v => calculus.canonical.CalculusPrettyPrinter(v)).mkString(", ") + ") : " + ps.map(v => calculus.canonical.CalculusPrettyPrinter(v)).mkString(", ") 
   }
 }
 
@@ -51,7 +51,7 @@ object FunctionVarsPrettyPrinter {
 
 object FunctionPathPrettyPrinter {
   def apply(f: FunctionPath) = f match {
-    case FunctionPath(vs, p) => "\\(" + vs.map(v => ExpressionPrettyPrinter(v)).mkString(", ") + ") : " + calculus.canonical.PathPrettyPrinter(p) 
+    case FunctionPath(vs, p) => "\\(" + vs.map(v => calculus.canonical.CalculusPrettyPrinter(v)).mkString(", ") + ") : " + calculus.canonical.PathPrettyPrinter(p) 
   }
 }
 
@@ -60,7 +60,7 @@ object FunctionPathPrettyPrinter {
 
 object AlgebraPrettyPrinter {
   def apply(a: Algebra, pre: String = ""): String =  pre + (a match {
-    case Scan(p) => "Scan " + FunctionPathPrettyPrinter(p)
+    case Scan(name) => "Scan " + name
     case Reduce(m, e, p, x) => "Reduce " + MonoidPrettyPrinter(m) + " [ e = " + FunctionPrettyPrinter(e) + " ] [ p = " + FunctionPrettyPrinter(p) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case Nest(m, e, f, p, g, x) => "Nest " + MonoidPrettyPrinter(m) + " [ e = " + FunctionPrettyPrinter(e) + " ] [ f = " + FunctionVarsPrettyPrinter(f) + " ] [ p = " + FunctionPrettyPrinter(p) + " ] [ g = " + FunctionVarsPrettyPrinter(g) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case Select(p, x) => "Select [ p = " + FunctionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")

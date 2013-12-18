@@ -1,11 +1,16 @@
 package raw.catalog
 
-import raw.MonoidType
+import raw.calculus._
+import raw.calculus.parser._
 
 class Catalog(val catalog: Map[String, MonoidType]) {
-  def hasClass(id: String) = catalog.isDefinedAt(id)
+  private val variables = for ((name, monoidType) <- catalog) yield (name, Variable(monoidType))
+  private val reverse = variables.map(_.swap)
   
-  def getClassType(id: String): MonoidType = catalog(id)
-  
-  def classNames: Set[String] = catalog.keys.toSet
+  val rootScope = new RootScope()
+  for ((name, variable) <- variables)
+    rootScope.bind(name, variable)
+
+  def getName(v: Variable) = reverse(v) 
+
 }
