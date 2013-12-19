@@ -106,9 +106,9 @@ class Unnester(cat: Catalog) {
   }
  
   /** This method returns the set of canonical variables in the pattern. */
-  private def getPatternVariables(p: Pattern): Set[calculus.canonical.Variable] = p match {
-    case EmptyPattern => Set()
-    case VariablePattern(v) => Set(v)
+  private def getPatternVariables(p: Pattern): List[calculus.canonical.Variable] = p match {
+    case EmptyPattern => List()
+    case VariablePattern(v) => List(v)
     case PairPattern(a, b) => getPatternVariables(a) ++ getPatternVariables(b)
   }
   
@@ -157,8 +157,8 @@ class Unnester(cat: Catalog) {
     }
         
     val pred = flatten(p) 
-    val p1 = pred.filter(p => !hasNestedComprehension(p) && getExpressionVariables(p).subsetOf(getPatternVariables(right)))
-    val p2 = pred.filter(p => !hasNestedComprehension(p) && getExpressionVariables(p).subsetOf(getPatternVariables(left)) && getExpressionVariables(p).subsetOf(getPatternVariables(right)))
+    val p1 = pred.filter(p => !hasNestedComprehension(p) && getExpressionVariables(p).subsetOf(getPatternVariables(right).toSet))
+    val p2 = pred.filter(p => !hasNestedComprehension(p) && getExpressionVariables(p).subsetOf(getPatternVariables(left).toSet) && getExpressionVariables(p).subsetOf(getPatternVariables(right).toSet))
     val p3 = pred.filter(p => !p1.contains(p) && !p2.contains(p))
     (fold(p1), fold(p2), fold(p3))
   }
@@ -179,24 +179,32 @@ class Unnester(cat: Catalog) {
   private def convertRecordType(t: calculus.RecordType): algebra.RecordType = 
     algebra.RecordType(t.atts.map(att => algebra.Attribute(att.name, convertType(att.monoidType))))
 
+  private def convertVariable(v: calculus.canonical.Variable, p: Pattern) =
+    algebra.Argument(convertType(v.monoidType), getPatternVariables(p).indexOf(v))
+    
     /** This method converts a canonical typed expression to the equivalent algebra expression.
    *  Algebra expressions only use primitive types and primitive monoids.
    *  The remaining is handled by the algebra operators.
    */
-  private def convertExpression(e: calculus.canonical.TypedExpression): algebra.Expression = e match {
+  private def convertExpression(e: calculus.canonical.TypedExpression, p: Pattern): algebra.Expression = e match {
     case calculus.canonical.BoolConst(v) => algebra.BoolConst(v)
     case calculus.canonical.IntConst(v) => algebra.IntConst(v)
     case calculus.canonical.FloatConst(v) => algebra.FloatConst(v)
     case calculus.canonical.StringConst(v) => algebra.StringConst(v)
-    case v : calculus.canonical.Variable => algebra.Variable(convertType(v.monoidType), v)
-    case calculus.canonical.RecordProjection(t, e, name) => algebra.RecordProjection(convertType(t), convertExpression(e), name)
-    case calculus.canonical.RecordConstruction(t : calculus.RecordType, atts) => algebra.RecordConstruction(convertRecordType(t), atts.map(att => algebra.AttributeConstruction(att.name, convertExpression(att.e))))
-    case calculus.canonical.IfThenElse(t : calculus.PrimitiveType, e1, e2, e3) => algebra.IfThenElse(convertPrimitiveType(t), convertExpression(e1), convertExpression(e2), convertExpression(e3))
-    case calculus.canonical.BinaryOperation(t : calculus.PrimitiveType, op, e1, e2) => algebra.BinaryOperation(convertPrimitiveType(t), op, convertExpression(e1), convertExpression(e2))
-    case calculus.canonical.MergeMonoid(t : calculus.PrimitiveType, m : calculus.PrimitiveMonoid, e1, e2) => algebra.MergeMonoid(convertPrimitiveType(t), convertPrimitiveMonoid(m), convertExpression(e1), convertExpression(e2))
-    case calculus.canonical.Not(e) => algebra.Not(convertExpression(e))
+    case v : calculus.canonical.Variable => convertVariable(v, p)
+    case calculus.canonical.RecordProjection(t, e, name) => algebra.RecordProjection(convertType(t), convertExpression(e, p), name)
+    case calculus.canonical.RecordConstruction(t : calculus.RecordType, atts) => algebra.RecordConstruction(convertRecordType(t), atts.map(att => algebra.AttributeConstruction(att.name, convertExpression(att.e, p))))
+    case calculus.canonical.IfThenElse(t : calculus.PrimitiveType, e1, e2, e3) => algebra.IfThenElse(convertPrimitiveType(t), convertExpression(e1, p), convertExpression(e2, p), convertExpression(e3, p))
+    case calculus.canonical.BinaryOperation(t : calculus.PrimitiveType, op, e1, e2) => algebra.BinaryOperation(convertPrimitiveType(t), op, convertExpression(e1, p), convertExpression(e2, p))
+    case calculus.canonical.MergeMonoid(t : calculus.PrimitiveType, m : calculus.PrimitiveMonoid, e1, e2) => algebra.MergeMonoid(convertPrimitiveType(t), convertPrimitiveMonoid(m), convertExpression(e1, p), convertExpression(e2, p))
+    case calculus.canonical.Not(e) => algebra.Not(convertExpression(e, p))
   }
   
+  private def convertPath(p: calculus.canonical.Path, w: Pattern): algebra.Path = p match {
+    case calculus.canonical.VariablePath(v) => algebra.ArgumentPath(getPatternVariables(w).indexOf(v))
+    case calculus.canonical.InnerPath(p, name) => algebra.InnerPath(convertPath(p, w), name)
+  }
+    
   /** This method converts a monoid AST node from the calculus representation to the equivalent algebra representation. */
   private def convertMonoid(m: calculus.Monoid): algebra.Monoid = m match {
     case m : calculus.PrimitiveMonoid => convertPrimitiveMonoid(m)
@@ -213,6 +221,20 @@ class Unnester(cat: Catalog) {
     case m : calculus.AndMonoid => algebra.AndMonoid    
   }
   
+  private def buildArgumentList(w: Pattern, u: Pattern) =
+    getPatternVariables(u).map(u => convertVariable(u, w))
+    
+  private def reducePattern(l: Pattern, r: Pattern): Pattern = {
+    val rs = getPatternVariables(r).toSet
+    def recurse(p: Pattern): Pattern = p match {
+      case EmptyPattern => EmptyPattern
+      case VariablePattern(v) if rs.contains(v) => EmptyPattern
+      case VariablePattern(v) => VariablePattern(v)
+      case PairPattern(a, b) => PairPattern(recurse(a), recurse(b))
+    }
+    recurse(l)
+  }
+    
   /** Implementation of the Query Unnesting Algorithm described in Figure 11, page 37 of [1].
     */
   private def T(e: Term, u: Pattern, w: Pattern, E: Term): Term = e match {
@@ -237,16 +259,16 @@ class Unnester(cat: Catalog) {
              if (u == EmptyPattern) {
                /** Rule C5 */
                AlgebraTerm(algebra.Reduce(convertMonoid(m),
-                                          algebra.Function(getPatternVariables(w), convertExpression(e1)),
-                                          algebra.Function(getPatternVariables(w), convertExpression(p)),
+                                          convertExpression(e1, w),
+                                          convertExpression(p, w),
                                           E match { case AlgebraTerm(t) => t }))
              } else {
                /** Rule C8 */
                AlgebraTerm(algebra.Nest(convertMonoid(m),
-                                        algebra.Function(getPatternVariables(w), convertExpression(e1)),
-                                        algebra.FunctionVars(getPatternVariables(w), getPatternVariables(u)),
-                                        algebra.Function(getPatternVariables(w), convertExpression(p)),
-                                        algebra.FunctionVars(getPatternVariables(w), getPatternVariables(w) -- getPatternVariables(u)),
+                                        convertExpression(e1, w),
+                                        buildArgumentList(w, u),
+                                        convertExpression(p, w),
+                                        buildArgumentList(w, reducePattern(w, u)),
                                         E match { case AlgebraTerm(t) => t }))
              }
            }
@@ -259,7 +281,7 @@ class Unnester(cat: Catalog) {
                 /** Rule C4 */
                 T(CalculusTerm(calculus.canonical.Comprehension(t, m, e1, r, p3)),
                                u, VariablePattern(v),
-                               AlgebraTerm(algebra.Select(algebra.Function(getPatternVariables(VariablePattern(v)), convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2))),
+                               AlgebraTerm(algebra.Select(convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2), VariablePattern(v)),
                                                           algebra.Scan(cat.getName(getPathVariable(x).v.v)))))
               } else {
                 x match {
@@ -267,17 +289,17 @@ class Unnester(cat: Catalog) {
                     /** Rule C6 */
                     T(CalculusTerm(calculus.canonical.Comprehension(t, m, e1, r, p3)),
                                    u, PairPattern(w, VariablePattern(v)),
-                                   AlgebraTerm(algebra.Join(algebra.Function(getPatternVariables(PairPattern(w, VariablePattern(v))), convertExpression(p2)),
+                                   AlgebraTerm(algebra.Join(convertExpression(p2, PairPattern(w, VariablePattern(v))),
                                                             E match { case AlgebraTerm(t) => t },
-                                                            algebra.Select(algebra.Function(getPatternVariables(VariablePattern(v)), convertExpression(p1)),
+                                                            algebra.Select(convertExpression(p1, VariablePattern(v)),
                                                                            algebra.Scan(cat.getName(getPathVariable(x).v.v))))))
                   }
                   case x : calculus.canonical.InnerPath => {
                     /** Rule C7 */
                     T(CalculusTerm(calculus.canonical.Comprehension(t, m, e1, r, p3)),
                                    u, PairPattern(w, VariablePattern(v)),
-                                   AlgebraTerm(algebra.Unnest(algebra.FunctionPath(getPatternVariables(w), x),
-                                                              algebra.Function(getPatternVariables(PairPattern(w, VariablePattern(v))), convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2))),
+                                   AlgebraTerm(algebra.Unnest(convertPath(x, w),
+                                                              convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2), PairPattern(w, VariablePattern(v))),
                                                               E match { case AlgebraTerm(t) => t })))
                   }
                 }
@@ -288,17 +310,17 @@ class Unnester(cat: Catalog) {
                   /** Rule C9 */
                   T(CalculusTerm(calculus.canonical.Comprehension(t, m, e1, r, p3)),
                                  u, PairPattern(w, VariablePattern(v)),
-                                 AlgebraTerm(algebra.OuterJoin(algebra.Function(getPatternVariables(PairPattern(w, VariablePattern(v))), convertExpression(p2)),
+                                 AlgebraTerm(algebra.OuterJoin(convertExpression(p2, PairPattern(w, VariablePattern(v))),
                                                                E match { case AlgebraTerm(t) => t },
-                                                               algebra.Select(algebra.Function(getPatternVariables(VariablePattern(v)), convertExpression(p1)),
+                                                               algebra.Select(convertExpression(p1, VariablePattern(v)),
                                                                               algebra.Scan(cat.getName(getPathVariable(x).v.v))))))
                 }
                 case x : calculus.canonical.InnerPath => {
                   /** Rule C10 */
                   T(CalculusTerm(calculus.canonical.Comprehension(t, m, e1, r, p3)),
                                  u, PairPattern(w, VariablePattern(v)),
-                                 AlgebraTerm(algebra.OuterUnnest(algebra.FunctionPath(getPatternVariables(w), x),
-                                                                 algebra.Function(getPatternVariables(PairPattern(w, VariablePattern(v))), convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2))),
+                                 AlgebraTerm(algebra.OuterUnnest(convertPath(x, w),
+                                                                 convertExpression(calculus.canonical.MergeMonoid(calculus.BoolType, calculus.AndMonoid(), p1, p2), PairPattern(w, VariablePattern(v))),
                                                                  E match { case AlgebraTerm(t) => t })))
                 }
               }

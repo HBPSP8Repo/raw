@@ -16,10 +16,10 @@ case class IntConst(v: Long) extends Constant(IntType)
 case class FloatConst(v: Double) extends Constant(FloatType)
 case class StringConst(v: String) extends Constant(StringType)
 
-/** Variable
+/** Argument
  */
 
-case class Variable(t: ExpressionType, v: calculus.canonical.Variable) extends Expression(t)
+case class Argument(t: ExpressionType, id: Integer) extends Expression(t)
 
 /** RecordProjection
  */
@@ -63,7 +63,7 @@ object ExpressionPrettyPrinter {
     case IntConst(v) => v.toString()
     case FloatConst(v) => v.toString()
     case StringConst(v) => "\"" + v.toString() + "\""
-    case Variable(_, v) => calculus.canonical.CalculusPrettyPrinter(v)
+    case Argument(_, id) => "<arg" + id.toString() + ">"
     case RecordProjection(_, e, name) => ExpressionPrettyPrinter(e) + "." + name
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + ExpressionPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + ExpressionPrettyPrinter(e1) + " then " + ExpressionPrettyPrinter(e2) + " else " + ExpressionPrettyPrinter(e3)
