@@ -87,6 +87,7 @@ object JsonEmitter {
                                    "p" -> expression(p),
                                    "input" -> emit(x))
     case Nest(m, e, f, p, g, x) => Map("operator" -> Json.toJson("nest"),
+                                       "accumulator" -> accumulator(m),        
                                        "e" -> expression(e),
                                        "f" -> listArgs(f),
                                        "p" -> expression(p),
@@ -96,15 +97,17 @@ object JsonEmitter {
                              "p" -> expression(p),
                              "input" -> emit(x))
     case Join(p, x, y) => Map("operator" -> Json.toJson("join"),
-                              "lhs" -> emit(x),
-                              "rhs" -> emit(y))
+                              "p" -> expression(p),        
+                              "left" -> emit(x),
+                              "right" -> emit(y))
     case Unnest(path1, p, x) => Map("operator" -> Json.toJson("unnest"),
                                    "path" -> path(path1),
                                    "p" -> expression(p),
                                    "input" -> emit(x))
     case OuterJoin(p, x, y) => Map("operator" -> Json.toJson("outerJoin"),
-                                   "lhs" -> emit(x),
-                                   "rhs" -> emit(y))
+                                   "p" -> expression(p),        
+                                   "left" -> emit(x),
+                                   "right" -> emit(y))
     case OuterUnnest(path1, p, x) => Map("operator" -> Json.toJson("outerUnnest"),
                                         "path" -> path(path1),
                                         "p" -> expression(p),
