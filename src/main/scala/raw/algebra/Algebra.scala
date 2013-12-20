@@ -6,7 +6,7 @@ import raw._
  */
 
 abstract class Path
-case class ArgumentPath(id: Integer) extends Path
+case class ArgumentPath(id: Int) extends Path
 case class InnerPath(p: Path, name: String) extends Path
 
 /** Algebra

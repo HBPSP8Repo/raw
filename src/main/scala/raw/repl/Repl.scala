@@ -22,6 +22,9 @@ import raw.calculus.normalizer.Normalizer
 import raw.calculus.canonical.Canonical
 import raw.catalog._
 import raw.algebra.unnester.Unnester
+import raw.algebra.emitter.JsonEmitter
+
+import play.api.libs.json._
 
 /** FIXME:
  *  [MSB] Fix 'Path' handling. 
@@ -158,6 +161,10 @@ object Repl extends App {
       val alg = new Unnester(cat).unnest(cane)
       println(algebra.AlgebraPrettyPrinter(alg))
       println()
+      
+      println()
+      println("JSON:")
+      println(Json.prettyPrint(JsonEmitter.emit(alg)))
       
     } catch {
       case e : TypeCheckerError => pprintTypeCheckerError(input, e)

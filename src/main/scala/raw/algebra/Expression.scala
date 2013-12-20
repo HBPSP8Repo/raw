@@ -19,7 +19,7 @@ case class StringConst(v: String) extends Constant(StringType)
 /** Argument
  */
 
-case class Argument(t: ExpressionType, id: Integer) extends Expression(t)
+case class Argument(t: ExpressionType, id: Int) extends Expression(t)
 
 /** RecordProjection
  */
