@@ -72,9 +72,9 @@ case class FunctionApplication(t: MonoidType, e1: TypedExpression, e2: TypedExpr
 /** Zeroes for Collection Monoids
  */
 
-case class EmptySet extends TypedExpression(VariableType())
-case class EmptyBag extends TypedExpression(VariableType())
-case class EmptyList extends TypedExpression(VariableType())
+case class EmptySet extends TypedExpression(SetType(VariableType()))
+case class EmptyBag extends TypedExpression(BagType(VariableType()))
+case class EmptyList extends TypedExpression(ListType(VariableType()))
 
 /** ConsCollectionMonoid
  */

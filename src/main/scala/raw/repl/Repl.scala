@@ -4,7 +4,7 @@ import raw._
 import raw.calculus._
 import raw.calculus.parser.TypeCheckerError
 import raw.calculus.parser.ParserError
-import raw.calculus.parser.BinaryOperationMismatch
+import raw.calculus.parser.PrimitiveTypeRequired
 import raw.calculus.parser.BoolRequired
 import raw.calculus.parser.NumberRequired
 import raw.calculus.parser.MonoidMergeMismatch
@@ -85,7 +85,7 @@ object Repl extends App {
   def pprintTypeCheckerError(input: String, err: TypeCheckerError) = {
     val fmt = new ErrorFormatter(err.err, input)
     val errs = err match {
-      case BinaryOperationMismatch(op, e1, e2) => { fmt.add(op.pos.line, op.pos.column, BinaryOperatorPrettyPrinter(op)); fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
+      case PrimitiveTypeRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
       case BoolRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))   
       case NumberRequired(e) => fmt.add(e.pos.line, e.pos.column, MonoidTypePrettyPrinter(e.monoidType))
       case MonoidMergeMismatch(m, e1, e2) => { fmt.add(m.pos.line, m.pos.column, MonoidPrettyPrinter(m)); fmt.add(e1.pos.line, e1.pos.column, MonoidTypePrettyPrinter(e1.monoidType)); fmt.add(e2.pos.line, e2.pos.column, MonoidTypePrettyPrinter(e2.monoidType)) }
@@ -190,4 +190,14 @@ for (e <- Employees, c <- e.manager.children) yield max c.age
 
 for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
 
+for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set (X := {c} union {1} )
+
+parser should fail (correctly):
+for (e <- Employees, c <- e.manager.children, {c} <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
+raw > for (e <- Employees, c <- e.manager.children, 1 <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
+
+a valid predicate:
+for (e <- Employees, for (flg <- e.flags) yield and flg) yield set e
+
 */
+

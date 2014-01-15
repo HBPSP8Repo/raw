@@ -24,7 +24,7 @@ case class ParserError(line: Int, column: Int, err: String) extends RawException
 
 sealed abstract class TypeCheckerError(val err: String) extends RawException(err)
 
-case class BinaryOperationMismatch(op: BinaryOperator, e1: TypedExpression, e2: TypedExpression) extends TypeCheckerError("binary operation mismatch")
+case class PrimitiveTypeRequired(e: TypedExpression) extends TypeCheckerError("primitive type required")
 case class BoolRequired(e: TypedExpression) extends TypeCheckerError("bool required")
 case class NumberRequired(e: TypedExpression) extends TypeCheckerError("number required")
 case class MonoidMergeMismatch(m: Monoid, e1: TypedExpression, e2: TypedExpression) extends TypeCheckerError("monoid merge mismatch")
@@ -109,8 +109,8 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
 	                        }
 	                      )
                       }
-                      case (c1 : CollectionType, c2 : CollectionType) => recurse(c1.monoidType, c2.monoidType, nbinding)
-                      case _ => None
+                    case (c1 : CollectionType, c2 : CollectionType) => recurse(c1.monoidType, c2.monoidType, nbinding)
+                    case _ => None
                     }
                   }
                 }
@@ -122,7 +122,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
     }
     
     recurse(t1, t2, Map()) match {
-      case Some(u) => Some(u(t1))
+      case Some(u) => Some(u.getOrElse(t1, u(t2)))
       case _ => None
     }
   }
@@ -139,8 +139,13 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
         elems.foldLeft(lhs) {
           case (acc, ((op, rhs: TypedExpression))) => {
             unify(acc.monoidType , rhs.monoidType) match {
-              case Some(ut) => BinaryOperation(BoolType, op, cast(ut, acc), cast(ut, rhs))
-              case _ => throw BinaryOperationMismatch(op, acc, rhs)
+              case Some(ut : PrimitiveType) => BinaryOperation(BoolType, op, cast(ut, acc), cast(ut, rhs))
+              case _ => {
+                acc.monoidType match {
+                  case t : PrimitiveType => throw PrimitiveTypeRequired(rhs)
+                  case _ => throw PrimitiveTypeRequired(acc)
+                }
+              }
             }
           }
         }
@@ -151,7 +156,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
       case e => throw BoolRequired(e)
     }
   )
-  
+    
   def comparison: Parser[ComparisonOperator] = positioned(
     "=" ^^^ Eq() |
     "<>" ^^^ Neq() |
@@ -209,7 +214,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
     "*" ^^^ Mult() |
     "/" ^^^ Div()
   )
-
+  
   def mergeExpr: Parser[TypedExpression] = positioned(
     recordProjExpr * (
       monoidMerge ^^ {
@@ -230,7 +235,7 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
       }
     )
   )
-      
+  
   def monoidMerge: Parser[Monoid] = positioned(
     "union" ^^^ SetMonoid() |
     "bag_union" ^^^ BagMonoid() |
