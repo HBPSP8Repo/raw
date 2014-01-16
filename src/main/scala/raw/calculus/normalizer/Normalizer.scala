@@ -174,13 +174,7 @@ object Normalizer {
     case parser.Not(e) => Not(convert(e))
   }
 
-  /** This methods normalizes the expression written in Parser calculus and returns a new 
-   *  expression written in the Normalizer calculus. The difference between the two calculus
-   *  is that Bind, FunctionAbstraction and FunctionApplication do not exist in the Normalizer
-   *  calculus.
-   *  The normalization algorithm itself (refer to apply()) is done in Parser calculus
-   *  because that is easier to express.
-   *  The conversion between calculus is done after that (refer to convert()).
+  /** This methods normalizes a (Parser) expression and returns a new (Normalizer) expression. 
    */
   def apply(e: parser.TypedExpression): TypedExpression = convert(normalize(e))
 }
