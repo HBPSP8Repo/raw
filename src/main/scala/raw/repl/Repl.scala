@@ -146,7 +146,7 @@ object Repl extends App {
       
       println()
       println("Normalized Expression:")
-      val norme = Normalizer.normalize(e)
+      val norme = Normalizer(e)
       println(normalizer.CalculusPrettyPrinter(norme))
       println("Result Type: " + MonoidTypePrettyPrinter(norme.monoidType))
       
@@ -194,9 +194,9 @@ for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- 
 
 parser should fail (correctly):
 for (e <- Employees, c <- e.manager.children, {c} <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
-raw > for (e <- Employees, c <- e.manager.children, 1 <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
+for (e <- Employees, c <- e.manager.children, 1 <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
 
-a valid predicate:
+for comprehension as a predicate:
 for (e <- Employees, for (flg <- e.flags) yield and flg) yield set e
 
 */

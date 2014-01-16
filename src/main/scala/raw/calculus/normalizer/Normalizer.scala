@@ -42,7 +42,7 @@ object Normalizer {
         recurse(f(e), f)
       else
         e match {
-          case n : Null => n 
+          case n : Null => n
           case c : Constant => c
           case v : Variable => v
           case RecordProjection(t, e, name) => RecordProjection(t, recurse(e, f), name)
@@ -59,8 +59,8 @@ object Normalizer {
           case Comprehension(t, m, e, qs) =>
             Comprehension(t, m, recurse(e, f), qs.map(q => q match {
               case te : TypedExpression => recurse(te, f)
-              case Generator(v, e) => Generator(v, recurse(e, f))
-              case Bind(v, e) => Bind(v, recurse(e, f))
+              case Generator(v, e) => Generator(recurse(v, f).asInstanceOf[Variable], recurse(e, f))
+              case Bind(v, e) => Bind(recurse(v, f).asInstanceOf[Variable], recurse(e, f))
             }))
           case Not(e) => Not(recurse(e, f))              
         }    
@@ -96,7 +96,7 @@ object Normalizer {
 
       /** Rule 1
        */
-      case Comprehension(t, m, e, FirstOfBind(q, Bind(x, u), s)) => 
+      case Comprehension(t, m, e, FirstOfBind(q, Bind(x, u), s)) =>
         Comprehension(t, m, betaReduction(e, x, u), q ++ (s.map(se => se match {
           case te : TypedExpression => betaReduction(te, x, u)
           case Generator(v, e) => Generator(v, betaReduction(e, x, u))
@@ -125,7 +125,7 @@ object Normalizer {
       /** Rule 6
        */
       case Comprehension(t, m, e, FirstOfGenerator(q, Generator(v, ConsCollectionMonoid(_, _, e1)), s)) =>
-        Comprehension(t, m, e, q ++ List(Bind(v, e1)) ++ s)        
+        Comprehension(t, m, e, q ++ List(Bind(v, e1)) ++ s)
       
       /** Rule 7
        */
@@ -133,12 +133,12 @@ object Normalizer {
         MergeMonoid(t, m,
           rewriteVariable(Comprehension(t, m, e, q ++ List(Generator(v, e1)) ++ s), v, Variable(v.monoidType)),
           rewriteVariable(Comprehension(t, m, e, q ++ List(Generator(v, e2)) ++ s), v, Variable(v.monoidType))
-        )                                      
+        )
       
       /** Rule 8
        */
       case Comprehension(t, m, e, FirstOfGenerator(q, Generator(v, Comprehension(_, _, e1, r)), s)) =>
-        Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)        
+        Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)
     })
   }
 
