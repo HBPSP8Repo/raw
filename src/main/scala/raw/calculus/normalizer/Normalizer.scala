@@ -72,14 +72,42 @@ object Normalizer {
       case Not(e) => Not(betaReduction(e, x, u))
     }   
     
+    def rewriteVariable(e: TypedExpression, v: Variable, nv: Variable): TypedExpression = e match {
+      case n : Null => n
+      case c : Constant => c
+      case v1 : Variable if v == v1 => nv
+      case v1 : Variable => v1
+      case RecordProjection(t, e, name) => RecordProjection(t, rewriteVariable(e, v, nv), name)
+      case RecordConstruction(t, atts) => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, rewriteVariable(att.e, v, nv))))
+      case IfThenElse(t, e1, e2, e3) => IfThenElse(t, rewriteVariable(e1, v, nv), rewriteVariable(e2, v, nv), rewriteVariable(e3, v, nv))
+      case BinaryOperation(t, op, e1, e2) => BinaryOperation(t, op, rewriteVariable(e1, v, nv), rewriteVariable(e2, v, nv))
+      case FunctionAbstraction(v1, t, e) => FunctionAbstraction(v1, t, rewriteVariable(e, v, nv))
+      case FunctionApplication(t, e1, e2) => FunctionApplication(t, rewriteVariable(e1, v, nv), rewriteVariable(e2, v, nv))
+      case z : EmptySet => z
+      case z : EmptyBag => z
+      case z : EmptyList => z
+      case ConsCollectionMonoid(t, m, e) => ConsCollectionMonoid(t, m, rewriteVariable(e, v, nv))
+      case MergeMonoid(t, m, e1, e2) => MergeMonoid(t, m, rewriteVariable(e1, v, nv), rewriteVariable(e2, v, nv))
+      case Comprehension(t, m, e, qs) =>
+        Comprehension(t, m, rewriteVariable(e, v, nv), qs.map(q => q match {
+          case te : TypedExpression => rewriteVariable(te, v, nv)
+          case Generator(v1, e) => Generator(v1, rewriteVariable(e, v, nv))
+          case Bind(v1, e) => Bind(v1, rewriteVariable(e, v, nv))
+        }))
+      case Not(e) => Not(rewriteVariable(e, v, nv))      
+    }
+    
     e match {
-      /** Rule 2 */
+      /** Rule 2
+       */
       case FunctionApplication(_, FunctionAbstraction(_, v, e1), e2) => betaReduction(e1, v, e2)
       
-      /** Rule 3 */
+      /** Rule 3
+       */
       case RecordProjection(_, RecordConstruction(_, atts), name) => atts.collect{case att if att.name == name => att.e}.head 
     
-      /** Rule 10 */
+      /** Rule 10
+       */
       case Comprehension(t, SumMonoid(), Comprehension(_, SumMonoid(), e, r), s) => Comprehension(t, SumMonoid(), e, s ++ r)
       case Comprehension(t, MultiplyMonoid(), Comprehension(_, MultiplyMonoid(), e, r), s) => Comprehension(t, MultiplyMonoid(), e, s ++ r)
       case Comprehension(t, MaxMonoid(), Comprehension(_, MaxMonoid(), e, r), s) => Comprehension(t, MaxMonoid(), e, s ++ r)
@@ -90,50 +118,70 @@ object Normalizer {
        */
       case c @ Comprehension(t, m, e, qs) => qs match {
         
-        /** Rule 1 */
+        /** Rule 1
+         */
         case FirstOfBind(q, Bind(x, u), s) => Comprehension(t, m, betaReduction(e, x, u), q ++ (s.map(se => se match {
           case te : TypedExpression => betaReduction(te, x, u)
           case Generator(v, e) => Generator(v, betaReduction(e, x, u))
           case Bind(v, e) => Bind(v, betaReduction(e, x, u))
         })))
         
-        /** Rule 9 */
+        /** Rule 9
+         */
         case FirstOfComprehension(q, Comprehension(_, OrMonoid(), pred, r), s) if m.idempotent =>
           Comprehension(t, m, e, q ++ r ++ List(pred) ++ s)
   
         /** Rules 4, 5, 6, 7, 8
          */
         case FirstOfGenerator(q, Generator(v, ge), s) => ge match {
-          /** Rule 4: apply() is called recursively so that variable 'v' is re-use in independent scopes */
+          /** Rule 4
+           *  
+           *  Variable 'v' is replaced in both sides of the expression by a new variable so that
+           *  we don't get conflicts in reusing the same variable in separate "scopes".
+           */
           case IfThenElse(_, e1, e2, e3) if m.commutative || q.isEmpty => MergeMonoid(t, m,
-                                              apply(Comprehension(t, m, e, q ++ List(e1, Generator(v, e2)) ++ s)),
-                                              apply(Comprehension(t, m, e, q ++ List(Not(e1), Generator(v, e3)) ++ s))
+                                              rewriteVariable(Comprehension(t, m, e, q ++ List(e1, Generator(v, e2)) ++ s), v, Variable(v.monoidType)),
+                                              rewriteVariable(Comprehension(t, m, e, q ++ List(Not(e1), Generator(v, e3)) ++ s), v, Variable(v.monoidType))
                                             )
-          /** Rule 5 */
+                                              
+          /** Rule 5
+           */
           case ze : EmptySet => ze
           case ze : EmptyBag => ze
           case ze : EmptyList => ze
           
-          /** Rule 6 */
+          /** Rule 6
+           */
           case ConsCollectionMonoid(_, _, e1) => Comprehension(t, m, e, q ++ List(Bind(v, e1)) ++ s)
           
-          /** Rule 7: apply() is called recursively so that variable 'v' is re-use in independent scopes */
+          /** Rule 7
+           *  
+           *  Variable 'v' is replaced in both sides of the expression by a new variable so that
+           *  we don't get conflicts in reusing the same variable in separate "scopes".
+           */
           case MergeMonoid(_, _, e1, e2) if m.commutative || q.isEmpty => MergeMonoid(t, m,
-                                              apply(Comprehension(t, m, e, q ++ List(Generator(v, e1)) ++ s)),
-                                              apply(Comprehension(t, m, e, q ++ List(Generator(v, e2)) ++ s))
+                                              rewriteVariable(Comprehension(t, m, e, q ++ List(Generator(v, e1)) ++ s), v, Variable(v.monoidType)),
+                                              rewriteVariable(Comprehension(t, m, e, q ++ List(Generator(v, e2)) ++ s), v, Variable(v.monoidType))
                                             )                                                 
                                             
-          /** Rule 8 */
+          /** Rule 8
+           */
           case Comprehension(_, _, e1, r) => Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)
           
-          /** Extra rule */
+          /** Extra rule
+           */
           case Path(_) => c
         }
       }
+      
+      /** Extra rule for expressions that cannot be normalized further.
+       */
+      case _ => e
     }
   }
   
-  /** This method converts a normalized expression in Parser calculus to Normalizer calculus. */
+  /** This method converts a normalized expression in Parser calculus to Normalizer calculus.
+   */
   def convert(e: parser.TypedExpression): TypedExpression = e match {
     case parser.Null() => Null()
     case parser.BoolConst(v) => BoolConst(v)
@@ -179,6 +227,7 @@ object Normalizer {
       ne1 = ne2
       ne2 = apply(ne1)
     }
+    println("(debug) Normalized expression: " + ne1)
     convert(ne1)
   }
 }
