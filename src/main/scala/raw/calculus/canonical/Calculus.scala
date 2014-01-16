@@ -140,7 +140,7 @@ object CalculusPrettyPrinter {
     case ConsCollectionMonoid(_, ListMonoid(), e) => "[ " + CalculusPrettyPrinter(e) + " ]"
     case MergeMonoid(_, m, e1, e2) => "( " + CalculusPrettyPrinter(e1) + " merge " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e2) + " )"
     case Comprehension(_, m, e, qs, pred) => 
-      "for ( " + (if (!qs.isEmpty) qs.map(CalculusPrettyPrinter(_)).mkString(", ") + ", ") + CalculusPrettyPrinter(pred) + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
+      "for ( " + (if (!qs.isEmpty) (qs.map(CalculusPrettyPrinter(_)).mkString(", ") + ", ") else "") + CalculusPrettyPrinter(pred) + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
     case Generator(v, p) => CalculusPrettyPrinter(v) + " <- " + PathPrettyPrinter(p)
     case Not(e) => "not(" + CalculusPrettyPrinter(e) + ")"
   })
