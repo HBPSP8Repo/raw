@@ -220,14 +220,15 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
       monoidMerge ^^ {
         case m => {
           (e1: TypedExpression, e2: TypedExpression) => {
-            unify(e1.monoidType, e2.monoidType) match {
-              case Some(ut) => {
-                if (m.hasType(ut)) {
-                  MergeMonoid(ut, m, cast(ut, e1), cast(ut, e2))
-                } else {
-                  throw MonoidMergeMismatch(m, e1, e2)
-                }
-              }
+            (unify(e1.monoidType, e2.monoidType), m) match {
+              // Allow strings to be "summed" together even though they are not NumberMonoid
+              case (Some(t @ StringType), m : SumMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ IntType), m : NumberMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ FloatType), m : NumberMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ BoolType), m : BoolMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ SetType(_)), m : SetMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ BagType(_)), m : BagMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
+              case (Some(t @ ListType(_)), m : ListMonoid) => MergeMonoid(t, m, cast(t, e1), cast(t, e2))
               case _ => throw MonoidMergeMismatch(m, e1, e2)
             }
           }
