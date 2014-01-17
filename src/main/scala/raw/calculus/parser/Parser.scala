@@ -250,18 +250,20 @@ class Parser(val rootScope: RootScope) extends StandardTokenParsers {
   def recordProjExpr: Parser[TypedExpression] = positioned(
     funcAppExpr ~ rep("." ~> posIdent) ^^ {
       case e ~ projs => {
-        def recurse(e: TypedExpression, names: List[PositionedIdent]): TypedExpression = 
+        def recurse(e: TypedExpression, names: List[PositionedIdent]): TypedExpression = {
           if (names.isEmpty)
             e
           else {
             e.monoidType match {
-            case RecordType(atts) => {
-              val head = names.head
-              val name = head.s
-              atts.find(_.name == name) match {
-                case Some(att) => recurse(RecordProjection(att.monoidType, e, name), names.tail)
-                case _ => throw UnknownAttribute(name, head.pos)
+              case RecordType(atts) => {
+                val head = names.head
+                val name = head.s
+                atts.find(_.name == name) match {
+                  case Some(att) => recurse(RecordProjection(att.monoidType, e, name), names.tail)
+                  case _ => throw UnknownAttribute(name, head.pos)
+                }
               }
+              case _ => throw RecordRequired(e)
             }
           }
         }
