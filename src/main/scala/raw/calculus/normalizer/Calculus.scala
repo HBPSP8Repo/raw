@@ -20,7 +20,7 @@ sealed abstract class UntypedExpression extends Expression
 /** Null
  */
 
-case class Null extends TypedExpression(VariableType())
+case class Null() extends TypedExpression(VariableType())
 
 /** Constant
  */
@@ -60,9 +60,9 @@ case class BinaryOperation(t: MonoidType, op: BinaryOperator, e1: TypedExpressio
 /** Zeroes for Collection Monoids
  */
 
-case class EmptySet extends TypedExpression(VariableType())
-case class EmptyBag extends TypedExpression(VariableType())
-case class EmptyList extends TypedExpression(VariableType())
+case class EmptySet() extends TypedExpression(VariableType())
+case class EmptyBag() extends TypedExpression(VariableType())
+case class EmptyList() extends TypedExpression(VariableType())
 
 /** ConsCollectionMonoid
  */
@@ -91,6 +91,14 @@ case class Generator(v: Variable, e: TypedExpression) extends UntypedExpression
 
 case class Not(e: TypedExpression) extends TypedExpression(BoolType)
 
+case class FloatToInt(e: TypedExpression) extends TypedExpression(IntType)
+case class FloatToString(e: TypedExpression) extends TypedExpression(StringType)
+case class IntToFloat(e: TypedExpression) extends TypedExpression(FloatType)
+case class IntToString(e: TypedExpression) extends TypedExpression(StringType)
+case class StringToBool(e: TypedExpression) extends TypedExpression(BoolType)
+case class StringToInt(e: TypedExpression) extends TypedExpression(IntType)
+case class StringToFloat(e: TypedExpression) extends TypedExpression(FloatType)
+
 /** CalculusPrettyPrinter
  */
 object CalculusPrettyPrinter {
@@ -115,5 +123,12 @@ object CalculusPrettyPrinter {
     case Comprehension(_, m, e, qs) => "for ( " + qs.map(CalculusPrettyPrinter(_)).mkString(", ") + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
     case Generator(v, e) => CalculusPrettyPrinter(v) + " <- " + CalculusPrettyPrinter(e)
     case Not(e) => "not(" + CalculusPrettyPrinter(e) + ")"
+    case FloatToInt(e) => "as_int(" + CalculusPrettyPrinter(e) + ")"
+    case FloatToString(e) => "as_string(" + CalculusPrettyPrinter(e) + ")"
+    case IntToFloat(e) => "as_float(" + CalculusPrettyPrinter(e) + ")"
+    case IntToString(e) => "as_string(" + CalculusPrettyPrinter(e) + ")"
+    case StringToBool(e) => "as_bool(" + CalculusPrettyPrinter(e) + ")"
+    case StringToInt(e) => "as_int(" + CalculusPrettyPrinter(e) + ")"
+    case StringToFloat(e) => "as_float(" + CalculusPrettyPrinter(e) + ")"    
   }
 }

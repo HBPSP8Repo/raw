@@ -1,7 +1,7 @@
 package raw.calculus.parser
 
 /** Scope
- *  
+ *
  *  Scopes are used by the parser to store variable bindings.
  *  Scopes can be nested so that variable names can be reused in inner nestings.
  */
@@ -12,12 +12,12 @@ sealed abstract class Scope {
 
   def add() = new InnerScope(this)
 
-  def exists(name: String): Boolean    
+  def exists(name: String): Boolean
 
   def get(name: String): Option[Variable]
 }
 
-case class RootScope extends Scope {
+case class RootScope() extends Scope {
   def exists(name: String): Boolean = bindings.isDefinedAt(name)
 
   def get(name: String): Option[Variable] = bindings.get(name)

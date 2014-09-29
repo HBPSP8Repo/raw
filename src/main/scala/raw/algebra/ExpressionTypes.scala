@@ -21,3 +21,11 @@ case object IntType extends PrimitiveType
 
 case class Attribute(name: String, expressionType: ExpressionType)
 case class RecordType(atts: List[Attribute]) extends ExpressionType
+
+/** CollectionType
+ */
+
+sealed abstract class CollectionType(val expressionType: ExpressionType) extends ExpressionType
+case class SetType(t: ExpressionType) extends CollectionType(t)
+case class BagType(t: ExpressionType) extends CollectionType(t)
+case class ListType(t: ExpressionType) extends CollectionType(t)

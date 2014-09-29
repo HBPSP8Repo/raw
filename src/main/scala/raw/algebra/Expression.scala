@@ -30,22 +30,22 @@ case class RecordProjection(t: ExpressionType, e: Expression, name: String) exte
  */
 
 case class AttributeConstruction(name: String, e: Expression)
-case class RecordConstruction(t: RecordType, atts: List[AttributeConstruction]) extends Expression(t)
+case class RecordConstruction(t: ExpressionType, atts: List[AttributeConstruction]) extends Expression(t)
 
 /** IfThenElse
  */
 
-case class IfThenElse(t: PrimitiveType, e1: Expression, e2: Expression, e3: Expression) extends Expression(t)
+case class IfThenElse(t: ExpressionType, e1: Expression, e2: Expression, e3: Expression) extends Expression(t)
 
 /** BinaryOperation
  */
 
-case class BinaryOperation(t: PrimitiveType, op: BinaryOperator, e1: Expression, e2: Expression) extends Expression(t)
+case class BinaryOperation(t: ExpressionType, op: BinaryOperator, e1: Expression, e2: Expression) extends Expression(t)
 
 /** MergeMonoid
  */
 
-case class MergeMonoid(t: PrimitiveType, m: PrimitiveMonoid, e1: Expression, e2: Expression) extends Expression(t)
+case class MergeMonoid(t: ExpressionType, m: Monoid, e1: Expression, e2: Expression) extends Expression(t)
 
 /** Unary Functions
  * 
@@ -53,6 +53,14 @@ case class MergeMonoid(t: PrimitiveType, m: PrimitiveMonoid, e1: Expression, e2:
  */
 
 case class Not(e: Expression) extends Expression(BoolType)
+
+case class FloatToInt(e: Expression) extends Expression(IntType)
+case class FloatToString(e: Expression) extends Expression(StringType)
+case class IntToFloat(e: Expression) extends Expression(FloatType)
+case class IntToString(e: Expression) extends Expression(StringType)
+case class StringToBool(e: Expression) extends Expression(BoolType)
+case class StringToInt(e: Expression) extends Expression(IntType)
+case class StringToFloat(e: Expression) extends Expression(FloatType)
 
 /** ExpressionPrettyPrinter
  */
@@ -70,5 +78,12 @@ object ExpressionPrettyPrinter {
     case BinaryOperation(_, op, e1, e2) => "( " + ExpressionPrettyPrinter(e1) + " " + BinaryOperatorPrettyPrinter(op) + " " + ExpressionPrettyPrinter(e2) + " )"
     case MergeMonoid(_, m, e1, e2) => "( " + ExpressionPrettyPrinter(e1) + " " + MonoidPrettyPrinter(m) + " " + ExpressionPrettyPrinter(e2) + " )"
     case Not(e) => "not(" + ExpressionPrettyPrinter(e) + ")"
+    case FloatToInt(e) => "as_int(" + ExpressionPrettyPrinter(e) + ")"
+    case FloatToString(e) => "as_string(" + ExpressionPrettyPrinter(e) + ")"
+    case IntToFloat(e) => "as_float(" + ExpressionPrettyPrinter(e) + ")"
+    case IntToString(e) => "as_string(" + ExpressionPrettyPrinter(e) + ")"
+    case StringToBool(e) => "as_bool(" + ExpressionPrettyPrinter(e) + ")"
+    case StringToInt(e) => "as_int(" + ExpressionPrettyPrinter(e) + ")"
+    case StringToFloat(e) => "as_float(" + ExpressionPrettyPrinter(e) + ")"
   })
 }

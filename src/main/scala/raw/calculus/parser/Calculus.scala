@@ -19,7 +19,7 @@ sealed abstract class UntypedExpression extends Expression
 /** Null
  */
 
-case class Null extends TypedExpression(VariableType())
+case class Null() extends TypedExpression(VariableType())
 
 /** Constant
  */
@@ -35,7 +35,7 @@ case class StringConst(v: String) extends Constant(StringType)
 
 case class Variable(t: MonoidType) extends TypedExpression(t) {
   override def equals(o: Any) = super.equals(o)
-  override def hashCode = super.hashCode    
+  override def hashCode = super.hashCode
 }
 
 /** RecordProjection
@@ -72,9 +72,9 @@ case class FunctionApplication(t: MonoidType, e1: TypedExpression, e2: TypedExpr
 /** Zeroes for Collection Monoids
  */
 
-case class EmptySet extends TypedExpression(SetType(VariableType()))
-case class EmptyBag extends TypedExpression(BagType(VariableType()))
-case class EmptyList extends TypedExpression(ListType(VariableType()))
+case class EmptySet() extends TypedExpression(SetType(VariableType()))
+case class EmptyBag() extends TypedExpression(BagType(VariableType()))
+case class EmptyList() extends TypedExpression(ListType(VariableType()))
 
 /** ConsCollectionMonoid
  */
@@ -97,11 +97,19 @@ case class Comprehension(t: MonoidType, m: Monoid, e: TypedExpression, qs: List[
 case class Generator(v: Variable, e: TypedExpression) extends UntypedExpression
 
 /** Unary Functions
- * 
- * TODO: Why aren't unary functions included in [1] (Fig. 2, page 12)?
+ *
+ *  TODO: Why aren't unary functions included in [1] (Fig. 2, page 12)?
  */
 
 case class Not(e: TypedExpression) extends TypedExpression(BoolType)
+
+case class FloatToInt(e: TypedExpression) extends TypedExpression(IntType)
+case class FloatToString(e: TypedExpression) extends TypedExpression(StringType)
+case class IntToFloat(e: TypedExpression) extends TypedExpression(FloatType)
+case class IntToString(e: TypedExpression) extends TypedExpression(StringType)
+case class StringToBool(e: TypedExpression) extends TypedExpression(BoolType)
+case class StringToInt(e: TypedExpression) extends TypedExpression(IntType)
+case class StringToFloat(e: TypedExpression) extends TypedExpression(FloatType)
 
 /** Bind
  */
@@ -112,28 +120,35 @@ case class Bind(v: Variable, e: TypedExpression) extends UntypedExpression
  */
 object CalculusPrettyPrinter {
   def apply(e: Expression): String = e match {
-    case Null() => "null"
-    case BoolConst(v) => if (v) "true" else "false"
-    case IntConst(v) => v.toString()
-    case FloatConst(v) => v.toString()
-    case StringConst(v) => "\"" + v.toString() + "\""
-    case Variable(_) => "v" + e.hashCode().toString()
-    case RecordProjection(_, e, name) => CalculusPrettyPrinter(e) + "." + name
-    case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
-    case IfThenElse(_, e1, e2, e3) => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)
-    case BinaryOperation(_, op, e1, e2) => "( " + CalculusPrettyPrinter(e1) + " " + BinaryOperatorPrettyPrinter(op) + " " + CalculusPrettyPrinter(e2) + " )"
-    case FunctionAbstraction(_, v, e) => "\\" + CalculusPrettyPrinter(v) + " : " + CalculusPrettyPrinter(e) 
-    case FunctionApplication(_, e1, e2) => CalculusPrettyPrinter(e1) + "(" + CalculusPrettyPrinter(e2) + ")"
-    case EmptySet() => "{}"
-    case EmptyBag() => "bag{}"
-    case EmptyList() => "[]"
-    case ConsCollectionMonoid(_, SetMonoid(), e) => "{ " + CalculusPrettyPrinter(e) + " }"
-    case ConsCollectionMonoid(_, BagMonoid(), e) => "bag{ " + CalculusPrettyPrinter(e) + " }"
+    case Null()                                   => "null"
+    case BoolConst(v)                             => if (v) "true" else "false"
+    case IntConst(v)                              => v.toString
+    case FloatConst(v)                            => v.toString
+    case StringConst(v)                           => "\"" + v.toString + "\""
+    case Variable(_)                              => "v" + e.hashCode().toString
+    case RecordProjection(_, e, name)             => CalculusPrettyPrinter(e) + "." + name
+    case RecordConstruction(_, atts)              => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
+    case IfThenElse(_, e1, e2, e3)                => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)
+    case BinaryOperation(_, op, e1, e2)           => "( " + CalculusPrettyPrinter(e1) + " " + BinaryOperatorPrettyPrinter(op) + " " + CalculusPrettyPrinter(e2) + " )"
+    case FunctionAbstraction(_, v, e)             => "\\" + CalculusPrettyPrinter(v) + " : " + CalculusPrettyPrinter(e)
+    case FunctionApplication(_, e1, e2)           => CalculusPrettyPrinter(e1) + "(" + CalculusPrettyPrinter(e2) + ")"
+    case EmptySet()                               => "{}"
+    case EmptyBag()                               => "bag{}"
+    case EmptyList()                              => "[]"
+    case ConsCollectionMonoid(_, SetMonoid(), e)  => "{ " + CalculusPrettyPrinter(e) + " }"
+    case ConsCollectionMonoid(_, BagMonoid(), e)  => "bag{ " + CalculusPrettyPrinter(e) + " }"
     case ConsCollectionMonoid(_, ListMonoid(), e) => "[ " + CalculusPrettyPrinter(e) + " ]"
-    case MergeMonoid(_, m, e1, e2) => "( " + CalculusPrettyPrinter(e1) + " merge " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e2) + " )"
-    case Comprehension(_, m, e, qs) => "for ( " + qs.map(CalculusPrettyPrinter(_)).mkString(", ") + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
-    case Generator(v, e) => CalculusPrettyPrinter(v) + " <- " + CalculusPrettyPrinter(e)
-    case Not(e) => "not(" + CalculusPrettyPrinter(e) + ")"
-    case Bind(v, e) => CalculusPrettyPrinter(v) + " := " + CalculusPrettyPrinter(e)
+    case MergeMonoid(_, m, e1, e2)                => "( " + CalculusPrettyPrinter(e1) + " merge " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e2) + " )"
+    case Comprehension(_, m, e, qs)               => "for ( " + qs.map(CalculusPrettyPrinter(_)).mkString(", ") + " ) yield " + MonoidPrettyPrinter(m) + " " + CalculusPrettyPrinter(e)
+    case Generator(v, e)                          => CalculusPrettyPrinter(v) + " <- " + CalculusPrettyPrinter(e)
+    case Not(e)                                   => "not(" + CalculusPrettyPrinter(e) + ")"
+    case FloatToInt(e)                            => "as_int(" + CalculusPrettyPrinter(e) + ")"
+    case FloatToString(e)                         => "as_string(" + CalculusPrettyPrinter(e) + ")"
+    case IntToFloat(e)                            => "as_float(" + CalculusPrettyPrinter(e) + ")"
+    case IntToString(e)                           => "as_string(" + CalculusPrettyPrinter(e) + ")"
+    case StringToBool(e)                          => "as_bool(" + CalculusPrettyPrinter(e) + ")"
+    case StringToInt(e)                           => "as_int(" + CalculusPrettyPrinter(e) + ")"
+    case StringToFloat(e)                         => "as_float(" + CalculusPrettyPrinter(e) + ")"
+    case Bind(v, e)                               => CalculusPrettyPrinter(v) + " := " + CalculusPrettyPrinter(e)
   }
 }

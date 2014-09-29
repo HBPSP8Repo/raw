@@ -34,7 +34,7 @@ case class ListType(t: MonoidType) extends CollectionType(t)
  *  
  *  Used for expressions whose type is unknown at creation time, e.g. Null
  */
-case class VariableType extends MonoidType {
+case class VariableType() extends MonoidType {
   override def equals(o: Any) = super.equals(o)
   override def hashCode = super.hashCode    
 }

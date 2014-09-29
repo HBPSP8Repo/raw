@@ -18,19 +18,19 @@ sealed abstract class PrimitiveMonoid extends Monoid
 
 sealed abstract class NumberMonoid extends PrimitiveMonoid
 
-case class SumMonoid extends NumberMonoid {
+case class SumMonoid() extends NumberMonoid {
   def commutative = true
     
   def idempotent = false
 }
 
-case class MultiplyMonoid extends NumberMonoid {
+case class MultiplyMonoid() extends NumberMonoid {
   def commutative = true
   
   def idempotent = false 
 }
 
-case class MaxMonoid extends NumberMonoid {
+case class MaxMonoid() extends NumberMonoid {
   def commutative = true
   
   def idempotent = true
@@ -38,13 +38,13 @@ case class MaxMonoid extends NumberMonoid {
 
 sealed abstract class BoolMonoid extends PrimitiveMonoid
 
-case class OrMonoid extends BoolMonoid {
+case class OrMonoid() extends BoolMonoid {
   def commutative = true
   
   def idempotent = true
 }
 
-case class AndMonoid extends BoolMonoid {
+case class AndMonoid() extends BoolMonoid {
   def commutative = true
   
   def idempotent = true
@@ -55,19 +55,19 @@ case class AndMonoid extends BoolMonoid {
 
 sealed abstract class CollectionMonoid extends Monoid
 
-case class SetMonoid extends CollectionMonoid {
+case class SetMonoid() extends CollectionMonoid {
   def commutative = true
   
   def idempotent = true
 }
 
-case class BagMonoid extends CollectionMonoid {
+case class BagMonoid() extends CollectionMonoid {
   def commutative = true
   
   def idempotent = false
 } 
 
-case class ListMonoid extends CollectionMonoid {
+case class ListMonoid() extends CollectionMonoid {
   def commutative = false
   
   def idempotent = false

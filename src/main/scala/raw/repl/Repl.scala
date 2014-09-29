@@ -22,9 +22,9 @@ import raw.calculus.normalizer.Normalizer
 import raw.calculus.canonical.Canonical
 import raw.catalog._
 import raw.algebra.unnester.Unnester
-import raw.algebra.emitter.JsonEmitter
+//import raw.algebra.emitter.JsonEmitter
 
-import play.api.libs.json._
+//import play.api.libs.json._
 
 /** FIXME:
  *  [MSB] Fix 'Path' handling. 
@@ -152,7 +152,7 @@ object Repl extends App {
       
       println()
       println("Canonical Form:")
-      val cane = Canonical.canonical(norme)
+      val cane = Canonical(norme)
       println(canonical.CalculusPrettyPrinter(cane))
       println("Result Type: " + MonoidTypePrettyPrinter(cane.monoidType))
       
@@ -162,9 +162,9 @@ object Repl extends App {
       println(algebra.AlgebraPrettyPrinter(alg))
       println()
       
-      println()
-      println("JSON:")
-      println(Json.prettyPrint(JsonEmitter.emit(alg)))
+//      println()
+//      println("JSON:")
+//      println(Json.prettyPrint(JsonEmitter.emit(alg)))
       
     } catch {
       case e : TypeCheckerError => pprintTypeCheckerError(input, e)
@@ -173,31 +173,3 @@ object Repl extends App {
     }
   } while (input != null)
 }
-
-/* Sample queries:
-
-for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)  
-
-for ( el <- for ( d <- Departments, y := d.name, if (not (y = "CSE")) then true else false ) yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)
-
-for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
-
-for (e <- Employees, ev <- Events, c <- e.manager.children, c.age = ev.RunNumber) yield set (age := c.age, run := ev.RunNumber)
-
-for (t <- Test.children) yield list t
-
-for (e <- Employees, c <- e.manager.children) yield max c.age
-
-for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
-
-for (e <- Employees, c <- e.manager.children, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set (X := {c} union {1} )
-
-parser should fail (correctly):
-for (e <- Employees, c <- e.manager.children, {c} <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
-for (e <- Employees, c <- e.manager.children, 1 <> {}, c.age = for (e <- Employees, c <- e.manager.children) yield max c.age) yield set c
-
-for comprehension as a predicate:
-for (e <- Employees, for (flg <- e.flags) yield and flg) yield set e
-
-*/
-
