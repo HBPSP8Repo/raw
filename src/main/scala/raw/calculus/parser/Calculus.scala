@@ -12,11 +12,14 @@ import raw.calculus._
 
 sealed abstract class Expression extends Positional
 
-sealed abstract class TypedExpression(val monoidType: MonoidType) extends Expression
+sealed abstract class TypedExpression(val parserType: ParserType) extends Expression
 
 sealed abstract class UntypedExpression extends Expression
 
 /** Null
+ *  
+ *  Null is a class and not an object so that it holds its position.
+ *  (Null inherits from TypedExpression -> Expression -> **Positional**).
  */
 
 case class Null() extends TypedExpression(VariableType())
@@ -24,16 +27,20 @@ case class Null() extends TypedExpression(VariableType())
 /** Constant
  */
 
-sealed abstract class Constant(t: MonoidType) extends TypedExpression(t)
+sealed abstract class Constant(t: ParserType) extends TypedExpression(t)
 case class BoolConst(v: Boolean) extends Constant(BoolType)
 case class IntConst(v: Long) extends Constant(IntType)
 case class FloatConst(v: Double) extends Constant(FloatType)
 case class StringConst(v: String) extends Constant(StringType)
 
 /** Variable
+ *  
+ *  Overridding equals and hashCode so that every instance of the case class is unique.
+ *  Otherwise, all variables of the same type and name would be the same object,
+ *  even if defined across nested scope comprehensions.
  */
 
-case class Variable(t: MonoidType) extends TypedExpression(t) {
+case class Variable(t: ParserType, name: String) extends TypedExpression(t) {
   override def equals(o: Any) = super.equals(o)
   override def hashCode = super.hashCode
 }
@@ -41,37 +48,40 @@ case class Variable(t: MonoidType) extends TypedExpression(t) {
 /** RecordProjection
  */
 
-case class RecordProjection(t: MonoidType, e: TypedExpression, name: String) extends TypedExpression(t)
+case class RecordProjection(t: ParserType, e: TypedExpression, name: String) extends TypedExpression(t)
 
 /** RecordConstruction
  */
 
 case class AttributeConstruction(name: String, e: TypedExpression) extends Positional
-case class RecordConstruction(t: MonoidType, atts: List[AttributeConstruction]) extends TypedExpression(t)
+case class RecordConstruction(t: ParserType, atts: List[AttributeConstruction]) extends TypedExpression(t)
 
 /** IfThenElse
  */
 
-case class IfThenElse(t: MonoidType, e1: TypedExpression, e2: TypedExpression, e3: TypedExpression) extends TypedExpression(t)
+case class IfThenElse(t: ParserType, e1: TypedExpression, e2: TypedExpression, e3: TypedExpression) extends TypedExpression(t)
 
 /** BinaryOperation
  */
 
-case class BinaryOperation(t: MonoidType, op: BinaryOperator, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
+case class BinaryOperation(t: ParserType, op: BinaryOperator, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
 
 /** FunctionAbstraction
  */
 
-case class FunctionAbstraction(t: MonoidType, v: Variable, e: TypedExpression) extends TypedExpression(t)
+case class FunctionAbstraction(t: ParserType, v: Variable, e: TypedExpression) extends TypedExpression(t)
 
 /** FunctionApplication
  */
 
-case class FunctionApplication(t: MonoidType, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
+case class FunctionApplication(t: ParserType, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
 
 /** Zeroes for Collection Monoids
+ *  
+ * The following are classes and not an objects so that they holds their positions.
+ * (They inherit from TypedExpression -> Expression -> **Positional**).
  */
-
+ 
 case class EmptySet() extends TypedExpression(SetType(VariableType()))
 case class EmptyBag() extends TypedExpression(BagType(VariableType()))
 case class EmptyList() extends TypedExpression(ListType(VariableType()))
@@ -79,17 +89,17 @@ case class EmptyList() extends TypedExpression(ListType(VariableType()))
 /** ConsCollectionMonoid
  */
 
-case class ConsCollectionMonoid(t: MonoidType, m: CollectionMonoid, e: TypedExpression) extends TypedExpression(t)
+case class ConsCollectionMonoid(t: ParserType, m: CollectionMonoid, e: TypedExpression) extends TypedExpression(t)
 
 /** MergeMonoid
  */
 
-case class MergeMonoid(t: MonoidType, m: Monoid, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
+case class MergeMonoid(t: ParserType, m: Monoid, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
 
 /** Comprehension
  */
 
-case class Comprehension(t: MonoidType, m: Monoid, e: TypedExpression, qs: List[Expression]) extends TypedExpression(t)
+case class Comprehension(t: ParserType, m: Monoid, e: TypedExpression, qs: List[Expression]) extends TypedExpression(t)
 
 /** Generator
  */
@@ -125,7 +135,7 @@ object CalculusPrettyPrinter {
     case IntConst(v)                              => v.toString
     case FloatConst(v)                            => v.toString
     case StringConst(v)                           => "\"" + v.toString + "\""
-    case Variable(_)                              => "v" + e.hashCode().toString
+    case Variable(_, name)                        => name
     case RecordProjection(_, e, name)             => CalculusPrettyPrinter(e) + "." + name
     case RecordConstruction(_, atts)              => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3)                => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)

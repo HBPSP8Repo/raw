@@ -2,6 +2,7 @@ package raw.algebra
 
 import raw._
 
+import org.json4s._
 /** Path
  */
 
@@ -13,7 +14,7 @@ case class InnerPath(p: Path, name: String) extends Path
  */
 sealed abstract class Algebra
 
-case object Empty extends Algebra
+case object Empty extends Algebra 
 
 case class Scan(name: String) extends Algebra
 
@@ -30,6 +31,8 @@ case class Unnest(path: Path, p: Expression, X: Algebra) extends Algebra
 case class OuterJoin(p: Expression, X: Algebra, Y: Algebra) extends Algebra
 
 case class OuterUnnest(path: Path, p: Expression, X: Algebra) extends Algebra
+
+case class Merge(m: Monoid, X: Algebra, Y: Algebra) extends Algebra
 
 /** PathPrettyPrinter
  */
@@ -62,6 +65,7 @@ object AlgebraPrettyPrinter {
     case Unnest(path, p, x) => "Unnest [ path = " + PathPrettyPrinter(path) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case OuterJoin(p, x, y) => "OuterJoin [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
     case OuterUnnest(path, p, x) => "OuterUnnest [ path = " + PathPrettyPrinter(path) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
+    case Merge(m,x,y) => "Merge " + MonoidPrettyPrinter(m) + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
     case Empty => "Empty"
   })   
 }

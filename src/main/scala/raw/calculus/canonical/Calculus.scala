@@ -4,15 +4,13 @@
  */
 package raw.calculus.canonical
 
-import scala.util.parsing.input.Positional
-
 import raw._
 import raw.calculus._
 
 /** Expressions for Calculus
  */
 
-sealed abstract class Expression extends Positional
+sealed abstract class Expression
 
 sealed abstract class TypedExpression(val monoidType: MonoidType) extends Expression
 
@@ -21,7 +19,7 @@ sealed abstract class UntypedExpression extends Expression
 /** Null
  */
 
-case class Null() extends TypedExpression(VariableType())
+case object Null extends TypedExpression(VariableType)
 
 /** Constant
  */
@@ -45,7 +43,7 @@ case class RecordProjection(t: MonoidType, e: TypedExpression, name: String) ext
 /** RecordConstruction
  */
 
-case class AttributeConstruction(name: String, e: TypedExpression) extends Positional
+case class AttributeConstruction(name: String, e: TypedExpression)
 case class RecordConstruction(t: MonoidType, atts: List[AttributeConstruction]) extends TypedExpression(t)
 
 /** IfThenElse
@@ -61,9 +59,9 @@ case class BinaryOperation(t: MonoidType, op: BinaryOperator, e1: TypedExpressio
 /** Zeroes for Collection Monoids
  */
 
-case class EmptySet() extends TypedExpression(VariableType())
-case class EmptyBag() extends TypedExpression(VariableType())
-case class EmptyList() extends TypedExpression(VariableType())
+case object EmptySet extends TypedExpression(VariableType)
+case object EmptyBag extends TypedExpression(VariableType)
+case object EmptyList extends TypedExpression(VariableType)
 
 /** ConsCollectionMonoid
  */
@@ -130,7 +128,7 @@ object PathPrettyPrinter {
 
 object CalculusPrettyPrinter { 
   def apply(e: Expression, pre: String = ""): String = pre + (e match {
-    case Null() => "null"
+    case Null => "null"
     case BoolConst(v) => if (v) "true" else "false"
     case IntConst(v) => v.toString()
     case FloatConst(v) => v.toString()
@@ -140,9 +138,9 @@ object CalculusPrettyPrinter {
     case RecordConstruction(_, atts) => "( " + atts.map(att => att.name + " := " + CalculusPrettyPrinter(att.e)).mkString(", ") + " )"
     case IfThenElse(_, e1, e2, e3) => "if " + CalculusPrettyPrinter(e1) + " then " + CalculusPrettyPrinter(e2) + " else " + CalculusPrettyPrinter(e3)
     case BinaryOperation(_, op, e1, e2) => "( " + CalculusPrettyPrinter(e1) + " " + BinaryOperatorPrettyPrinter(op) + " " + CalculusPrettyPrinter(e2) + " )"
-    case EmptySet() => "{}"
-    case EmptyBag() => "bag{}"
-    case EmptyList() => "[]"
+    case EmptySet => "{}"
+    case EmptyBag => "bag{}"
+    case EmptyList => "[]"
     case ConsCollectionMonoid(_, SetMonoid(), e) => "{ " + CalculusPrettyPrinter(e) + " }"
     case ConsCollectionMonoid(_, BagMonoid(), e) => "bag{ " + CalculusPrettyPrinter(e) + " }"
     case ConsCollectionMonoid(_, ListMonoid(), e) => "[ " + CalculusPrettyPrinter(e) + " ]"

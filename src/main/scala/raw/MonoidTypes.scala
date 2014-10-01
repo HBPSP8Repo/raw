@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 /** MonoidType
  */
@@ -32,18 +32,11 @@ case class ListType(t: MonoidType) extends CollectionType(t)
 
 /** VariableType
  *  
- *  Used for expressions whose type is unknown at creation time, e.g. Null
+ *  VariableType should appear rarely.
+ *  One such case is a comprehension that gets transformed into an EmptySet, whose type is VariableType.
  */
-case class VariableType() extends MonoidType {
-  override def equals(o: Any) = super.equals(o)
-  override def hashCode = super.hashCode    
-}
 
-/** FunctionType
- *  
- *  Type for expressions 't2 -> t1', i.e. for functions
- */
-case class FunctionType(t1: MonoidType, t2: MonoidType) extends MonoidType
+case object VariableType extends MonoidType
 
 /** MonoidTypePrettyPrinter
  */
@@ -57,7 +50,6 @@ object MonoidTypePrettyPrinter {
     case SetType(t) => "set(" + MonoidTypePrettyPrinter(t) + ")"
     case BagType(t) => "bag(" + MonoidTypePrettyPrinter(t) + ")"
     case ListType(t) => "list(" + MonoidTypePrettyPrinter(t) + ")"
-    case VariableType() => "unknown"
-    case FunctionType(t1, t2) => "function(" + MonoidTypePrettyPrinter(t) + " -> " + MonoidTypePrettyPrinter(t2) + ")" 
+    case VariableType => "unknown"
   }
 }

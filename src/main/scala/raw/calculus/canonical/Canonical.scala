@@ -40,7 +40,7 @@ object Canonical {
       }
 
       e match {
-        case n: Null                      => n
+        case Null                         => Null
         case c: Constant                  => c
         case v: Variable                  => v
         case RecordProjection(t, e, name) => RecordProjection(t, convertToCNF(e), name)
@@ -51,9 +51,9 @@ object Canonical {
         case IfThenElse(t, e1, e2, e3)                        =>
           println("e2 " + e2.monoidType); IfThenElse(t, convertToCNF(e1), convertToCNF(e2), convertToCNF(e3))
         case BinaryOperation(t, op, e1, e2)                   => BinaryOperation(t, op, convertToCNF(e1), convertToCNF(e2))
-        case z: EmptySet                                      => z
-        case z: EmptyBag                                      => z
-        case z: EmptyList                                     => z
+        case EmptySet                                         => EmptySet
+        case EmptyBag                                         => EmptyBag
+        case EmptyList                                        => EmptyList
         case ConsCollectionMonoid(t, m, e)                    => ConsCollectionMonoid(t, m, convertToCNF(e))
         case MergeMonoid(_, OrMonoid(), BoolConst(true), _)   => BoolConst(true)
         case MergeMonoid(_, OrMonoid(), _, BoolConst(true))   => BoolConst(true)
@@ -83,7 +83,7 @@ object Canonical {
     }
 
     e match {
-      case normalizer.Null()                         => Null()
+      case normalizer.Null                           => Null
       case normalizer.BoolConst(v)                   => BoolConst(v)
       case normalizer.StringConst(v)                 => StringConst(v)
       case normalizer.FloatConst(v)                  => FloatConst(v)
@@ -93,9 +93,9 @@ object Canonical {
       case normalizer.RecordConstruction(t, atts)    => RecordConstruction(t, atts.map(att => AttributeConstruction(att.name, apply(att.e))))
       case normalizer.IfThenElse(t, e1, e2, e3)      => IfThenElse(t, apply(e1), apply(e2), apply(e3))
       case normalizer.BinaryOperation(t, op, e1, e2) => BinaryOperation(t, op, apply(e1), apply(e2))
-      case normalizer.EmptySet()                     => EmptySet()
-      case normalizer.EmptyBag()                     => EmptyBag()
-      case normalizer.EmptyList()                    => EmptyList()
+      case normalizer.EmptySet                       => EmptySet
+      case normalizer.EmptyBag                       => EmptyBag
+      case normalizer.EmptyList                      => EmptyList
       case normalizer.ConsCollectionMonoid(t, m, e)  => ConsCollectionMonoid(t, m, apply(e))
       case normalizer.MergeMonoid(t, m, e1, e2)      => MergeMonoid(t, m, apply(e1), apply(e2))
       case normalizer.Comprehension(t, m, e, qs) => {

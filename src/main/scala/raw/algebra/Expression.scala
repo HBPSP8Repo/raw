@@ -5,7 +5,7 @@ import raw._
 /** Expression for Algebra
  */
 
-sealed abstract class Expression(val expressionType: ExpressionType)
+sealed abstract class Expression(val monoidType: MonoidType)
 
 /** Constant
  */
@@ -19,33 +19,33 @@ case class StringConst(v: String) extends Constant(StringType)
 /** Argument
  */
 
-case class Argument(t: ExpressionType, id: Int) extends Expression(t)
+case class Argument(t: MonoidType, id: Int) extends Expression(t)
 
 /** RecordProjection
  */
 
-case class RecordProjection(t: ExpressionType, e: Expression, name: String) extends Expression(t)
+case class RecordProjection(t: MonoidType, e: Expression, name: String) extends Expression(t)
 
 /** RecordConstruction
  */
 
 case class AttributeConstruction(name: String, e: Expression)
-case class RecordConstruction(t: ExpressionType, atts: List[AttributeConstruction]) extends Expression(t)
+case class RecordConstruction(t: MonoidType, atts: List[AttributeConstruction]) extends Expression(t)
 
 /** IfThenElse
  */
 
-case class IfThenElse(t: ExpressionType, e1: Expression, e2: Expression, e3: Expression) extends Expression(t)
+case class IfThenElse(t: MonoidType, e1: Expression, e2: Expression, e3: Expression) extends Expression(t)
 
 /** BinaryOperation
  */
 
-case class BinaryOperation(t: ExpressionType, op: BinaryOperator, e1: Expression, e2: Expression) extends Expression(t)
+case class BinaryOperation(t: MonoidType, op: BinaryOperator, e1: Expression, e2: Expression) extends Expression(t)
 
 /** MergeMonoid
  */
 
-case class MergeMonoid(t: ExpressionType, m: Monoid, e1: Expression, e2: Expression) extends Expression(t)
+case class MergeMonoid(t: MonoidType, m: Monoid, e1: Expression, e2: Expression) extends Expression(t)
 
 /** Unary Functions
  * 
