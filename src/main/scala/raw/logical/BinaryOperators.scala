@@ -1,13 +1,13 @@
 package raw.logical
 
-/** BinaryOperator
+/**
+ * BinaryOperator
  */
-
 sealed abstract class BinaryOperator
 
-/** ComparisonOperator
+/**
+ * ComparisonOperator
  */
-
 sealed abstract class ComparisonOperator extends BinaryOperator
 
 case object Eq extends ComparisonOperator
@@ -17,9 +17,9 @@ case object Gt extends ComparisonOperator
 case object Le extends ComparisonOperator
 case object Lt extends ComparisonOperator
 
-/** ArithmeticOperator
+/**
+ * ArithmeticOperator
  */
-
 sealed abstract class ArithmeticOperator extends BinaryOperator
 
 case object Add extends ArithmeticOperator

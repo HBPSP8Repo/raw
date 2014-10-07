@@ -140,10 +140,9 @@ object Repl extends App {
         println(algebra.AlgebraPrettyPrinter(alg))
         println()
         
-              println()
-              println("JSON:")
-              println(algebra.JsonEmitter(alg, cat))
-  
+        println("JSON:")
+        println(algebra.JsonEmitter(alg, cat))
+        println()
       } catch {
         case e: calculus.parser.TypeCheckerError => pprintTypeCheckerError(input, e)
         case e: calculus.parser.ParserError      => pprintParserError(input, e)

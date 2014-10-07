@@ -1,13 +1,13 @@
 package raw
 
-/** MonoidType
+/**
+ * MonoidType
  */
+sealed abstract class MonoidType
 
-abstract class MonoidType
-
-/** PrimitiveType
+/**
+ * PrimitiveType
  */
-
 sealed abstract class PrimitiveType extends MonoidType
 case object BoolType extends PrimitiveType
 case object StringType extends PrimitiveType
@@ -16,29 +16,30 @@ sealed abstract class NumberType extends PrimitiveType
 case object FloatType extends NumberType
 case object IntType extends NumberType
 
-/** RecordType
+/**
+ * RecordType
  */
-
 case class Attribute(name: String, monoidType: MonoidType)
 case class RecordType(atts: List[Attribute]) extends MonoidType
 
-/** CollectionType
+/**
+ * CollectionType
  */
-
 sealed abstract class CollectionType(val monoidType: MonoidType) extends MonoidType
 case class SetType(t: MonoidType) extends CollectionType(t)
 case class BagType(t: MonoidType) extends CollectionType(t)
 case class ListType(t: MonoidType) extends CollectionType(t)
 
-/** VariableType
+/**
+ * VariableType
  *  
- *  VariableType should appear rarely.
- *  One such case is a comprehension that gets transformed into an EmptySet, whose type is VariableType.
+ * VariableType should appear rarely in practice.
+ * One such case is a comprehension that gets transformed into an EmptySet, whose type is VariableType.
  */
-
 case object VariableType extends MonoidType
 
-/** MonoidTypePrettyPrinter
+/**
+ * MonoidTypePrettyPrinter
  */
 object MonoidTypePrettyPrinter {
   def apply(t: MonoidType): String = t match {
