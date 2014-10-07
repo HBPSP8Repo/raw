@@ -1,18 +1,13 @@
 /**
- * ;d The Normalization Algorithm for Monoid Comprehensions.
+ * The Normalization Algorithm for Monoid Comprehensions.
  *
- *  The rules are described in [1] (Fig. 4, page 17).
+ * The rules are described in [1] (Fig. 4, page 17).
  */
-package raw.calculus.normalizer
-
-import raw._
-import raw.calculus._
+package raw.logical.calculus.parser
 
 object Normalizer {
 
-  private def normalize(e: parser.TypedExpression): parser.TypedExpression = {
-    import raw.calculus.parser._
-
+  def apply(e: TypedExpression): TypedExpression = {
     /**
      * Splits a list using a partial function.
      */
@@ -188,65 +183,4 @@ object Normalizer {
         Comprehension(t, m, e, q ++ r ++ List(Bind(v, e1)) ++ s)
     })
   }
-
-  /**
-   * Convert (normalized) expression from the Parser calculus to the Normalizer calculus.
-   */
-  private def convert(e: parser.TypedExpression): TypedExpression = {
-    def convertType(t: parser.ParserType): MonoidType = t match {
-      case parser.BoolType => BoolType
-      case parser.StringType => StringType
-      case parser.FloatType => FloatType
-      case parser.IntType => IntType
-      case parser.RecordType(atts) => RecordType(atts.map(att => Attribute(att.name, convertType(att.parserType))))
-      case parser.SetType(t) => SetType(convertType(t))
-      case parser.BagType(t) => BagType(convertType(t))
-      case parser.ListType(t) => ListType(convertType(t))
-      case _ : parser.VariableType => VariableType
-    }
-
-    def convertVariable(v: parser.Variable) = Variable(convertType(v.parserType), v.name)
-
-    e match {
-      case parser.Null() => Null
-      case parser.BoolConst(v) => BoolConst(v)
-      case parser.StringConst(v) => StringConst(v)
-      case parser.FloatConst(v) => FloatConst(v)
-      case parser.IntConst(v) => IntConst(v)
-      case v: parser.Variable => convertVariable(v)
-      case parser.RecordProjection(t, e, name) => RecordProjection(convertType(t), convert(e), name)
-      case parser.RecordConstruction(t, atts) => RecordConstruction(convertType(t), atts.map(att => AttributeConstruction(att.name, convert(att.e))))
-      case parser.IfThenElse(t, e1, e2, e3) => IfThenElse(convertType(t), convert(e1), convert(e2), convert(e3))
-      case parser.BinaryOperation(t, op, e1, e2) => BinaryOperation(convertType(t), op, convert(e1), convert(e2))
-      case f: parser.FunctionAbstraction => throw RawInternalException("unexpected FunctionAbstraction: expression not normalized")
-      case f: parser.FunctionApplication => throw RawInternalException("unexpected FunctionApplication: expression not normalized")
-      case parser.EmptySet() => EmptySet
-      case parser.EmptyBag() => EmptyBag
-      case parser.EmptyList() => EmptyList
-      case parser.ConsCollectionMonoid(t, m, e) => ConsCollectionMonoid(convertType(t), m, convert(e))
-      case parser.MergeMonoid(t, m, e1, e2) => MergeMonoid(convertType(t), m, convert(e1), convert(e2))
-      case parser.Comprehension(t, m, e, qs) => {
-        val nqs = qs.map(q => q match {
-          case e: parser.TypedExpression => convert(e)
-          case parser.Generator(v: parser.Variable, e) => Generator(convertVariable(v), convert(e))
-          case _ => throw RawInternalException("unexpected Bind: expression not normalized")
-        })
-        val ne = convert(e)
-        Comprehension(convertType(t), m, ne, nqs)
-      }
-      case parser.Not(e) => Not(convert(e))
-      case parser.FloatToInt(e) => FloatToInt(convert(e))
-      case parser.FloatToString(e) => FloatToString(convert(e))
-      case parser.IntToFloat(e) => IntToFloat(convert(e))
-      case parser.IntToString(e) => IntToString(convert(e))
-      case parser.StringToBool(e) => StringToBool(convert(e))
-      case parser.StringToInt(e) => StringToInt(convert(e))
-      case parser.StringToFloat(e) => StringToFloat(convert(e))
-    }
-  }
-
-  /**
-   * This methods normalizes a (Parser) expression and returns a new (Normalizer) expression.
-   */
-  def apply(e: parser.TypedExpression): TypedExpression = convert(normalize(e))
 }

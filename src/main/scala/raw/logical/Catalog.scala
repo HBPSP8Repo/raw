@@ -1,4 +1,4 @@
-package raw.catalog
+package raw.logical
 
 import raw._
 

@@ -1,13 +1,13 @@
-package raw.calculus.parser
+package raw.logical.calculus.parser
 
-/** Scope
+/**
+ * Scope
  *
- *  Scopes are used by the parser to store variable bindings.
- *  Scopes can be nested so that variable names can be reused in inner nestings.
+ * Scopes are used by the parser to store variable bindings.
+ * Scopes can be nested so that variable names can be reused in inner nestings.
  *  
- *  TODO: Copy scopes around to make things immutable.
- *  			The parser is slow enough so no need to optimize here :-)
- *  
+ * TODO: Copy scopes around to make things immutable.
+ * 			The parser is slow enough so no need to optimize here :-)
  */
 sealed abstract class Scope {
   var bindings = Map[String, Variable]()

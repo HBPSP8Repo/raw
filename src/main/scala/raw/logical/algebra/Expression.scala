@@ -1,59 +1,57 @@
-package raw.algebra
+package raw.logical.algebra
 
 import raw._
+import raw.logical._
 
-/** Expression for Algebra
+/**
+ * Expression for Algebra
  */
-
 sealed abstract class Expression(val monoidType: MonoidType)
 
-/** Constant
+/**
+ * Constant
  */
-
 sealed abstract class Constant(t: PrimitiveType) extends Expression(t)
 case class BoolConst(v: Boolean) extends Constant(BoolType)
 case class IntConst(v: Long) extends Constant(IntType)
 case class FloatConst(v: Double) extends Constant(FloatType)
 case class StringConst(v: String) extends Constant(StringType)
 
-/** Argument
+/**
+ * Argument
  */
-
 case class Argument(t: MonoidType, id: Int) extends Expression(t)
 
-/** RecordProjection
+/**
+ * RecordProjection
  */
-
 case class RecordProjection(t: MonoidType, e: Expression, name: String) extends Expression(t)
 
-/** RecordConstruction
+/**
+ * RecordConstruction
  */
-
 case class AttributeConstruction(name: String, e: Expression)
 case class RecordConstruction(t: MonoidType, atts: List[AttributeConstruction]) extends Expression(t)
 
-/** IfThenElse
+/**
+ * IfThenElse
  */
-
 case class IfThenElse(t: MonoidType, e1: Expression, e2: Expression, e3: Expression) extends Expression(t)
 
-/** BinaryOperation
+/**
+ * BinaryOperation
  */
-
 case class BinaryOperation(t: MonoidType, op: BinaryOperator, e1: Expression, e2: Expression) extends Expression(t)
 
-/** MergeMonoid
+/**
+ * MergeMonoid
  */
-
 case class MergeMonoid(t: MonoidType, m: Monoid, e1: Expression, e2: Expression) extends Expression(t)
 
-/** Unary Functions
- * 
- * TODO: Why aren't unary functions included in [1] (Fig. 2, page 12)?
+/**
+ * Unary Functions
  */
-
 case class Not(e: Expression) extends Expression(BoolType)
-
 case class FloatToInt(e: Expression) extends Expression(IntType)
 case class FloatToString(e: Expression) extends Expression(StringType)
 case class IntToFloat(e: Expression) extends Expression(FloatType)
@@ -62,9 +60,9 @@ case class StringToBool(e: Expression) extends Expression(BoolType)
 case class StringToInt(e: Expression) extends Expression(IntType)
 case class StringToFloat(e: Expression) extends Expression(FloatType)
 
-/** ExpressionPrettyPrinter
+/**
+ * ExpressionPrettyPrinter
  */
-
 object ExpressionPrettyPrinter { 
   def apply(e: Expression, pre: String = ""): String = pre + (e match {
     case BoolConst(v) => if (v) "true" else "false"

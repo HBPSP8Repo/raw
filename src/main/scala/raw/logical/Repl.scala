@@ -1,30 +1,7 @@
-package raw.repl
+package raw.logical
 
 import raw._
-import raw.calculus._
-import raw.calculus.parser.TypeCheckerError
-import raw.calculus.parser.ParserError
-import raw.calculus.parser.PrimitiveTypeRequired
-import raw.calculus.parser.BoolRequired
-import raw.calculus.parser.NumberRequired
-import raw.calculus.parser.MonoidMergeMismatch
-import raw.calculus.parser.UnknownAttribute
-import raw.calculus.parser.RecordRequired
-import raw.calculus.parser.IfResultMismatch
-import raw.calculus.parser.FunctionApplicationMismatch
-import raw.calculus.parser.FunctionTypeRequired
-import raw.calculus.parser.CommutativeMonoidRequired
-import raw.calculus.parser.IdempotentMonoidRequired
-import raw.calculus.parser.CollectionTypeRequired
-import raw.calculus.parser.PredicateRequired
-import raw.calculus.parser.RootScope
-import raw.calculus.parser.ParserTypePrettyPrinter
-import raw.calculus.normalizer.Normalizer
-import raw.calculus.canonical.Canonical
-import raw.catalog._
-import raw.algebra.Algebra
-import raw.algebra.unnester.Unnester
-import raw.algebra.emitter.JsonEmitter
+import scala.util.control.Breaks._
 
 object Repl extends App {
 
@@ -35,27 +12,24 @@ object Repl extends App {
    *  4) convert canonical form into algebra and,
    *  5) return the algebra.
    */
-  def run(query: String, catalog: Catalog): Algebra = {
+  def run(query: String, catalog: Catalog): algebra.Algebra = {
     //val st = System.nanoTime()
-    val p = new parser.Parser(catalog)
+    val p = new calculus.parser.Parser(catalog)
     //println("catalog: " + (System.nanoTime() - st))
     
     //val st1 = System.nanoTime()
     val phase1 = p.parse(query)
-    //println("parser: " + (System.nanoTime() - st1))
+    //println("calculus parser: " + (System.nanoTime() - st1))
     
     //val st2 = System.nanoTime()
-    val phase2 = Normalizer(phase1)
-    //println("normalizer: " + (System.nanoTime() - st2))
+    val phase2 = calculus.Transform(phase1)
+    //println("calculus transform: " + (System.nanoTime() - st2))
     
     //val st3 = System.nanoTime()
-    val phase3 = Canonical(phase2)
-    //println("canonical: " + (System.nanoTime() - st3))
+    val phase3 = algebra.Unnester(phase2)
+    //println("algebra unnester: " + (System.nanoTime() - st3))
     
-    //val st4 = System.nanoTime()
-    val algebra = Unnester(phase3)
-    //println("unnester: " + (System.nanoTime() - st4))
-    algebra
+    phase3
   }
 
   private class ErrorFormatter(val err: String, input: String) {
@@ -104,7 +78,9 @@ object Repl extends App {
     }
   }
 
-  private def pprintTypeCheckerError(input: String, err: TypeCheckerError) = {
+  private def pprintTypeCheckerError(input: String, err: calculus.parser.TypeCheckerError) = {
+    import calculus.parser._
+    
     val fmt = new ErrorFormatter(err.err, input)
     val errs = err match {
       case PrimitiveTypeRequired(e)            => fmt.add(e.pos.line, e.pos.column, ParserTypePrettyPrinter(e.parserType))
@@ -124,7 +100,7 @@ object Repl extends App {
     fmt.pprint()
   }
 
-  def pprintParserError(input: String, e: ParserError) = {
+  def pprintParserError(input: String, e: calculus.parser.ParserError) = {
 
     def pprintInputLine(input: String, i: Int) =
       println(input.split("\n")(i - 1))
@@ -152,23 +128,27 @@ object Repl extends App {
 
   val cat = new Catalog(Map("Events" -> events, "Departments" -> departments, "Employees" -> employees, "Employees1" -> employees1, "Test" -> manager))
 
-  var input: String = ""
-  do {
+  while (true) {
     print("raw > ")
     val input = Console.readLine()
-    try {
-      val alg = run(input, cat)
-      println(algebra.AlgebraPrettyPrinter(alg))
-      println()
-      
-            println()
-            println("JSON:")
-            println(JsonEmitter(alg, cat))
-
-    } catch {
-      case e: TypeCheckerError => pprintTypeCheckerError(input, e)
-      case e: ParserError      => pprintParserError(input, e)
-      case e: RawException     => println("Error occurred: " + e)
+    if (input == null) {
+      println("Bye")
+      break
+    } else { 
+      try {
+        val alg = run(input, cat)
+        println(algebra.AlgebraPrettyPrinter(alg))
+        println()
+        
+              println()
+              println("JSON:")
+              println(algebra.JsonEmitter(alg, cat))
+  
+      } catch {
+        case e: calculus.parser.TypeCheckerError => pprintTypeCheckerError(input, e)
+        case e: calculus.parser.ParserError      => pprintParserError(input, e)
+        case e: RawException     => println("Error occurred: " + e)
+      }
     }
-  } while (input != null)
+  }
 }

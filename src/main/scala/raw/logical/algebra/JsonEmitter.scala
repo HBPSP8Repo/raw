@@ -1,11 +1,10 @@
-package raw.algebra.emitter
+package raw.logical.algebra
 
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL.WithBigDecimal._
 import raw._
-import raw.algebra._
-import raw.catalog._
+import raw.logical._
 
 object JsonEmitter {
 
@@ -25,16 +24,16 @@ object JsonEmitter {
       }
   
       def binaryOp(op: BinaryOperator) = op match {
-        case op: Eq => "eq"
-        case op: Neq => "neq"
-        case op: Ge => "ge"
-        case op: Gt => "gt"
-        case op: Le => "le"
-        case op: Lt => "lt"
-        case op: Add => "add"
-        case op: Sub => "sub"
-        case op: Mult => "mult"
-        case op: Div => "div"
+        case Eq => "eq"
+        case Neq => "neq"
+        case Ge => "ge"
+        case Gt => "gt"
+        case Le => "le"
+        case Lt => "lt"
+        case Add => "add"
+        case Sub => "sub"
+        case Mult => "mult"
+        case Div => "div"
       }
   
       def monoid(m: Monoid) = m match {
@@ -128,7 +127,7 @@ object JsonEmitter {
           ("path" -> path(path1)) ~
           ("p" -> expression(p)) ~
           ("input" -> recurse(x))
-        case algebra.Merge(m, x, y) => 
+        case Merge(m, x, y) => 
           ("operator" -> "merge") ~
           ("accumulator" -> monoid(m)) ~
           ("left" -> recurse(x)) ~

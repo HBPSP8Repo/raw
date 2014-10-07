@@ -1,8 +1,7 @@
 package raw.repl
 
 import raw._
-import raw.repl._
-import raw.catalog._
+import raw.logical._
 
 class ReplTest extends org.scalatest.FunSuite {
 
@@ -73,7 +72,7 @@ Reduce set [ e = ( name := <arg1>.name, address := <arg1>.address ) ] [ p = true
   |   |   | Select [ p = ( ( <arg0>.name = "CSE" ) and true ) ] 
   |   |   |   | Scan Departments
 """    
-    assert(output == expected.trim())
+    assert(output == expected.trim())  
   }
   
   /** Query taken from [1], page 32: "Query C".

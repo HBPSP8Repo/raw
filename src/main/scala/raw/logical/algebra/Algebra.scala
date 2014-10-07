@@ -1,16 +1,17 @@
-package raw.algebra
+package raw.logical.algebra
 
 import raw._
+import raw.logical._
 
-import org.json4s._
-/** Path
+/**
+ * Path
  */
-
 abstract class Path
 case class ArgumentPath(id: Int) extends Path
 case class InnerPath(p: Path, name: String) extends Path
 
-/** Algebra
+/**
+ * Algebra
  */
 sealed abstract class Algebra
 
@@ -34,9 +35,9 @@ case class OuterUnnest(path: Path, p: Expression, X: Algebra) extends Algebra
 
 case class Merge(m: Monoid, X: Algebra, Y: Algebra) extends Algebra
 
-/** PathPrettyPrinter
+/**
+ * PathPrettyPrinter
  */
-
 object PathPrettyPrinter {
   def apply(p: Path): String = p match {
     case ArgumentPath(id) => "<arg" + id.toString() + ">"
@@ -44,17 +45,17 @@ object PathPrettyPrinter {
   }
 }
 
-/** ListArgumentPrettyPrinter
+/**
+ * ListArgumentPrettyPrinter
  */
-
 object ListArgumentPrettyPrinter {
   def apply(as: List[Argument]): String = 
     as.map(a => ExpressionPrettyPrinter(a)).mkString(",")
 }
 
-/** AlgebraPrettyPrinter
+/**
+ * AlgebraPrettyPrinter
  */
-
 object AlgebraPrettyPrinter {
   def apply(a: Algebra, pre: String = ""): String =  pre + (a match {
     case Scan(name) => "Scan " + name

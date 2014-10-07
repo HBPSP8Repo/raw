@@ -1,15 +1,14 @@
 /** Parser for monoid comprehensions with built-in type checker.
  *  The type checker rules are described in [1] (Fig. 3, page 13).
  */
-package raw.calculus.parser
+package raw.logical.calculus.parser
 
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.Positional
 
 import raw._
-import raw.calculus._
-import raw.catalog._
+import raw.logical.Catalog
 
 /**
  * ParserError
@@ -19,7 +18,6 @@ case class ParserError(line: Int, column: Int, err: String) extends RawException
 /**
  * TypeCheckerError
  */
-
 sealed abstract class TypeCheckerError(val err: String) extends RawException(err)
 
 case class PrimitiveTypeRequired(e: TypedExpression) extends TypeCheckerError("primitive type required")
@@ -101,8 +99,8 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
   /**
    * Type Unification Algorithm
    *
-   *  The following type unification algorithm is described in:
-   *    http://inst.eecs.berkeley.edu/~cs164/sp11/lectures/lecture22.pdf (Slide 9)
+   * The following type unification algorithm is described in:
+   *   http://inst.eecs.berkeley.edu/~cs164/sp11/lectures/lecture22.pdf (Slide 9)
    */
   def unify(t1: ParserType, t2: ParserType): Option[ParserType] = {
     def recurse(t1: ParserType, t2: ParserType, binding: Map[ParserType, ParserType]): Option[Map[ParserType, ParserType]] = {
@@ -151,7 +149,6 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
 
   /**
    * Type conversion nodes.
-   *
    */
   def cast(t: ParserType, e: TypedExpression) = (e.parserType, t) match {
     case (BoolType, BoolType) => e
@@ -305,7 +302,9 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
       }
     })
 
-  /** PositionedIdent and posIdent are used to return identifiers wrapped in Positional */
+  /**
+   * PositionedIdent and posIdent are used to return identifiers wrapped in Positional.
+   */
   case class PositionedIdent(s: String) extends Positional
   def posIdent: Parser[PositionedIdent] = positioned(ident ^^ (PositionedIdent(_)))
 
@@ -451,6 +450,7 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
               case SetType(t) => if (!m.commutative) throw CommutativeMonoidRequired(m, g) else if (!m.idempotent) throw IdempotentMonoidRequired(m, g)
               case BagType(t) => if (!m.commutative) throw CommutativeMonoidRequired(m, g)
               case ListType(t) =>
+              // TODO: Review warning on non-exhaustive match
             }
           }
           case q: Bind =>
@@ -520,9 +520,12 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
       },
       name => "variable '" + name + "' does not exist"))
 
+  /*
+   * Parse the query and normalize its result.
+   */
   def parse(query: String): TypedExpression =
     phrase(expression)(new lexical.Scanner(query)) match {
-      case Success(result, next) => result
+      case Success(result, next) => Normalizer(result)
       case NoSuccess(msg, next) => throw ParserError(next.pos.line, next.pos.column, msg)
     }
 
