@@ -1,12 +1,13 @@
 package raw.logical.calculus
 
+import org.kiama.util.TreeNode
 import raw._
 import raw.logical._
 
 /**
  * Expressions for Calculus
  */
-sealed abstract class Expression
+sealed abstract class Expression extends TreeNode
 sealed abstract class TypedExpression(val monoidType: MonoidType) extends Expression
 sealed abstract class UntypedExpression extends Expression
 
