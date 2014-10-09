@@ -391,21 +391,22 @@ object Unnester {
         }
       }
     }
-    /** The following rule is not present in the original algorithm.
+    /**
+     * The following rule is not present in the original algorithm.
      *  
-     *  It handles transformations such as:
-     *  	for x <- (A union B) yield set x
-     *  where the result is:
-     *    (for (x1 <- A) yield set x1) merge set (for (x2 <- B) yield set x2)
+     * It handles transformations such as:
+     *     for x <- (A union B) yield set x
+     * where the result is:
+     *     (for (x1 <- A) yield set x1) merge set (for (x2 <- B) yield set x2)
      */
-    case CalculusTerm(k @calculus.MergeMonoid(t, m, e1, e2)) => {
+    case CalculusTerm(k @ calculus.MergeMonoid(t, m, e1, e2)) => {
       AlgebraTerm(
         algebra.Merge(
           m,
           T(CalculusTerm(e1), u, w, e).t,
           T(CalculusTerm(e2), u, w, e).t))
     }
-    case CalculusTerm(_) => throw RawInternalException("unexpected calculus term")
+    case _: CalculusTerm => throw RawInternalException("unexpected calculus term")
     case _: AlgebraTerm  => throw RawInternalException("unexpected algebra term")
   }
 

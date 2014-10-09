@@ -21,6 +21,8 @@ object JsonEmitter {
         case SetType(t) => ("type" -> "set") ~ ("inner" -> monoidType(t))
         case BagType(t) => ("type" -> "bag") ~ ("inner" -> monoidType(t))
         case ListType(t) => ("type" -> "list") ~ ("inner" -> monoidType(t))
+        // TODO: The following should only occur when the query result is Null() 
+        case VariableType => ("type" -> "null")
       }
   
       def binaryOp(op: BinaryOperator) = op match {

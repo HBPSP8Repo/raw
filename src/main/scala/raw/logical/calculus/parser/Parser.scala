@@ -67,7 +67,8 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     "null", "true", "false",
     "if", "else", "then",
     "bool", "int", "float", "string", "record", "set", "bag", "list",
-    "for", "yield")
+    "for", "yield",
+    "as_bool", "as_float", "as_int", "as_string")
 
   lexical.delimiters ++= Set(
     "=", "<>", "<=", "<", ">=", ">",
@@ -520,12 +521,9 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
       },
       name => "variable '" + name + "' does not exist"))
 
-  /*
-   * Parse the query and normalize its result.
-   */
   def parse(query: String): TypedExpression =
     phrase(expression)(new lexical.Scanner(query)) match {
-      case Success(result, next) => Normalizer(result)
+      case Success(result, next) => result
       case NoSuccess(msg, next) => throw ParserError(next.pos.line, next.pos.column, msg)
     }
 

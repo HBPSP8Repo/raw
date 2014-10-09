@@ -68,5 +68,5 @@ object AlgebraPrettyPrinter {
     case OuterUnnest(path, p, x) => "OuterUnnest [ path = " + PathPrettyPrinter(path) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
     case Merge(m,x,y) => "Merge " + MonoidPrettyPrinter(m) + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
     case Empty => "Empty"
-  })   
+  })
 }

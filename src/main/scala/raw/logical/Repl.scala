@@ -2,6 +2,7 @@ package raw.logical
 
 import raw._
 import scala.util.control.Breaks._
+import java.util.concurrent.TimeUnit
 
 object Repl extends App {
 
@@ -13,21 +14,23 @@ object Repl extends App {
    *  5) return the algebra.
    */
   def run(query: String, catalog: Catalog): algebra.Algebra = {
-    //val st = System.nanoTime()
+    val st = System.nanoTime()
     val p = new calculus.parser.Parser(catalog)
-    //println("catalog: " + (System.nanoTime() - st))
+    println("catalog: " + TimeUnit.MILLISECONDS.convert(System.nanoTime() - st, TimeUnit.NANOSECONDS))
     
-    //val st1 = System.nanoTime()
+    val st1 = System.nanoTime()
     val phase1 = p.parse(query)
-    //println("calculus parser: " + (System.nanoTime() - st1))
+    println(phase1)
+    println("calculus parser: " + TimeUnit.MILLISECONDS.convert(System.nanoTime() - st1, TimeUnit.NANOSECONDS))
     
-    //val st2 = System.nanoTime()
+    val st2 = System.nanoTime()
     val phase2 = calculus.Transform(phase1)
-    //println("calculus transform: " + (System.nanoTime() - st2))
+    println(phase2)
+    println("calculus transform: " + TimeUnit.MILLISECONDS.convert(System.nanoTime() - st2, TimeUnit.NANOSECONDS))
     
-    //val st3 = System.nanoTime()
+    val st3 = System.nanoTime()
     val phase3 = algebra.Unnester(phase2)
-    //println("algebra unnester: " + (System.nanoTime() - st3))
+    println("algebra unnester: " + TimeUnit.MILLISECONDS.convert(System.nanoTime() - st3, TimeUnit.NANOSECONDS))
     
     phase3
   }
