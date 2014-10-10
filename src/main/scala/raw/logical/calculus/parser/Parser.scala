@@ -3,9 +3,11 @@
  */
 package raw.logical.calculus.parser
 
-import scala.util.parsing.combinator.syntactical.StandardTokenParsers
+//import scala.util.parsing.combinator.syntactical.StandardTokenParsers
+import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.Positional
+//import scala.util.matching.Regex
 
 import raw._
 import raw.logical.Catalog
@@ -38,7 +40,7 @@ case class ConversionMismatch(from: ParserType, to: ParserType) extends RawExcep
 /**
  * Parser
  */
-class Parser(val catalog: Catalog) extends StandardTokenParsers {
+class Parser(val catalog: Catalog) extends RegexParsers {
 
   private def buildScope() = {
     def convertType(t: MonoidType): ParserType = t match {
@@ -61,19 +63,19 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
 
   private val rootScope = buildScope()
 
-  lexical.reserved ++= Set(
-    "not",
-    "union", "bag_union", "append", "sum", "multiply", "max", "or", "and",
-    "null", "true", "false",
-    "if", "else", "then",
-    "bool", "int", "float", "string", "record", "set", "bag", "list",
-    "for", "yield",
-    "as_bool", "as_float", "as_int", "as_string")
-
-  lexical.delimiters ++= Set(
-    "=", "<>", "<=", "<", ">=", ">",
-    "+", "-", "*", "/",
-    ".", "(", ")", "[", "]", "{", "}", ",", "\\", ":", "=>", "<-", "`", ":=")
+//  lexical.reserved ++= Set(
+//    "not",
+//    "union", "bag_union", "append", "sum", "multiply", "max", "or", "and",
+//    "null", "true", "false",
+//    "if", "else", "then",
+//    "bool", "int", "float", "string", "record", "set", "bag", "list",
+//    "for", "yield",
+//    "as_bool", "as_float", "as_int", "as_string")
+//
+//  lexical.delimiters ++= Set(
+//    "=", "<>", "<=", "<", ">=", ">",
+//    "+", "-", "*", "/",
+//    ".", "(", ")", "[", "]", "{", "}", ",", "\\", ":", "=>", "<-", "`", ":=")
 
   /**
    * CurrentScope
@@ -309,6 +311,8 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
   case class PositionedIdent(s: String) extends Positional
   def posIdent: Parser[PositionedIdent] = positioned(ident ^^ (PositionedIdent(_)))
 
+  def ident: Parser[String] = """\w+""".r
+  
   def funcAppExpr: Parser[TypedExpression] = positioned(
     basicExpr ~ opt("(" ~> expression <~ ")") ^^ {
       case f ~ None => f
@@ -340,9 +344,16 @@ class Parser(val catalog: Catalog) extends StandardTokenParsers {
     "null" ^^^ Null() |
       "true" ^^^ BoolConst(true) |
       "false" ^^^ BoolConst(false) |
-      (numericLit <~ ".") ~ numericLit ^^ { case v1 ~ v2 => FloatConst((v1 + "." + v2).toFloat) } |
-      numericLit ^^ { case v => IntConst(v.toInt) } |
-      stringLit ^^ { case v => StringConst(v) })
+      wholeNumber ^^ { case v => if (v.toInt < 0) Neg(IntConst(v.toInt)) else IntConst(v.toInt) } |
+      floatingPointNumber ^^ { case v => FloatConst(v.toFloat) } |
+      stringLiteral ^^ { case v => StringConst(v) })
+
+  def wholeNumber: Parser[String] = """-?\d+""".r
+
+  def floatingPointNumber: Parser[String] = """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
+
+  def stringLiteral: Parser[String] =
+    ("\""+"""([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*"""+"\"").r
 
   def zeroAndMonoidCons: Parser[TypedExpression] = positioned(
     setZeroAndMonoidCons |

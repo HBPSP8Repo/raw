@@ -65,7 +65,7 @@ case class IfThenElse(t: ParserType, e1: TypedExpression, e2: TypedExpression, e
 /**
  * BinaryOperation
  */
-case class BinaryOperation(t: ParserType, op: BinaryOperator, e1: TypedExpression, e2: TypedExpression) extends TypedExpression(t)
+case class BinaryOperation(t: ParserType, op: BinaryOperator, e1: TypedExpression, e2: TypedExpression) extends TypedExpression( if (true ) t else t)
 
 /**
  * FunctionAbstraction
@@ -112,7 +112,11 @@ case class Generator(v: Variable, e: TypedExpression) extends UntypedExpression
  * Unary Functions
  */
 case class Not(e: TypedExpression) extends TypedExpression(BoolType)
-case class FloatToInt(e: TypedExpression) extends TypedExpression(IntType)
+case class Neg(e: TypedExpression) extends TypedExpression(e.parserType)
+//case class FloatToInt(e: TypedExpression) extends TypedExpression(e.parserType match { case FloatType => IntType; case _ => throw RawInternalException("foo") })
+sealed abstract class FloatExpression extends TypedExpression(FloatType)
+sealed abstract class IntExpression extends TypedExpression(IntType)
+case class FloatToInt(e: FloatExpression) extends IntExpression
 case class FloatToString(e: TypedExpression) extends TypedExpression(StringType)
 case class IntToFloat(e: TypedExpression) extends TypedExpression(FloatType)
 case class IntToString(e: TypedExpression) extends TypedExpression(StringType)
