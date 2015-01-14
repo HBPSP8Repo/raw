@@ -36,8 +36,8 @@ libraryDependencies ++=
     "org.scalacheck" %% "scalacheck" % "1.11.6" % "test",
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.2",
     "org.json4s" %% "json4s-native" % "3.2.10",
-    "com.googlecode.kiama" %% "kiama" % "1.6.0",
-    "com.googlecode.kiama" %% "kiama" % "1.6.0" % "test" classifier ("tests")
+    "com.googlecode.kiama" %% "kiama" % "1.8.0",
+    "com.googlecode.kiama" %% "kiama" % "1.8.0" % "test" classifier ("tests")
   )
   
 resolvers ++= Seq (

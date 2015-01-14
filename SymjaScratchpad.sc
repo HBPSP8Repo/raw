@@ -13,11 +13,11 @@ object SymjaScratchpad {
   val test = F.Equal(F.Plus(a, b), a)             //> test  : org.matheclipse.core.interfaces.IAST = b+a==a
   
   val util = new EvalUtilities()                  //> util  : org.matheclipse.core.eval.EvalUtilities = org.matheclipse.core.eval.
-                                                  //| EvalUtilities@466ffb14
+                                                  //| EvalUtilities@1019b028
   util.evaluate(test)                             //> res0: org.matheclipse.core.interfaces.IExpr = b+a==a
    
 	util.evaluate("2 * a + b - (a) < 0")      //> res1: org.matheclipse.core.interfaces.IExpr = b+a<0
    
   util.evaluate("a && (b || c)")                  //> res2: org.matheclipse.core.interfaces.IExpr = a&&(b||c)
- 
+
 }

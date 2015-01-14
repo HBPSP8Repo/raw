@@ -1,7 +1,6 @@
 package raw
 
-abstract class RawException(err: String) extends RuntimeException("[RawException] " + err)
+abstract class RawException extends RuntimeException
 
-case class RawInternalException(err: String) extends RuntimeException("[RawInternalException] " + err) {
-  override def toString = "[RawInternalException] " + err
-}
+//TODO: Remove
+case class RawInternalException(err: String) extends RawException
