@@ -9,37 +9,38 @@ import raw.calculus.CanonicalCalculus._
  * Created by gaidioz on 1/14/15.
  */
 
-class scala(classes: Map[String, CollectionValue]) extends Executor(classes) {
-  def execute(algebraNode: AlgebraNode): List[CollectionValue] = algebraNode match {
+class scala(classes: Map[String, ListValue]) extends Executor(classes) {
+
+  def execute(algebraNode: AlgebraNode): Blocks = algebraNode match {
     case Join(ps, left, right) => ???
     case Merge(m, left, right) => ???
     case Nest(m, e, f, p, g, child) => ???
     case OuterJoin(p, left, right) => ???
     case OuterUnnest(path, p, child) => ???
     case Reduce(m, e, p, child) => ???
-    case Scan(s) => List(classes(s))
+    case Scan(s) => new Blocks(List(classes(s)))
     case Select(ps, child) => ???
     case Unnest(path, p, child) => ???
   }
 
-  def executeSelect(ps: List[Exp], exp: CollectionValue): CollectionValue = exp match {
-    case ListValue(l) => ListValue(l.filter({_ => ps.map(expEval).forall({_ == BooleanValue(true)})}))
-   }
-
-  def expEval(exp: Exp): MyValue = exp match {
+  def expEval(exp: Exp, env: Map[String, MyValue]): MyValue = exp match {
     case BoolConst(v) => BooleanValue(v)
     case IntConst(v) => IntValue(v)
     case FloatConst(v) => FloatValue(v)
     case StringConst(v) => StringValue(v)
-    case Var() => ???
-    case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e))).toMap)
-    case RecordProj(e, idn) => expEval(e) match { case v: RecordValue => v.value(idn) }
+    case v: Var => varEval(v, env)
+    case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
+    case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
     case ZeroCollectionMonoid(m) => zeroCollectionEval(m)
-    case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e))
-    case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1), expEval(e2))
-    case UnaryExp(op, e) => unaryOpEval(op)(expEval(e))
-    case IfThenElse(e1, e2, e3) => if(expEval(e1) == BooleanValue(true)) expEval(e2) else expEval(e3)
-    case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1), expEval(e2))
+    case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
+    case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1, env), expEval(e2, env))
+    case UnaryExp(op, e) => unaryOpEval(op)(expEval(e, env))
+    case IfThenElse(e1, e2, e3) => if(expEval(e1, env) == BooleanValue(true)) expEval(e2, env) else expEval(e3, env)
+    case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
+  }
+
+  def varEval(v: Var, env: Map[String, MyValue]): MyValue = {
+    env("var0")
   }
 
   def zeroCollectionEval(m: CollectionMonoid): CollectionValue = m match {

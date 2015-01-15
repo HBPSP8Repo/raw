@@ -12,19 +12,15 @@ import org.scalatest.{FeatureSpec, GivenWhenThen, FunSpec, FunSuite}
  */
 class ExecutorFun extends FeatureSpec with GivenWhenThen {
 
-  val content = ListValue(List(RecordValue(Map("value" -> IntValue(1)))))
+  val content = ListValue(List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2)))))
+  val content2 = ListValue(List(RecordValue(Map("name" -> StringValue("one"))), RecordValue(Map("name" -> StringValue("two")))))
   val executor = new scala(Map("numbers" -> content))
 
   def check(exp: Exp, result: MyValue): Unit = {
-    /*
-    Given("an executor")
-    When ("evaluating " + exp)
-    Then ("it should return " + result)
-    */
     scenario("evaluation of " + exp) {
       When("evaluating " + exp)
       Then("it should return " + result)
-      assert(executor.expEval(exp) === result)
+      assert(executor.expEval(exp, Map()) === result)
     }
   }
 
@@ -38,7 +34,7 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
     results.foreach { case (op, result) => f(op, result) }
   }
 
-  def checkExec(alg: AlgebraNode, result: List[MyValue]): Unit = {
+  def checkExec(alg: AlgebraNode, result: Blocks): Unit = {
     scenario("execution of " + alg) {
       When("evaluating " + alg)
       Then("it should return " + result)
@@ -46,6 +42,7 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
     }
   }
 
+  /*
   check(IntConst(1), IntValue(1))
   check(IntConst(2), IntValue(2))
   check(BoolConst(true), BooleanValue(true))
@@ -86,12 +83,14 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)))), "a"), IntValue(2))
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "a"), IntValue(2))
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "b"), IntValue(3))
-
+*/
   // some data: a table of one number
 
 
 
-  checkExec(Scan("numbers"), List(content))
+  val x = new Blocks(List(content, content))
+  x.foreach(println)
+  checkExec(Scan("numbers"), new Blocks(List(content)))
   /*
   checkExec(Select(List(), Scan("numbers")), content)
   checkExec(Select(List(BoolConst(true)), Scan("numbers")), content)
