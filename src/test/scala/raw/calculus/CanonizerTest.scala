@@ -15,11 +15,15 @@ class CanonizerTest extends FunTest {
   def compare(actual: String, expected: String) = {
     def norm(in: Iterator[String]) = {
       var m = scala.collection.mutable.Map[String, Int]()
-      var c = 0
-      for (v <- in)
-        if (m.getOrElseUpdate(v, c) == c)
-          c += 1
-      m
+      var l = scala.collection.mutable.MutableList[Int]()
+      var cnt = 0
+      for (v <- in) {
+        val c = m.getOrElseUpdate(v, cnt)
+        if (c == cnt)
+          cnt += 1
+        l += c
+      }
+      l
     }
     val r = """\$var\d""".r
     assert(norm(r.findAllIn(actual)) === norm(r.findAllIn(expected)))
