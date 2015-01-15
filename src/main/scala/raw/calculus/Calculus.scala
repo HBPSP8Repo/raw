@@ -22,18 +22,13 @@ object Calculus {
 
   /** Null
     */
-  case class Null() extends Exp {
-    override def toString() = "null"
-  }
+  case class Null() extends Exp
 
   /** Constants
     */
   sealed abstract class Const extends Exp {
     type T
-
     def value: T
-
-    override def toString() = s"$value"
   }
 
   // TODO: Add DateTime, smaller/larger integers/floats.
@@ -57,8 +52,6 @@ object Calculus {
     */
   sealed abstract class IdnNode extends CalculusNode {
     def idn: String
-
-    override def toString() = idn
   }
 
   /** Defining occurrence of an identifier
@@ -71,79 +64,52 @@ object Calculus {
 
   /** Identifier expression
     */
-  case class IdnExp(name: IdnUse) extends Exp {
-    override def toString() = name.toString()
-  }
+  case class IdnExp(name: IdnUse) extends Exp
 
   /** Record Projection
     */
-  case class RecordProj(e: Exp, idn: Idn) extends Exp {
-    override def toString() = s"$e.$idn"
-  }
+  case class RecordProj(e: Exp, idn: Idn) extends Exp
 
   /** Record Construction
     */
-  case class AttrCons(idn: Idn, e: Exp) extends CalculusNode {
-    override def toString() = s"$idn := $e"
-  }
-
-  case class RecordCons(atts: Seq[AttrCons]) extends Exp {
-    override def toString() = s"(${atts.mkString(", ")})"
-  }
+  case class AttrCons(idn: Idn, e: Exp) extends CalculusNode
+  case class RecordCons(atts: Seq[AttrCons]) extends Exp
 
   /** If/Then/Else
     */
-  case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp {
-    override def toString() = s"if $e1 then $e2 else $e3"
-  }
+  case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp
 
   /** Binary Expression
     */
-  case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp {
-    override def toString() = s"$e1 $op $e2"
-  }
+  case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
   /** Function Application
     */
-  case class FunApp(f: Exp, e: Exp) extends Exp {
-    override def toString() = s"$f($e)"
-  }
+  case class FunApp(f: Exp, e: Exp) extends Exp
 
   /** Zero for Collection Monoid
     */
-  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp {
-    override def toString() = s"${m.openSym}${m.closeSym}"
-  }
+  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
 
   /** Construction for Collection Monoid
     */
-  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp {
-    override def toString() = s"${m.openSym} $e ${m.closeSym}"
-  }
+  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
 
   /** Merge Monoid
     */
-  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp {
-    override def toString() = s"$e1 ${m.mergeSym} $e2"
-  }
+  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
 
   /** Comprehension
     */
-  case class Comp(m: Monoid, qs: Seq[Qual], e: Exp) extends Exp {
-    override def toString() = s"for (${qs.map(_.toString()).mkString(", ")}) yield ${m.compSym} $e"
-  }
+  case class Comp(m: Monoid, qs: Seq[Qual], e: Exp) extends Exp
 
   /** Unary Expression
     */
-  case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp {
-    override def toString() = s"$op $e"
-  }
+  case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
 
   /** Function Abstraction
     */
-  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp {
-    override def toString() = s"\\$idn: $t => $e"
-  }
+  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
 
   /** Statements
     */
@@ -151,14 +117,10 @@ object Calculus {
 
   /** Generator
     */
-  case class Gen(idn: IdnDef, e: Exp) extends Statement {
-    override def toString() = s"$idn <- $e"
-  }
+  case class Gen(idn: IdnDef, e: Exp) extends Statement
 
   /** Bind
     */
-  case class Bind(idn: IdnDef, e: Exp) extends Statement {
-    override def toString() = s"$idn := $e"
-  }
+  case class Bind(idn: IdnDef, e: Exp) extends Statement
 
 }

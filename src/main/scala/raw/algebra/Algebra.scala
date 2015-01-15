@@ -1,12 +1,11 @@
 package raw.algebra
 
 import org.kiama.util.TreeNode
-import raw.calculus.CanonicalCalculus.{ Exp, Var }
-import raw.calculus.Monoid
-import raw.calculus.Path
+import raw.calculus.CanonicalCalculus.{Exp, Var}
+import raw.calculus.{Monoid, Path}
 
 /** Algebra
- */
+  */
 
 // TODO: Algebra depends on Calculus (for Exp, Path, Var) while Calculus.Unnester depends on Algebra as well; doesn't sound right.
 
@@ -42,15 +41,15 @@ object AlgebraPrettyPrinter extends org.kiama.output.PrettyPrinter {
     super.pretty(show(a))
 
   def show(a: AlgebraNode): Doc = a match {
-    case Scan(name) => "scan" <+> parens(text(name))
-    case Reduce(m, e, p, child) => "reduce" <+> text(m.toString()) <+> text(e.toString()) <+> list(p) <@> nest(show(child))
-    case Nest(m, e, f, p, g, child) => "nest" <+> text(m.toString()) <+> text(e.toString()) <+> list(f) <+> list(p) <+> list(g) <@> nest(show(child))
-    case Select(ps, child) => "select" <+> list(ps) <@> nest(show(child))
-    case Join(ps, left, right) => "join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
-    case Unnest(path, p, child) => "unnest" <+> text(path.toString()) <+> list(p) <@> nest(show(child))
-    case OuterJoin(ps, left, right) => "outer_join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
+    case Scan(name)                  => "scan" <+> parens(text(name))
+    case Reduce(m, e, p, child)      => "reduce" <+> text(m.toString()) <+> text(e.toString()) <+> list(p) <@> nest(show(child))
+    case Nest(m, e, f, p, g, child)  => "nest" <+> text(m.toString()) <+> text(e.toString()) <+> list(f) <+> list(p) <+> list(g) <@> nest(show(child))
+    case Select(ps, child)           => "select" <+> list(ps) <@> nest(show(child))
+    case Join(ps, left, right)       => "join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
+    case Unnest(path, p, child)      => "unnest" <+> text(path.toString()) <+> list(p) <@> nest(show(child))
+    case OuterJoin(ps, left, right)  => "outer_join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
     case OuterUnnest(path, p, child) => "outer_unnest" <+> text(path.toString()) <+> list(p) <@> nest(show(child))
-    case Merge(m, left, right) => "merge" <+> text(m.toString()) <@> nest(show(left)) <@> nest(show(right))
+    case Merge(m, left, right)       => "merge" <+> text(m.toString()) <@> nest(show(left)) <@> nest(show(right))
 
     //    case Scan(name) => "Scan " + name
     //    case Reduce(m, e, p, x) => "Reduce " + MonoidPrettyPrinter(m) + " [ e = " + ExpressionPrettyPrinter(e) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")

@@ -14,7 +14,6 @@ trait Canonizer extends Normalizer {
         case ClassEntity(name, tipe) => ClassExtent(name)
       }
       case Calculus.RecordProj(e, idn) => InnerPath(toPath(e), idn)
-      case x => println("x is " + x); ???
     }
 
     def idnToVar(idn: Calculus.IdnNode): CanonicalCalculus.Var = idn -> entity match {

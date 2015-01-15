@@ -1,11 +1,8 @@
 package raw.calculus
 
-import org.scalatest.FunSuite
+class SyntaxAnalyzerTest extends FunTest {
 
-class SyntaxAnalyzerTest extends FunSuite {
-
-  def isOK(q: String) =
-    assert(Driver.parse(q).toString() === q)
+  def isOK(q: String) = assert(CalculusPrettyPrinter.pretty(Driver.parse(q), 200) === q)
   
   test("cern_events") {
     isOK("for (e1 <- Events, e1.RunNumber > 100) yield set (muon := e1.muon)")
