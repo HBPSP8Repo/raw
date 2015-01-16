@@ -2,7 +2,7 @@ package raw.calculus
 
 import org.kiama.util.Message
 
-import raw.RawException
+import raw.Type
 import SymbolTable.ClassEntity
 
 class World(val userTypes: Map[String, Type], val catalog: Set[ClassEntity]) extends Unnester {

@@ -1,5 +1,7 @@
 package raw.calculus
 
+import raw._
+
 class SemanticAnalyzerTest extends FunTest {
 
   def process(w: World, q: String) = w.tipe(parse(w, q))

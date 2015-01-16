@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 import org.kiama.util.TreeNode
 

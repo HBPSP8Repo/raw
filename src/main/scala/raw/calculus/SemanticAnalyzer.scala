@@ -1,8 +1,9 @@
 package raw.calculus
 
+import raw._
+
 trait SemanticAnalyzer {
   
-  import Calculus._
   import org.kiama.==>
   import org.kiama.attribution.Attribution._
   import org.kiama.attribution.Decorators.{ chain, Chain }
@@ -11,6 +12,7 @@ trait SemanticAnalyzer {
   import org.kiama.util.Messaging.{ check, checkuse, message, noMessages }
   import org.kiama.util.Patterns.HasParent
   import org.kiama.util.TreeNode
+  import Calculus._
   import SymbolTable._
 
   /** Map of user-defined types.

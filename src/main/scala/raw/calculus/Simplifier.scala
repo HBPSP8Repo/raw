@@ -1,10 +1,12 @@
 package raw.calculus
 
+import raw._
+
 trait Simplifier extends Canonizer {
 
-  import CanonicalCalculus._
   import org.kiama.attribution.Attribution._
   import org.kiama.rewriting.Rewriter._
+  import CanonicalCalculus._
 
   def simplify(c: Calculus.Comp): Comp = {
     val c1 = canonize(c)

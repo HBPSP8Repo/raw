@@ -3,12 +3,13 @@
 package raw.calculus
 
 import org.kiama.util.PositionedParserUtilities
+import raw._
 
 class SyntaxAnalyzer extends PositionedParserUtilities {
 
-  import Calculus._
   import scala.collection.immutable.HashSet
   import org.kiama.attribution.Attribution.initTree
+  import Calculus._
 
   val reservedWords = HashSet("or",
     "and",

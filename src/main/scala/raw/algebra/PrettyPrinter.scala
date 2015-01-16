@@ -1,33 +1,47 @@
 package raw.algebra
 
+import raw._
+
 /** AlgebraPrettyPrinter
   */
-object AlgebraPrettyPrinter extends org.kiama.output.PrettyPrinter {
+object AlgebraPrettyPrinter extends PrettyPrinter {
+
+  import Algebra._
 
   def pretty(a: AlgebraNode): String =
     super.pretty(show(a))
 
-  def show(a: AlgebraNode): Doc = a match {
-    case Scan(name)                  => "scan" <+> parens(text(name))
-    case Reduce(m, e, p, child)      => "reduce" <+> text(m.toString()) <+> text(e.toString()) <+> list(p) <@> nest(show(child))
-    case Nest(m, e, f, p, g, child)  => "nest" <+> text(m.toString()) <+> text(e.toString()) <+> list(f) <+> list(p) <+> list(g) <@> nest(show(child))
-    case Select(ps, child)           => "select" <+> list(ps) <@> nest(show(child))
-    case Join(ps, left, right)       => "join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
-    case Unnest(path, p, child)      => "unnest" <+> text(path.toString()) <+> list(p) <@> nest(show(child))
-    case OuterJoin(ps, left, right)  => "outer_join" <+> list(ps) <@> nest(show(left)) <@> nest(show(right))
-    case OuterUnnest(path, p, child) => "outer_unnest" <+> text(path.toString()) <+> list(p) <@> nest(show(child))
-    case Merge(m, left, right)       => "merge" <+> text(m.toString()) <@> nest(show(left)) <@> nest(show(right))
-
-    //    case Scan(name) => "Scan " + name
-    //    case Reduce(m, e, p, x) => "Reduce " + MonoidPrettyPrinter(m) + " [ e = " + ExpressionPrettyPrinter(e) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    //    case Nest(m, e, f, p, g, x) => "Nest " + MonoidPrettyPrinter(m) + " [ e = " + ExpressionPrettyPrinter(e) + " ] [ f = " +  ListArgumentPrettyPrinter(f) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] [ g = " + ListArgumentPrettyPrinter(g) + " ]" + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    //    case Select(p, x) => "Select [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    //    case Join(p, x, y) => "Join [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
-    //    case Unnest(path, p, x) => "Unnest [ path = " + PathPrettyPrinter(path) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    //    case OuterJoin(p, x, y) => "OuterJoin [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
-    //    case OuterUnnest(path, p, x) => "OuterUnnest [ path = " + PathPrettyPrinter(path) + " ] [ p = " + ExpressionPrettyPrinter(p) + " ] " + "\n" + AlgebraPrettyPrinter(x, pre + "  | ")
-    //    case Merge(m,x,y) => "Merge " + MonoidPrettyPrinter(m) + "\n" + AlgebraPrettyPrinter(x, pre + "  | ") + "\n" + AlgebraPrettyPrinter(y, pre + "  | ")
-    //    case Empty => "Empty"
+  def path(p: Path): Doc = p match {
+    case BoundArg(a)        => show(a)
+    case ClassExtent(name)  => name
+    case InnerPath(p, name) => path(p) <> dot <> name
   }
 
+  def preds(ps: List[Exp]): Doc = list(ps, prefix = "predicates", elemToDoc = show)
+
+  def args(as: List[Arg]) = list(as, elemToDoc = show)
+
+  def show(a: AlgebraNode): Doc = a match {
+    case Scan(name)                  => "scan" <+> parens(text(name))
+    case Reduce(m, e, ps, child)     => "reduce" <+> monoid(m) <+> show(e) <+> preds(ps) <@> nest(show(child))
+    case Nest(m, e, f, ps, g, child) => "nest" <+> monoid(m) <+> show(e) <+> args(f) <+> preds(ps) <+> args(g) <@> nest(show(child))
+    case Select(ps, child)           => "select" <+> preds(ps) <@> nest(show(child))
+    case Join(ps, left, right)       => "join" <+> preds(ps) <@> nest(show(left)) <@> nest(show(right))
+    case Unnest(p, ps, child)        => "unnest" <+> path(p) <+> preds(ps) <@> nest(show(child))
+    case OuterJoin(ps, left, right)  => "outer_join" <+> preds(ps) <@> nest(show(left)) <@> nest(show(right))
+    case OuterUnnest(p, ps, child)   => "outer_unnest" <+> path(p) <+> preds(ps) <@> nest(show(child))
+    case Merge(m, left, right)       => "merge" <+> monoid(m) <@> nest(show(left)) <@> nest(show(right))
+    case Null                        => "null"
+    case c: Const                    => c.value.toString()
+    case Arg(i)                      => s"$$$i"
+    case RecordProj(e, idn)          => show(e) <> dot <> idn
+    case AttrCons(idn, e)            => idn <+> ":=" <+> show(e)
+    case RecordCons(atts)            => list(atts.toList, prefix = "", elemToDoc = show)
+    case IfThenElse(e1, e2, e3)      => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
+    case BinaryExp(op, e1, e2)       => show(e1) <+> binaryOp(op) <+> show(e2)
+    case ZeroCollectionMonoid(m)     => collection(m, empty)
+    case ConsCollectionMonoid(m, e)  => collection(m, show(e))
+    case MergeMonoid(m, e1, e2)      => show(e1) <+> merge(m) <+> show(e2)
+    case UnaryExp(op, e)             => unaryOp(op) <+> show(e)
+  }
 }

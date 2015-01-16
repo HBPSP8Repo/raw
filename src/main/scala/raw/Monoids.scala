@@ -1,4 +1,4 @@
-package raw.calculus
+package raw
 
 import org.kiama.util.TreeNode
 
@@ -7,8 +7,6 @@ import org.kiama.util.TreeNode
 sealed abstract class Monoid extends TreeNode {
   val commutative: Boolean
   val idempotent: Boolean
-
-  def zero: Calculus.Exp
 
   def greaterOrEqThan(other: Monoid): Boolean =
     if (commutative && idempotent)
@@ -38,22 +36,14 @@ sealed abstract class NumberMonoid extends PrimitiveMonoid {
 
 case class MaxMonoid() extends NumberMonoid {
   val idempotent = true
-
-  // TODO: If the monoid zero is 0, then this monoid only applies to natural numbers?
-  // TODO: Shouldn't it be negative infinity?
-  def zero = Calculus.IntConst(0)
 }
 
 case class MultiplyMonoid() extends NumberMonoid {
   val idempotent = false
-
-  def zero = Calculus.IntConst(1)
 }
 
 case class SumMonoid() extends NumberMonoid {
   val idempotent = false
-
-  def zero = Calculus.IntConst(0)
 }
 
 sealed abstract class BoolMonoid extends PrimitiveMonoid {
@@ -65,21 +55,15 @@ sealed abstract class BoolMonoid extends PrimitiveMonoid {
 
 case class AndMonoid() extends BoolMonoid {
   val idempotent = true
-
-  def zero = Calculus.BoolConst(true)
 }
 
 case class OrMonoid() extends BoolMonoid {
   val idempotent = true
-
-  def zero = Calculus.BoolConst(false)
 }
 
 /** Collection Monoids
  */
-sealed abstract class CollectionMonoid extends Monoid {
-  def zero = Calculus.ZeroCollectionMonoid(this)
-}
+sealed abstract class CollectionMonoid extends Monoid
 
 case class BagMonoid() extends CollectionMonoid {
   val commutative = true

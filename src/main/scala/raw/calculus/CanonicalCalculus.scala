@@ -1,19 +1,20 @@
 package raw.calculus
 
+import raw._
+
 /** CanonicalCalculus
   */
 object CanonicalCalculus {
 
-  import org.kiama.util.{ Entity, TreeNode }
-  import org.kiama.util.Counter
+  import org.kiama.util.{Counter, TreeNode}
 
   val varCounter = new Counter(0)
-
-  sealed abstract class CalculusNode extends TreeNode
 
   /** Identifiers are represented as strings
     */
   type Idn = String
+
+  sealed abstract class CalculusNode extends TreeNode
 
   /** Expressions
     */
@@ -104,5 +105,21 @@ object CanonicalCalculus {
   /** Generator in canonical form, i.e. using paths.
     */
   case class Gen(v: Var, p: Path) extends CalculusNode
+
+  /** Path: only used for the canonical form
+    */
+  sealed abstract class Path extends CalculusNode
+
+  case class BoundVar(v: CanonicalCalculus.Var) extends Path {
+    override def toString() = s"$v"
+  }
+
+  case class ClassExtent(name: String) extends Path {
+    override def toString() = s"$name"
+  }
+
+  case class InnerPath(p: Path, name: String) extends Path {
+    override def toString() = s"$p.$name"
+  }
 
 }

@@ -1,16 +1,18 @@
 package raw.calculus
 
+import raw._
+
 /** Calculus
   */
 object Calculus {
 
   import org.kiama.util.TreeNode
 
-  sealed abstract class CalculusNode extends TreeNode
-
   /** Identifiers are represented as strings
     */
   type Idn = String
+
+  sealed abstract class CalculusNode extends TreeNode
 
   /** Qualifier
     */
@@ -28,6 +30,7 @@ object Calculus {
     */
   sealed abstract class Const extends Exp {
     type T
+
     def value: T
   }
 
@@ -73,6 +76,7 @@ object Calculus {
   /** Record Construction
     */
   case class AttrCons(idn: Idn, e: Exp) extends CalculusNode
+
   case class RecordCons(atts: Seq[AttrCons]) extends Exp
 
   /** If/Then/Else

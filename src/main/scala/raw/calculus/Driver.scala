@@ -1,6 +1,6 @@
 package raw.calculus
 
-import raw.RawException
+import raw._
 
 case class ParserError(err: String) extends RawException
 

@@ -1,11 +1,12 @@
 package raw.calculus
 
 import org.kiama.util.Environments
+import raw._
 
 object SymbolTable extends Environments {
 
-  import Calculus.Exp
   import org.kiama.util.{Counter, Entity}
+  import Calculus.Exp
 
   val bindCounter = new Counter(0)
   val genCounter = new Counter(0)

@@ -1,5 +1,7 @@
 package raw.calculus
 
+import raw._
+
 object TestWorlds {
 
   import SymbolTable.ClassEntity
