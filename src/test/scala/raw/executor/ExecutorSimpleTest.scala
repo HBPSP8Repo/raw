@@ -42,7 +42,6 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
     }
   }
 
-  /*
   check(IntConst(1), IntValue(1))
   check(IntConst(2), IntValue(2))
   check(BoolConst(true), BooleanValue(true))
@@ -83,7 +82,7 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)))), "a"), IntValue(2))
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "a"), IntValue(2))
   check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "b"), IntValue(3))
-*/
+
   // some data: a table of one number
 
 
@@ -102,5 +101,5 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
   val numberType = RecordType(Seq(AttrType("value", IntType())))
   val numbersType = CollectionType(ListMonoid(), numberType)
   val world = World.newWorld(Map("number" -> numberType, "numbers" -> numbersType), Set(ClassEntity("numbers", numbersType)))
-  //checkExec(world.unnest(Driver.parse("""for (d <- numbers) yield set d.value""")), content)
+  //checkExec(world.unnest(Driver.parse("""for (d <- numbers) yield set d.value""")), new Blocks(List(content)))
 }

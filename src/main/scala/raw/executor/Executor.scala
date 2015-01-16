@@ -30,12 +30,20 @@ case class SetValue(value: Set[MyValue]) extends CollectionValue {
 //case class BagValue(value: MultiSet[MyValue]) extends CollectionValue
 
 class Blocks(elements: List[ListValue]) extends Iterable[List[MyValue]] {
+
+  def content = elements
+
   class TupleIterator(elements: List[ListValue]) extends Iterator[List[MyValue]] {
     var iterators = elements.map({ e: ListValue => e.iterator })
     def next = iterators.map({i: Iterator[MyValue] => i.next})
     def hasNext = iterators.map({ i: Iterator[MyValue] => i.hasNext }).forall({_ == true})
   }
+
+
   def iterator = new TupleIterator(elements)
+  override def equals(b: Any): Boolean = b match {
+    case b: Blocks => elements == b.content
+  }
 }
 
 
