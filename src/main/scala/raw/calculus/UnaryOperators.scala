@@ -8,36 +8,24 @@ sealed abstract class UnaryOperator extends TreeNode
 
 /** Not
  */
-case class Not() extends UnaryOperator {
-  override def toString() = "not"
-}
+case class Not() extends UnaryOperator
 
 /** Negation
  */
-case class Neg() extends UnaryOperator {
-  override def toString() = "-"
-}
+case class Neg() extends UnaryOperator
 
 /** Convert to boolean
  */
-case class ToBool() extends UnaryOperator {
-  override def toString() = "to_bool"
-}
+case class ToBool() extends UnaryOperator
 
 /** Convert to integer
  */
-case class ToInt() extends UnaryOperator {
-  override def toString() = "to_int"
-}
+case class ToInt() extends UnaryOperator
 
 /** Convert to float
  */
-case class ToFloat() extends UnaryOperator {
-  override def toString() = "to_float"
-}
+case class ToFloat() extends UnaryOperator
 
 /** Convert to string
  */
-case class ToString() extends UnaryOperator {
-  override def toString() = "to_string"
-}
+case class ToString() extends UnaryOperator

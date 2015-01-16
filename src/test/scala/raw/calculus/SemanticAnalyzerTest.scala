@@ -1,14 +1,8 @@
 package raw.calculus
 
-import org.scalatest.FunSuite
+class SemanticAnalyzerTest extends FunTest {
 
-class SemanticAnalyzerTest extends FunSuite {
-
-  def process(w: World, q: String) = {
-    val c = Driver.parse(q)
-    assert(w.errors(c).length === 0)
-    w.tipe(c)
-  }
+  def process(w: World, q: String) = w.tipe(parse(w, q))
 
   test("cern_events") {
     assert(

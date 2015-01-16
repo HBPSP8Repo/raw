@@ -4,8 +4,14 @@ trait Canonizer extends Normalizer {
 
   import SymbolTable.{ GenVar, ClassEntity }
 
+  /** Convert comprehension into canonical form.
+    * The comprehension is first normalized.
+    *
+    * The canonical form is described in [1], page 19.
+    */
   def canonize(c: Calculus.Comp): CanonicalCalculus.Comp = {
 
+    /** Map of symbols to canonical calculus variables. */
     var varMap = scala.collection.mutable.HashMap[GenVar, CanonicalCalculus.Var]()
 
     def toPath(e: Calculus.Exp): Path = e match {
@@ -14,7 +20,6 @@ trait Canonizer extends Normalizer {
         case ClassEntity(name, tipe) => ClassExtent(name)
       }
       case Calculus.RecordProj(e, idn) => InnerPath(toPath(e), idn)
-      case x => println("x is " + x); ???
     }
 
     def idnToVar(idn: Calculus.IdnNode): CanonicalCalculus.Var = idn -> entity match {

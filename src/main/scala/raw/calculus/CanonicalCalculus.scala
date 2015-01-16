@@ -21,18 +21,13 @@ object CanonicalCalculus {
 
   /** Null
     */
-  case class Null() extends Exp {
-    override def toString() = "null"
-  }
+  case class Null() extends Exp
 
   /** Constants
     */
   sealed abstract class Const extends Exp {
     type T
-
     def value: T
-
-    override def toString() = s"$value"
   }
 
   // TODO: Add DateTime, smaller/larger integers/floats.
@@ -65,74 +60,49 @@ object CanonicalCalculus {
       */
     override def equals(o: Any) = super.equals(o)
     override def hashCode = super.hashCode
-
-    override def toString() = s"var$locn"
   }
 
   /** Record Projection
     */
-  case class RecordProj(e: Exp, idn: Idn) extends Exp {
-    override def toString() = s"$e.$idn"
-  }
+  case class RecordProj(e: Exp, idn: Idn) extends Exp
 
   /** Record Construction
     */
-  case class AttrCons(idn: Idn, e: Exp) extends CalculusNode {
-    override def toString() = s"$idn := $e"
-  }
-
-  case class RecordCons(atts: Seq[AttrCons]) extends Exp {
-    override def toString() = s"(${atts.mkString(", ")})"
-  }
+  case class AttrCons(idn: Idn, e: Exp) extends CalculusNode
+  case class RecordCons(atts: Seq[AttrCons]) extends Exp
 
   /** If/Then/Else
     */
-  case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp {
-    override def toString() = s"if $e1 then $e2 else $e3"
-  }
+  case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp
 
   /** Binary Expression
     */
-  case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp {
-    override def toString() = s"$e1 $op $e2"
-  }
+  case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
   /** Zero for Collection Monoid
     */
-  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp {
-    override def toString() = s"${m.openSym}${m.closeSym}"
-  }
+  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
 
   /** Construction for Collection Monoid
     */
-  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp {
-    override def toString() = s"${m.openSym} $e ${m.closeSym}"
-  }
+  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
 
   /** Merge Monoid
     */
-  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp {
-    override def toString() = s"$e1 ${m.mergeSym} $e2"
-  }
+  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
 
   /** Comprehension in canonical form, i.e. with paths and predicates in CNF.
     *
     * For details in the canonical form, refer to [1] page 19.
     */
-  case class Comp(m: Monoid, paths: List[Gen], preds: List[Exp], e: Exp) extends Exp {
-    override def toString() = s"for (${(paths ++ preds).map(_.toString()).mkString(", ")}) yield ${m.compSym} $e"
-  }
+  case class Comp(m: Monoid, paths: List[Gen], preds: List[Exp], e: Exp) extends Exp
 
   /** Unary Expression
     */
-  case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp {
-    override def toString() = s"$op $e"
-  }
+  case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
 
   /** Generator in canonical form, i.e. using paths.
     */
-  case class Gen(v: Var, p: Path) extends CalculusNode {
-    override def toString() = s"$v <- $p"
-  }
+  case class Gen(v: Var, p: Path) extends CalculusNode
 
 }
