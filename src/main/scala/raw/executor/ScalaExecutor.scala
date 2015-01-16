@@ -25,10 +25,8 @@ class DataSource(listValue: List[MyValue]) {
 
 class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
 
-  // val dataSources: Map[String, DataSource] = classes.map({ x => (x._1, new DataSource(x._2.value))})
+  val dataSources: Map[String, DataSource] = classes.map({ x => (x._1, new DataSource(x._2.value))})
 
-  def execute(opNode: OperatorNode) = List()
-  /*
   def execute(opNode: OperatorNode): List[MyValue] = {
     def recurse: List[MyValue] = next(opNode) match {
       case r@Some(v) => v ++ recurse
@@ -36,9 +34,7 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
     }
     recurse
   }
-  */
 
-  /*
   private def toBool(v: MyValue): Boolean = v match {
     case b: BooleanValue => b.value
     case _ => false
@@ -48,18 +44,22 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
     val values = ps.map({p: Exp => expEval(p, items)}).map(toBool)
     values.forall({p: Boolean => p})
   }
-  */
 
-  def next(algNode: AlgebraNode): Option[List[MyValue]] = {
-    def recurse(child: OperatorNode): Option[List[MyValue]] = next(child) match {
-      //case r@Some(v) => if (evalPredicates(ps, v)) r else recurse
-      case r@Some(v) => if (true) r else recurse(child)
-      case None => None
+  def next(opNode: OperatorNode): Option[List[MyValue]] = opNode match {
+    case s: Scan => dataSources(s.name).next()
+    case Select(ps, child) => {
+      def recurse: Option[List[MyValue]] = next(child) match {
+        case r@Some(v) => if (evalPredicates(ps, v)) r else recurse
+        case None => None
+      }
+      recurse
     }
-
-    algNode match {
-      //case s: Scan => dataSources(s.name).next()
-      case Select(ps, child) => recurse(child)
+    case Reduce(m, e, ps, child) => {
+      def recurse: Option[List[MyValue]] = next(child) match {
+        case r@Some(v) => if (evalPredicates(ps, v)) r else recurse
+        case None => None
+      }
+      recurse
     }
   }
 
@@ -80,7 +80,7 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
   }
 
   def varEval(v: Arg, env: List[MyValue]): MyValue = {
-    env(0)
+    env(v.i)
   }
 
   def zeroCollectionEval(m: CollectionMonoid): CollectionValue = m match {
