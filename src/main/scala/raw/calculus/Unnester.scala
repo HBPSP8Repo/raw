@@ -18,13 +18,13 @@ case class AlgebraTerm(t: Algebra.OperatorNode) extends Term
   * a logical algebra plan.
   * The algorithm is described in Fig. 10 of [1], page 34.
   */
-trait Unnester extends Canonizer with LazyLogging {
+trait Unnester extends Simplifier with LazyLogging {
 
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
 
   def unnest(c: Calculus.Comp): Algebra.OperatorNode = {
-    unnesterRules(CalculusTerm(canonize(c), List(), List(), EmptyTerm)) match {
+    unnesterRules(CalculusTerm(simplify(c), List(), List(), EmptyTerm)) match {
       case Some(AlgebraTerm(a)) => a
     }
   }
@@ -167,7 +167,7 @@ trait Unnester extends Canonizer with LazyLogging {
     variables(c).intersect(sVs).isEmpty
   }
 
-  /** Helper object to pattern match nested comprehensions. */
+  /** Extractor object to pattern match nested comprehensions. */
   private object NestedComp {
 
     import raw.calculus.CanonicalCalculus._
