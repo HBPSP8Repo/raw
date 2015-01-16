@@ -1,7 +1,10 @@
 package raw.calculus
 
+import com.typesafe.scalalogging.LazyLogging
 import raw.algebra.Algebra
 
+/** Terms used during query unnesting.
+  */
 sealed abstract class Term
 
 case object EmptyTerm extends Term
@@ -10,25 +13,24 @@ case class CalculusTerm(comp: CanonicalCalculus.Comp, u: List[CanonicalCalculus.
 
 case class AlgebraTerm(t: Algebra.OperatorNode) extends Term
 
-trait Unnester extends Canonizer {
+
+/** The query unnesting algorithm that converts a calculus expression (converted into its canonical form) into
+  * a logical algebra plan.
+  * The algorithm is described in Fig. 10 of [1], page 34.
+  */
+trait Unnester extends Canonizer with LazyLogging {
 
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
 
   def unnest(c: Calculus.Comp): Algebra.OperatorNode = {
-    def apply(t: Term): Term = unnesterRules(t) match {
-      case Some(nt: AlgebraTerm)  => nt
-      case Some(nt: CalculusTerm) => apply(nt)
-      case None                   => t
-    }
-
-    apply(CalculusTerm(canonize(c), List(), List(), EmptyTerm)) match {
-      case AlgebraTerm(a) => a
+    unnesterRules(CalculusTerm(canonize(c), List(), List(), EmptyTerm)) match {
+      case Some(AlgebraTerm(a)) => a
     }
   }
 
+  // TODO: There must be a better way to define the strategy without relying explicitly on recursion.
   lazy val unnesterRules: Strategy =
-  // TODO: Replace recursive call by a RULE that re-applies itself, until it no longer applies.
     reduce(ruleC11 < unnesterRules + (ruleC12 < unnesterRules + (ruleC4 <+ ruleC5 <+ ruleC6 <+ ruleC7 <+ ruleC8 <+ ruleC9 <+ ruleC10)))
 
   /** Return the set of variables used in an expression.
@@ -83,11 +85,9 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC4 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), Nil, Nil, EmptyTerm) => {
-      println("C4")
+      logger.debug(s"Rule C4")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
-      val qq = CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name))))
-      println("qq 4 is " + qq)
-      qq
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name))))
     }
   }
 
@@ -95,8 +95,10 @@ trait Unnester extends Canonizer {
     */
 
   lazy val ruleC5 = rule[Term] {
-    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), Nil, w, AlgebraTerm(child)) => println("C5");
+    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), Nil, w, AlgebraTerm(child)) => {
+      logger.debug(s"Rule C5")
       AlgebraTerm(Algebra.Reduce(m, convertExp(e, w), p.map(convertExp(_, w)), child))
+    }
   }
 
   /** Rule C6
@@ -104,7 +106,7 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC6 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
-      println("C6")
+      logger.debug(s"Rule C6")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
       val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), Nil, w :+ v, AlgebraTerm(Algebra.Join(p_w_v.map(convertExp(_, w :+ v)), child, Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name)))))
@@ -116,7 +118,7 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC7 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
-      println("C7")
+      logger.debug(s"Rule C7")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, w :+ v, AlgebraTerm(Algebra.Unnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
@@ -126,8 +128,10 @@ trait Unnester extends Canonizer {
     */
 
   lazy val ruleC8 = rule[Term] {
-    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), u, w, AlgebraTerm(child)) => println("C8");
+    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), u, w, AlgebraTerm(child)) => {
+      logger.debug(s"Rule C8")
       AlgebraTerm(Algebra.Nest(m, convertExp(e, w), u.map(convertVar(_, w)), p.map(convertExp(_, w)), w.filter(!u.contains(_)).map(convertVar(_, w)), child))
+    }
   }
 
   /** Rule C9
@@ -135,7 +139,7 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC9 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), u, w, AlgebraTerm(child)) => {
-      println("C9")
+      logger.debug(s"Rule C9")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
       val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), u, w :+ v, AlgebraTerm(Algebra.OuterJoin(p_w_v.map(convertExp(_, w :+ v)), child, Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name)))))
@@ -147,12 +151,9 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC10 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) => {
-      println("C10")
+      logger.debug(s"Rule C10")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
-      println("here with v " + p_v + " and not v " + p_not_v)
-      val qq = CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
-      println("qq 10 is " + qq)
-      qq
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
   }
 
@@ -165,9 +166,6 @@ trait Unnester extends Canonizer {
     val sVs = s.map { case CanonicalCalculus.Gen(v, _) => v}.toSet
     variables(c).intersect(sVs).isEmpty
   }
-
-  /** Helper to pattern mimport raw.calculus.CanonicalCalculus._on in a list of expressions.
-    */
 
   /** Helper object to pattern match nested comprehensions. */
   private object NestedComp {
@@ -200,11 +198,11 @@ trait Unnester extends Canonizer {
   def getNestedComp(ps: List[CanonicalCalculus.Exp]) =
     ps.collectFirst { case NestedComp(c) => c}.head
 
-  // TODO: Fix!!!
+  // TODO: `hasNestedComp` followed by `getNestedComp` is very inefficient
   lazy val ruleC11 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, s, p, e1), u, w, child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) => {
+      logger.debug(s"Rule C11")
       val c = getNestedComp(p)
-      println("C11")
       val v = CanonicalCalculus.Var()
       val np = p.map(rewrite(attempt(oncetd(rule[CanonicalCalculus.Exp] {
         case c1 if c1 == c => v
@@ -218,15 +216,12 @@ trait Unnester extends Canonizer {
 
   lazy val ruleC12 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, f@NestedComp(c)), u, w, child) =>
-      println("C12")
+      logger.debug(s"Rule C12")
       val v = CanonicalCalculus.Var()
       val nf = rewrite(oncetd(rule[CanonicalCalculus.Exp] {
         case c1 if c1 == c => v
       }))(f)
-      println("f is " + f + " and nf is " + nf + " and c is " + c + " and f is " + f)
-      val qq = CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, nf), u, w :+ v, CalculusTerm(c, w, w, child))
-      println("qq 12 is " + qq)
-      qq
+      CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, nf), u, w :+ v, CalculusTerm(c, w, w, child))
   }
 
 }
