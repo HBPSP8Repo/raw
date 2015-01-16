@@ -7,21 +7,63 @@ import raw.algebra.Algebra._
  * Created by gaidioz on 1/14/15.
  */
 
-class scala(classes: Map[String, ListValue]) extends Executor(classes) {
+class DataSource(listValue: List[MyValue]) {
 
-  def execute(algebraNode: OperatorNode): Blocks = algebraNode match {
-    case Join(ps, left, right) => ???
-    case Merge(m, left, right) => ???
-    case Nest(m, e, f, p, g, child) => ???
-    case OuterJoin(p, left, right) => ???
-    case OuterUnnest(path, p, child) => ???
-    case Reduce(m, e, p, child) => ???
-    case Scan(s) => new Blocks(List(classes(s)))
-    case Select(ps, child) => ???
-    case Unnest(path, p, child) => ???
+  private var index: Int = 0
+  private val L: List[MyValue] = listValue
+
+  def next() = {
+    val n = index
+    index += 1
+    try {
+      Some(List(L(n)))
+    } catch {
+        case ex: IndexOutOfBoundsException => None
+    }
+  }
+}
+
+class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
+
+  // val dataSources: Map[String, DataSource] = classes.map({ x => (x._1, new DataSource(x._2.value))})
+
+  def execute(opNode: OperatorNode) = List()
+  /*
+  def execute(opNode: OperatorNode): List[MyValue] = {
+    def recurse: List[MyValue] = next(opNode) match {
+      case r@Some(v) => v ++ recurse
+      case None => List()
+    }
+    recurse
+  }
+  */
+
+  /*
+  private def toBool(v: MyValue): Boolean = v match {
+    case b: BooleanValue => b.value
+    case _ => false
   }
 
-  def expEval(exp: Exp, env: Map[String, MyValue]): MyValue = exp match {
+  private def evalPredicates(ps: List[Exp], items: List[MyValue]): Boolean = {
+    val values = ps.map({p: Exp => expEval(p, items)}).map(toBool)
+    values.forall({p: Boolean => p})
+  }
+  */
+
+  def next(algNode: AlgebraNode): Option[List[MyValue]] = {
+    def recurse(child: OperatorNode): Option[List[MyValue]] = next(child) match {
+      //case r@Some(v) => if (evalPredicates(ps, v)) r else recurse
+      case r@Some(v) => if (true) r else recurse(child)
+      case None => None
+    }
+
+    algNode match {
+      //case s: Scan => dataSources(s.name).next()
+      case Select(ps, child) => recurse(child)
+    }
+  }
+
+  def expEval(exp: Exp, env: List[MyValue]): MyValue = exp match {
     case BoolConst(v) => BooleanValue(v)
     case IntConst(v) => IntValue(v)
     case FloatConst(v) => FloatValue(v)
@@ -37,8 +79,8 @@ class scala(classes: Map[String, ListValue]) extends Executor(classes) {
     case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
   }
 
-  def varEval(v: Arg, env: Map[String, MyValue]): MyValue = {
-    env("var0")
+  def varEval(v: Arg, env: List[MyValue]): MyValue = {
+    env(0)
   }
 
   def zeroCollectionEval(m: CollectionMonoid): CollectionValue = m match {

@@ -8,45 +8,61 @@ import org.scalatest.{FeatureSpec, GivenWhenThen, FunSpec, FunSuite}
 /**
  * Created by gaidioz on 1/14/15.
  */
-class ExecutorFun extends FeatureSpec with GivenWhenThen {
+
+abstract class ExecutorTest extends FeatureSpec with GivenWhenThen {
+
+  val executor: Executor
+
+  def checkExpression(exp: Exp, result: MyValue): Unit = {
+    scenario("evaluation of " + exp) {
+      When("evaluating " + exp)
+      Then("it should return " + result)
+      assert(executor.execute(Select(List(exp), Scan("oneRow"))) === List(ListValue(List(result))))
+    }
+  }
+}
+
+class ExpressionsConst extends ExecutorTest {
+
+  val singleRow = ListValue(List(RecordValue(Map("value" -> IntValue(1)))))
+  val executor = new ScalaExecutor(Map("oneRow" -> singleRow))
+
+  checkExpression(IntConst(1), IntValue(1))
+  checkExpression(IntConst(2), IntValue(2))
+  checkExpression(BoolConst(true), BooleanValue(true))
+  checkExpression(BoolConst(false), BooleanValue(false))
+  checkExpression(FloatConst(22.23f), FloatValue(22.23f))
+  checkExpression(FloatConst(3.14f), FloatValue(3.14f))
+  checkExpression(StringConst("tralala"), StringValue("tralala"))
+
+}
+
+/*
+  class UnaryExpressions extends ExecutorTest {
 
   val content = ListValue(List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2)))))
   val content2 = ListValue(List(RecordValue(Map("name" -> StringValue("one"))), RecordValue(Map("name" -> StringValue("two")))))
   val executor = new scala(Map("numbers" -> content))
 
-  def check(exp: Exp, result: MyValue): Unit = {
-    scenario("evaluation of " + exp) {
-      When("evaluating " + exp)
-      Then("it should return " + result)
-      assert(executor.expEval(exp, Map()) === result)
-    }
-  }
 
   def checkUnaryExp(exp: Exp, results: Map[UnaryOperator, MyValue]): Unit = {
-    val f = (op: UnaryOperator, result: MyValue) => check(UnaryExp(op, exp), result)
+    val f = (op: UnaryOperator, result: MyValue) => checkExpression(UnaryExp(op, exp), result)
     results.foreach { case (op, result) => f(op, result) }
   }
 
   def checkBinExp(exp1: Exp, exp2: Exp, results: Map[BinaryOperator, MyValue]): Unit = {
-    val f = (op: BinaryOperator, result: MyValue) => check(BinaryExp(op, exp1, exp2), result)
+    val f = (op: BinaryOperator, result: MyValue) => checkExpression(BinaryExp(op, exp1, exp2), result)
     results.foreach { case (op, result) => f(op, result) }
   }
 
-  def checkExec(alg: OperatorNode, result: Blocks): Unit = {
+  def checkExec(alg: OperatorNode, result: List[Integer]): Unit = {
     scenario("execution of " + alg) {
       When("evaluating " + alg)
       Then("it should return " + result)
-      assert(executor.execute(alg) === result)
+      //assert(executor.execute(alg) === result)
     }
   }
 
-  check(IntConst(1), IntValue(1))
-  check(IntConst(2), IntValue(2))
-  check(BoolConst(true), BooleanValue(true))
-  check(BoolConst(false), BooleanValue(false))
-  check(FloatConst(22.23f), FloatValue(22.23f))
-  check(FloatConst(3.14f), FloatValue(3.14f))
-  check(StringConst("tralala"), StringValue("tralala"))
 
   checkBinExp(IntConst(1), IntConst(1), Map(Eq() -> BooleanValue(true), Neq() -> BooleanValue(false)))
   checkBinExp(IntConst(1), IntConst(2), Map(Eq() -> BooleanValue(false), Neq() -> BooleanValue(true)))
@@ -66,20 +82,20 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
   checkUnaryExp(FloatConst(0.0f), Map(Not() -> BooleanValue(true), Neg() -> FloatValue(0.0f), ToInt() -> IntValue(0), ToBool() -> BooleanValue(false), ToFloat() -> FloatValue(0.0f), ToString() -> StringValue("0.0")))
   checkUnaryExp(FloatConst(-1.1f), Map(Not() -> BooleanValue(false), Neg() -> FloatValue(1.1f), ToInt() -> IntValue(-1), ToBool() -> BooleanValue(true), ToFloat() -> FloatValue(-1.1f), ToString() -> StringValue("-1.1")))
 
-  check(ZeroCollectionMonoid(SetMonoid()), SetValue(Set()))
-  check(ZeroCollectionMonoid(ListMonoid()), ListValue(List()))
+  checkExpression(ZeroCollectionMonoid(SetMonoid()), SetValue(Set()))
+  checkExpression(ZeroCollectionMonoid(ListMonoid()), ListValue(List()))
 
-  check(ConsCollectionMonoid(SetMonoid(), IntConst(22)), SetValue(Set(IntValue(22))))
-  check(ConsCollectionMonoid(ListMonoid(), IntConst(22)), ListValue(List(IntValue(22))))
+  checkExpression(ConsCollectionMonoid(SetMonoid(), IntConst(22)), SetValue(Set(IntValue(22))))
+  checkExpression(ConsCollectionMonoid(ListMonoid(), IntConst(22)), ListValue(List(IntValue(22))))
 
-  check(MergeMonoid(ListMonoid(), ConsCollectionMonoid(ListMonoid(), IntConst(22)), ConsCollectionMonoid(ListMonoid(), FloatConst(23.2f))),
+  checkExpression(MergeMonoid(ListMonoid(), ConsCollectionMonoid(ListMonoid(), IntConst(22)), ConsCollectionMonoid(ListMonoid(), FloatConst(23.2f))),
         ListValue(List(IntValue(22), FloatValue(23.2f))))
 
-  check(RecordCons(Seq(AttrCons("a", IntConst(2)))), RecordValue(Map("a" -> IntValue(2))))
-  check(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), RecordValue(Map("a" -> IntValue(2), "b" -> IntValue(3))))
-  check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)))), "a"), IntValue(2))
-  check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "a"), IntValue(2))
-  check(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "b"), IntValue(3))
+  checkExpression(RecordCons(Seq(AttrCons("a", IntConst(2)))), RecordValue(Map("a" -> IntValue(2))))
+  checkExpression(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), RecordValue(Map("a" -> IntValue(2), "b" -> IntValue(3))))
+  checkExpression(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)))), "a"), IntValue(2))
+  checkExpression(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "a"), IntValue(2))
+  checkExpression(RecordProj(RecordCons(Seq(AttrCons("a", IntConst(2)), AttrCons("b", IntConst(3)))), "b"), IntValue(3))
 
   // some data: a table of one number
 
@@ -101,3 +117,4 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
   //val world = World.newWorld(Map("number" -> numberType, "numbers" -> numbersType), Set(ClassEntity("numbers", numbersType)))
   //checkExec(world.unnest(Driver.parse("""for (d <- numbers) yield set d.value""")), new Blocks(List(content)))
 }
+*/
