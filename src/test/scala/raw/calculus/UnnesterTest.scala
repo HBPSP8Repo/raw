@@ -11,10 +11,39 @@ class UnnesterTest extends FunTest {
 
     // TODO: Implement actual tests
 
+    MyTest()
+
     println(AlgebraPrettyPrinter.pretty(process(TestWorlds.employees,
       """
         for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)
       """)))
+
+    object Result extends AlgebraLang {
+      def apply() = {
+        reduce(
+          set,
+          record("E" -> arg(0), "M" -> arg(1)),
+          nest(
+            sum,
+            e=1,
+            group_by=List(arg(0)),
+            p=arg(0),
+            nulls=List(arg(1), arg(2)),
+            nest(
+              and,
+              e=arg(1).age > arg(2).age,
+              group_by=List(arg(0), arg(1)),
+              nulls=List(arg(1)),
+              outer_unnest(
+                path=arg(0).manager.children,
+                outer_unnest(
+                  path=arg(0).children,
+                  select(
+                    scan("employees")))))))
+      }
+    }
+
+    println("result is" + AlgebraPrettyPrinter.pretty(Result()))
 
     println(AlgebraPrettyPrinter.pretty(process(TestWorlds.departments,
       """for (el <- for ( d <- Departments, d.name="CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")))
@@ -27,15 +56,17 @@ class UnnesterTest extends FunTest {
 
 class AlgebraLang {
 
+  import scala.language.implicitConversions
+  import scala.language.dynamics
   import raw.algebra._
   import raw.calculus.CanonicalCalculus._
 
   /** Expression builders
     */
-  sealed abstract class Builder {
+  sealed abstract class Builder extends Dynamic {
     /** Record Projection
       */
-    def ~(idn: String) = RecordProjBuilder(this, idn)
+    def selectDynamic(idn: String) = RecordProjBuilder(this, idn)
 
     /** Binary Expressions
       */
@@ -45,7 +76,7 @@ class AlgebraLang {
 
     def >=(rhs: Builder) = BinaryExpBuilder(Ge(), this, rhs)
 
-    def >(rhs: Builder) = BinaryExpBuilder(Ge(), this, rhs)
+    def >(rhs: Builder) = BinaryExpBuilder(Gt(), this, rhs)
 
     def <=(rhs: Builder) = BinaryExpBuilder(Le(), this, rhs)
 
@@ -59,13 +90,15 @@ class AlgebraLang {
       */
     def max(rhs: Builder) = MergeMonoidBuilder(MaxMonoid(), this, rhs)
 
-    def *(rhs: Builder) = MergeMonoidBuilder(MultiplyMonoid(), this, rhs)
-
     def +(rhs: Builder) = MergeMonoidBuilder(SumMonoid(), this, rhs)
 
-    def and(rhs: Builder) = MergeMonoidBuilder(AndMonoid(), this, rhs)
+    def *(rhs: Builder) = MergeMonoidBuilder(MultiplyMonoid(), this, rhs)
 
-    def or(rhs: Builder) = MergeMonoidBuilder(OrMonoid(), this, rhs)
+    def unary_+(rhs: Builder) = MergeMonoidBuilder(SumMonoid(), this, rhs)
+
+    def &&(rhs: Builder) = MergeMonoidBuilder(AndMonoid(), this, rhs)
+
+    def ||(rhs: Builder) = MergeMonoidBuilder(OrMonoid(), this, rhs)
 
     def bag(rhs: Builder) = MergeMonoidBuilder(BagMonoid(), this, rhs)
 
@@ -100,13 +133,13 @@ class AlgebraLang {
 
   /** Constants
     */
-  implicit def boolToExp(v: Boolean) = ConstBuilder(BoolConst(v))
+  implicit def boolToExp(v: Boolean): ConstBuilder = ConstBuilder(BoolConst(v))
 
-  implicit def intToExp(v: Int) = ConstBuilder(IntConst(v))
+  implicit def intToExp(v: Int): ConstBuilder = ConstBuilder(IntConst(v))
 
-  implicit def floatToExp(v: Float) = ConstBuilder(FloatConst(v))
+  implicit def floatToExp(v: Float): ConstBuilder = ConstBuilder(FloatConst(v))
 
-  implicit def stringToExp(v: String) = ConstBuilder(StringConst(v))
+  implicit def stringToExp(v: String): ConstBuilder = ConstBuilder(StringConst(v))
 
   /** Variable
     * TODO: Create new algebra node "var" with i as an argument
@@ -190,6 +223,10 @@ class AlgebraLang {
     case UnaryExpBuilder(op, e)          => UnaryExp(op, build(e))
   }
 
+  def varbuild(b: VarBuilder): Var = b match {
+    case VarBuilder(v) => v
+  }
+
   // TODO: comment saying we reuse builder for path as well
   def builderToPath(p: Builder): Path = p match {
     case RecordProjBuilder(lhs, idn) => InnerPath(builderToPath(lhs), idn)
@@ -206,7 +243,11 @@ class AlgebraLang {
 
   def select(p: Builder, child: AlgebraNode) = Select(cnfToList(build(p)), child)
 
-  def nest(m: Monoid, e: Builder, f: List[Var], g: List[Var], p: Builder, child: AlgebraNode) = Nest(m, build(e), f, cnfToList(build(p)), g, child)
+  def select(child: AlgebraNode) = Select(Nil, child)
+
+  def nest(m: Monoid, e: Builder, group_by: List[VarBuilder], p: Builder, nulls: List[VarBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(varbuild(_)), cnfToList(build(p)), nulls.map(varbuild(_)), child)
+
+  def nest(m: Monoid, e: Builder, group_by: List[VarBuilder], nulls: List[VarBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(varbuild(_)), Nil, nulls.map(varbuild(_)), child)
 
   def join(p: Builder, left: AlgebraNode, right: AlgebraNode) = Join(cnfToList(build(p)), left, right)
 
@@ -225,21 +266,39 @@ class AlgebraLang {
 
 object MyTest extends AlgebraLang {
   def apply() = {
-    select(1 + 2,
-      scan("employees"))
 
-    nest(sum, 1, Nil, Nil, arg(0) and arg(1),
-      outer_unnest(arg(0) ~ "children",
-        select(1 + 2,
-          scan("employees"))))
+//    println(
+//      outer_unnest(
+//        arg0.children,
+//        filter=arg1.age < 10,
+//        select(arg0.age > arg1.age + 1,
+//          scan("foo"))
+//      ))
 
+    // TODO: an issue here is that even in the tests, i can always build a bad expression
+    // TODO: and also a bad reference to vars (that dont exist) and so forth...
 
-    reduce(set,
-      record("E" -> arg(0), "M" -> arg(1)),
-      nest(sum, 1, Nil, Nil, arg(0) and arg(1),
-        outer_unnest(arg(0) ~ "children",
-          select(1 + 2,
-            scan("employees")))))
+    println(
+      select(arg(0).age > arg(1).age + 1,
+        scan("foo")))
+
+    println(select(1 + 2,
+      scan("employees")))
+
+//    println(nest(sum, 1, Nil, Nil, arg(0) && arg(1),
+//      outer_unnest(arg(0).children,
+//        select(1 + 2,
+//          scan("employees")))))
+//
+//
+//
+//
+//    println(reduce(set,
+//      record("E" -> arg(0), "M" -> arg(1)),
+//      nest(sum, 1, Nil, Nil, arg(0) && arg(1),
+//        outer_unnest(arg(0).children,
+//          select(1 + 2,
+//            scan("employees"))))))
     //    reduce(set,
     //      record("E" -> arg(0), "M" -> arg(1)),
     //      nest(sum, 1, Nil, Nil, arg(0) and arg(1),
