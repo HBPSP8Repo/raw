@@ -1,9 +1,7 @@
 package raw.executor
 
-import raw.algebra.{Scan, AlgebraNode, Select, AlgebraPrettyPrinter}
-import raw.calculus.CanonicalCalculus._
-import raw.calculus.SymbolTable.ClassEntity
-import raw.calculus._
+import raw._
+import algebra.Algebra._
 
 import org.scalatest.{FeatureSpec, GivenWhenThen, FunSpec, FunSuite}
 
@@ -34,7 +32,7 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
     results.foreach { case (op, result) => f(op, result) }
   }
 
-  def checkExec(alg: AlgebraNode, result: Blocks): Unit = {
+  def checkExec(alg: OperatorNode, result: Blocks): Unit = {
     scenario("execution of " + alg) {
       When("evaluating " + alg)
       Then("it should return " + result)
@@ -100,6 +98,6 @@ class ExecutorFun extends FeatureSpec with GivenWhenThen {
 
   val numberType = RecordType(Seq(AttrType("value", IntType())))
   val numbersType = CollectionType(ListMonoid(), numberType)
-  val world = World.newWorld(Map("number" -> numberType, "numbers" -> numbersType), Set(ClassEntity("numbers", numbersType)))
+  //val world = World.newWorld(Map("number" -> numberType, "numbers" -> numbersType), Set(ClassEntity("numbers", numbersType)))
   //checkExec(world.unnest(Driver.parse("""for (d <- numbers) yield set d.value""")), new Blocks(List(content)))
 }

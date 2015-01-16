@@ -1,6 +1,6 @@
 package raw.executor
 
-import raw.algebra.AlgebraNode
+import raw.algebra.Algebra.OperatorNode
 
 /**
  * Created by gaidioz on 1/14/15.
@@ -48,5 +48,5 @@ class Blocks(elements: List[ListValue]) extends Iterable[List[MyValue]] {
 
 
 abstract class Executor(classes: Map[String, ListValue]) {
-  def execute(algebraNode: AlgebraNode): Blocks
+  def execute(operatorNode: OperatorNode): Blocks
 }

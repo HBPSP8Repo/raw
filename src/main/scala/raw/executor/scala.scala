@@ -1,9 +1,7 @@
 package raw.executor
 
-import com.sun.xml.internal.bind.v2.runtime.reflect.opt.Const
-import raw.algebra._
-import raw.calculus._
-import raw.calculus.CanonicalCalculus._
+import raw._
+import raw.algebra.Algebra._
 
 /**
  * Created by gaidioz on 1/14/15.
@@ -11,7 +9,7 @@ import raw.calculus.CanonicalCalculus._
 
 class scala(classes: Map[String, ListValue]) extends Executor(classes) {
 
-  def execute(algebraNode: AlgebraNode): Blocks = algebraNode match {
+  def execute(algebraNode: OperatorNode): Blocks = algebraNode match {
     case Join(ps, left, right) => ???
     case Merge(m, left, right) => ???
     case Nest(m, e, f, p, g, child) => ???
@@ -28,7 +26,7 @@ class scala(classes: Map[String, ListValue]) extends Executor(classes) {
     case IntConst(v) => IntValue(v)
     case FloatConst(v) => FloatValue(v)
     case StringConst(v) => StringValue(v)
-    case v: Var => varEval(v, env)
+    case v: Arg => varEval(v, env)
     case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
     case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
     case ZeroCollectionMonoid(m) => zeroCollectionEval(m)
@@ -39,7 +37,7 @@ class scala(classes: Map[String, ListValue]) extends Executor(classes) {
     case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
   }
 
-  def varEval(v: Var, env: Map[String, MyValue]): MyValue = {
+  def varEval(v: Arg, env: Map[String, MyValue]): MyValue = {
     env("var0")
   }
 
