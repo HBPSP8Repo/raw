@@ -54,13 +54,37 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
       }
       recurse
     }
-    case Reduce(m, e, ps, child) => {
-      def recurse: Option[List[MyValue]] = next(child) match {
-        case r@Some(v) => if (evalPredicates(ps, v)) r else recurse
+    case Reduce(m: Monoid, e, ps, child) => {
+      def recurse: Option[MyValue] = next(child) match {
+        case r@Some(v) => recurse match {
+          case rN@Some(vN) => Some(mergeReduce(m, expEval(e, v), vN))
+          case None => Some(mergeReduce(m, expEval(e, v), zeroEval(m)))
+        }
         case None => None
       }
-      recurse
+      recurse match {
+        case Some(v) => Some(List(v))
+        case None => None
+      }
     }
+  }
+
+  def mergeBoolReduce(m: BoolMonoid): (MyValue, MyValue) => MyValue = m match {
+    case b: AndMonoid => (v1: MyValue, v2: MyValue) => (v1, v2) match {
+      case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value && b2.value)
+    }
+    case b: OrMonoid => (v1: MyValue, v2: MyValue) => (v1, v2) match {
+      case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value || b2.value)
+    }
+  }
+
+  def mergeReduce(m: Monoid, v1: MyValue, v2: MyValue): MyValue = (m, v1, v2) match {
+    case (_: ListMonoid,v: MyValue, l: ListValue) => ListValue(List(v) ++ l.value)
+    case (_: SetMonoid, v: MyValue, s: SetValue) => SetValue(Set(v) ++ s.value)
+    case (_: AndMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
+    case (_: OrMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
+    case (_: SumMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value + v2.value)
+    case (_: MultiplyMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value * v2.value)
   }
 
   def expEval(exp: Exp, env: List[MyValue]): MyValue = exp match {
@@ -71,28 +95,43 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
     case v: Arg => varEval(v, env)
     case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
     case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
-    case ZeroCollectionMonoid(m) => zeroCollectionEval(m)
+    case ZeroMonoid(m) => zeroEval(m)
     case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
     case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1, env), expEval(e2, env))
+    case MergeMonoid(m: BoolMonoid, e1, e2) => mergeBoolEval(m)(expEval(e1, env), expEval(e2, env))
     case UnaryExp(op, e) => unaryOpEval(op)(expEval(e, env))
     case IfThenElse(e1, e2, e3) => if(expEval(e1, env) == BooleanValue(true)) expEval(e2, env) else expEval(e3, env)
     case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
   }
 
+
   def varEval(v: Arg, env: List[MyValue]): MyValue = {
     env(v.i)
   }
 
-  def zeroCollectionEval(m: CollectionMonoid): CollectionValue = m match {
+  def zeroEval(m: Monoid): MyValue = m match {
     case _: SetMonoid => SetValue(Set())
     case _: ListMonoid => ListValue(List())
     case _: BagMonoid => ???
+    case _: AndMonoid => BooleanValue(true)
+    case _: OrMonoid => BooleanValue(false)
+    case _: SumMonoid => IntValue(0)
+    case _: MultiplyMonoid => IntValue(1)
   }
 
   def consCollectionEval(m: CollectionMonoid): MyValue => MyValue = m match {
     case _: SetMonoid => (e: MyValue) => SetValue(Set(e))
     case _: ListMonoid => (e: MyValue) => ListValue(List(e))
     case _: BagMonoid => (e: MyValue) => ???
+  }
+
+  def mergeBoolEval(m: BoolMonoid): (MyValue, MyValue) => MyValue = m match {
+    case b: AndMonoid => (v1: MyValue, v2: MyValue) => (v1, v2) match {
+      case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value && b2.value)
+    }
+    case b: OrMonoid => (v1: MyValue, v2: MyValue) => (v1, v2) match {
+      case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value || b2.value)
+    }
   }
 
   def mergeEval(m: CollectionMonoid): (MyValue, MyValue) => MyValue = m match {
