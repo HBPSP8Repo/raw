@@ -24,6 +24,32 @@ case class ListValue(value: List[MyValue]) extends CollectionValue
 
 case class SetValue(value: Set[MyValue]) extends CollectionValue
 
-abstract class Executor(classes: Map[String, ListValue]) {
+/*
+def toString(value: MyValue): String = value match {
+  case IntValue(i) => i
+  case FloatValue(f) =>
+}
+*/
+
+abstract class DataSource {
+  def next(): Option[List[MyValue]]
+}
+
+case class MemoryDataSource(listValue: List[MyValue]) extends DataSource {
+  private var index: Int = 0
+  private val L: List[MyValue] = listValue
+
+  def next() = {
+    val n = index
+    index += 1
+    try {
+      Some(List(L(n)))
+    } catch {
+      case ex: IndexOutOfBoundsException => None
+    }
+  }
+}
+
+abstract class Executor(classes: Map[String, List[MyValue]]) {
   def execute(operatorNode: OperatorNode): List[MyValue]
 }
