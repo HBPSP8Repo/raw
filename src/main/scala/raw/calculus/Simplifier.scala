@@ -43,6 +43,7 @@ trait Simplifier extends Canonizer with LazyLogging {
     ruleDivideConstByConst +
     ruleDropNeg +
     ruleDropConstCast +
+    ruleDropConstComparison +
     ruleFoldConsts)
 
   def ors(e: Exp): Set[Exp] = e match {
@@ -248,6 +249,23 @@ trait Simplifier extends Canonizer with LazyLogging {
     case UnaryExp(_: ToString, IntConst(v))   => StringConst(v.toString())
   }
 
+  /** Remove comparisons of constants.
+    * 1 > 2
+    * ...
+    * */
+  lazy val ruleDropConstComparison = rule[Exp] {
+    case BinaryExp(_: Eq, lhs: Const, rhs: Const)           => BoolConst(lhs == rhs)
+    case BinaryExp(_: Neq, lhs: Const, rhs: Const)          => BoolConst(lhs != rhs)
+    case BinaryExp(_: Ge, lhs: IntConst, rhs: IntConst)     => BoolConst(lhs.value >= rhs.value)
+    case BinaryExp(_: Ge, lhs: FloatConst, rhs: FloatConst) => BoolConst(lhs.value >= rhs.value)
+    case BinaryExp(_: Gt, lhs: IntConst, rhs: IntConst)     => BoolConst(lhs.value > rhs.value)
+    case BinaryExp(_: Gt, lhs: FloatConst, rhs: FloatConst) => BoolConst(lhs.value > rhs.value)
+    case BinaryExp(_: Le, lhs: IntConst, rhs: IntConst)     => BoolConst(lhs.value <= rhs.value)
+    case BinaryExp(_: Le, lhs: FloatConst, rhs: FloatConst) => BoolConst(lhs.value <= rhs.value)
+    case BinaryExp(_: Lt, lhs: IntConst, rhs: IntConst)     => BoolConst(lhs.value < rhs.value)
+    case BinaryExp(_: Lt, lhs: FloatConst, rhs: FloatConst) => BoolConst(lhs.value < rhs.value)
+  }
+
   /** Rules for folding constants across a sequence of additions, multiplications or max.
     * e.g: 1 + (x + 1) => 2 + x
     */
@@ -257,7 +275,7 @@ trait Simplifier extends Canonizer with LazyLogging {
     case e                          => List(e)
   }
 
-  def hasNumber(m: NumberMonoid, e: Exp) = { logger.debug(s"merges $m $e ${merges(m, e)}"); merges(m, e).collectFirst{ case _: NumberConst => true }.isDefined }
+  def hasNumber(m: NumberMonoid, e: Exp) = merges(m, e).collectFirst{ case _: NumberConst => true }.isDefined
 
   def splitOnNumbers(m: PrimitiveMonoid, e: Exp) = merges(m, e).partition {
     case _: NumberConst => true
