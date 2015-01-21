@@ -1,7 +1,7 @@
 package raw.executor
 
 import raw._
-import raw.algebra.Algebra._
+import raw.logical.Algebra._
 import raw.calculus.World
 
 /**
@@ -368,7 +368,7 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
     case v: Arg => varEval(v, env)
     case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
     case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
-    case ZeroMonoid(m) => zeroEval(m)
+    case ZeroCollectionMonoid(m) => zeroCollectionEval(m)
     case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
     case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1, env), expEval(e2, env))
     case MergeMonoid(m: BoolMonoid, e1, e2) => mergeBoolEval(m)(expEval(e1, env), expEval(e2, env))
@@ -382,7 +382,7 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
     env(v.i)
   }
 
-  def zeroEval(m: Monoid): MyValue = m match {
+  def zeroCollectionEval(m: CollectionMonoid): CollectionValue = m match {
     case _: SetMonoid => SetValue(Set())
     case _: ListMonoid => ListValue(List())
     case _: BagMonoid => ???
@@ -475,4 +475,3 @@ class ScalaExecutor(classes: Map[String, ListValue]) extends Executor(classes) {
 }
 
 
-*/

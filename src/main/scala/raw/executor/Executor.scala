@@ -1,7 +1,7 @@
 package raw.executor
 
 import raw.DataLocation
-import raw.algebra.Algebra.OperatorNode
+import raw.logical.Algebra.OperatorNode
 import raw.calculus.World
 
 /**

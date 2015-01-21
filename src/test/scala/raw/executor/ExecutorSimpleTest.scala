@@ -1,7 +1,7 @@
 package raw.executor
 
 import raw._
-import algebra.Algebra._
+import logical.Algebra._
 
 import org.scalatest._
 import raw.calculus.SymbolTable.ClassEntity

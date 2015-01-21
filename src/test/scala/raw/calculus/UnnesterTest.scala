@@ -1,6 +1,6 @@
 package raw.calculus
 
-import raw.algebra.AlgebraPrettyPrinter
+import raw.logical.AlgebraPrettyPrinter
 
 class UnnesterTest extends FunTest {
 
@@ -47,7 +47,7 @@ class AlgebraLang {
   import scala.language.implicitConversions
   import scala.language.dynamics
   import raw._
-  import algebra.Algebra._
+  import logical.Algebra._
 
   /** Expression builders
     */
