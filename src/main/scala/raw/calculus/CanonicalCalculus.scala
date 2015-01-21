@@ -36,16 +36,18 @@ object CanonicalCalculus {
     type T = Boolean
   }
 
-  case class IntConst(value: Integer) extends Const {
+  case class StringConst(value: String) extends Const {
+    type T = String
+  }
+
+  sealed abstract class NumberConst extends Const
+
+  case class IntConst(value: Integer) extends NumberConst {
     type T = Integer
   }
 
-  case class FloatConst(value: Float) extends Const {
+  case class FloatConst(value: Float) extends NumberConst  {
     type T = Float
-  }
-
-  case class StringConst(value: String) extends Const {
-    type T = String
   }
 
   /** Variable
