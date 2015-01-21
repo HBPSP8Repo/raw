@@ -2,21 +2,20 @@ package raw.executor
 
 import raw._
 import raw.algebra.Algebra._
+import raw.calculus.World
 
 /**
  * Created by gaidioz on 1/14/15.
  */
 
-class ScalaExecutor(classes: Map[String, List[MyValue]]) extends Executor(classes) {
+class ScalaExecutor(schema: World, dataLocations: Map[String, DataLocation]) extends Executor(schema, dataLocations) {
 
-  def execute(operatorNode: OperatorNode): List[MyValue] = {
+  def execute(operatorNode: OperatorNode): MyValue = {
 
     val operator = toOperator(operatorNode)
-    def recurse: List[MyValue] = operator.next match {
-      case r@Some(v) => v ++ recurse
-      case None => List()
+    operator.next match {
+      case r@Some(v) => v.head
     }
-    recurse
   }
 
   abstract class ScalaOperator {
@@ -69,28 +68,21 @@ class ScalaExecutor(classes: Map[String, List[MyValue]]) extends Executor(classe
   case class ReduceOperator(m: Monoid, exp: Exp, ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
 
     private def reduce(m: Monoid, v1: MyValue, v2: MyValue): MyValue = (m, v1, v2) match {
-      case (_: ListMonoid, l: ListValue, v: MyValue) => ListValue(l.value :+ v)
-      case (_: SetMonoid, s: SetValue, v: MyValue) => SetValue(s.value + v)
+      case (_: ListMonoid, v: MyValue, l: ListValue) => ListValue(List(v) ++ l.value)
+      case (_: SetMonoid, v: MyValue, s: SetValue) => SetValue(Set(v) ++ s.value)
       case (_: AndMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
       case (_: OrMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
       case (_: SumMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value + v2.value)
       case (_: MultiplyMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value * v2.value)
+      case (_: MaxMonoid, v1: IntValue, v2: IntValue) => IntValue(math.max(v1.value, v2.value))
     }
 
-    private val child = source
     def next = {
-      var nC = child.next
-      nC match {
-        case None => None
-        case r@Some(v) => {
-          var result = zeroEval(m)
-          while(nC != None) {
-            result = reduce(m, result, expEval(exp, v))
-            nC = child.next
-          }
-          Some(List(result))
-        }
+      def recurse: MyValue = source.next match {
+        case None => zeroEval(m)
+        case r@Some(v) => reduce(m, expEval(exp, v), recurse)
       }
+      Some(List(recurse))
     }
   }
 
@@ -99,11 +91,27 @@ class ScalaExecutor(classes: Map[String, List[MyValue]]) extends Executor(classe
     def next = d.next()
   }
 
+  private def dataLocDecode(t: Type, dataLocation: DataLocation): DataSource = dataLocation match {
+    case MemoryLocation(source) => {
+      def recurse(t: Type, value: Any): MyValue = (t, value) match {
+        case (IntType(), v: Int) => IntValue(v)
+        case (FloatType(), v: Float) => FloatValue(v)
+        case (BoolType(), v: Boolean) => BooleanValue(v)
+        case (StringType(), v: String) => StringValue(v)
+        case (r: RecordType, v: Map[String, Any]) => RecordValue(v.map({ c => (c._1, recurse(r.typeOf(c._1), v(c._1)))}))
+        case (CollectionType(ListMonoid(), what: Type), v: List[Any]) => ListValue(v.map({ x: Any => recurse(what, x)}))
+      }
+      recurse(t, source) match {
+        case ListValue(l) => MemoryDataSource(l)
+      }
+    }
+  }
+
   private def toOperator(opNode: OperatorNode): ScalaOperator = opNode match {
     case Join(ps, left, right) => JoinOperator(ps, toOperator(left), toOperator(right))
     case Select(ps, source) => SelectOperator(ps, toOperator(source))
     case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
-    case Scan(s) => ScanOperator(MemoryDataSource(classes(s)))
+    case Scan(s) => ScanOperator(dataLocDecode(schema.typeOf(s), dataLocations(s)))
   }
 
   private def evalPredicates(ps: List[Exp], items: List[MyValue]): Boolean = {
@@ -124,7 +132,7 @@ class ScalaExecutor(classes: Map[String, List[MyValue]]) extends Executor(classe
     case v: Arg => varEval(v, env)
     case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
     case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
-    case ZeroMonoid(m) => zeroEval(m)
+    case ZeroCollectionMonoid(m) => zeroEval(m)
     case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
     case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1, env), expEval(e2, env))
     case MergeMonoid(m: BoolMonoid, e1, e2) => mergeBoolEval(m)(expEval(e1, env), expEval(e2, env))
@@ -146,6 +154,7 @@ class ScalaExecutor(classes: Map[String, List[MyValue]]) extends Executor(classe
     case _: OrMonoid => BooleanValue(false)
     case _: SumMonoid => IntValue(0)
     case _: MultiplyMonoid => IntValue(1)
+    case _: MaxMonoid => IntValue(0) // TODO
   }
 
   private def consCollectionEval(m: CollectionMonoid): MyValue => MyValue = m match {

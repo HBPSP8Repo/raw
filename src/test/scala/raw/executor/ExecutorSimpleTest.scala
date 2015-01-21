@@ -11,27 +11,10 @@ import raw.calculus.{Driver, World}
  * Created by gaidioz on 1/14/15.
  */
 
-trait PhysicalAlgebraExecutionBehavior {
-  this: FlatSpec =>
-
-  def checkExpression(exp: Exp, result: MyValue): Unit = {
-    val database: Map[String, List[MyValue]] = Map("oneRow" -> List(RecordValue(Map("value" -> IntValue(1)))))
-    val executor = new ScalaExecutor(database)
-    it should "evaluate " + exp + " correctly" in {
-      assert(executor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan("oneRow")))) === List(SetValue(Set(result))))
-    }
-  }
-}
-
-class PhysicalAlgebraConst extends FlatSpec with PhysicalAlgebraExecutionBehavior {
-
-  "intConst" should behave like checkExpression(IntConst(1), IntValue(1))
-}
-
-
 abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matchers {
 
-  val database: Map[String, List[MyValue]]
+  val world: World
+  val database: Map[String, DataLocation]
 
   def toString(value: MyValue): String = value match {
     case IntValue(c) => c.toString()
@@ -40,12 +23,11 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
     case StringValue(c) => "\"" + c.toString() + "\""
     case SetValue(s) => s.map(toString).mkString("{", ", ", "}")
     case ListValue(s) => s.map(toString).mkString("[", ", ", "]")
-    //case RecordValue(s) => s.map((key: String, value: MyValue) => key + "=" + toString(value)).mkString("[", ", ", "]")
     case RecordValue(s) => s.map({v => v._1 + ": " + toString(v._2)}).mkString("[", ", ", "]")
   }
 
-  def checkOperation(opNode: OperatorNode, result: List[MyValue]): Unit = {
-    val executor = new ScalaExecutor(database)
+  def checkOperation(opNode: OperatorNode, result: MyValue): Unit = {
+    val executor = new ScalaExecutor(world, database)
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
       Then("it should return " + result)
@@ -57,15 +39,15 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
 
 class ExpressionsConst extends ExecutorTest {
 
-  val singleRow = List(RecordValue(Map("value" -> IntValue(1))))
-  val database = Map("oneRow" -> singleRow)
+  val world: World = new World(Map(), Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
+  val database: Map[String, DataLocation] = Map("oneRow" -> MemoryLocation(List(Map("value" -> 1))))
 
   def checkExpression(exp: Exp, result: MyValue): Unit = {
-    val executor = new ScalaExecutor(database)
+    val executor = new ScalaExecutor(world, database)
     scenario("evaluation of " + exp) {
       When("evaluating " + exp)
       Then("it should return " + toString(result))
-      assert(executor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan("oneRow")))) === List(SetValue(Set(result))))
+      assert(executor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan("oneRow")))) === SetValue(Set(result)))
     }
   }
 
@@ -105,8 +87,8 @@ class ExpressionsConst extends ExecutorTest {
   checkBinExp(StringConst("tralala"), StringConst("tralala"), Map(Eq() -> BooleanValue(true), Neq() -> BooleanValue(false)))
   checkBinExp(StringConst("tralala"), StringConst("tralalere"), Map(Eq() -> BooleanValue(false), Neq() -> BooleanValue(true)))
   
-  checkExpression(ZeroMonoid(SetMonoid()), SetValue(Set()))
-  checkExpression(ZeroMonoid(ListMonoid()), ListValue(List()))
+  checkExpression(ZeroCollectionMonoid(SetMonoid()), SetValue(Set()))
+  checkExpression(ZeroCollectionMonoid(ListMonoid()), ListValue(List()))
   checkExpression(ConsCollectionMonoid(SetMonoid(), IntConst(22)), SetValue(Set(IntValue(22))))
   checkExpression(ConsCollectionMonoid(ListMonoid(), IntConst(22)), ListValue(List(IntValue(22))))
   checkExpression(MergeMonoid(ListMonoid(), ConsCollectionMonoid(ListMonoid(), IntConst(22)), ConsCollectionMonoid(ListMonoid(), FloatConst(23.2f))), ListValue(List(IntValue(22), FloatValue(23.2f))))
@@ -120,42 +102,83 @@ class ExpressionsConst extends ExecutorTest {
 
 }
 
-class SimpleScan extends  ExecutorTest {
-  val row = RecordValue(Map("value" -> IntValue(1)))
-  val database = Map(
-    "oneRow" -> List(row),
-    "twoRows" -> List(row, row)
+class ReduceOperations extends  ExecutorTest {
+
+  val world: World = new World(Map(), Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))), ClassEntity("twoRows", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
+  val database: Map[String, DataLocation] = Map(
+    "oneRow" -> MemoryLocation(List(Map("value" -> 1))),
+    "twoRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2))),
+    "threeRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2), Map("value" -> 3)))
   )
-  checkOperation(Scan("oneRow"), List(row))
-  checkOperation(Scan("twoRows"), List(row, row))
-  checkOperation(Select(List(BoolConst(true)), Scan("oneRow")), List(row))
-  checkOperation(Select(List(), Scan("oneRow")), database("oneRow"))
+
+  //checkOperation(Scan("oneRow"), List(RecordValue(Map("value" -> IntValue(1)))))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan("twoRows")), ListValue(List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2))))))
+  checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan("twoRows")), SetValue(Set(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2))))))
+
+  //checkOperation(Select(List(BoolConst(true)), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
+  //checkOperation(Select(List(), Scan("twoRows")), List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2)))))
+  /*
   checkOperation(Select(List(BoolConst(false)), Scan("oneRow")), List())
-  checkOperation(Select(List(), Scan("twoRows")), database("twoRows"))
+  checkOperation(Select(List(), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
+
+  checkOperation(Select(List(), Scan("threeRows")), List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2))), RecordValue(Map("value" -> IntValue(3)))))
+  checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("oneRow"))), List(ListValue(List(IntValue(1)))))
+  checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("twoRows"))), List(ListValue(List(IntValue(1), IntValue(2)))))
+  */
 }
 
 class RealQueries extends ExecutorTest {
-  val singleRow = RecordValue(Map("value" -> IntValue(1)))
-  val database = Map("oneRow" -> List(singleRow),
-    "twoRows" -> List(singleRow, singleRow))
 
-  val numberType = RecordType(Seq(AttrType("value", IntType())))
-  val numbersType = CollectionType(ListMonoid(), numberType)
-  val world = World.newWorld(Map("number" -> numberType, "numbers" -> numbersType), Set(ClassEntity("oneRow", numbersType), ClassEntity("twoRows", numbersType)))
+  val worldTypes = Map("number" -> IntType())
+  val world: World = new World(worldTypes, Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))), ClassEntity("twoRows", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
+  val database: Map[String, DataLocation] = Map("oneRow" -> MemoryLocation(List(Map("value" -> 1))), "twoRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2))))
 
   def checkQuery(query: String, result: MyValue): Unit = {
     val opNode = world.unnest(Driver.parse(query))
-    val executor = new ScalaExecutor(database)
+    val executor = new ScalaExecutor(world, database)
     scenario("evaluation of " + query) {
-      When("evaluating " + query)
+      When("evaluating '" + query +"'")
       Then("it should return " + toString(result))
-      assert(executor.execute(opNode) === List(result))
+      assert(executor.execute(opNode) === result)
     }
   }
   checkQuery("for (d <- oneRow) yield set true", SetValue(Set(BooleanValue(true))))
   checkQuery("for (d <- oneRow) yield list true", ListValue(List(BooleanValue(true))))
   checkQuery("for (d <- twoRows) yield set true", SetValue(Set(BooleanValue(true))))
   checkQuery("for (d <- twoRows) yield list true", ListValue(List(BooleanValue(true), BooleanValue(true))))
-  checkQuery("for (d <- twoRows) yield list d.value", ListValue(List(IntValue(1), IntValue(1))))
-  checkQuery("for (d <- twoRows) yield set d.value", SetValue(Set(IntValue(1))))
+  checkQuery("for (d <- twoRows) yield list d.value", ListValue(List(IntValue(1), IntValue(2))))
+  checkQuery("for (d <- twoRows) yield set d.value", SetValue(Set(IntValue(1), IntValue(2))))
+}
+
+class Engine extends ExecutorTest {
+  val worldTypes = Map("number" -> IntType())
+  val world: World = new World(worldTypes, Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))), ClassEntity("twoRows", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
+  val database: Map[String, DataLocation] = Map("oneRow" -> MemoryLocation(List(Map("value" -> 1))), "twoRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2))))
+
+  def checkQuery(query: String, result: Any): Unit = {
+    val opNode = world.unnest(Driver.parse(query))
+    val executor = new ScalaExecutor(world, database)
+
+    def toScala(value: MyValue): Any = value match {
+      case IntValue(i) => i
+      case FloatValue(f) => f
+      case BooleanValue(b) => b
+      case StringValue(s) => s
+      case SetValue(s) => s.map(v => toScala(v))
+      case ListValue(l) => l.map(v => toScala(v))
+      case RecordValue(m: Map[String, MyValue]) => m.map(v => (v._1, toScala(v._2)))
+    }
+
+    scenario("evaluation of " + query) {
+      When("evaluating '" + query +"' (" + opNode + ")")
+      Then("it should return " + result.toString())
+      assert(toScala(executor.execute(opNode)) === result)
+    }
+  }
+
+  checkQuery("for (d <- oneRow) yield max d.value", 1)
+  checkQuery("for (d <- twoRows) yield max d.value", 2)
+  checkQuery("for (d <- oneRow) yield list d.value", List(1))
+  checkQuery("for (d <- twoRows) yield list d.value", List(1,2))
+
 }

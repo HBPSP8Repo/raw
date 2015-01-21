@@ -21,7 +21,12 @@ case class IntType() extends NumberType
 /** Record Type
  */
 case class AttrType(idn: String, tipe: Type)
-case class RecordType(atts: Seq[AttrType]) extends Type
+case class RecordType(atts: Seq[AttrType]) extends Type {
+  def typeOf(attribute: String): Type = {
+    val matches = atts.filter({ p => p match { case c: AttrType => c.idn == attribute }})
+    return matches.head.tipe
+  }
+}
 
 /** Collection Type
  */

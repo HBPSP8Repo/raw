@@ -1,12 +1,14 @@
 package raw.executor
 
+import raw.DataLocation
 import raw.algebra.Algebra.OperatorNode
+import raw.calculus.World
 
 /**
  * Created by gaidioz on 1/14/15.
  */
 
-sealed trait MyValue
+sealed trait MyValue // TODO
 
 case class IntValue(value: Int) extends MyValue
 
@@ -18,18 +20,11 @@ case class StringValue(value: String) extends MyValue
 
 case class RecordValue(value: Map[String, MyValue]) extends MyValue
 
-sealed abstract class CollectionValue() extends MyValue
+sealed abstract class CollectionValue extends MyValue
 
 case class ListValue(value: List[MyValue]) extends CollectionValue
 
 case class SetValue(value: Set[MyValue]) extends CollectionValue
-
-/*
-def toString(value: MyValue): String = value match {
-  case IntValue(i) => i
-  case FloatValue(f) =>
-}
-*/
 
 abstract class DataSource {
   def next(): Option[List[MyValue]]
@@ -39,7 +34,7 @@ case class MemoryDataSource(listValue: List[MyValue]) extends DataSource {
   private var index: Int = 0
   private val L: List[MyValue] = listValue
 
-  def next() = {
+  def next(): Option[List[MyValue]] = {
     val n = index
     index += 1
     try {
@@ -50,6 +45,11 @@ case class MemoryDataSource(listValue: List[MyValue]) extends DataSource {
   }
 }
 
-abstract class Executor(classes: Map[String, List[MyValue]]) {
-  def execute(operatorNode: OperatorNode): List[MyValue]
+abstract class Executor(schema: World, dataLocations: Map[String, DataLocation]) {
+  //def execute(operatorNode: OperatorNode): ExecutorResult
+  def execute(operatorNode: OperatorNode): MyValue
+}
+
+abstract class ExecutorResult {
+  def iterator: AnyRef
 }

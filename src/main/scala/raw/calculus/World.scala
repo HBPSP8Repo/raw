@@ -15,10 +15,16 @@ class World(val userTypes: Map[String, Type], val catalog: Set[ClassEntity]) ext
       Right(canonize(ast))
   }
 
+  def typeOf(entity: String): Type = {
+    println("typeOf(" + entity + ")")
+    val matches = catalog.filter({ p => p match { case c: ClassEntity => c.name == entity }})
+    matches.head.t
+  }
+
 }
 
 object World {
-  
+
   def newWorld(userTypes: Map[String, Type] = Map(), catalog: Set[ClassEntity] = Set()) =
     new World(userTypes, catalog)
 
