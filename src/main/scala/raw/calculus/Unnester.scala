@@ -205,7 +205,7 @@ trait Unnester extends Simplifier with LazyLogging {
       val c = getNestedComp(p)
       val v = CanonicalCalculus.Var()
       val np = p.map(rewrite(attempt(oncetd(rule[CanonicalCalculus.Exp] {
-        case c1 if c1 == c => v
+        case `c` => v
       })))(_))
       CalculusTerm(CanonicalCalculus.Comp(m, s, np, e1), u, w :+ v, CalculusTerm(c, w, w, child))
     }
@@ -219,7 +219,7 @@ trait Unnester extends Simplifier with LazyLogging {
       logger.debug(s"Rule C12")
       val v = CanonicalCalculus.Var()
       val nf = rewrite(oncetd(rule[CanonicalCalculus.Exp] {
-        case c1 if c1 == c => v
+        case `c` => v
       }))(f)
       CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, nf), u, w :+ v, CalculusTerm(c, w, w, child))
   }
