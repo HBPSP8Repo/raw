@@ -1,6 +1,8 @@
 RAW
 ===
 
+[![Build Status](https://api.travis-ci.org/dias-epfl/raw.svg?branch=master)](https://travis-ci.org/dias-epfl/raw)
+
 * Overview
 
 Reference implementation of:
