@@ -1,4 +1,4 @@
-package raw.algebra
+package raw.logical
 
 import raw._
 

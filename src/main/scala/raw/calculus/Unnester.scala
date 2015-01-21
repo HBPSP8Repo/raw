@@ -1,7 +1,7 @@
 package raw.calculus
 
 import com.typesafe.scalalogging.LazyLogging
-import raw.algebra.Algebra
+import raw.logical.Algebra
 
 /** Terms used during query unnesting.
   */

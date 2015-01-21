@@ -1,6 +1,6 @@
 package raw.executor
 
-import raw.algebra.Algebra.OperatorNode
+import raw.logical.Algebra.OperatorNode
 
 /**
  * Created by gaidioz on 1/14/15.

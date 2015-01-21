@@ -1,7 +1,7 @@
 package raw.executor
 
 import raw._
-import raw.algebra.Algebra._
+import raw.logical.Algebra._
 
 /**
  * Created by gaidioz on 1/14/15.
