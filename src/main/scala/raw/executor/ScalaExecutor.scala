@@ -8,13 +8,64 @@ import raw.calculus.World
  * Created by gaidioz on 1/14/15.
  */
 
+sealed trait MyValue // TODO trait or class
+
+case class IntValue(value: Int) extends MyValue
+
+case class FloatValue(value: Float) extends MyValue
+
+case class BooleanValue(value: Boolean) extends MyValue
+
+case class StringValue(value: String) extends MyValue
+
+case class RecordValue(value: Map[String, MyValue]) extends MyValue
+
+sealed abstract class CollectionValue extends MyValue
+
+case class ListValue(value: List[MyValue]) extends CollectionValue
+
+case class SetValue(value: Set[MyValue]) extends CollectionValue
+
+abstract class DataSource {
+  def next(): Option[List[MyValue]]
+}
+
+case class MemoryDataSource(listValue: List[MyValue]) extends DataSource {
+  private var index: Int = 0
+  private val L: List[MyValue] = listValue
+
+  def next(): Option[List[MyValue]] = {
+    val n = index
+    index += 1
+    try {
+      Some(List(L(n)))
+    } catch {
+      case ex: IndexOutOfBoundsException => None
+    }
+  }
+}
+
+class ScalaExecutorResult(result: MyValue) extends ExecutorResult {
+
+  def toScala(value: MyValue): Any = value match {
+    case IntValue(i) => i
+    case FloatValue(f) => f
+    case BooleanValue(b) => b
+    case StringValue(s) => s
+    case SetValue(s) => s.map(v => toScala(v))
+    case ListValue(l) => l.map(v => toScala(v))
+    case RecordValue(m: Map[String, MyValue]) => m.map(v => (v._1, toScala(v._2)))
+  }
+  val value = toScala(result)
+}
+
 class ScalaExecutor(schema: World, dataLocations: Map[String, DataLocation]) extends Executor(schema, dataLocations) {
 
-  def execute(operatorNode: OperatorNode): MyValue = {
+  def execute(operatorNode: OperatorNode): ExecutorResult = {
 
     val operator = toOperator(operatorNode)
     operator.next match {
-      case r@Some(v) => v.head
+      case r@Some(v) => new ScalaExecutorResult(v.head)
     }
   }
 
