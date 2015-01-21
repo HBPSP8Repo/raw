@@ -1,0 +1,13 @@
+language: scala
+scala:
+- 2.11.5
+script:
+- sbt update compile test
+jdk:
+- oraclejdk8
+notifications:
+email:
+- raw-reports@googlegroups.com
+branches:
+only:
+- master
