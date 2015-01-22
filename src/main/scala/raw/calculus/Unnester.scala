@@ -1,7 +1,10 @@
 package raw.calculus
 
 import com.typesafe.scalalogging.LazyLogging
+import raw.RawException
 import raw.algebra._
+
+case class UnnesterError(err: String) extends RawException
 
 /** Terms used during query unnesting.
   */
@@ -12,7 +15,6 @@ case object EmptyTerm extends Term
 case class CalculusTerm(comp: CanonicalCalculus.Comp, u: List[CanonicalCalculus.Var], w: List[CanonicalCalculus.Var], child: Term) extends Term
 
 case class AlgebraTerm(t: LogicalAlgebra.AlgebraNode) extends Term
-
 
 /** The query unnesting algorithm that converts a calculus expression (converted into its canonical form) into
   * a logical algebra plan.
@@ -26,6 +28,7 @@ trait Unnester extends Simplifier with LazyLogging {
   def unnest(c: Calculus.Comp): LogicalAlgebra.AlgebraNode = {
     unnesterRules(CalculusTerm(simplify(c), List(), List(), EmptyTerm)) match {
       case Some(AlgebraTerm(a)) => a
+      case _                    => throw UnnesterError(s"Invalid output expression: $c")
     }
   }
 
@@ -68,6 +71,7 @@ trait Unnester extends Simplifier with LazyLogging {
     case CanonicalCalculus.ConsCollectionMonoid(m, e) => ConsCollectionMonoid(m, convertExp(e, vs))
     case CanonicalCalculus.MergeMonoid(m, e1, e2)     => MergeMonoid(m, convertExp(e1, vs), convertExp(e2, vs))
     case CanonicalCalculus.UnaryExp(op, e)            => UnaryExp(op, convertExp(e, vs))
+    case _: CanonicalCalculus.Comp                    => throw UnnesterError(s"Unexpected comprehension: $e")
   }
 
   /** Convert canonical calculus path to algebra path.

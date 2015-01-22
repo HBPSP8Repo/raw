@@ -40,8 +40,10 @@ object CanonicalCalculusPrettyPrinter extends PrettyPrinter {
 
   import CanonicalCalculus._
 
-  def pretty(n: CalculusNode, w: Width): String =
+  def pretty(n: Exp, w: Width): String =
     super.pretty(show(n), w=w)
+
+  def gen(g: Gen): Doc = show(g.v) <+> "<-" <+> path(g.p)
 
   def path(p: Path): Doc = p match {
     case BoundVar(v)        => show(v)
@@ -49,20 +51,20 @@ object CanonicalCalculusPrettyPrinter extends PrettyPrinter {
     case InnerPath(p, name) => path(p) <> dot <> name
   }
 
-  def show(n: CalculusNode): Doc = n match {
+  def attr(att: AttrCons): Doc = att.idn <+> ":=" <+> show(att.e)
+
+  def show(n: Exp): Doc = n match {
     case _: Null                    => "null"
     case c: Const                   => c.value.toString()
     case v: Var                     => "$var" + v.locn
     case RecordProj(e, idn)         => show(e) <> dot <> idn
-    case AttrCons(idn, e)           => idn <+> ":=" <+> show(e)
-    case RecordCons(atts)           => list(atts.toList, prefix = "", elemToDoc = show)
+    case RecordCons(atts)           => list(atts.toList, prefix = "", elemToDoc = attr)
     case IfThenElse(e1, e2, e3)     => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
     case BinaryExp(op, e1, e2)      => show(e1) <+> binaryOp(op) <+> show(e2)
     case ZeroCollectionMonoid(m)    => collection(m, empty)
     case ConsCollectionMonoid(m, e) => collection(m, show(e))
     case MergeMonoid(m, e1, e2)     => show(e1) <+> merge(m) <+> show(e2)
-    case Comp(m, paths, preds, e)   => "for" <+> parens(ssep(paths ++ preds map show, comma <> space)) <+> "yield" <+> monoid(m) <+> show(e)
+    case Comp(m, paths, preds, e)   => "for" <+> parens(ssep((paths map gen) ++ (preds map show), comma <> space)) <+> "yield" <+> monoid(m) <+> show(e)
     case UnaryExp(op, e)            => unaryOp(op) <+> show(e)
-    case Gen(v, p)                  => show(v) <+> "<-" <+> path(p)
   }
 }

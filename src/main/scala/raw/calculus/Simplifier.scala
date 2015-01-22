@@ -270,29 +270,33 @@ trait Simplifier extends Canonizer with LazyLogging {
     * e.g: 1 + (x + 1) => 2 + x
     */
 
-  def merges(m: PrimitiveMonoid, e: Exp): List[Exp] = e match {
+  def merges(m: NumberMonoid, e: Exp): List[Exp] = e match {
     case MergeMonoid(`m`, lhs, rhs) => merges(m, lhs) ++ merges(m, rhs)
     case e                          => List(e)
   }
 
   def hasNumber(m: NumberMonoid, e: Exp) = merges(m, e).collectFirst{ case _: NumberConst => true }.isDefined
 
-  def splitOnNumbers(m: PrimitiveMonoid, e: Exp) = merges(m, e).partition {
-    case _: NumberConst => true
-    case _              => false
-  }
+  def foldConsts(m: NumberMonoid, e1: NumberConst, e2: Exp) = {
 
-  def foldConsts(m: PrimitiveMonoid, e1: NumberConst, e2: Exp) = {
-    val (consts, rest) = splitOnNumbers(m, e2)
+    /** This "monster" splits the output of merges(m, e2) into two lists in a typesafe way,
+      * one containing the constants, the other containing the rest.
+      * It does it in a single pass, accumulating results in a tuple with both lists.
+      */
+    val (consts, rest) = merges(m, e2).foldLeft(List[NumberConst](), List[Exp]()) {
+      case ((cs, es), c: NumberConst) => (cs :+ c, es)
+      case ((cs, es), e: Exp)         => (cs, es :+ e)
+    }
+
     val const = e1 match {
       case IntConst(v) =>
-        IntConst(consts.map{ case IntConst(v) => v }.foldLeft(v)((a,b) => m match {
+        IntConst(consts.map(_.value.asInstanceOf[Int]).foldLeft(v)((a,b) => m match {
           case _: SumMonoid => a + b
           case _: MaxMonoid => math.max(a, b)
           case _: MultiplyMonoid => a * b
         }))
       case FloatConst(v) =>
-        FloatConst(consts.map{ case FloatConst(v) => v }.foldLeft(v)((a,b) => m match {
+        FloatConst(consts.map(_.value.asInstanceOf[Float]).foldLeft(v)((a,b) => m match {
           case _: SumMonoid => a + b
           case _: MaxMonoid => math.max(a, b)
           case _: MultiplyMonoid => a * b

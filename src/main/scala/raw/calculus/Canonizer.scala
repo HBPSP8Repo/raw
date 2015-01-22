@@ -24,13 +24,17 @@ trait Canonizer extends Normalizer {
         case ClassEntity(name, tipe) => CanonicalCalculus.ClassExtent(name)
       }
       case Calculus.RecordProj(e, idn) => CanonicalCalculus.InnerPath(toPath(e), idn)
-      case _                           => throw CanonizerError(s"Invalid path: $e")
+      case _                           => throw CanonizerError(s"Unexpected expression in path: $e")
     }
 
     def idnToVar(idn: Calculus.IdnNode): CanonicalCalculus.Var = idn -> entity match {
       case g: GenVar => varMap.get(g) match {
         case Some(v) => v
-        case None => val freshVar = CanonicalCalculus.Var(); varMap.put(g, freshVar); freshVar
+        case None => {
+          val freshVar = CanonicalCalculus.Var()
+          varMap.put(g, freshVar)
+          freshVar
+        }
       }
     }
 
@@ -55,11 +59,12 @@ trait Canonizer extends Normalizer {
         val preds = qs.collect { case e: Calculus.Exp => apply(e)}
         CanonicalCalculus.Comp(m, paths.toList, preds.toList, apply(e))
       }
-      case _: Calculus.FunAbs | _: Calculus.FunApp => throw CanonizerError(s"Invalid expression: $e")
+      case _: Calculus.FunAbs | _: Calculus.FunApp => throw CanonizerError(s"Unexpected expression: $e")
     }
 
     apply(normalize(c)) match {
       case c: CanonicalCalculus.Comp => c
+      case e                         => throw CanonizerError(s"Invalid output expression: $e")
     }
   }
 
