@@ -12,7 +12,7 @@ sealed abstract class Term
 
 case object EmptyTerm extends Term
 
-case class CalculusTerm(comp: CanonicalCalculus.Comp, u: List[CanonicalCalculus.Var], w: List[CanonicalCalculus.Var], child: Term) extends Term
+case class CalculusTerm(c: CanonicalCalculus.Exp, u: List[CanonicalCalculus.Var], w: List[CanonicalCalculus.Var], child: Term) extends Term
 
 case class AlgebraTerm(t: LogicalAlgebra.AlgebraNode) extends Term
 
@@ -25,16 +25,18 @@ trait Unnester extends Simplifier with LazyLogging {
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
 
-  def unnest(c: Calculus.Comp): LogicalAlgebra.AlgebraNode = {
-    unnesterRules(CalculusTerm(simplify(c), List(), List(), EmptyTerm)) match {
+  def unnest(c: Calculus.Comp): LogicalAlgebra.AlgebraNode = unnestSimplified(simplify(c))
+
+  private def unnestSimplified(e: CanonicalCalculus.Exp): LogicalAlgebra.AlgebraNode = {
+    unnesterRules(CalculusTerm(e, List(), List(), EmptyTerm)) match {
       case Some(AlgebraTerm(a)) => a
-      case _                    => throw UnnesterError(s"Invalid output expression: $c")
+      case e                    => throw UnnesterError(s"Invalid output expression: $e")
     }
   }
 
   // TODO: There must be a better way to define the strategy without relying explicitly on recursion.
   lazy val unnesterRules: Strategy =
-    reduce(ruleC11 < unnesterRules + (ruleC12 < unnesterRules + (ruleC4 <+ ruleC5 <+ ruleC6 <+ ruleC7 <+ ruleC8 <+ ruleC9 <+ ruleC10)))
+    reduce(ruleC11 < unnesterRules + (ruleC12 < unnesterRules + (ruleC4 <+ ruleC5 <+ ruleC6 <+ ruleC7 <+ ruleC8 <+ ruleC9 <+ ruleC10 + ruleTopLevelMerge)))
 
   /** Return the set of variables used in an expression.
     */
@@ -218,13 +220,25 @@ trait Unnester extends Simplifier with LazyLogging {
     */
 
   lazy val ruleC12 = rule[Term] {
-    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, f@NestedComp(c)), u, w, child) =>
+    case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, f@NestedComp(c)), u, w, child) => {
       logger.debug(s"Rule C12")
       val v = CanonicalCalculus.Var()
       val nf = rewrite(oncetd(rule[CanonicalCalculus.Exp] {
         case `c` => v
       }))(f)
       CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, nf), u, w :+ v, CalculusTerm(c, w, w, child))
+    }
+  }
+
+  /** Extra Rule (not incl. in [1]) for handling top-level merge nodes
+    */
+
+  lazy val ruleTopLevelMerge = rule[Term] {
+    case CalculusTerm(CanonicalCalculus.MergeMonoid(m, e1, e2), _, _, _) => {
+      logger.debug(s"rule TopLevelMerge")
+      AlgebraTerm(LogicalAlgebra.Merge(m, unnestSimplified(e1), unnestSimplified(e2)))
+    }
+
   }
 
 }

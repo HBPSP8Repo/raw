@@ -8,7 +8,7 @@ trait Simplifier extends Canonizer with LazyLogging {
   import org.kiama.rewriting.Rewriter._
   import CanonicalCalculus._
 
-  def simplify(c: Calculus.Comp): Comp = {
+  def simplify(c: Calculus.Comp): Exp = {
     val c1 = canonize(c)
     simplificationRules(c1) match {
       case Some(c2: Comp) => c2

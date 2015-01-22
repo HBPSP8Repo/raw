@@ -1,6 +1,6 @@
 package raw.calculus
 
-import raw.World
+import raw.{RawException, World}
 import raw.algebra._
 
 class UnnesterTest extends FunTest {
@@ -43,8 +43,31 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.employees, query) === Result())
   }
 
+  test("top_level_merge") {
+    val query = "for (x <- things union things) yield set x"
+
+    object Result extends AlgebraLang {
+      def apply() = {
+        merge(
+          set,
+          reduce(
+            set,
+            arg(0),
+            select(
+              scan("things"))),
+          reduce(
+            set,
+            arg(0),
+            select(
+              scan("things"))))
+      }
+    }
+    assert(process(TestWorlds.things, query) === Result())
+  }
 }
 
+
+case class AlgebraDSLError(err: String) extends RawException
 
 class AlgebraLang {
 
@@ -219,7 +242,8 @@ class AlgebraLang {
   // TODO: comment saying we reuse builder for path as well
   def builderToPath(p: Builder): Path = p match {
     case RecordProjBuilder(lhs, idn) => InnerPath(builderToPath(lhs), idn)
-    case ArgBuilder(a) => BoundArg(a)
+    case ArgBuilder(a)               => BoundArg(a)
+    case _                           => throw AlgebraDSLError(s"Invalid builder in path: $p")
   }
 
   /** Algebra operators

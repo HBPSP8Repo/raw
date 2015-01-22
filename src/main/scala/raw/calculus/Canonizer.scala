@@ -13,7 +13,7 @@ trait Canonizer extends Normalizer {
     *
     * The canonical form is described in [1], page 19.
     */
-  def canonize(c: Calculus.Comp): CanonicalCalculus.Comp = {
+  def canonize(c: Calculus.Comp): CanonicalCalculus.Exp = {
 
     /** Map of symbols to canonical calculus variables. */
     var varMap = scala.collection.mutable.HashMap[GenVar, CanonicalCalculus.Var]()
@@ -63,8 +63,9 @@ trait Canonizer extends Normalizer {
     }
 
     apply(normalize(c)) match {
-      case c: CanonicalCalculus.Comp => c
-      case e                         => throw CanonizerError(s"Invalid output expression: $e")
+      case c: CanonicalCalculus.Comp        => c
+      case m: CanonicalCalculus.MergeMonoid => m
+      case e                                => throw CanonizerError(s"Invalid output expression: $e")
     }
   }
 

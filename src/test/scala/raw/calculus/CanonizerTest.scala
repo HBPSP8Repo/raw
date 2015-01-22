@@ -18,4 +18,11 @@ class CanonizerTest extends FunTest {
     )
   }
 
+  test("top_level_merge") {
+    compare(
+      process(TestWorlds.things, "for (x <- things union things) yield set x"),
+      """for ($var0 <- things) yield set $var0 union for ($var1 <- things) yield set $var1"""
+    )
+  }
+
 }
