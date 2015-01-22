@@ -1,7 +1,7 @@
 package raw.calculus
 
 import com.typesafe.scalalogging.LazyLogging
-import raw.logical.Algebra
+import raw.algebra._
 
 /** Terms used during query unnesting.
   */
@@ -11,7 +11,7 @@ case object EmptyTerm extends Term
 
 case class CalculusTerm(comp: CanonicalCalculus.Comp, u: List[CanonicalCalculus.Var], w: List[CanonicalCalculus.Var], child: Term) extends Term
 
-case class AlgebraTerm(t: Algebra.OperatorNode) extends Term
+case class AlgebraTerm(t: LogicalAlgebra.AlgebraNode) extends Term
 
 
 /** The query unnesting algorithm that converts a calculus expression (converted into its canonical form) into
@@ -23,7 +23,7 @@ trait Unnester extends Simplifier with LazyLogging {
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
 
-  def unnest(c: Calculus.Comp): Algebra.OperatorNode = {
+  def unnest(c: Calculus.Comp): LogicalAlgebra.AlgebraNode = {
     unnesterRules(CalculusTerm(simplify(c), List(), List(), EmptyTerm)) match {
       case Some(AlgebraTerm(a)) => a
     }
@@ -48,36 +48,35 @@ trait Unnester extends Simplifier with LazyLogging {
   def splitPredicates(preds: List[CanonicalCalculus.Exp], vs: List[CanonicalCalculus.Var]): (List[CanonicalCalculus.Exp], List[CanonicalCalculus.Exp]) =
     preds.partition(p => variables(p) == vs.toSet)
 
-  def convertVar(v: CanonicalCalculus.Var, vs: List[CanonicalCalculus.Var]): Algebra.Arg =
-    Algebra.Arg(vs.indexOf(v))
+  def convertVar(v: CanonicalCalculus.Var, vs: List[CanonicalCalculus.Var]): Arg =  Arg(vs.indexOf(v))
 
   /** Convert canonical calculus expression to algebra expression.
     * The position of each canonical expression variable is used as the argument.
     */
-  def convertExp(e: CanonicalCalculus.Exp, vs: List[CanonicalCalculus.Var]): Algebra.Exp = e match {
-    case _: CanonicalCalculus.Null                    => Algebra.Null
-    case CanonicalCalculus.BoolConst(v)               => Algebra.BoolConst(v)
-    case CanonicalCalculus.IntConst(v)                => Algebra.IntConst(v)
-    case CanonicalCalculus.FloatConst(v)              => Algebra.FloatConst(v)
-    case CanonicalCalculus.StringConst(v)             => Algebra.StringConst(v)
+  def convertExp(e: CanonicalCalculus.Exp, vs: List[CanonicalCalculus.Var]): Exp = e match {
+    case _: CanonicalCalculus.Null                    => Null
+    case CanonicalCalculus.BoolConst(v)               => BoolConst(v)
+    case CanonicalCalculus.IntConst(v)                => IntConst(v)
+    case CanonicalCalculus.FloatConst(v)              => FloatConst(v)
+    case CanonicalCalculus.StringConst(v)             => StringConst(v)
     case v: CanonicalCalculus.Var                     => convertVar(v, vs)
-    case CanonicalCalculus.RecordProj(e, idn)         => Algebra.RecordProj(convertExp(e, vs), idn)
-    case CanonicalCalculus.RecordCons(atts)           => Algebra.RecordCons(atts.map { att => Algebra.AttrCons(att.idn, convertExp(att.e, vs))})
-    case CanonicalCalculus.IfThenElse(e1, e2, e3)     => Algebra.IfThenElse(convertExp(e1, vs), convertExp(e2, vs), convertExp(e3, vs))
-    case CanonicalCalculus.BinaryExp(op, e1, e2)      => Algebra.BinaryExp(op, convertExp(e1, vs), convertExp(e2, vs))
-    case CanonicalCalculus.ZeroCollectionMonoid(m)    => Algebra.ZeroCollectionMonoid(m)
-    case CanonicalCalculus.ConsCollectionMonoid(m, e) => Algebra.ConsCollectionMonoid(m, convertExp(e, vs))
-    case CanonicalCalculus.MergeMonoid(m, e1, e2)     => Algebra.MergeMonoid(m, convertExp(e1, vs), convertExp(e2, vs))
-    case CanonicalCalculus.UnaryExp(op, e)            => Algebra.UnaryExp(op, convertExp(e, vs))
+    case CanonicalCalculus.RecordProj(e, idn)         => RecordProj(convertExp(e, vs), idn)
+    case CanonicalCalculus.RecordCons(atts)           => RecordCons(atts.map { att => AttrCons(att.idn, convertExp(att.e, vs))})
+    case CanonicalCalculus.IfThenElse(e1, e2, e3)     => IfThenElse(convertExp(e1, vs), convertExp(e2, vs), convertExp(e3, vs))
+    case CanonicalCalculus.BinaryExp(op, e1, e2)      => BinaryExp(op, convertExp(e1, vs), convertExp(e2, vs))
+    case CanonicalCalculus.ZeroCollectionMonoid(m)    => ZeroCollectionMonoid(m)
+    case CanonicalCalculus.ConsCollectionMonoid(m, e) => ConsCollectionMonoid(m, convertExp(e, vs))
+    case CanonicalCalculus.MergeMonoid(m, e1, e2)     => MergeMonoid(m, convertExp(e1, vs), convertExp(e2, vs))
+    case CanonicalCalculus.UnaryExp(op, e)            => UnaryExp(op, convertExp(e, vs))
   }
 
   /** Convert canonical calculus path to algebra path.
     * As in `convertExp`, the position of each canonical expression variable is used as the argument.
     */
-  def convertPath(p: CanonicalCalculus.Path, vs: List[CanonicalCalculus.Var]): Algebra.Path = p match {
-    case CanonicalCalculus.BoundVar(v)        => Algebra.BoundArg(convertVar(v, vs))
-    case CanonicalCalculus.ClassExtent(name)  => Algebra.ClassExtent(name)
-    case CanonicalCalculus.InnerPath(p, name) => Algebra.InnerPath(convertPath(p, vs), name)
+  def convertPath(p: CanonicalCalculus.Path, vs: List[CanonicalCalculus.Var]): Path = p match {
+    case CanonicalCalculus.BoundVar(v)        => BoundArg(convertVar(v, vs))
+    case CanonicalCalculus.ClassExtent(name)  => ClassExtent(name)
+    case CanonicalCalculus.InnerPath(p, name) => InnerPath(convertPath(p, vs), name)
   }
 
   /** Rule C4
@@ -87,7 +86,7 @@ trait Unnester extends Simplifier with LazyLogging {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), Nil, Nil, EmptyTerm) => {
       logger.debug(s"Rule C4")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
-      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name))))
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name))))
     }
   }
 
@@ -97,7 +96,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC5 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), Nil, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C5")
-      AlgebraTerm(Algebra.Reduce(m, convertExp(e, w), p.map(convertExp(_, w)), child))
+      AlgebraTerm(LogicalAlgebra.Reduce(m, convertExp(e, w), p.map(convertExp(_, w)), child))
     }
   }
 
@@ -109,7 +108,7 @@ trait Unnester extends Simplifier with LazyLogging {
       logger.debug(s"Rule C6")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
       val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
-      CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), Nil, w :+ v, AlgebraTerm(Algebra.Join(p_w_v.map(convertExp(_, w :+ v)), child, Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name)))))
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), Nil, w :+ v, AlgebraTerm(LogicalAlgebra.Join(p_w_v.map(convertExp(_, w :+ v)), child, LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name)))))
     }
   }
 
@@ -120,7 +119,7 @@ trait Unnester extends Simplifier with LazyLogging {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C7")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
-      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, w :+ v, AlgebraTerm(Algebra.Unnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, w :+ v, AlgebraTerm(LogicalAlgebra.Unnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
   }
 
@@ -130,7 +129,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC8 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, e), u, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C8")
-      AlgebraTerm(Algebra.Nest(m, convertExp(e, w), u.map(convertVar(_, w)), p.map(convertExp(_, w)), w.filter(!u.contains(_)).map(convertVar(_, w)), child))
+      AlgebraTerm(LogicalAlgebra.Nest(m, convertExp(e, w), u.map(convertVar(_, w)), p.map(convertExp(_, w)), w.filter(!u.contains(_)).map(convertVar(_, w)), child))
     }
   }
 
@@ -142,7 +141,7 @@ trait Unnester extends Simplifier with LazyLogging {
       logger.debug(s"Rule C9")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
       val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
-      CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), u, w :+ v, AlgebraTerm(Algebra.OuterJoin(p_w_v.map(convertExp(_, w :+ v)), child, Algebra.Select(p_v.map(convertExp(_, List(v))), Algebra.Scan(x.name)))))
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), u, w :+ v, AlgebraTerm(LogicalAlgebra.OuterJoin(p_w_v.map(convertExp(_, w :+ v)), child, LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name)))))
     }
   }
 
@@ -153,7 +152,7 @@ trait Unnester extends Simplifier with LazyLogging {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C10")
       val (p_v, p_not_v) = splitPredicates(p, List(v))
-      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
+      CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(LogicalAlgebra.OuterUnnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
   }
 

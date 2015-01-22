@@ -1,11 +1,15 @@
 package raw.calculus
 
-import raw.logical.AlgebraPrettyPrinter
+import raw.World
+import raw.algebra._
 
 class UnnesterTest extends FunTest {
 
   def process(w: World, q: String) = {
-    w.unnest(parse(w, q))
+    val ast = parse(q)
+    val unnester = new Unnester { val world = w }
+    assert(unnester.errors(ast).length === 0)
+    unnester.unnest(ast)
   }
 
   test("paper_query") {
@@ -47,7 +51,7 @@ class AlgebraLang {
   import scala.language.implicitConversions
   import scala.language.dynamics
   import raw._
-  import logical.Algebra._
+  import algebra.LogicalAlgebra._
 
   /** Expression builders
     */
@@ -103,7 +107,7 @@ class AlgebraLang {
 
   case class RecordProjBuilder(lhs: Builder, idn: String) extends Builder
 
-  case class AttrConsBuilder(idn: Idn, b: Builder)
+  case class AttrConsBuilder(idn: String, b: Builder)
 
   case class RecordConsBuilder(atts: Seq[AttrConsBuilder]) extends Builder
 
@@ -222,29 +226,29 @@ class AlgebraLang {
     */
   def scan(name: String) = Scan(name)
 
-  def reduce(m: Monoid, e: Builder, p: Builder, child: OperatorNode) = Reduce(m, build(e), cnfToList(build(p)), child)
+  def reduce(m: Monoid, e: Builder, p: Builder, child: AlgebraNode) = Reduce(m, build(e), cnfToList(build(p)), child)
 
-  def reduce(m: Monoid, e: Builder, child: OperatorNode) = Reduce(m, build(e), Nil, child)
+  def reduce(m: Monoid, e: Builder, child: AlgebraNode) = Reduce(m, build(e), Nil, child)
 
-  def select(p: Builder, child: OperatorNode) = Select(cnfToList(build(p)), child)
+  def select(p: Builder, child: AlgebraNode) = Select(cnfToList(build(p)), child)
 
-  def select(child: OperatorNode) = Select(Nil, child)
+  def select(child: AlgebraNode) = Select(Nil, child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), group_by.map(argbuild(_)), cnfToList(build(p)), nulls.map(argbuild(_)), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(argbuild(_)), cnfToList(build(p)), nulls.map(argbuild(_)), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), group_by.map(argbuild(_)), Nil, nulls.map(argbuild(_)), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(argbuild(_)), Nil, nulls.map(argbuild(_)), child)
 
-  def join(p: Builder, left: OperatorNode, right: OperatorNode) = Join(cnfToList(build(p)), left, right)
+  def join(p: Builder, left: AlgebraNode, right: AlgebraNode) = Join(cnfToList(build(p)), left, right)
 
-  def unnest(path: Builder, pred: Builder, child: OperatorNode) = Unnest(builderToPath(path), cnfToList(build(pred)), child)
+  def unnest(path: Builder, pred: Builder, child: AlgebraNode) = Unnest(builderToPath(path), cnfToList(build(pred)), child)
 
-  def unnest(path: Builder, child: OperatorNode) = Unnest(builderToPath(path), Nil, child)
+  def unnest(path: Builder, child: AlgebraNode) = Unnest(builderToPath(path), Nil, child)
 
-  def outer_join(p: Builder, left: OperatorNode, right: OperatorNode) = OuterJoin(cnfToList(build(p)), left, right)
+  def outer_join(p: Builder, left: AlgebraNode, right: AlgebraNode) = OuterJoin(cnfToList(build(p)), left, right)
 
-  def outer_unnest(path: Builder, pred: Builder, child: OperatorNode) = OuterUnnest(builderToPath(path), cnfToList(build(pred)), child)
+  def outer_unnest(path: Builder, pred: Builder, child: AlgebraNode) = OuterUnnest(builderToPath(path), cnfToList(build(pred)), child)
 
-  def outer_unnest(path: Builder, child: OperatorNode) = OuterUnnest(builderToPath(path), Nil, child)
+  def outer_unnest(path: Builder, child: AlgebraNode) = OuterUnnest(builderToPath(path), Nil, child)
 
-  def merge(m: Monoid, left: OperatorNode, right: OperatorNode) = Merge(m, left, right)
+  def merge(m: Monoid, left: AlgebraNode, right: AlgebraNode) = Merge(m, left, right)
 }

@@ -1,10 +1,14 @@
 package raw.calculus
 
+import raw.World
+
 class NormalizerTest extends FunTest {
 
   def process(w: World, q: String) = {
-    val ast = w.normalize(parse(w, q))
-    CalculusPrettyPrinter.pretty(ast, 200)
+    val ast = parse(q)
+    val normalizer = new Normalizer { val world = w }
+    assert(normalizer.errors(ast).length === 0)
+    CalculusPrettyPrinter.pretty(normalizer.normalize(ast), 200)
   }
 
   test("rule1") {

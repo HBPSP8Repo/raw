@@ -4,7 +4,12 @@ import raw._
 
 class SemanticAnalyzerTest extends FunTest {
 
-  def process(w: World, q: String) = w.tipe(parse(w, q))
+  def process(w: World, q: String) = {
+    val ast = parse(q)
+    val analyzer = new SemanticAnalyzer { val world = w }
+    assert(analyzer.errors(ast).length === 0)
+    analyzer.tipe(ast)
+  }
 
   test("cern_events") {
     assert(

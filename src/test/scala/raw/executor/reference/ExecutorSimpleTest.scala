@@ -1,11 +1,9 @@
-package raw.executor
-
-import raw._
-import logical.Algebra._
+package raw.executor.reference
 
 import org.scalatest._
-import raw.calculus.SymbolTable.ClassEntity
-import raw.calculus.{Driver, World}
+import raw._
+import algebra._
+import PhysicalAlgebra._
 
 /**
  * Created by gaidioz on 1/14/15.
@@ -14,9 +12,8 @@ import raw.calculus.{Driver, World}
 abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matchers {
 
   val world: World
-  val database: Map[String, DataLocation]
 
-  def toString(value: MyValue): String = value match {
+  def toString(value: Value): String = value match {
     case IntValue(c) => c.toString()
     case BooleanValue(c) => c.toString()
     case FloatValue(c) => c.toString()
@@ -26,12 +23,14 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
     case RecordValue(s) => s.map({v => v._1 + ": " + toString(v._2)}).mkString("[", ", ", "]")
   }
 
-  def checkOperation(opNode: OperatorNode, result: Any): Unit = {
-    val executor = new ScalaExecutor(world, database)
+  def checkOperation(opNode: AlgebraNode, result: Any): Unit = {
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
       Then("it should return " + result)
-      assert(executor.execute(opNode).value === result)
+      ReferenceExecutor.execute(opNode, world) match {
+        case Right(q) => assert(q.value === result)
+        case _ => assert(false)
+      }
     }
   }
 
@@ -39,15 +38,18 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
 
 class ExpressionsConst extends ExecutorTest {
 
-  val world: World = new World(Map(), Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
-  val database: Map[String, DataLocation] = Map("oneRow" -> MemoryLocation(List(Map("value" -> 1))))
+  val location = MemoryLocation(List(Map("value" -> 1)))
+  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
+  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
   def checkExpression(exp: Exp, result: Any): Unit = {
-    val executor = new ScalaExecutor(world, database)
     scenario("evaluation of " + exp) {
       When("evaluating " + exp)
       Then("it should return " + result)
-      assert(executor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan("oneRow")))).value === Set(result))
+      ReferenceExecutor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan(tipe, location))), world) match {
+        case Right(q) => assert(q.value === result)
+        case _ => assert(false)
+      }
     }
   }
 
@@ -103,16 +105,13 @@ class ExpressionsConst extends ExecutorTest {
 
 class ReduceOperations extends  ExecutorTest {
 
-  val world: World = new World(Map(), Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))), ClassEntity("twoRows", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
-  val database: Map[String, DataLocation] = Map(
-    "oneRow" -> MemoryLocation(List(Map("value" -> 1))),
-    "twoRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2))),
-    "threeRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2), Map("value" -> 3)))
-  )
+  val location = MemoryLocation(List(Map("value" -> 1), Map("value" -> 2)))
+  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
+  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
   //checkOperation(Scan("oneRow"), List(RecordValue(Map("value" -> IntValue(1)))))
-  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan("twoRows")), List(Map("value" -> 1), Map("value" -> 2)))
-  checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan("twoRows")), Set(Map("value" -> 1), Map("value" -> 2)))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan(tipe, location)), List(Map("value" -> 1), Map("value" -> 2)))
+  checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan(tipe, location)), Set(Map("value" -> 1), Map("value" -> 2)))
 
   //checkOperation(Select(List(BoolConst(true)), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
   //checkOperation(Select(List(), Scan("twoRows")), List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2)))))
@@ -128,17 +127,20 @@ class ReduceOperations extends  ExecutorTest {
 
 class RealQueries extends ExecutorTest {
 
-  val worldTypes = Map("number" -> IntType())
-  val world: World = new World(worldTypes, Set(ClassEntity("oneRow", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))), ClassEntity("twoRows", CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType())))))))
-  val database: Map[String, DataLocation] = Map("oneRow" -> MemoryLocation(List(Map("value" -> 1))), "twoRows" -> MemoryLocation(List(Map("value" -> 1), Map("value" -> 2))))
+  val location = MemoryLocation(List(Map("value" -> 1)))
+  val location2 = MemoryLocation(List(Map("value" -> 1), Map("value" -> 2)))
+  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
+  val world: World = new World(Map("oneRow" -> Source(tipe, location), "twoRows" -> Source(tipe, location2)))
 
-  def checkQuery(query: String, result: Any): Unit = {
-    val opNode = world.unnest(Driver.parse(query))
-    val executor = new ScalaExecutor(world, database)
+  def checkQuery(query: String, expectedResult: Any): Unit = {
     scenario("evaluation of " + query) {
       When("evaluating '" + query +"'")
-      Then("it should return " + result)
-      assert(executor.execute(opNode).value === result)
+      val result = Query(query, world, executor=ReferenceExecutor)
+      Then("it should return " + expectedResult)
+      assert(result.isRight)
+      result match {
+        case Right(q) => assert(q.value === expectedResult)
+      }
     }
   }
   checkQuery("for (d <- oneRow) yield set true", Set(true))

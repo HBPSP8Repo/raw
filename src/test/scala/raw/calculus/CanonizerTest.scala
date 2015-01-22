@@ -1,10 +1,14 @@
 package raw.calculus
 
+import raw.World
+
 class CanonizerTest extends FunTest {
 
   def process(w: World, q: String) = {
-    val ast = w.canonize(parse(w, q))
-    CanonicalCalculusPrettyPrinter.pretty(ast, 200)
+    val ast = parse(q)
+    val canonizer = new Canonizer { val world = w }
+    assert(canonizer.errors(ast).length === 0)
+    CanonicalCalculusPrettyPrinter.pretty(canonizer.canonize(ast), 200)
   }
 
   test("paper_query") {

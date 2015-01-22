@@ -1,14 +1,45 @@
 package raw.calculus
 
 import org.scalatest.FunSuite
+import raw.World
 
 class FunTest extends FunSuite {
 
-  def parse(w: World, q: String) = {
-    val c = Driver.parse(q)
-    assert(w.errors(c).length === 0)
-    c
+  def parse(q: String): Calculus.Comp = {
+    val parser = new SyntaxAnalyzer()
+    parser.makeAST(q) match {
+      case Right(ast) => ast
+      case _ => ???
+    }
   }
+//
+//    Query. (q, w) match {
+//      case Right(c) =>
+//    }
+//  }
+//    def parse(q: String, w: World): Either[QueryError, Calculus.Comp] = {
+//
+//
+//    val c = Driver.parse(q)
+//    assert(w.errors(c).length === 0)
+//    c
+//  }
+//
+//  def normalize(q: String, w: World, ast: Calculus.Comp): Either[QueryError, Calculus.Comp] = {
+//    val unnester = new Unnester {
+//      val userTypes = w.userTypes
+//      val catalog: Set[ClassEntity] = w.catalog.map{ v => ClassEntity(v._1, v._2.tipe) }.toSet
+//    }
+//    val errors = unnester.errors(ast)
+//    if (errors.length > 0) {
+//      Left(SemanticErrors(errors))
+//    } else {
+//      Right(unnester.unnest(ast))
+//    }
+//  }
+
+
+
 
   /** Compare results of actual comprehension result with expected result, but first normalizes variable names.
     * Since variable names are auto-generated, the function normalizes all uses of $varN to a uniform integer.

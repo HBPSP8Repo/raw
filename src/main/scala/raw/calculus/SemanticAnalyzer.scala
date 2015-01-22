@@ -15,18 +15,15 @@ trait SemanticAnalyzer {
   import Calculus._
   import SymbolTable._
 
-  /** Map of user-defined types.
-   */
-  val userTypes: Map[String, Type]
-  
-  /** Catalog of user-defined class entities.
-   *  Class entities are the only entry points in the system.
-   *  A class entity is the right-hand side of a Generator,
-   *  e.g. the `Events` in expression `e <- Events`.
-   */
-  val catalog: Set[ClassEntity]
-  
-  /** Collect semantic error messages for a given tree.
+  /** The semantic analyzer reads the user types and the catalog of user-defined class entities from the World object.
+    *
+    * User types are the "type definitions" available to the user.
+    * Class entities are the sources to read from, i.e. a class entity is the right-hand side of a Generator:
+    * in expression `e <- Events` the class entity is `Events`.
+    */
+  val world: World
+
+    /** Collect semantic error messages for a given tree.
    */
   // TODO: Improve error messages.
   val errors = attr(collectall {
@@ -155,7 +152,7 @@ trait SemanticAnalyzer {
     chain(envin, envout)
 
   def envin(in: TreeNode => Environment): TreeNode ==> Environment = {
-    case c: Comp if  c.isRoot       => rootenv(catalog.map{ case entity @ ClassEntity(name, _) => (name, entity) }.toSeq: _*)
+    case c: Comp if  c.isRoot       => rootenv(world.catalog.map{ case (name, source) => (name, ClassEntity(name, source.tipe)) }.toSeq: _*)
     case c: Comp                    => enter(in(c))
 
     // If we are in an expression and the parent is a `Bind` or `Gen`, then the `in` environment
@@ -211,7 +208,7 @@ trait SemanticAnalyzer {
    */
   lazy val tipe: Exp => Type = attr {
     case e => e -> realType match {
-      case ClassType(name) => userTypes(name)
+      case ClassType(name) => world.userTypes(name)
       case t               => t
     }
   }

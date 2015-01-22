@@ -51,11 +51,11 @@ object TestWorlds {
       "Course" -> course,
       "Courses" -> courses)
 
-    val catalog = Set(
-      ClassEntity("Departments", departments)
+    val catalog = Map(
+      "Departments" -> Source(departments, EmptyLocation)
     )
 
-    World.newWorld(userTypes = userTypes, catalog = catalog)
+    new World(catalog, userTypes=userTypes)
   }
 
   def employees = {
@@ -75,11 +75,11 @@ object TestWorlds {
           AttrType("children", children),
           AttrType("manager", manager))))
 
-    val catalog = Set(
-      ClassEntity("Employees", employees)
+    val catalog = Map(
+      "Employees" -> Source(employees, EmptyLocation)
     )
 
-    World.newWorld(catalog = catalog)
+    new World(catalog)
   }
 
   def cern = {
@@ -105,12 +105,12 @@ object TestWorlds {
           AttrType("Run", IntType()),
           AttrType("OK", BoolType()))))
 
-    val catalog = Set(
-      ClassEntity("Events", events),
-      ClassEntity("GoodRuns", goodRuns)
+    val catalog = Map(
+      "Events" -> Source(events, EmptyLocation),
+      "GoodRuns" -> Source(goodRuns, EmptyLocation)
     )
 
-    World.newWorld(catalog = catalog)
+    new World(catalog)
   }
 
   def things = {
@@ -126,11 +126,11 @@ object TestWorlds {
             CollectionType(SetMonoid(),
               FloatType())))))
               
-    val catalog = Set(
-      ClassEntity("things", things)
+    val catalog = Map(
+      "things" -> Source(things, EmptyLocation)
     )
 
-    World.newWorld(catalog = catalog)
+    new World(catalog)
   }
 
 }

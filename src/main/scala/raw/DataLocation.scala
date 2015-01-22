@@ -1,9 +1,11 @@
 package raw
 
-/**
- * Created by gaidioz on 1/21/15.
- */
+sealed abstract class DataLocation
 
-abstract class DataLocation
-// case class LocalFileLocation("/path/to/csv"), etc.
-case class MemoryLocation(source: List[Any]) extends DataLocation
+// TODO: Create hierarchy for `fileType` or use some "default" convention, e.g. mime-type.
+case class LocalFileLocation(path: String, fileType: String) extends DataLocation
+
+// TODO: Convert from List to Seq and add second parameter with Type (SetType, ...) so that we cast appropriately?
+case class MemoryLocation(data: Iterable[Any]) extends DataLocation
+
+case object EmptyLocation extends DataLocation

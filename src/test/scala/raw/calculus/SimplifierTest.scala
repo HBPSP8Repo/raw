@@ -1,10 +1,14 @@
 package raw.calculus
 
+import raw.World
+
 class SimplifierTest extends FunTest {
 
   def process(w: World, q: String) = {
-    val ast = w.simplify(parse(w, q))
-    CanonicalCalculusPrettyPrinter.pretty(ast, 200)
+    val ast = parse(q)
+    val simplifier = new Simplifier { val world = w }
+    assert(simplifier.errors(ast).length === 0)
+    CanonicalCalculusPrettyPrinter.pretty(simplifier.simplify(ast), 200)
   }
 
   test("test1") {
