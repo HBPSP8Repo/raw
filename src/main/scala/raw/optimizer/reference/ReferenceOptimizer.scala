@@ -13,7 +13,7 @@ object ReferenceOptimizer extends Optimizer {
       case LogicalAlgebra.Scan(name)                  => { val (tipe, location) = world.getSource(name); PhysicalAlgebra.Scan(tipe, location) }
       case LogicalAlgebra.Reduce(m, e, ps, child)     => PhysicalAlgebra.Reduce(m, e, ps, recurse(child))
       case LogicalAlgebra.Nest(m, e, f, ps, g, child) => PhysicalAlgebra.Nest(m, e, f, ps, g, recurse(child))
-      case LogicalAlgebra.Select(ps, child)           => PhysicalAlgebra.Select(ps, recurse(child))
+      case LogicalAlgebra.Select(ps, child)           => if (ps.isEmpty) recurse(child) else PhysicalAlgebra.Select(ps, recurse(child))
       case LogicalAlgebra.Join(ps, left, right)       => PhysicalAlgebra.Join(ps, recurse(left), recurse(right))
       case LogicalAlgebra.Unnest(p, ps, child)        => PhysicalAlgebra.Unnest(p, ps, recurse(child))
       case LogicalAlgebra.OuterJoin(ps, left, right)  => PhysicalAlgebra.OuterJoin(ps, recurse(left), recurse(right))
