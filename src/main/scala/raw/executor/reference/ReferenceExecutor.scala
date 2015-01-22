@@ -5,6 +5,8 @@ import algebra._
 import PhysicalAlgebra._
 import executor.Executor
 
+import scala.io.BufferedSource
+
 case class ReferenceExecutorError(err: String) extends RawException
 
 class ReferenceResult(result: Value) extends QueryResult {
@@ -40,12 +42,26 @@ object ReferenceExecutor extends Executor {
         }
     }
 
+    def loadCSV(t: Type, content: BufferedSource): DataSource = {
+
+      def parse(t: Type, item: String): Value = t match {
+        case IntType() => IntValue(item.toInt)
+        case FloatType() => FloatValue(item.toFloat)
+        case BoolType() => BooleanValue(item.toBoolean)
+        case StringType() => StringValue(item)
+        case RecordType(atts) => RecordValue(atts.zip(item.split(",")).map(_ match {case (a: AttrType, l: String) => (a.idn, parse(a.tipe, l))}).toMap)
+      }
+      t match {
+        case CollectionType(ListMonoid(), innerType) => MemoryDataSource(content.getLines().toList.map({ l: String => parse(innerType, l)}))
+      }
+    }
+
     def toOperator(opNode: AlgebraNode): ScalaOperator = opNode match {
       case Join(ps, left, right) => JoinOperator(ps, toOperator(left), toOperator(right))
       case Select(ps, source) => SelectOperator(ps, toOperator(source))
       case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(tipe, loc) => loc match {
-        case LocalFileLocation(path, fileType) => ???
+        case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
         case MemoryLocation(data)              => ScanOperator(dataLocDecode(tipe, data))
         case loc                               => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
       }

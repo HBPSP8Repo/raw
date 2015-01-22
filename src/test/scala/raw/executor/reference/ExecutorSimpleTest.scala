@@ -47,7 +47,7 @@ class ExpressionsConst extends ExecutorTest {
       When("evaluating " + exp)
       Then("it should return " + result)
       ReferenceExecutor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan(tipe, location))), world) match {
-        case Right(q) => assert(q.value === result)
+        case Right(q) => assert(q.value === Set(result))
         case _ => assert(false)
       }
     }
@@ -129,6 +129,8 @@ class RealQueries extends ExecutorTest {
 
   val location = MemoryLocation(List(Map("value" -> 1)))
   val location2 = MemoryLocation(List(Map("value" -> 1), Map("value" -> 2)))
+  //val location = LocalFileLocation("/tmp/oneRow", "text/csv")
+  //val location2 = LocalFileLocation("/tmp/twoRows", "text/csv")
   val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
   val world: World = new World(Map("oneRow" -> Source(tipe, location), "twoRows" -> Source(tipe, location2)))
 
