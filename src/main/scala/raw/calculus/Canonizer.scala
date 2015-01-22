@@ -1,5 +1,9 @@
 package raw.calculus
 
+import raw.RawException
+
+case class CanonizerError(err: String) extends RawException
+
 trait Canonizer extends Normalizer {
 
   import SymbolTable.{GenVar, ClassEntity}
@@ -15,11 +19,12 @@ trait Canonizer extends Normalizer {
     var varMap = scala.collection.mutable.HashMap[GenVar, CanonicalCalculus.Var]()
 
     def toPath(e: Calculus.Exp): CanonicalCalculus.Path = e match {
-      case Calculus.IdnExp(name) => name -> entity match {
+      case Calculus.IdnExp(name)       => name -> entity match {
         case _: GenVar => CanonicalCalculus.BoundVar(idnToVar(name))
         case ClassEntity(name, tipe) => CanonicalCalculus.ClassExtent(name)
       }
       case Calculus.RecordProj(e, idn) => CanonicalCalculus.InnerPath(toPath(e), idn)
+      case _                           => throw CanonizerError(s"Invalid path: $e")
     }
 
     def idnToVar(idn: Calculus.IdnNode): CanonicalCalculus.Var = idn -> entity match {
@@ -50,6 +55,7 @@ trait Canonizer extends Normalizer {
         val preds = qs.collect { case e: Calculus.Exp => apply(e)}
         CanonicalCalculus.Comp(m, paths.toList, preds.toList, apply(e))
       }
+      case _: Calculus.FunAbs | _: Calculus.FunApp => throw CanonizerError(s"Invalid expression: $e")
     }
 
     apply(normalize(c)) match {
