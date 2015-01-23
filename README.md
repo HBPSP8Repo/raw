@@ -2,6 +2,7 @@ RAW
 ===
 
 [![Build Status](https://api.travis-ci.org/dias-epfl/raw.svg?branch=master)](https://travis-ci.org/dias-epfl/raw)
+[![Coverage Status](https://coveralls.io/repos/dias-epfl/raw/badge.svg)](https://coveralls.io/r/dias-epfl/raw)
 
 * Overview
 
