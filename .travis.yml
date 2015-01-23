@@ -1,8 +1,6 @@
 language: scala
 scala:
 - 2.11.5
-script:
-- sbt update compile test
 jdk:
 - oraclejdk8
 notifications:
@@ -11,3 +9,7 @@ email:
 branches:
 only:
 - master
+script:
+- sbt clean coverage test
+after_success:
+- sbt coveralls
