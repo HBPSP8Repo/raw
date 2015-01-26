@@ -131,7 +131,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     stringLit ^^ StringConst
 
   def stringLit: Parser[String] =
-    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s)
+    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s.drop(1).dropRight(1))
 
   def neg: Parser[Neg] =
     "-" ^^^ Neg()
