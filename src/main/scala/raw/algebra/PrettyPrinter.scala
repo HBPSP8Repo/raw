@@ -52,3 +52,27 @@ object LogicalAlgebraPrettyPrinter extends AlgebraPrettyPrinter {
     case Merge(m, left, right)       => "merge" <+> monoid(m) <@> nest(show(left)) <@> nest(show(right))
   }
 }
+
+object PhysicalAlgebraPrettyPrinter extends AlgebraPrettyPrinter {
+
+  import PhysicalAlgebra._
+
+  def pretty(a: AlgebraNode): String =
+    super.pretty(show(a))
+
+  def show(a: AlgebraNode): Doc = a match {
+    case Scan(tipe, location)                  => "scan" <+> (location match {
+      case MemoryLocation(data) => parens("memory-data")
+      case LocalFileLocation(path, fileType) => parens(path)
+      case _ => parens("")
+    })
+    case Reduce(m, e, ps, child)     => "reduce" <+> monoid(m) <+> exp(e) <+> preds(ps) <@> nest(show(child))
+    case Nest(m, e, f, ps, g, child) => "nest" <+> monoid(m) <+> exp(e) <+> args(f) <+> preds(ps) <+> args(g) <@> nest(show(child))
+    case Select(ps, child)           => "select" <+> preds(ps) <@> nest(show(child))
+    case Join(ps, left, right)       => "join" <+> preds(ps) <@> nest(show(left)) <@> nest(show(right))
+    case Unnest(p, ps, child)        => "unnest" <+> path(p) <+> preds(ps) <@> nest(show(child))
+    case OuterJoin(ps, left, right)  => "outer_join" <+> preds(ps) <@> nest(show(left)) <@> nest(show(right))
+    case OuterUnnest(p, ps, child)   => "outer_unnest" <+> path(p) <+> preds(ps) <@> nest(show(child))
+    case Merge(m, left, right)       => "merge" <+> monoid(m) <@> nest(show(left)) <@> nest(show(right))
+  }
+}
