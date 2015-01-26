@@ -85,7 +85,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
-    logger.debug("\n==========\n" + PhysicalAlgebraPrettyPrinter.pretty(root) + "\n============")
+    logger.debug("\n==========\n" + root + "\n" + PhysicalAlgebraPrettyPrinter.pretty(root) + "\n============")
     val operator = toOperator(root)
     operator.next match {
       case r @ Some(v) => Right(new ReferenceResult(v.head))
