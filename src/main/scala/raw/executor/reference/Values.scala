@@ -2,6 +2,8 @@ package raw.executor.reference
 
 sealed trait Value // TODO: Use a trait or an abstract class?
 
+case class NullValue() extends Value
+
 case class IntValue(value: Int) extends Value
 
 case class FloatValue(value: Float) extends Value

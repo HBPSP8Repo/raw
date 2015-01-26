@@ -105,16 +105,22 @@ class ExpressionsConst extends ExecutorTest {
 
 class ReduceOperations extends  ExecutorTest {
 
-  val location = MemoryLocation(List(Map("value" -> 1), Map("value" -> 2)))
-  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
-  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
+  val location = MemoryLocation(List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
+  val world: World = new World(Map("twoRows" -> Source(tipe, location)))
 
   //checkOperation(Scan("oneRow"), List(RecordValue(Map("value" -> IntValue(1)))))
-  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan(tipe, location)), List(Map("value" -> 1), Map("value" -> 2)))
-  checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan(tipe, location)), Set(Map("value" -> 1), Map("value" -> 2)))
+  //checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan(tipe, location)), List(Map("value" -> 1), Map("value" -> 2)))
+  //checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan(tipe, location)), Set(Map("value" -> 1), Map("value" -> 2)))
 
   //checkOperation(Select(List(BoolConst(true)), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
-  //checkOperation(Select(List(), Scan("twoRows")), List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2)))))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(), Scan(tipe, location))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(1))), Scan(tipe, location))), List(Map("value" -> 1, "name" -> "one")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(2))), Scan(tipe, location))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two"))), Scan(tipe, location))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("three"))), Scan(tipe, location))), List())
+  checkOperation(Reduce(SetMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two"))), Scan(tipe, location))), Set(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(SetMonoid(),RecordProj(Arg(0),"name"),List(),Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"),IntConst(1))), Scan(tipe, location))), Set("one"))
   /*
   checkOperation(Select(List(BoolConst(false)), Scan("oneRow")), List())
   checkOperation(Select(List(), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
@@ -123,36 +129,4 @@ class ReduceOperations extends  ExecutorTest {
   checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("oneRow"))), List(ListValue(List(IntValue(1)))))
   checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("twoRows"))), List(ListValue(List(IntValue(1), IntValue(2)))))
   */
-}
-
-class RealQueries extends ExecutorTest {
-
-  val location = MemoryLocation(List(Map("value" -> 1)))
-  val location2 = MemoryLocation(List(Map("value" -> 1), Map("value" -> 2)))
-  //val location = LocalFileLocation("/tmp/oneRow", "text/csv")
-  //val location2 = LocalFileLocation("/tmp/twoRows", "text/csv")
-  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
-  val world: World = new World(Map("oneRow" -> Source(tipe, location), "twoRows" -> Source(tipe, location2)))
-
-  def checkQuery(query: String, expectedResult: Any): Unit = {
-    scenario("evaluation of " + query) {
-      When("evaluating '" + query +"'")
-      val result = Query(query, world, executor=ReferenceExecutor)
-      Then("it should return " + expectedResult)
-      assert(result.isRight)
-      result match {
-        case Right(q) => assert(q.value === expectedResult)
-      }
-    }
-  }
-  checkQuery("for (d <- oneRow) yield set true", Set(true))
-  checkQuery("for (d <- oneRow) yield list true", List(true))
-  checkQuery("for (d <- twoRows) yield set true", Set(true))
-  checkQuery("for (d <- twoRows) yield list true", List(true, true))
-  checkQuery("for (d <- oneRow) yield max d.value", 1)
-  checkQuery("for (d <- twoRows) yield max d.value", 2)
-  checkQuery("for (d <- oneRow) yield list d.value", List(1))
-  checkQuery("for (d <- twoRows) yield set d.value", Set(1,2))
-  checkQuery("for (d <- twoRows) yield list d.value", List(1,2))
-
 }

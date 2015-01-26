@@ -1,5 +1,6 @@
 package raw.executor.reference
 
+import com.typesafe.scalalogging.LazyLogging
 import raw._
 import algebra._
 import PhysicalAlgebra._
@@ -24,7 +25,22 @@ class ReferenceResult(result: Value) extends QueryResult {
   val value = toScala(result)
 }
 
-object ReferenceExecutor extends Executor {
+object ReferenceExecutor extends Executor with LazyLogging {
+
+  def toScala(value: Value): Any = value match {
+    case IntValue(i) => i
+    case FloatValue(f) => f
+    case BooleanValue(b) => b
+    case StringValue(s) => s
+    case SetValue(s) => s.map(v => toScala(v))
+    case ListValue(l) => l.map(v => toScala(v))
+    case RecordValue(m: Map[String, Value]) => m.map(v => (v._1, toScala(v._2)))
+  }
+
+  def returnedValue(exp: Exp, env: List[Value], value: Value): Value = {
+    logger.debug("" + exp + "(" + env + ") ===> " + value)
+    value
+  }
 
   def execute(root: PhysicalAlgebra.AlgebraNode, world: World): Either[QueryError, QueryResult] = {
 
@@ -58,7 +74,9 @@ object ReferenceExecutor extends Executor {
 
     def toOperator(opNode: AlgebraNode): ScalaOperator = opNode match {
       case Join(ps, left, right) => JoinOperator(ps, toOperator(left), toOperator(right))
+      case OuterJoin(ps, left, right) => OuterJoinOperator(ps, toOperator(left), toOperator(right))
       case Select(ps, source) => SelectOperator(ps, toOperator(source))
+      case Nest(m, e, f, ps, g, child) => NestOperator(m, e, f, ps, g, toOperator(child))
       case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(tipe, loc) => loc match {
         case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
@@ -67,6 +85,7 @@ object ReferenceExecutor extends Executor {
       }
     }
 
+    logger.debug("\n==========\n" + PhysicalAlgebraPrettyPrinter.pretty(root) + "\n============")
     val operator = toOperator(root)
     operator.next match {
       case r @ Some(v) => Right(new ReferenceResult(v.head))
@@ -83,7 +102,7 @@ object ReferenceExecutor extends Executor {
     case _ => false
   }
 
-  private def expEval(exp: Exp, env: List[Value]): Value = exp match {
+  private def expEval(exp: Exp, env: List[Value]): Value = returnedValue(exp, env, exp match {
     case BoolConst(v) => BooleanValue(v)
     case IntConst(v) => IntValue(v)
     case FloatConst(v) => FloatValue(v)
@@ -98,10 +117,10 @@ object ReferenceExecutor extends Executor {
     case UnaryExp(op, e) => unaryOpEval(op)(expEval(e, env))
     case IfThenElse(e1, e2, e3) => if(expEval(e1, env) == BooleanValue(true)) expEval(e2, env) else expEval(e3, env)
     case BinaryExp(op, e1, e2) => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
-  }
+  })
 
 
-  private def varEval(v: Arg, env: List[Value]): Value = env(v.i)
+  private def varEval(v: Arg, env: List[Value]): Value = { logger.debug("" + v + " " + env); env(v.i)}
 
   private def zeroEval(m: Monoid): Value = m match {
     case _: SetMonoid => SetValue(Set())
@@ -193,10 +212,39 @@ object ReferenceExecutor extends Executor {
       case (e1: BooleanValue, e2: BooleanValue) => BooleanValue(e1.value != e2.value)
       case (e1: StringValue, e2: StringValue) => BooleanValue(e1.value != e2.value)
     }
+    case _: Lt => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value < e2.value)
+      case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value < e2.value)
+      case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value < e2.value)
+      case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value < e2.value)
+    }
+    case _: Le => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value <= e2.value)
+      case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value <= e2.value)
+      case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value <= e2.value)
+      case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value <= e2.value)
+    }
+    case _: Ge => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value >= e2.value)
+      case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value >= e2.value)
+      case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value >= e2.value)
+      case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value >= e2.value)
+    }
+    case _: Gt => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value > e2.value)
+      case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value > e2.value)
+      case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value > e2.value)
+      case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value > e2.value)
+    }
   }
 
   abstract class ScalaOperator {
     def next: Option[List[Value]]
+
+    def returnedValue(value: Option[List[Value]]): Option[List[Value]] = value match {
+      case r@Some(v) => logger.debug("" + this + " ===> " + v.map(toScala)); value
+      case None => logger.debug("" + this + " ===> None"); value
+    }
   }
 
   /** Join Operator
@@ -211,7 +259,7 @@ object ReferenceExecutor extends Executor {
     private val leftValues: List[List[Value]] = readLeft
 
     def recurse: List[List[Value]] = right.next match {
-      case r@Some(v) => leftValues.filter({l: List[Value] => evalPredicates(ps, l)}) ++ recurse
+      case r@Some(v: List[Value]) => (leftValues.filter({l: List[Value] => evalPredicates(ps, v ++ l)})).map{l: List[Value] => v ++ l} ++ recurse
       case None => List()
     }
 
@@ -222,11 +270,11 @@ object ReferenceExecutor extends Executor {
       def next() = {
         val n = index
         index += 1
-        try {
+        returnedValue(try {
           Some(L(n))
         } catch {
           case ex: IndexOutOfBoundsException => None
-        }
+        })
       }
     }
 
@@ -235,38 +283,113 @@ object ReferenceExecutor extends Executor {
     def next = matches.next()
   }
 
+
+  case class OuterJoinOperator(ps: List[Exp], left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
+
+    private def readLeft: List[List[Value]] = left.next match {
+      case Some(v: List[Value]) => List(v) ++ readLeft
+      case None => List()
+    }
+
+    private val leftValues: List[List[Value]] = readLeft
+
+    def recurse: List[List[Value]] = right.next match {
+      case r@Some(v: List[Value]) => leftValues.map({l: List[Value] => if (evalPredicates(ps, v ++ l)) v ++ l else v ++ List(NullValue())}) ++ recurse
+      case None => List()
+    }
+
+    case class OuterJoinOutput(listValue: List[List[Value]]) {
+      private var index: Int = 0
+      private val L: List[List[Value]] = listValue
+
+      def next() = {
+        val n = index
+        index += 1
+        returnedValue(try {
+          Some(L(n))
+        } catch {
+          case ex: IndexOutOfBoundsException => None
+        })
+      }
+    }
+    private val matches = OuterJoinOutput(recurse)
+
+    def next = matches.next()
+
+  }
+
+
+
   /** Select Operator
     */
   case class SelectOperator(ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
     private val child = source
-    def recurse: Option[List[Value]] = child.next match {
+    def recurse: Option[List[Value]] = returnedValue(child.next match {
       case r@Some(v) => if(evalPredicates(ps, v)) r else recurse
       case None => None
-    }
+    })
 
     def next = recurse
+  }
+
+  case class NestOperator(m: Monoid, e: Exp, f: List[Arg], ps: List[Exp], g: List[Arg], source: ScalaOperator) extends ScalaOperator {
+
+    private def readSource: List[List[Value]] = source.next match {
+      case Some(v: List[Value]) => List(v) ++ readSource
+      case None => List()
+    }
+
+    // map from groupBy to list of elements
+    val newSource = readSource
+    println(newSource)
+    private val valuesS: Map[List[Value], List[List[Value]]] = newSource.groupBy({l => f.map({v => expEval(v, l)})})
+    // list of elements should be replaced by the list of values of e if g doesn't show null values
+    //private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({_ => expEval(e, _)})))
+    private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({x: List[Value] => expEval(e, x)})))
+    // list of values of e should be reduced according to the monoid
+    private val values = valuesE.map(p => (p._1, p._2.foldLeft(zeroEval(m))({(x: Value, y: Value) => doReduce(m, x, y)})))
+    // make the list of list
+    private val listOfList: List[List[Value]] = valuesE.toList.map({p=>p._1 ++ p._2})
+
+    case class NestOutput(listValue: List[List[Value]]) {
+      private var index: Int = 0
+      private val L: List[List[Value]] = listValue
+
+      def next() = {
+        val n = index
+        index += 1
+        returnedValue(try { Some(L(n)) } catch { case ex: IndexOutOfBoundsException => None })
+      }
+    }
+
+    println(values.keySet)
+    private val matches = NestOutput(listOfList)
+
+
+    def next = matches.next()
+
+  }
+
+  private def doReduce(m: Monoid, v1: Value, v2: Value): Value = (m, v1, v2) match {
+    case (_: ListMonoid, v: Value, l: ListValue) => ListValue(List(v) ++ l.value)
+    case (_: SetMonoid, v: Value, s: SetValue) => SetValue(Set(v) ++ s.value)
+    case (_: AndMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
+    case (_: OrMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
+    case (_: SumMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value + v2.value)
+    case (_: MultiplyMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value * v2.value)
+    case (_: MaxMonoid, v1: IntValue, v2: IntValue) => IntValue(math.max(v1.value, v2.value))
   }
 
   /** Reduce Operator
     */
   case class ReduceOperator(m: Monoid, exp: Exp, ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
 
-    private def reduce(m: Monoid, v1: Value, v2: Value): Value = (m, v1, v2) match {
-      case (_: ListMonoid, v: Value, l: ListValue) => ListValue(List(v) ++ l.value)
-      case (_: SetMonoid, v: Value, s: SetValue) => SetValue(Set(v) ++ s.value)
-      case (_: AndMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
-      case (_: OrMonoid, v1: BooleanValue, v2: BooleanValue) => BooleanValue(v1.value && v2.value)
-      case (_: SumMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value + v2.value)
-      case (_: MultiplyMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value * v2.value)
-      case (_: MaxMonoid, v1: IntValue, v2: IntValue) => IntValue(math.max(v1.value, v2.value))
-    }
-
     def next = {
       def recurse: Value = source.next match {
         case None => zeroEval(m)
-        case r@Some(v) => reduce(m, expEval(exp, v), recurse)
+        case r@Some(v) => doReduce(m, expEval(exp, v), recurse)
       }
-      Some(List(recurse))
+      returnedValue(Some(List(recurse)))
     }
   }
 
