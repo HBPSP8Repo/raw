@@ -24,6 +24,9 @@ trait Unnester extends Simplifier with LazyLogging {
 
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
+  import org.kiama.util.Counter
+
+  val varCounter = new Counter(0)
 
   def unnest(c: Calculus.Comp): LogicalAlgebra.AlgebraNode = unnestSimplified(simplify(c))
 
@@ -45,13 +48,6 @@ trait Unnester extends Simplifier with LazyLogging {
     everywhere(query[CanonicalCalculus.Exp] { case v: CanonicalCalculus.Var => vs += v})(e)
     vs.toSet
   }
-
-  /** Split a list of predicates based on a list of variables.
-    * The predicates which use *all* the variables are returned in the first list,
-    * and the remaining are returned in the second list.
-    */
-  def splitPredicates(preds: List[CanonicalCalculus.Exp], vs: List[CanonicalCalculus.Var]): (List[CanonicalCalculus.Exp], List[CanonicalCalculus.Exp]) =
-    preds.partition(p => variables(p) == vs.toSet)
 
   def convertVar(v: CanonicalCalculus.Var, vs: List[CanonicalCalculus.Var]): Arg =  Arg(vs.indexOf(v))
 
@@ -91,7 +87,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC4 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), Nil, Nil, EmptyTerm) => {
       logger.debug(s"Rule C4")
-      val (p_v, p_not_v) = splitPredicates(p, List(v))
+      val (p_v, p_not_v) = p.partition(variables(_) == Set(v))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name))))
     }
   }
@@ -112,8 +108,9 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC6 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C6")
-      val (p_v, p_not_v) = splitPredicates(p, List(v))
-      val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
+      val p_v = p.filter(variables(_) == Set(v))
+      val p_w_v = p.filter(pred => (w :+ v).toSet.subsetOf(variables(pred)))
+      val p_rest = p.filter(pred => !p_v.contains(pred) && !p_w_v.contains(pred))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), Nil, w :+ v, AlgebraTerm(LogicalAlgebra.Join(p_w_v.map(convertExp(_, w :+ v)), child, LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name)))))
     }
   }
@@ -124,7 +121,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC7 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C7")
-      val (p_v, p_not_v) = splitPredicates(p, List(v))
+      val (p_v, p_not_v) = p.partition(variables(_) == Set(v))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), Nil, w :+ v, AlgebraTerm(LogicalAlgebra.Unnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
   }
@@ -145,8 +142,9 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC9 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, x: CanonicalCalculus.ClassExtent) :: r, p, e), u, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C9")
-      val (p_v, p_not_v) = splitPredicates(p, List(v))
-      val (p_w_v, p_rest) = splitPredicates(p_not_v, w :+ v)
+      val p_v = p.filter(variables(_) == Set(v))
+      val p_w_v = p.filter(pred => (w :+ v).toSet.subsetOf(variables(pred)))
+      val p_rest = p.filter(pred => !p_v.contains(pred) && !p_w_v.contains(pred))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_rest, e), u, w :+ v, AlgebraTerm(LogicalAlgebra.OuterJoin(p_w_v.map(convertExp(_, w :+ v)), child, LogicalAlgebra.Select(p_v.map(convertExp(_, List(v))), LogicalAlgebra.Scan(x.name)))))
     }
   }
@@ -157,7 +155,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC10 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, CanonicalCalculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) => {
       logger.debug(s"Rule C10")
-      val (p_v, p_not_v) = splitPredicates(p, List(v))
+      val (p_v, p_not_v) = p.partition(variables(_) == Set(v))
       CalculusTerm(CanonicalCalculus.Comp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(LogicalAlgebra.OuterUnnest(convertPath(path, w), p_v.map(convertExp(_, w :+ v)), child)))
     }
   }
@@ -172,7 +170,8 @@ trait Unnester extends Simplifier with LazyLogging {
     variables(c).intersect(sVs).isEmpty
   }
 
-  /** Extractor object to pattern match nested comprehensions. */
+  /** Extractor object to pattern match nested comprehensions.
+    */
   private object NestedComp {
 
     import raw.calculus.CanonicalCalculus._
@@ -203,12 +202,18 @@ trait Unnester extends Simplifier with LazyLogging {
   def getNestedComp(ps: List[CanonicalCalculus.Exp]) =
     ps.collectFirst { case NestedComp(c) => c}.head
 
+  def freshVar = {
+    val i = varCounter.value
+    varCounter.next()
+    CanonicalCalculus.Var(i, internal=true)
+  }
+
   // TODO: `hasNestedComp` followed by `getNestedComp` is very inefficient
   lazy val ruleC11 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, s, p, e1), u, w, child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) => {
       logger.debug(s"Rule C11")
       val c = getNestedComp(p)
-      val v = CanonicalCalculus.Var()
+      val v = freshVar
       val np = p.map(rewrite(attempt(oncetd(rule[CanonicalCalculus.Exp] {
         case `c` => v
       })))(_))
@@ -222,7 +227,7 @@ trait Unnester extends Simplifier with LazyLogging {
   lazy val ruleC12 = rule[Term] {
     case CalculusTerm(CanonicalCalculus.Comp(m, Nil, p, f@NestedComp(c)), u, w, child) => {
       logger.debug(s"Rule C12")
-      val v = CanonicalCalculus.Var()
+      val v = freshVar
       val nf = rewrite(oncetd(rule[CanonicalCalculus.Exp] {
         case `c` => v
       }))(f)

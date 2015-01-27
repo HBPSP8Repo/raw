@@ -56,7 +56,7 @@ object CanonicalCalculusPrettyPrinter extends PrettyPrinter {
   def show(n: Exp): Doc = n match {
     case _: Null                    => "null"
     case c: Const                   => c.value.toString()
-    case v: Var                     => "$var" + v.locn
+    case Var(i, internal)           => if (internal) s"$$internal$i" else s"$$$i"
     case RecordProj(e, idn)         => show(e) <> dot <> idn
     case RecordCons(atts)           => list(atts.toList, prefix = "", elemToDoc = attr)
     case IfThenElse(e1, e2, e3)     => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)

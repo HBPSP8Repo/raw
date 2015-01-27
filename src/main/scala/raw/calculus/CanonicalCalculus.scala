@@ -6,9 +6,7 @@ import raw._
   */
 object CanonicalCalculus {
 
-  import org.kiama.util.{Counter, TreeNode}
-
-  val varCounter = new Counter(0)
+  import org.kiama.util.TreeNode
 
   /** Identifiers are represented as strings
     */
@@ -51,19 +49,10 @@ object CanonicalCalculus {
   }
 
   /** Variable
+    *
+    * `internal` is set to true for variables generated internally by the Unnester.
     */
-  case class Var() extends Exp {
-    val locn = {
-      val loc = varCounter.value
-      varCounter.next()
-      loc
-    }
-
-    /** Overriding `equals` and `hashCode` so that variables are distinguished on `==`.
-      */
-    override def equals(o: Any) = super.equals(o)
-    override def hashCode = super.hashCode
-  }
+  case class Var(i: Int, internal: Boolean = false) extends Exp
 
   /** Record Projection
     */

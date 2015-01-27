@@ -15,12 +15,9 @@ trait Canonizer extends Normalizer {
     */
   def canonize(c: Calculus.Comp): CanonicalCalculus.Exp = {
 
-    /** Map of symbols to canonical calculus variables. */
-    var varMap = scala.collection.mutable.HashMap[GenVar, CanonicalCalculus.Var]()
-
     def toPath(e: Calculus.Exp): CanonicalCalculus.Path = e match {
       case Calculus.IdnExp(name)       => name -> entity match {
-        case _: GenVar => CanonicalCalculus.BoundVar(idnToVar(name))
+        case _: GenVar               => CanonicalCalculus.BoundVar(idnToVar(name))
         case ClassEntity(name, tipe) => CanonicalCalculus.ClassExtent(name)
       }
       case Calculus.RecordProj(e, idn) => CanonicalCalculus.InnerPath(toPath(e), idn)
@@ -28,14 +25,7 @@ trait Canonizer extends Normalizer {
     }
 
     def idnToVar(idn: Calculus.IdnNode): CanonicalCalculus.Var = idn -> entity match {
-      case g: GenVar => varMap.get(g) match {
-        case Some(v) => v
-        case None => {
-          val freshVar = CanonicalCalculus.Var()
-          varMap.put(g, freshVar)
-          freshVar
-        }
-      }
+      case g: GenVar => CanonicalCalculus.Var(g.locn)
     }
 
     def apply(e: Calculus.Exp): CanonicalCalculus.Exp = e match {

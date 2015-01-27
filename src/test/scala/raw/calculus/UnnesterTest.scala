@@ -12,6 +12,24 @@ class UnnesterTest extends FunTest {
     unnester.unnest(ast)
   }
 
+  test("simple_join") {
+    val query = "for (a <- Departments, b <- Departments, a.dno = b.dno) yield set (a1 := a, b1 := b)"
+
+    object Result extends AlgebraLang {
+      def apply() = {
+        reduce(
+          set,
+          record("a1" -> arg(0), "b1" -> arg(1)),
+          join(
+            arg(0).dno == arg(1).dno,
+            select(scan("Departments")),
+            select(scan("Departments"))))
+      }
+    }
+
+    assert(process(TestWorlds.departments, query) === Result())
+  }
+
   test("paper_query") {
     val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
 
