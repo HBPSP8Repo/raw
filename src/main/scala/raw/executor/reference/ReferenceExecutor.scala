@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import raw._
 import algebra._
 import PhysicalAlgebra._
-import executor.Executor
+import raw.executor.{RawExecutorRuntimeException, Executor}
 
 import scala.io.BufferedSource
 
@@ -28,19 +28,20 @@ class ReferenceResult(result: Value) extends QueryResult {
 
 object ReferenceExecutor extends Executor with LazyLogging {
 
-  def toScala(value: Value): Any = value match {
-    case NullValue() => null
-    case IntValue(i) => i
-    case FloatValue(f) => f
-    case BooleanValue(b) => b
-    case StringValue(s) => s
-    case SetValue(s) => s.map(v => toScala(v))
-    case ListValue(l) => l.map(v => toScala(v))
-    case RecordValue(m: Map[String, Value]) => m.map(v => (v._1, toScala(v._2)))
+  def valueToString(value: Value): Any = value match {
+    case NullValue() => "null"
+    case IntValue(i) => i.toString
+    case FloatValue(f) => f.toString
+    case BooleanValue(b) => b.toString
+    case StringValue(s) => "\"" + s + "\""
+    case SetValue(s) => "{" + s.map(v => valueToString(v)).mkString(", ") + "}"
+    case ListValue(l) => "(" + l.map(v => valueToString(v)).mkString(", ") + ")"
+    case RecordValue(m: Map[String, Value]) => "[" + m.map(v => v._1 + "=" + valueToString(v._2)).mkString(", ") + "]"
   }
 
+  // helper log function. You pass an expression and an environment and it logs the value + returns it
   def returnedValue(exp: Exp, env: List[Value], value: Value): Value = {
-    logger.debug("" + exp + "(" + env + ") ===> " + value)
+    logger.debug("eval " + PhysicalAlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.map(valueToString).mkString(", ") + ") ===> " + valueToString(value))
     value
   }
 
@@ -52,11 +53,15 @@ object ReferenceExecutor extends Executor with LazyLogging {
           case (FloatType(), v: Float) => FloatValue(v)
           case (BoolType(), v: Boolean) => BooleanValue(v)
           case (StringType(), v: String) => StringValue(v)
-          case (r: RecordType, v: Map[String, Any]) => RecordValue(v.map({ c => (c._1, recurse(r.typeOf(c._1), v(c._1)))}))
-          case (CollectionType(ListMonoid(), what: Type), v: List[Any]) => ListValue(v.map({ x: Any => recurse(what, x)}))
+          case (r: RecordType, v: Map[_, _]) => v match { case x: Map[String, Value] => RecordValue(x.map({ c => (c._1, recurse(r.typeOf(c._1), x(c._1)))})) }
+          case (CollectionType(ListMonoid(), what: Type), v: List[_]) => ListValue(v.map({ x: Any => recurse(what, x)}))
+          case (CollectionType(SetMonoid(), what: Type), v: Set[_]) => SetValue(v.map({ x: Any => recurse(what, x)}))
+          case _ => throw RawExecutorRuntimeException(s"cannot parse $t in $value")
         }
         recurse(t, data) match {
           case ListValue(l) => MemoryDataSource(l)
+          //case SetValue(s) => MemoryDataSource(s) TODO: support sets? Can you do .next?
+          case v => throw RawExecutorRuntimeException(s"cannot build a memory scan from $v")
         }
     }
 
@@ -68,9 +73,11 @@ object ReferenceExecutor extends Executor with LazyLogging {
         case BoolType() => BooleanValue(item.toBoolean)
         case StringType() => StringValue(item)
         case RecordType(atts) => RecordValue(atts.zip(item.split(",")).map(_ match {case (a: AttrType, l: String) => (a.idn, parse(a.tipe, l))}).toMap)
+        case _ => throw RawExecutorRuntimeException(s"cannot parse $t in text/csv files")
       }
       t match {
         case CollectionType(ListMonoid(), innerType) => MemoryDataSource(content.getLines().toList.map({ l: String => parse(innerType, l)}))
+        case _ => throw RawExecutorRuntimeException(s"cannot make data source from $t")
       }
     }
 
@@ -79,6 +86,9 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case OuterJoin(ps, left, right) => OuterJoinOperator(ps, toOperator(left), toOperator(right))
       case Select(ps, source) => SelectOperator(ps, toOperator(source))
       case Nest(m, e, f, ps, g, child) => NestOperator(m, e, f, ps, g, toOperator(child))
+      case _: OuterUnnest => ???
+      case _: Unnest => ???
+      case _: Merge => ???
       case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(tipe, loc) => loc match {
         case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
@@ -91,6 +101,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     val operator = toOperator(root)
     operator.next match {
       case r @ Some(v) => Right(new ReferenceResult(v.head))
+      case None => throw RawExecutorRuntimeException(s"unexpected None from $root")
     }
   }
 
@@ -112,7 +123,10 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case StringConst(v) => StringValue(v)
     case v: Arg => varEval(v, env)
     case RecordCons(attributes) => RecordValue(attributes.map(att => (att.idn, expEval(att.e, env))).toMap)
-    case RecordProj(e, idn) => expEval(e, env) match { case v: RecordValue => v.value(idn) }
+    case RecordProj(e, idn) => expEval(e, env) match {
+      case v: RecordValue => v.value(idn)
+      case _ => throw RawExecutorRuntimeException(s"cannot do a record projection from $e")
+    }
     case ZeroCollectionMonoid(m) => zeroEval(m)
     case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
     case MergeMonoid(m: CollectionMonoid, e1, e2) => mergeEval(m)(expEval(e1, env), expEval(e2, env))
@@ -123,7 +137,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
   })
 
 
-  private def varEval(v: Arg, env: List[Value]): Value = { logger.debug("" + v + " " + env); env(v.i)}
+  private def varEval(v: Arg, env: List[Value]): Value = env(v.i)
 
   private def zeroEval(m: Monoid): Value = m match {
     case _: SetMonoid => SetValue(Set())
@@ -145,22 +159,27 @@ object ReferenceExecutor extends Executor with LazyLogging {
   private def mergeBoolEval(m: BoolMonoid): (Value, Value) => Value = m match {
     case b: AndMonoid => (v1: Value, v2: Value) => (v1, v2) match {
       case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value && b2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot perform 'and' of $v1 and $v2")
     }
     case b: OrMonoid => (v1: Value, v2: Value) => (v1, v2) match {
       case (b1: BooleanValue, b2: BooleanValue) => BooleanValue (b1.value || b2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot perform 'or' of $v1 and $v2")
     }
   }
 
-  private def mergeEval(m: CollectionMonoid): (Value, Value) => Value = m match {
+  private def mergeEval(m: CollectionMonoid): (Value, Value) => CollectionValue = m match {
     case _: ListMonoid => (e1: Value, e2: Value) => (e1, e2) match {
       case (l1: ListValue, l2: ListValue) => ListValue(l1.value ++ l2.value)
       case (l1: ListValue, l2: SetValue) => ListValue(l1.value ++ l2.value.toList)
       case (l1: SetValue, l2: SetValue) => ListValue(l1.value.toList ++ l2.value.toList)
       case (l1: SetValue, l2: ListValue) => ListValue(l1.value.toList ++ l2.value)
+      case _ => throw RawExecutorRuntimeException(s"building a list from $e1 and $e2 is not supported")
     }
     case _: SetMonoid => (e1: Value, e2: Value) => (e1, e2) match {
       case (l1: SetValue, l2: SetValue) => SetValue(l1.value ++ l2.value)
+      case _ => throw RawExecutorRuntimeException(s"building a set from $e1 and $e2 is not supported")
     }
+    case _: BagMonoid => throw RawExecutorRuntimeException("bags are not supported")
   }
 
   private def unaryOpEval(op: UnaryOperator): Value => Value = op match {
@@ -168,33 +187,39 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case b: BooleanValue => BooleanValue(!b.value)
       case i: IntValue => BooleanValue(i.value == 0)
       case f: FloatValue => BooleanValue(f.value == 0)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute not($v)")
     }
     case _: Neg => v: Value => v match {
       case i: IntValue => IntValue(-i.value)
       case f: FloatValue => FloatValue(-f.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute neg($v)")
     }
     case _: ToBool => v: Value => v match {
       case _: BooleanValue => v
       case i: IntValue => BooleanValue(i.value != 0)
       case f: FloatValue => BooleanValue(f.value!= 0)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute toBool($v)")
     }
     case _: ToInt  => v: Value => v match {
       case BooleanValue(true) => IntValue(1)
       case BooleanValue(false) => IntValue(0)
       case _: IntValue => v
       case f: FloatValue => IntValue(f.value.toInt)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute toInt($v)")
     }
     case _: ToFloat => v: Value => v match {
       case BooleanValue(true) => FloatValue(1.0f)
       case BooleanValue(false) => FloatValue(0.0f)
       case i: IntValue => FloatValue(i.value)
       case _: FloatValue => v
+      case _ => throw RawExecutorRuntimeException(s"cannot compute toFloat($v)")
     }
     case _: ToString => v: Value => v match {
       case b: BooleanValue => StringValue(b.value.toString())
       case i: IntValue => StringValue(i.value.toString())
       case f: FloatValue => StringValue(f.value.toString())
       case s: StringValue => v
+      case _ => throw RawExecutorRuntimeException(s"cannot compute toString($v)")
     }
   }
 
@@ -206,6 +231,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value == e2.value)
       case (e1: BooleanValue, e2: BooleanValue) => BooleanValue(e1.value == e2.value)
       case (e1: StringValue, e2: StringValue) => BooleanValue(e1.value == e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute eq($i1, $i2)")
     }
     case _: Neq => (i1: Value, i2: Value) => (i1, i2) match {
       case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value != e2.value)
@@ -214,30 +240,49 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value != e2.value)
       case (e1: BooleanValue, e2: BooleanValue) => BooleanValue(e1.value != e2.value)
       case (e1: StringValue, e2: StringValue) => BooleanValue(e1.value != e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute neq($i1, $i2)")
     }
     case _: Lt => (i1: Value, i2: Value) => (i1, i2) match {
       case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value < e2.value)
       case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value < e2.value)
       case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value < e2.value)
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value < e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute lt($i1, $i2)")
     }
     case _: Le => (i1: Value, i2: Value) => (i1, i2) match {
       case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value <= e2.value)
       case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value <= e2.value)
       case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value <= e2.value)
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value <= e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute le($i1, $i2)")
     }
     case _: Ge => (i1: Value, i2: Value) => (i1, i2) match {
       case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value >= e2.value)
       case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value >= e2.value)
       case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value >= e2.value)
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value >= e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute ge($i1, $i2)")
     }
     case _: Gt => (i1: Value, i2: Value) => (i1, i2) match {
       case (e1: IntValue, e2: IntValue) => BooleanValue(e1.value > e2.value)
       case (e1: IntValue, e2: FloatValue) => BooleanValue(e1.value > e2.value)
       case (e1: FloatValue, e2: FloatValue) => BooleanValue(e1.value > e2.value)
       case (e1: FloatValue, e2: IntValue) => BooleanValue(e1.value > e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute gt($i1, $i2)")
+    }
+    case _: Div => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => IntValue(e1.value / e2.value)
+      case (e1: IntValue, e2: FloatValue) => FloatValue(e1.value / e2.value)
+      case (e1: FloatValue, e2: FloatValue) => FloatValue(e1.value / e2.value)
+      case (e1: FloatValue, e2: IntValue) => FloatValue(e1.value / e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute div($i1, $i2)")
+    }
+    case _: Sub => (i1: Value, i2: Value) => (i1, i2) match {
+      case (e1: IntValue, e2: IntValue) => IntValue(e1.value - e2.value)
+      case (e1: IntValue, e2: FloatValue) => FloatValue(e1.value - e2.value)
+      case (e1: FloatValue, e2: FloatValue) => FloatValue(e1.value - e2.value)
+      case (e1: FloatValue, e2: IntValue) => FloatValue(e1.value - e2.value)
+      case _ => throw RawExecutorRuntimeException(s"cannot compute sub($i1, $i2)")
     }
   }
 
@@ -245,7 +290,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def next: Option[List[Value]]
 
     def returnedValue(value: Option[List[Value]]): Option[List[Value]] = value match {
-      case r@Some(v) => logger.debug("" + this + " ===> " + v.map(toScala)); value
+      case r@Some(v) => logger.debug("" + this + " ===> " + v.map(valueToString)); value
       case None => logger.debug("" + this + " ===> None"); value
     }
   }
@@ -253,6 +298,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
   /** Join Operator
     */
   case class JoinOperator(ps: List[Exp], left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "join (" + ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && ") + ") " + left + " X " + right
 
     private def readRight: List[List[Value]] = right.next match {
       case Some(v: List[Value]) => List(v) ++ readRight
@@ -288,6 +335,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
 
   case class OuterJoinOperator(ps: List[Exp], left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "outer-join (" + ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && ") + ") " + left + " X " + right
 
     private def readRight: List[List[Value]] = right.next match {
       case Some(v: List[Value]) => List(v) ++ readRight
@@ -331,31 +380,35 @@ object ReferenceExecutor extends Executor with LazyLogging {
   /** Select Operator
     */
   case class SelectOperator(ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "select (" + ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && ") + ") " + source
+
     private val child = source
-    def recurse: Option[List[Value]] = returnedValue(child.next match {
-      case r@Some(v) => if(evalPredicates(ps, v)) r else recurse
-      case None => None
-    })
+    def recurse: Option[List[Value]] = child.next match {
+      case r@Some(v) => if(evalPredicates(ps, v)) returnedValue(r) else recurse
+      case None => returnedValue(None)
+    }
 
     def next = recurse
   }
 
   case class NestOperator(m: Monoid, e: Exp, f: List[Arg], ps: List[Exp], g: List[Arg], source: ScalaOperator) extends ScalaOperator {
 
+    override def toString() = "nest (" + List(m, PhysicalAlgebraPrettyPrinter.pretty(e), f, ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && "), g, source).mkString(", ") + ")"
+
     private def readSource: List[List[Value]] = source.next match {
       case Some(v: List[Value]) => List(v) ++ readSource
       case None => List()
     }
 
-    // map from groupBy to list of elements
-    val newSource = readSource
-    println(newSource)
-    private val valuesS: Map[List[Value], List[List[Value]]] = newSource.groupBy({l => f.map({v => expEval(v, l)})})
+    // map from groupBy variables to list of elements
+    // the groupBy value is the list of arguments in "f" evaluated against each value read from the source
+    private val valuesS: Map[List[Value], List[List[Value]]] = readSource.groupBy({l => f.map({v => expEval(v, l)})})
     // list of elements should be replaced by the list of values of e if g doesn't show null values
     //private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({_ => expEval(e, _)})))
 
+    // returns true if any of the variables in 'g' evaluates to NullValue.
     def skip(env: List[Value]): Boolean = {
-      logger.debug("skip " + env + "? " + g.map{v: Arg => expEval(v, env)})
       g.map{v: Arg => expEval(v, env)}.exists({x: Value => x == NullValue()})
     }
 
@@ -365,10 +418,6 @@ object ReferenceExecutor extends Executor with LazyLogging {
     // make the list of list
     //private val listOfList: List[List[Value]] = values.toList.map{p => List(ListValue(p._1), p._2)}
     private val listOfList: List[List[Value]] = values.toList.map{p => p._1 ++ List(p._2)}
-    logger.debug("valuesS=" + valuesS.toString())
-    logger.debug("valuesE=" + valuesE.toString())
-    logger.debug("values=" + values.toString())
-    logger.debug("listOfList=" + listOfList.toString())
 
     case class NestOutput(listValue: List[List[Value]]) {
       private var index: Int = 0
@@ -396,11 +445,14 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case (_: SumMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value + v2.value)
     case (_: MultiplyMonoid, v1: IntValue, v2: IntValue) => IntValue(v1.value * v2.value)
     case (_: MaxMonoid, v1: IntValue, v2: IntValue) => IntValue(math.max(v1.value, v2.value))
+    case _ => throw RawExecutorRuntimeException(s"cannot reduce($m, $v1, $v2)")
   }
 
   /** Reduce Operator
     */
   case class ReduceOperator(m: Monoid, exp: Exp, ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "reduce (" + List(m, PhysicalAlgebraPrettyPrinter.pretty(exp), ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && "), source).mkString(", ") + ")"
 
     def next = {
       def recurse: Value = source.next match {
@@ -414,8 +466,9 @@ object ReferenceExecutor extends Executor with LazyLogging {
   /** Scan Operator
     */
   case class ScanOperator(d: DataSource) extends ScalaOperator {
+    override def toString() = "scan()"
     private val source = d
-    def next = d.next()
+    def next = returnedValue(d.next())
   }
 
 }

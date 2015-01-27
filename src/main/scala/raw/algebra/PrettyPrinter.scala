@@ -60,6 +60,9 @@ object PhysicalAlgebraPrettyPrinter extends AlgebraPrettyPrinter {
   def pretty(a: AlgebraNode): String =
     super.pretty(show(a))
 
+  def pretty(e: Exp): String =
+    super.pretty(exp(e))
+
   def show(a: AlgebraNode): Doc = a match {
     case Scan(tipe, location)                  => "scan" <+> (location match {
       case MemoryLocation(data) => parens("memory-data")
