@@ -18,6 +18,7 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
 
   // pretty printing just to make test log readable
   def toString(value: Value): String = value match {
+    case NullValue() => "null"
     case IntValue(c) => c.toString()
     case BooleanValue(c) => c.toString()
     case FloatValue(c) => c.toString()
