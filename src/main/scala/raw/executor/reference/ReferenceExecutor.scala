@@ -13,6 +13,7 @@ case class ReferenceExecutorError(err: String) extends RawException
 class ReferenceResult(result: Value) extends QueryResult {
 
   private def toScala(value: Value): Any = value match {
+    case NullValue() => null
     case IntValue(i) => i
     case FloatValue(f) => f
     case BooleanValue(b) => b
@@ -28,6 +29,7 @@ class ReferenceResult(result: Value) extends QueryResult {
 object ReferenceExecutor extends Executor with LazyLogging {
 
   def toScala(value: Value): Any = value match {
+    case NullValue() => null
     case IntValue(i) => i
     case FloatValue(f) => f
     case BooleanValue(b) => b
@@ -103,6 +105,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
   }
 
   private def expEval(exp: Exp, env: List[Value]): Value = returnedValue(exp, env, exp match {
+    case Null => NullValue()
     case BoolConst(v) => BooleanValue(v)
     case IntConst(v) => IntValue(v)
     case FloatConst(v) => FloatValue(v)
@@ -251,15 +254,15 @@ object ReferenceExecutor extends Executor with LazyLogging {
     */
   case class JoinOperator(ps: List[Exp], left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
-    private def readLeft: List[List[Value]] = left.next match {
-      case Some(v: List[Value]) => List(v) ++ readLeft
+    private def readRight: List[List[Value]] = right.next match {
+      case Some(v: List[Value]) => List(v) ++ readRight
       case None => List()
     }
 
-    private val leftValues: List[List[Value]] = readLeft
+    private val rightValues: List[List[Value]] = readRight
 
-    def recurse: List[List[Value]] = right.next match {
-      case r@Some(v: List[Value]) => (leftValues.filter({l: List[Value] => evalPredicates(ps, v ++ l)})).map{l: List[Value] => v ++ l} ++ recurse
+    def recurse: List[List[Value]] = left.next match {
+      case r@Some(v: List[Value]) => (rightValues.filter({l: List[Value] => evalPredicates(ps, v ++ l)})).map{l: List[Value] => v ++ l} ++ recurse
       case None => List()
     }
 
@@ -286,15 +289,20 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   case class OuterJoinOperator(ps: List[Exp], left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
-    private def readLeft: List[List[Value]] = left.next match {
-      case Some(v: List[Value]) => List(v) ++ readLeft
+    private def readRight: List[List[Value]] = right.next match {
+      case Some(v: List[Value]) => List(v) ++ readRight
       case None => List()
     }
 
-    private val leftValues: List[List[Value]] = readLeft
+    private val rightValues: List[List[Value]] = readRight
 
-    def recurse: List[List[Value]] = right.next match {
-      case r@Some(v: List[Value]) => leftValues.map({l: List[Value] => if (evalPredicates(ps, v ++ l)) v ++ l else v ++ List(NullValue())}) ++ recurse
+    def recurse: List[List[Value]] = left.next match {
+      case r@Some(v: List[Value]) => {
+        val matches = rightValues.filter({l: List[Value] => evalPredicates(ps, v ++ l)})
+        if (matches == List())
+          List(v ++ List(NullValue())) ++ recurse
+        else matches.map({i: List[Value] => v ++ i}) ++ recurse
+      }
       case None => List()
     }
 
@@ -345,11 +353,22 @@ object ReferenceExecutor extends Executor with LazyLogging {
     private val valuesS: Map[List[Value], List[List[Value]]] = newSource.groupBy({l => f.map({v => expEval(v, l)})})
     // list of elements should be replaced by the list of values of e if g doesn't show null values
     //private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({_ => expEval(e, _)})))
-    private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({x: List[Value] => expEval(e, x)})))
+
+    def skip(env: List[Value]): Boolean = {
+      logger.debug("skip " + env + "? " + g.map{v: Arg => expEval(v, env)})
+      g.map{v: Arg => expEval(v, env)}.exists({x: Value => x == NullValue()})
+    }
+
+    private val valuesE: Map[List[Value], List[Value]] = valuesS.map(p => (p._1, p._2.map({x: List[Value] => if (skip(x)) zeroEval(m) else expEval(e, x)})))
     // list of values of e should be reduced according to the monoid
     private val values = valuesE.map(p => (p._1, p._2.foldLeft(zeroEval(m))({(x: Value, y: Value) => doReduce(m, x, y)})))
     // make the list of list
-    private val listOfList: List[List[Value]] = valuesE.toList.map({p=>p._1 ++ p._2})
+    //private val listOfList: List[List[Value]] = values.toList.map{p => List(ListValue(p._1), p._2)}
+    private val listOfList: List[List[Value]] = values.toList.map{p => p._1 ++ List(p._2)}
+    logger.debug("valuesS=" + valuesS.toString())
+    logger.debug("valuesE=" + valuesE.toString())
+    logger.debug("values=" + values.toString())
+    logger.debug("listOfList=" + listOfList.toString())
 
     case class NestOutput(listValue: List[List[Value]]) {
       private var index: Int = 0
@@ -362,7 +381,6 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
-    println(values.keySet)
     private val matches = NestOutput(listOfList)
 
 

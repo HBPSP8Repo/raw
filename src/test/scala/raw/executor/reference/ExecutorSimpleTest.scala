@@ -130,3 +130,38 @@ class ReduceOperations extends  ExecutorTest {
   checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("twoRows"))), List(ListValue(List(IntValue(1), IntValue(2)))))
   */
 }
+
+class JoinOperations extends ExecutorTest {
+  val students = MemoryLocation(List(Map("name" -> "s1", "department" -> "dep1"), Map("name" -> "s2", "department" -> "dep2"), Map("name" -> "s3", "department" -> "dep2")))
+  val departments = MemoryLocation(List(Map("name" -> "dep1", "discipline" -> "Artificial Intelligence"), Map("name" -> "dep2", "discipline" -> "Operating Systems"), Map("name" -> "dep3", "discipline" -> "Robotics")))
+  val studentType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("department", StringType()))))
+  val depType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()))))
+  val world: World = new World(Map("students" -> Source(studentType, students), "numbers" -> Source(studentType, students)))
+
+  // list of students and discipline for all students
+
+  checkOperation(Reduce(ListMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+                                      List(),
+                                      Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name"))), Scan(studentType, students), Scan(depType, departments))),
+    List(Map("student" -> "s1", "discipline" -> "Artificial Intelligence"), Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
+
+  // list of students and discipline only for dep2
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+    List(),
+    Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name")), BinaryExp(Eq(), RecordProj(Arg(1), "name"), StringConst("dep2"))), Scan(studentType, students), Scan(depType, departments))),
+    Set(Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
+
+  // number of students per department (join => will not show dep3 which doesn't have students)
+
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+    List(),
+    Nest(SumMonoid(), IntConst(1), List(Arg(0)), List(Arg(1)), List(), Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department"))), Scan(depType, departments), Scan(studentType, students)))),
+    Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2)))
+
+  // number of students per department (outer join)
+
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+    List(),
+    Nest(SumMonoid(), IntConst(1), List(Arg(0)), List(), List(Arg(1)), OuterJoin(List(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department"))), Scan(depType, departments), Scan(studentType, students)))),
+    Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 0)))
+}
