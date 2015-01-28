@@ -1,6 +1,7 @@
 package raw.executor.reference
 
 import com.typesafe.scalalogging.LazyLogging
+import org.json4s.JsonAST._
 import raw._
 import algebra._
 import PhysicalAlgebra._
@@ -81,17 +82,43 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
+    def loadJSON(t: Type, content: BufferedSource): DataSource = {
+      val json: JValue = org.json4s.native.JsonMethods.parse(content.mkString)
+      def convert(t: Type, item: JValue): Value = (t, item) match {
+        case (IntType(), JInt(i)) => IntValue(i.toInt)
+        case (FloatType(), JDouble(d)) => FloatValue(d.toFloat)
+        case (BoolType(), JBool(b)) => BooleanValue(b)
+        case (StringType(), JString(s)) => StringValue(s)
+        case (RecordType(atts), JObject(l)) => {
+          val jMap: Map[String, JValue] = l.map{jfield: JField => (jfield._1, jfield._2)}.toMap
+          val tMap: Map[String, Type] = atts.map({aType: AttrType => (aType.idn, aType.tipe)}).toMap
+          val vMap: Map[String, Value] = jMap.map({j => (j._1, convert(tMap(j._1), j._2))})
+          RecordValue(vMap)
+        }
+        case (CollectionType(ListMonoid(), innerType), JArray(arr)) => ListValue(arr.map({jv => convert(innerType, jv)}))
+        case (CollectionType(SetMonoid(), innerType), JArray(arr)) => SetValue(arr.map({jv => convert(innerType, jv)}).toSet) // TODO: correct?
+      }
+
+      convert(t, json) match {
+        case ListValue(l) => MemoryDataSource(l)
+        case SetValue(s) => MemoryDataSource(s.toList) // TODO: correct?
+        case v: Any => throw RawExecutorRuntimeException(s"Cannot instantiate a scan from $v")
+      }
+
+    }
+
     def toOperator(opNode: AlgebraNode): ScalaOperator = opNode match {
       case Join(ps, left, right) => JoinOperator(ps, toOperator(left), toOperator(right))
       case OuterJoin(ps, left, right) => OuterJoinOperator(ps, toOperator(left), toOperator(right))
       case Select(ps, source) => SelectOperator(ps, toOperator(source))
       case Nest(m, e, f, ps, g, child) => NestOperator(m, e, f, ps, g, toOperator(child))
-      case _: OuterUnnest => ???
-      case _: Unnest => ???
+      case OuterUnnest(p, ps, child) => OuterUnnestOperator(p, ps, toOperator(child))
+      case Unnest(p, ps, child) => UnnestOperator(p, ps, toOperator(child))
       case _: Merge => ???
       case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(tipe, loc) => loc match {
         case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
+        case LocalFileLocation(path, "application/json") => ScanOperator(loadJSON(tipe, scala.io.Source.fromFile(path)))
         case MemoryLocation(data)              => ScanOperator(dataLocDecode(tipe, data))
         case loc                               => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
       }
@@ -137,8 +164,11 @@ object ReferenceExecutor extends Executor with LazyLogging {
   })
 
 
-  private def varEval(v: Arg, env: List[Value]): Value = env(v.i)
-
+  private def varEval(v: Arg, env: List[Value]): Value = try {
+    env(v.i)
+  } catch {
+    case ex: IndexOutOfBoundsException => throw RawExecutorRuntimeException(s"could not extract $v from $env")
+  }
   private def zeroEval(m: Monoid): Value = m match {
     case _: SetMonoid => SetValue(Set())
     case _: ListMonoid => ListValue(List())
@@ -293,6 +323,21 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case r@Some(v) => logger.debug("" + this + " ===> " + v.map(valueToString)); value
       case None => logger.debug("" + this + " ===> None"); value
     }
+
+    case class OperatorBufferedOutput(listValue: List[List[Value]]) {
+      private var index: Int = 0
+      private val L: List[List[Value]] = listValue
+
+      def next() = {
+        val n = index
+        index += 1
+        returnedValue(try {
+          Some(L(n))
+        } catch {
+          case ex: IndexOutOfBoundsException => None
+        })
+      }
+    }
   }
 
   /** Join Operator
@@ -313,23 +358,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case None => List()
     }
 
-    case class JoinOutput(listValue: List[List[Value]]) {
-      private var index: Int = 0
-      private val L: List[List[Value]] = listValue
-
-      def next() = {
-        val n = index
-        index += 1
-        returnedValue(try {
-          Some(L(n))
-        } catch {
-          case ex: IndexOutOfBoundsException => None
-        })
-      }
-    }
-
-    private val matches = JoinOutput(recurse)
-
+    private val matches = OperatorBufferedOutput(recurse)
     def next = matches.next()
   }
 
@@ -355,22 +384,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case None => List()
     }
 
-    case class OuterJoinOutput(listValue: List[List[Value]]) {
-      private var index: Int = 0
-      private val L: List[List[Value]] = listValue
-
-      def next() = {
-        val n = index
-        index += 1
-        returnedValue(try {
-          Some(L(n))
-        } catch {
-          case ex: IndexOutOfBoundsException => None
-        })
-      }
-    }
-    private val matches = OuterJoinOutput(recurse)
-
+    private val matches = OperatorBufferedOutput(recurse)
     def next = matches.next()
 
   }
@@ -386,6 +400,71 @@ object ReferenceExecutor extends Executor with LazyLogging {
     private val child = source
     def recurse: Option[List[Value]] = child.next match {
       case r@Some(v) => if(evalPredicates(ps, v)) returnedValue(r) else recurse
+      case None => returnedValue(None)
+    }
+
+    def next = recurse
+  }
+
+
+
+  case class UnnestOperator(p: Path, ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "unnest (" + p + ", " + ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && ") + ") " + source
+
+    private val child = source
+
+    def extract(p: Path, v: List[Value]): Value = (p, v) match {
+      case (_, List(NullValue())) => NullValue()
+      case (BoundArg(a), _) => expEval(a, v)
+      case (InnerPath(p2, name), _) => extract(p2, v) match {
+        case RecordValue(m) => m(name)
+        case err => throw RawExecutorRuntimeException(s"cannot extract inner path from $err")
+      }
+      case _ => throw RawExecutorRuntimeException(s"path $p of $v is not supported")
+    }
+
+    def recurse: List[List[Value]] = child.next match {
+      case r@Some(v: List[Value]) => {
+        val pathValue = extract(p, v)
+        // it should be Null or a Collection of values
+        pathValue match {
+          case SetValue(s) => s.toList.map({i: Value => v :+ i}).filter({tuple => evalPredicates(ps, tuple)}) ++ recurse
+          case ListValue(l) => l.map({ i: Value => v :+ i}).filter({tuple => evalPredicates(ps, tuple)}) ++ recurse
+          case NullValue() => recurse
+          case _ => throw RawExecutorRuntimeException(s"unexpected $pathValue in unnest")
+        }
+      }
+      case None => List()
+    }
+
+    val values = OperatorBufferedOutput(recurse)
+    def next = values.next()
+  }
+
+  case class OuterUnnestOperator(p: Path, ps: List[Exp], source: ScalaOperator) extends ScalaOperator {
+
+    override def toString() = "outer-unnest (" + p + ", " + ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && ") + ") " + source
+
+    private val child = source
+
+    def extract(p: Path, v: List[Value]): Value = (p, v) match {
+      case (_, List(NullValue())) => NullValue()
+      case (BoundArg(a), _) => expEval(a, v)
+      case (InnerPath(p2, name), _) => extract(p2, v) match {
+        case RecordValue(m) => m(name)
+        case err => throw RawExecutorRuntimeException(s"cannot extract inner path from $err")
+      }
+      case _ => throw RawExecutorRuntimeException(s"path $p of $v is not supported")
+    }
+
+    def recurse: Option[List[Value]] = child.next match {
+      case r@Some(v) => {
+        val pathValue = extract(p, v)
+        if(evalPredicates(ps, v)) {
+          returnedValue(Some(v ++ List(pathValue)))
+        } else recurse
+      }
       case None => returnedValue(None)
     }
 
@@ -419,20 +498,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     //private val listOfList: List[List[Value]] = values.toList.map{p => List(ListValue(p._1), p._2)}
     private val listOfList: List[List[Value]] = values.toList.map{p => p._1 ++ List(p._2)}
 
-    case class NestOutput(listValue: List[List[Value]]) {
-      private var index: Int = 0
-      private val L: List[List[Value]] = listValue
-
-      def next() = {
-        val n = index
-        index += 1
-        returnedValue(try { Some(L(n)) } catch { case ex: IndexOutOfBoundsException => None })
-      }
-    }
-
-    private val matches = NestOutput(listOfList)
-
-
+    private val matches = OperatorBufferedOutput(listOfList)
     def next = matches.next()
 
   }
@@ -454,13 +520,13 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
     override def toString() = "reduce (" + List(m, PhysicalAlgebraPrettyPrinter.pretty(exp), ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && "), source).mkString(", ") + ")"
 
-    def next = {
-      def recurse: Value = source.next match {
-        case None => zeroEval(m)
-        case r@Some(v) => doReduce(m, expEval(exp, v), recurse)
-      }
-      returnedValue(Some(List(recurse)))
+    def recurse: Value = source.next match {
+      case None => zeroEval(m)
+      case r@Some(v) => doReduce(m, expEval(exp, v), recurse)
     }
+
+    val value = OperatorBufferedOutput(List(List(recurse)))
+    def next() = value.next()
   }
 
   /** Scan Operator
