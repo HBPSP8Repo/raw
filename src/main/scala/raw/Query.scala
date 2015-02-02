@@ -1,10 +1,8 @@
 package raw
 
 import org.kiama.util.Message
-import algebra.{ LogicalAlgebra => LogicalAlgebra }
-import calculus.SyntaxAnalyzer
-import calculus.Unnester
-import calculus.Calculus
+import algebra.{Unnester, LogicalAlgebra}
+import calculus._
 import executor.Executor
 import executor.reference.ReferenceExecutor
 import optimizer.Optimizer
@@ -25,31 +23,34 @@ abstract class QueryResult {
 
 object Query {
 
-  def parse(q: String, w: World): Either[QueryError, Calculus.Comp] = {
+  def parse(query: String, world: World): Either[QueryError, Calculus.Calculus] = {
     val parser = new SyntaxAnalyzer()
-    parser.makeAST(q) match {
-      case Right(ast) => Right(ast)
+    parser.makeAST(query) match {
+      case Right(ast) => Right(new Calculus.Calculus(ast))
       case Left(error) => Left(ParserError(error))
     }
   }
 
-  def unnest(q: String, w: World, ast: Calculus.Comp): Either[QueryError, LogicalAlgebra.AlgebraNode] = {
-    val unnester = new Unnester { val world = w }
-    val errors = unnester.errors(ast)
-    if (errors.length > 0) {
-      Left(SemanticErrors(errors))
-    } else {
-      Right(unnester.unnest(ast))
-    }
+  def analyze(t: Calculus.Calculus, w: World): Either[QueryError, SemanticAnalyzer] = {
+    val analyzer = new SemanticAnalyzer(t, w)
+    if (analyzer.errors.length == 0)
+      Right(analyzer)
+    else
+      Left(SemanticErrors(analyzer.errors))
   }
 
-  def apply(q: String, w: World, optimizer: Optimizer = ReferenceOptimizer, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
-    parse(q, w) match {
-      case Right(comp) => unnest(q, w, comp) match {
-        case Right(algebra) => executor.execute(optimizer.optimize(algebra, w), w)
-        case Left(err)      => Left(err)
+  def unnest(tree: Calculus.Calculus, analyzer: SemanticAnalyzer, world: World): LogicalAlgebra.AlgebraNode = {
+    val newTree = Simplifier(tree, world)
+    Unnester(newTree)
+  }
+
+  def apply(query: String, world: World, optimizer: Optimizer = ReferenceOptimizer, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
+    parse(query, world) match {
+      case Right(tree) => analyze(tree, world) match {
+        case Right(analyzer) => executor.execute(optimizer.optimize(unnest(tree, analyzer, world), world), world)
+        case Left(err)       => Left(err)
       }
-      case Left(err) => Left(err)
+      case Left(err)       => Left(err)
     }
   }
 

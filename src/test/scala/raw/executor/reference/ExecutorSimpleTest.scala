@@ -104,7 +104,6 @@ class ExpressionsConst extends ExecutorTest {
 }
 
 class ReduceOperations extends  ExecutorTest {
-
   val location = MemoryLocation(List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
   val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
   val world: World = new World(Map("twoRows" -> Source(tipe, location)))

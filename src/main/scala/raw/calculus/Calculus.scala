@@ -1,18 +1,24 @@
-package raw.calculus
-
-import raw._
+package raw
+package calculus
 
 /** Calculus
   */
 object Calculus {
 
-  import org.kiama.util.TreeNode
+  import org.kiama.relation.Tree
+  import scala.collection.immutable.Seq
+
+  /** Tree type for Calculus.
+    */
+  type Calculus = Tree[RawNode,Exp]
 
   /** Identifiers are represented as strings
     */
   type Idn = String
 
-  sealed abstract class CalculusNode extends TreeNode
+  /** Base class for all nodes.
+    */
+  sealed abstract class CalculusNode extends RawNode
 
   /** Qualifier
     */
@@ -39,16 +45,18 @@ object Calculus {
     type T = Boolean
   }
 
-  case class IntConst(value: Integer) extends Const {
+  case class StringConst(value: String) extends Const {
+    type T = String
+  }
+
+  sealed abstract class NumberConst extends Const
+
+  case class IntConst(value: Integer) extends NumberConst {
     type T = Integer
   }
 
-  case class FloatConst(value: Float) extends Const {
+  case class FloatConst(value: Float) extends NumberConst {
     type T = Float
-  }
-
-  case class StringConst(value: String) extends Const {
-    type T = String
   }
 
   /** Identifier reference
@@ -67,7 +75,7 @@ object Calculus {
 
   /** Identifier expression
     */
-  case class IdnExp(name: IdnUse) extends Exp
+  case class IdnExp(idn: IdnUse) extends Exp
 
   /** Record Projection
     */
@@ -126,5 +134,26 @@ object Calculus {
   /** Bind
     */
   case class Bind(idn: IdnDef, e: Exp) extends Statement
+
+  /** Comprehension in canonical form, i.e. with paths and predicates in CNF.
+    * For details in the canonical form, refer to [1] page 19.
+    */
+  case class CanonicalComp(m: Monoid, paths: List[GenPath], preds: List[Exp], e: Exp) extends Exp
+
+  /** Generator using paths.
+    * This is only used by the canonical form.
+    */
+  case class GenPath(idn: IdnDef, p: Path) extends CalculusNode
+
+  /** Paths.
+    * These are only used by the canonical form.
+    */
+  sealed abstract class Path extends CalculusNode
+
+  case class BoundPath(idn: IdnUse) extends Path
+
+  case class InnerPath(p: Path, idn: Idn) extends Path
+
+  case class ClassExtent(idn: Idn) extends Path
 
 }

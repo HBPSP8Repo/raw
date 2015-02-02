@@ -1,10 +1,10 @@
-package raw.algebra
-
-import raw._
+package raw
+package algebra
 
 /** AlgebraPrettyPrinter
   */
 abstract class AlgebraPrettyPrinter extends PrettyPrinter {
+
   def path(p: Path): Doc = p match {
     case BoundArg(a)        => exp(a)
     case ClassExtent(name)  => name
@@ -16,18 +16,19 @@ abstract class AlgebraPrettyPrinter extends PrettyPrinter {
   def args(as: List[Arg]) = list(as, elemToDoc = exp)
 
   def exp(e: ExpNode): Doc = e match {
-    case Null                        => "null"
-    case c: Const                    => c.value.toString()
-    case Arg(i)                      => s"$$$i"
-    case RecordProj(e, idn)          => exp(e) <> dot <> idn
-    case AttrCons(idn, e)            => idn <+> ":=" <+> exp(e)
-    case RecordCons(atts)            => list(atts.toList, prefix = "", elemToDoc = exp)
-    case IfThenElse(e1, e2, e3)      => "if" <+> exp(e1) <+> "then" <+> exp(e2) <+> "else" <+> exp(e3)
-    case BinaryExp(op, e1, e2)       => exp(e1) <+> binaryOp(op) <+> exp(e2)
-    case ZeroCollectionMonoid(m)     => collection(m, empty)
-    case ConsCollectionMonoid(m, e)  => collection(m, exp(e))
-    case MergeMonoid(m, e1, e2)      => exp(e1) <+> merge(m) <+> exp(e2)
-    case UnaryExp(op, e)             => unaryOp(op) <+> exp(e)
+    case Null                       => "null"
+    case StringConst(v)             => s""""$v""""
+    case c: Const                   => c.value.toString()
+    case Arg(i)                     => s"$$$i"
+    case RecordProj(e, idn)         => exp(e) <> dot <> idn
+    case AttrCons(idn, e)           => idn <+> ":=" <+> exp(e)
+    case RecordCons(atts)           => list(atts.toList, prefix = "", elemToDoc = exp)
+    case IfThenElse(e1, e2, e3)     => "if" <+> exp(e1) <+> "then" <+> exp(e2) <+> "else" <+> exp(e3)
+    case BinaryExp(op, e1, e2)      => exp(e1) <+> binaryOp(op) <+> exp(e2)
+    case ZeroCollectionMonoid(m)    => collection(m, empty)
+    case ConsCollectionMonoid(m, e) => collection(m, exp(e))
+    case MergeMonoid(m, e1, e2)     => exp(e1) <+> merge(m) <+> exp(e2)
+    case UnaryExp(op, e)            => unaryOp(op) <+> exp(e)
   }
 }
 

@@ -1,10 +1,8 @@
 package raw
 
-import org.kiama.util.TreeNode
-
 /** Unary Operator
  */
-sealed abstract class UnaryOperator extends TreeNode
+sealed abstract class UnaryOperator extends RawNode
 
 /** Not
  */

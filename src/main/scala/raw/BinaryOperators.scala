@@ -1,10 +1,8 @@
 package raw
 
-import org.kiama.util.TreeNode
-
 /** Binary Operator
   */
-sealed abstract class BinaryOperator extends TreeNode
+sealed abstract class BinaryOperator extends RawNode
 
 /** Equality Operator
   */
@@ -49,3 +47,7 @@ case class Sub() extends ArithmeticOperator
 /** Division
   */
 case class Div() extends ArithmeticOperator
+
+/** Modulo
+ */
+case class Mod() extends ArithmeticOperator

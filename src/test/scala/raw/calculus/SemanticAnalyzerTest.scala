@@ -6,8 +6,8 @@ class SemanticAnalyzerTest extends FunTest {
 
   def process(w: World, q: String) = {
     val ast = parse(q)
-    val analyzer = new SemanticAnalyzer { val world = w }
-    assert(analyzer.errors(ast).length === 0)
+    val analyzer = new SemanticAnalyzer(new Calculus.Calculus(ast), w)
+    assert(analyzer.errors.length === 0)
     analyzer.tipe(ast)
   }
 

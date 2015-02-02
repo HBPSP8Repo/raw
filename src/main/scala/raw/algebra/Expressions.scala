@@ -1,9 +1,7 @@
-package raw.algebra
+package raw
+package algebra
 
-import org.kiama.util.TreeNode
-import raw.{UnaryOperator, Monoid, CollectionMonoid, BinaryOperator}
-
-sealed abstract class ExpNode extends TreeNode
+sealed abstract class ExpNode extends Product
 
 /** Expressions
   */

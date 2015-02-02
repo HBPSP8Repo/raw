@@ -32,13 +32,13 @@ parallelExecution in Test := false
 
 libraryDependencies ++=
   Seq (
-    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.2",
+    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.3",
     "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test",
     "org.scalacheck" %% "scalacheck" % "1.11.6" % "test",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     "ch.qos.logback" % "logback-classic" % "1.1.2",
-    "com.googlecode.kiama" %% "kiama" % "1.8.0",
-    "com.googlecode.kiama" %% "kiama" % "1.8.0" % "test" classifier ("tests"),
+    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT",
+    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests"),
     "org.json4s" %% "json4s-native" % "3.2.10",
     "org.apache.spark" %% "spark-core" % "1.2.0"
   )

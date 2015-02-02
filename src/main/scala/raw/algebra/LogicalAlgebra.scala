@@ -1,15 +1,12 @@
-package raw.algebra
-
-import raw._
+package raw
+package algebra
 
 object LogicalAlgebra {
-
-  import org.kiama.util.TreeNode
 
   /** Operator Nodes
     */
 
-  sealed abstract class AlgebraNode extends TreeNode
+  sealed abstract class AlgebraNode extends Product
 
   /** Scan
     */

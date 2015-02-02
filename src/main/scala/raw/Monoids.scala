@@ -1,12 +1,10 @@
 package raw
 
-import org.kiama.util.TreeNode
-
 /** Monoid
- */
-sealed abstract class Monoid extends TreeNode {
-  val commutative: Boolean
-  val idempotent: Boolean
+  */
+sealed abstract class Monoid extends RawNode {
+  def commutative: Boolean
+  def idempotent: Boolean
 
   def greaterOrEqThan(other: Monoid): Boolean =
     if (commutative && idempotent)
@@ -20,9 +18,9 @@ sealed abstract class Monoid extends TreeNode {
 }
 
 /** Primitive Monoids
- */
+  */
 sealed abstract class PrimitiveMonoid extends Monoid {
-  val commutative = true
+  def commutative = true
 
   def isOfType(t: Type): Boolean
 }
@@ -35,15 +33,15 @@ sealed abstract class NumberMonoid extends PrimitiveMonoid {
 }
 
 case class MaxMonoid() extends NumberMonoid {
-  val idempotent = true
+  def idempotent = true
 }
 
 case class MultiplyMonoid() extends NumberMonoid {
-  val idempotent = false
+  def idempotent = false
 }
 
 case class SumMonoid() extends NumberMonoid {
-  val idempotent = false
+  def idempotent = false
 }
 
 sealed abstract class BoolMonoid extends PrimitiveMonoid {
@@ -54,28 +52,28 @@ sealed abstract class BoolMonoid extends PrimitiveMonoid {
 }
 
 case class AndMonoid() extends BoolMonoid {
-  val idempotent = true
+  def idempotent = true
 }
 
 case class OrMonoid() extends BoolMonoid {
-  val idempotent = true
+  def idempotent = true
 }
 
 /** Collection Monoids
- */
+  */
 sealed abstract class CollectionMonoid extends Monoid
 
 case class BagMonoid() extends CollectionMonoid {
-  val commutative = true
-  val idempotent = false
+  def commutative = true
+  def idempotent = false
 }
 
 case class SetMonoid() extends CollectionMonoid {
-  val commutative = true
-  val idempotent = true
+  def commutative = true
+  def idempotent = true
 }
 
 case class ListMonoid() extends CollectionMonoid {
-  val commutative = false
-  val idempotent = false
+  def commutative = false
+  def idempotent = false
 }

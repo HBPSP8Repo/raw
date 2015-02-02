@@ -1,50 +1,34 @@
-package raw.calculus
+package raw
+package calculus
 
 import com.typesafe.scalalogging.LazyLogging
-import raw._
 
-trait Simplifier extends Canonizer with LazyLogging {
+/** Simplify expressions.
+  */
+object Simplifier extends LazyLogging {
 
   import org.kiama.rewriting.Rewriter._
-  import CanonicalCalculus._
+  import Calculus._
 
-  def simplify(c: Calculus.Comp): Exp = {
-    val c1 = canonize(c)
-    simplificationRules(c1) match {
-      case Some(c2: Comp) => c2
-      case _              => c1
-    }
+  /** Transform an expression into a simpler but equivalent form.
+    */
+  def apply(tree: Calculus, world: World): Calculus = {
+    val inTree = Canonizer(tree, world)
+    logger.debug(s"Simplifier input tree: ${CalculusPrettyPrinter.pretty(inTree.root)}")
+
+    val strategy = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
+      ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeateOrInAnd +
+      ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf + ruleRemoveDoubleNeg +
+      ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv +
+      ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
+
+    val outTree = rewriteTree(strategy)(inTree)
+    logger.debug(s"Simplifier output tree: ${CalculusPrettyPrinter.pretty(outTree.root)}")
+    outTree
   }
 
-  lazy val simplificationRules = reduce(
-    ruleTrueOrA +
-    ruleFalseOrA +
-    ruleTrueAndA +
-    ruleFalseAndA +
-    ruleNotNotA +
-    ruleDeMorgan +
-    ruleAorNotA +
-    ruleAandNotA +
-    ruleRepeatedOr +
-    ruleRepeatedAnd +
-    ruleRepeatedAndInOr +
-    ruleRepeateOrInAnd +
-    ruleDistributeAndOverOr +
-    ruleAddZero +
-    ruleSubZero +
-    ruleReplaceSubByNeg +
-    ruleSubSelf +
-    ruleRemoveDoubleNeg +
-    ruleMultiplyByZero +
-    ruleMultiplyByOne +
-    ruleDivideByOne +
-    ruleDivideBySelf +
-    ruleDivDivByMultDiv +
-    ruleDivideConstByConst +
-    ruleDropNeg +
-    ruleDropConstCast +
-    ruleDropConstComparison +
-    ruleFoldConsts)
+  /** Rules to simplify Boolean expressions to CNF.
+    */
 
   def ors(e: Exp): Set[Exp] = e match {
     case MergeMonoid(_: OrMonoid, lhs, rhs) => ors(lhs) ++ ors(rhs)
@@ -55,9 +39,6 @@ trait Simplifier extends Canonizer with LazyLogging {
     case MergeMonoid(_: AndMonoid, lhs, rhs) => ands(lhs) ++ ands(rhs)
     case e                                   => Set(e)
   }
-
-  /** Rules to simplify Boolean expressions to CNF.
-    */
 
   /** true | A => true */
   lazy val ruleTrueOrA = rule[Exp] {
@@ -94,8 +75,12 @@ trait Simplifier extends Canonizer with LazyLogging {
     * !(A | B) => !A & !B
     */
   lazy val ruleDeMorgan = rule[Exp] {
-    case UnaryExp(_: Not, MergeMonoid(_: AndMonoid, a, b)) => MergeMonoid(OrMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
-    case UnaryExp(_: Not, MergeMonoid(_: OrMonoid, a, b))  => MergeMonoid(AndMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
+    case UnaryExp(_: Not, MergeMonoid(_: AndMonoid, a, b)) => {
+      MergeMonoid(OrMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
+    }
+    case UnaryExp(_: Not, MergeMonoid(_: OrMonoid, a, b))  => {
+      MergeMonoid(AndMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
+    }
   }
 
   /** A | !A => true */
@@ -312,8 +297,13 @@ trait Simplifier extends Canonizer with LazyLogging {
 
   // TODO: `hasNumber` followed by `splitOnNumbers` is inefficient
   lazy val ruleFoldConsts = rule[Exp] {
-   case MergeMonoid(m: NumberMonoid, lhs: NumberConst, rhs) if hasNumber(m, rhs) => logger.debug("ruleFoldConsts"); foldConsts(m, lhs, rhs)
-   case MergeMonoid(m: NumberMonoid, lhs, rhs: NumberConst) if hasNumber(m, lhs) => logger.debug("ruleFoldConsts"); foldConsts(m, rhs, lhs)
+   case MergeMonoid(m: NumberMonoid, lhs: NumberConst, rhs) if hasNumber(m, rhs) => {
+     logger.debug("ruleFoldConsts")
+     foldConsts(m, lhs, rhs)
+   }
+   case MergeMonoid(m: NumberMonoid, lhs, rhs: NumberConst) if hasNumber(m, lhs) => {
+     logger.debug("ruleFoldConsts")
+     foldConsts(m, rhs, lhs)
+   }
   }
-
 }

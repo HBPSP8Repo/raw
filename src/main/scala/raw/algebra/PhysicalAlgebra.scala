@@ -1,15 +1,12 @@
-package raw.algebra
-
-import raw._
+package raw
+package algebra
 
 object PhysicalAlgebra {
-
-  import org.kiama.util.TreeNode
 
   /** Algebra Nodes
     */
 
-  sealed abstract class AlgebraNode extends TreeNode
+  sealed abstract class AlgebraNode extends Product
 
   /** Scan nodes
     */

@@ -7,9 +7,11 @@ class UnnesterTest extends FunTest {
 
   def process(w: World, q: String) = {
     val ast = parse(q)
-    val unnester = new Unnester { val world = w }
-    assert(unnester.errors(ast).length === 0)
-    unnester.unnest(ast)
+    val t = new Calculus.Calculus(ast)
+    val analyzer = new SemanticAnalyzer(t, w)
+    assert(analyzer.errors.length === 0)
+    val nt = Simplifier(t, w)
+    Unnester(nt)
   }
 
   test("simple_join") {
