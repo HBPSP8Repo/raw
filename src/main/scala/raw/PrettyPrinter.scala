@@ -61,8 +61,9 @@ class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case CollectionType(m, innerType) => monoid(m) <> parens(tipe(innerType))
     case ClassType(idn)               => idn
     case FunType(t1, t2)              => tipe(t1) <+> "->" <+> tipe(t2)
-    case _: NoType                    => "none"
     case _: UnknownType               => "unknown"
   }
 
 }
+
+object PrettyPrinter extends PrettyPrinter

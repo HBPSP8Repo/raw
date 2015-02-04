@@ -7,7 +7,7 @@ class NormalizerTest extends FunTest {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
     val analyzer = new SemanticAnalyzer(t, w)
-    if (analyzer.errors.length > 0) println(analyzer.errors)
+    if (analyzer.errors.length > 0) println("t is " + t.root + " and errors are " + analyzer.errors)
     assert(analyzer.errors.length === 0)
     CalculusPrettyPrinter.pretty(Normalizer(t, w).root, 200)
   }
@@ -79,7 +79,7 @@ class NormalizerTest extends FunTest {
 
   test("rule7") {
     compare(
-      process(TestWorlds.things, """for (t <- things, t1 <- (t.set_a union t.set_b), t1 > 10.0) yield set t1"""),
+      process(TestWorlds.things, """for (t <- things, t1 <- t.set_a union t.set_b, t1 > 10.0) yield set t1"""),
       """for ($0 <- things, $1 <- $0.set_a, $1 > 10.0) yield set $1 union for ($2 <- things, $3 <- $2.set_b, $3 > 10.0) yield set $3""")
   }
 

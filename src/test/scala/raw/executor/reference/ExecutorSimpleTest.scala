@@ -11,9 +11,14 @@ import PhysicalAlgebra._
 
 abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matchers {
 
-  val world: World
+  // default very basic content for our database
+  val location = MemoryLocation(List(Map("value" -> 1)))
+  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
+  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
+  // pretty printing just to make test log readable
   def toString(value: Value): String = value match {
+    case NullValue() => "null"
     case IntValue(c) => c.toString()
     case BooleanValue(c) => c.toString()
     case FloatValue(c) => c.toString()
@@ -23,6 +28,19 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
     case RecordValue(s) => s.map({v => v._1 + ": " + toString(v._2)}).mkString("[", ", ", "]")
   }
 
+  // asserts that an expression is properly evaluated to a certain result
+  def checkExpression(exp: Exp, result: Any): Unit = {
+    scenario("evaluation of " + exp) {
+      When("evaluating " + exp)
+      Then("it should return " + result)
+      ReferenceExecutor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan(tipe, location))), world) match {
+        case Right(q) => assert(q.value === Set(result))
+        case _ => assert(false)
+      }
+    }
+  }
+
+  // asserts an operation returns the expected result
   def checkOperation(opNode: AlgebraNode, result: Any): Unit = {
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
@@ -37,21 +55,6 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
 }
 
 class ExpressionsConst extends ExecutorTest {
-
-  val location = MemoryLocation(List(Map("value" -> 1)))
-  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
-  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
-
-  def checkExpression(exp: Exp, result: Any): Unit = {
-    scenario("evaluation of " + exp) {
-      When("evaluating " + exp)
-      Then("it should return " + result)
-      ReferenceExecutor.execute(Reduce(SetMonoid(), exp, List(), Select(List(), Scan(tipe, location))), world) match {
-        case Right(q) => assert(q.value === Set(result))
-        case _ => assert(false)
-      }
-    }
-  }
 
   checkExpression(IntConst(1), 1)
   checkExpression(IntConst(2), 2)
@@ -104,15 +107,11 @@ class ExpressionsConst extends ExecutorTest {
 }
 
 class ReduceOperations extends  ExecutorTest {
-  val location = MemoryLocation(List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
-  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
-  val world: World = new World(Map("twoRows" -> Source(tipe, location)))
 
-  //checkOperation(Scan("oneRow"), List(RecordValue(Map("value" -> IntValue(1)))))
-  //checkOperation(Reduce(ListMonoid(), Arg(0), List(), Scan(tipe, location)), List(Map("value" -> 1), Map("value" -> 2)))
-  //checkOperation(Reduce(SetMonoid(), Arg(0), List(), Scan(tipe, location)), Set(Map("value" -> 1), Map("value" -> 2)))
+  override val location = MemoryLocation(List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  override val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
+  override val world: World = new World(Map("twoRows" -> Source(tipe, location)))
 
-  //checkOperation(Select(List(BoolConst(true)), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
   checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(), Scan(tipe, location))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
   checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(1))), Scan(tipe, location))), List(Map("value" -> 1, "name" -> "one")))
   checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(2))), Scan(tipe, location))), List(Map("value" -> 2, "name" -> "two")))
@@ -120,12 +119,44 @@ class ReduceOperations extends  ExecutorTest {
   checkOperation(Reduce(ListMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("three"))), Scan(tipe, location))), List())
   checkOperation(Reduce(SetMonoid(), Arg(0), List(), Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two"))), Scan(tipe, location))), Set(Map("value" -> 2, "name" -> "two")))
   checkOperation(Reduce(SetMonoid(),RecordProj(Arg(0),"name"),List(),Select(List(BinaryExp(Eq(),RecordProj(Arg(0),"value"),IntConst(1))), Scan(tipe, location))), Set("one"))
-  /*
-  checkOperation(Select(List(BoolConst(false)), Scan("oneRow")), List())
-  checkOperation(Select(List(), Scan("oneRow")), List(RecordValue(Map("value" -> IntValue(1)))))
+}
 
-  checkOperation(Select(List(), Scan("threeRows")), List(RecordValue(Map("value" -> IntValue(1))), RecordValue(Map("value" -> IntValue(2))), RecordValue(Map("value" -> IntValue(3)))))
-  checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("oneRow"))), List(ListValue(List(IntValue(1)))))
-  checkOperation(Reduce(ListMonoid(), RecordProj(Arg(0), "value"), List(), Select(List(), Scan("twoRows"))), List(ListValue(List(IntValue(1), IntValue(2)))))
-  */
+class JoinOperations extends ExecutorTest {
+
+  // two tables, students (name + department) and departments (name + discipline)
+  val students = MemoryLocation(List(Map("name" -> "s1", "department" -> "dep1"), Map("name" -> "s2", "department" -> "dep2"), Map("name" -> "s3", "department" -> "dep2")))
+  val departments = MemoryLocation(List(Map("name" -> "dep1", "discipline" -> "Artificial Intelligence"), Map("name" -> "dep2", "discipline" -> "Operating Systems"), Map("name" -> "dep3", "discipline" -> "Robotics")))
+  val studentType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("department", StringType()))))
+  val depType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()))))
+  override val world: World = new World(Map("students" -> Source(studentType, students), "numbers" -> Source(studentType, students)))
+
+  // list of (name, discipline) for all students
+  checkOperation(Reduce(ListMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+                        List(),
+                        Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name"))),
+                             Scan(studentType, students), Scan(depType, departments))),
+                 List(Map("student" -> "s1", "discipline" -> "Artificial Intelligence"), Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
+
+  // set of (student name, discipline) only if department is dep2.
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+                        List(),
+                        Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name")), BinaryExp(Eq(), RecordProj(Arg(1), "name"), StringConst("dep2"))),
+                             Scan(studentType, students), Scan(depType, departments))),
+                 Set(Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
+
+  // number of students per department (mistakenly using join: it will not show dep3 since it doesn't have students)
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+                        List(),
+                        Nest(SumMonoid(), IntConst(1), List(Arg(0)), List(Arg(1)), List(),
+                             Join(List(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department"))),
+                                  Scan(depType, departments), Scan(studentType, students)))),
+                 Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2)))
+
+  // set of students per department (using outer join, should return dep3 with zero students)
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+                        List(),
+                        Nest(SumMonoid(), IntConst(1), List(Arg(0)), List(), List(Arg(1)),
+                             OuterJoin(List(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department"))),
+                                       Scan(depType, departments), Scan(studentType, students)))),
+                 Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 0)))
 }

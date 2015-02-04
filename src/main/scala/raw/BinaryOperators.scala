@@ -2,7 +2,9 @@ package raw
 
 /** Binary Operator
   */
-sealed abstract class BinaryOperator extends RawNode
+sealed abstract class BinaryOperator extends RawNode {
+  override def toString() = PrettyPrinter.pretty(PrettyPrinter.binaryOp(this))
+}
 
 /** Equality Operator
   */

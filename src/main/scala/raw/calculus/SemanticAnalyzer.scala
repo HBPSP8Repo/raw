@@ -1,17 +1,10 @@
 package raw
 package calculus
 
-// TODO:
-//semantic analyzer rules are wrong.
-//ALPHA is a TYPE VARIABLE, not an unknown type.
-//that is NOT the same thing
-//a TYPE VARIABLE always compares and SETS THE TYPE
-//    introduce type variable!!
-
 import org.kiama.attribution.Attribution
 
 /** Analyzes the semantics of an AST.
-  * This includes the type checker and errors in monoid composition.
+  * This includes the type checker and monoid composition.
   *
   * The semantic analyzer reads the user types and the catalog of user-defined class entities from the World object.
   * User types are the type definitions available to the user.
@@ -19,6 +12,10 @@ import org.kiama.attribution.Attribution
   *   e.g., in expression `e <- Events` the class entity is `Events`.
   */
 class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution {
+
+// TODO!!!
+  //todo: POSITIONS UNKNOWN AND INNER COLELCTIONS VS RECORDS SCREWS UP
+//  CHECK BOX EXPECTED TYPE AND REAL TYPE CODE
 
   import org.kiama.==>
   import org.kiama.attribution.Decorators
@@ -37,54 +34,23 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   lazy val errors: Messages =
     collectmessages(tree) {
       case n => check(n) {
+
         // Variable declared more than once in the same comprehension
-        case d@IdnDef(i) if entity(d) == MultipleEntity() =>
+        case d @ IdnDef(i) if entity(d) == MultipleEntity() =>
           message(d, s"$i is declared more than once")
 
         // Identifier used without being declared
-        case u@IdnUse(i) if entity(u) == UnknownEntity() =>
+        case u @ IdnUse(i) if entity(u) == UnknownEntity() =>
           message(u, s"$i is not declared")
 
         case e: Exp =>
           // Mismatch between type expected and actual type
-          message(e, s"type error: expected ${expectedType(e)} got ${tipe(e)}",
+          message(e, s"type error: expected ${expectedType(e) mkString "or"} got ${tipe(e)}",
             !expectedType(e).exists(isCompatible(_, tipe(e)))) ++
             check(e) {
-
-              // Record type required
-              case r@RecordProj(e, idn) => check(tipe(e)) {
-                case _: RecordType => noMessages
-                case _             => message(e, s"type error: expected record but got ${tipe(e)}")
-              }
-
-              // Badly formed `IfThenElse`
-              // TODO: Either one of the other error will be fired, but they could both be fired at the same time
-              case i@IfThenElse(e1, _, _) if tipe(e1) != BoolType() =>
-                message(i, s"type error: expected a predicate but got ${tipe(e1)}")
-              case i@IfThenElse(_, e2, e3) if tipe(e2) != tipe(e3)  =>
-                message(i, s"type error: 'then' type is ${tipe(e2)} and 'else' type is ${tipe(e3)}")
-
-              //  Mismatch in function application
-              case FunApp(f, e) => tipe(f) match {
-                case FunType(t1, _) if t1 == tipe(e) => noMessages
-                case FunType(t1, _)                  => message(f, s"type error: function expects ${t1} but got ${tipe(e)}")
-                case t                               => message(f, s"type error: function required but got ${t}")
-              }
-
-              // ...
-              case e@MergeMonoid(m: PrimitiveMonoid, e1, e2) => check(tipe(e1), tipe(e2)) {
-                case (t1: PrimitiveType, t2) if t1 == t2 && m.isOfType(t1) => noMessages
-                case (t1, t2)                                              => message(e, s"type error: cannot merge ${t1} with ${t2}")
-              }
-
-              // ...
-              case e@MergeMonoid(m: CollectionMonoid, e1, e2) => check(tipe(e1), tipe(e2)) {
-                case (t1@CollectionType(m1, _), t2) if m == m1 && isCompatible(t1, t2) => noMessages
-                case (t1, t2)                                                          => message(e, s"type error: cannot merge ${t1} with ${t2}")
-              }
-
-              case c@Comp(m, qs, e) =>
-                qs.flatMap(q => q match {
+              // Semantic error in monoid composition
+              case Comp(m, qs, _) =>
+                qs.flatMap{
                   case Gen(v, g) => {
                     tipe(g) match {
                       case CollectionType(m1, _) =>
@@ -104,41 +70,31 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                             noMessages
                         } else
                           noMessages
-                      case t                     => message(t, s"expected collection type but got ${t}")
+                      case t => message(t, s"expected collection but got $t")
                     }
                   }
-                  case e: Exp    => tipe(e) match {
-                    case _: BoolType => noMessages
-                    case _           => message(e, s"expected predicate but got ${tipe(e)}")
-                  }
-                  case _: Bind   => noMessages
-                }).toIndexedSeq
-
-              case e@BinaryExp(op: ComparisonOperator, e1, e2) => check(tipe(e1), tipe(e2)) {
-                case (t1: NumberType, t2: NumberType) if t1 == t2 => noMessages
-                case (t1, t2)                                     => message(e, s"type error: cannot use operator '${op}' with ${t1} and ${t2}")
-              }
-
-              case e@BinaryExp(op: EqualityOperator, e1, e2) => check(tipe(e1), tipe(e2)) {
-                case (t1, t2) if t1 == t2 => noMessages
-                case (t1, t2)             => message(e, s"type error: cannot use operator '${op}' with ${t1} and ${t2}")
-              }
-
-              case e@BinaryExp(op: ArithmeticOperator, e1, e2) => check(tipe(e1), tipe(e2)) {
-                case (t1: NumberType, t2: NumberType) if t1 == t2 => noMessages
-                case (t1, t2)                                     => message(e, s"type error: cannot use operator '${op}' with ${t1} and ${t2}")
-              }
-
-              case e@UnaryExp(op: Neg, e1) => check(tipe(e1)) {
-                case _: NumberType => noMessages
-                case t             => message(e, s"type error: cannot use operator '${op}' with ${t}")
-              }
+                  case _ => noMessages
+                }.toIndexedSeq
             }
       }
     }
 
-  def isCompatible(t1: Type, t2: Type): Boolean =
-    (t1 == UnknownType()) || (t2 == UnknownType()) || (t1 == t2)
+  def isCompatible(t1: Type, t2: Type): Boolean = {
+    (t1 == UnknownType()) ||
+    (t2 == UnknownType()) ||
+    (t1 == t2) ||
+    ((t1, t2) match {
+      case (RecordType(atts1), RecordType(atts2)) => {
+        // Record types are compatible if they have at least one identifier in common, and if all identifiers have a
+        // compatible type.
+        val atts = atts1.flatMap{ case a1 @ AttrType(idn, _) => atts2.collect{ case a2 @ AttrType(`idn`, _) => (a1.tipe, a2.tipe) } }
+        !atts.isEmpty && !atts.map{ case (a1, a2) => isCompatible(a1, a2) }.contains(false)
+      }
+      case (FunType(tA1, tA2), FunType(tB1, tB2)) => isCompatible(tA1, tB1) && isCompatible(tA2, tB2)
+      case (CollectionType(m1, tA), CollectionType(m2, tB)) => m1 == m2 && isCompatible(tA, tB)
+      case _ => false
+    })
+  }
 
   /** Looks up identifier in the World catalog. If it is in catalog returns a new `ClassEntity` instance, otherwise
     * returns `UnknownType`. Note that when looking up a given identifier, a new `ClassEntity` instance is generated
@@ -213,12 +169,51 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
    *  Returns `UnknownType` if any type will do.
    */
   lazy val expectedType: Exp => Set[Type] = attr {
+
     case tree.parent.pair(e, p) => p match {
+      case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, UnknownType()))))
+
+      case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
+      case IfThenElse(_, e2, e3) if e eq e3 => Set(tipe(e2))
+
+      case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+      case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+
+      // Right-hand side of any binary expression must have the same type as the left-hand side
+      case BinaryExp(_, e1, e2) if e eq e2 => Set(tipe(e1))
+
+      // Function application on a non-function type
+      case FunApp(f, _) if e eq f => Set(FunType(UnknownType(), UnknownType()))
+
+      // Mismatch in function application
+      case FunApp(f, e1) if e eq e1 => tipe(f) match {
+        case FunType(t1, _) => Set(t1)
+        case _              => Set(UnknownType())
+      }
+
+      case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(FloatType(), IntType())
+      case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1 => Set(BoolType())
+
+      // Merge of collections must be with same monoid collection types
+      case MergeMonoid(m: CollectionMonoid, e1, _) if e eq e1 => Set(CollectionType(m, UnknownType()))
+
+      // Right-hand side of any merge must have the same type as the left-hand side
+      case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
+
+      // Comprehension with a primitive monoid must have compatible projection type
+      case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(FloatType(), IntType())
+      case Comp(_: BoolMonoid, _, e1) if e eq e1 => Set(BoolType())
+
+      // Qualifiers that are expressions (i.e. where there is an `expectedType`) must be predicates
+      case Comp(_, qs, _) if qs.exists{case q => q eq e} => Set(BoolType())
+
+      case UnaryExp(_: Neg, _)      => Set(FloatType(), IntType())
       case UnaryExp(_: Not, _)      => Set(BoolType())
       case UnaryExp(_: ToBool, _)   => Set(FloatType(), IntType())
       case UnaryExp(_: ToInt, _)    => Set(BoolType(), FloatType())
       case UnaryExp(_: ToFloat, _)  => Set(IntType())
       case UnaryExp(_: ToString, _) => Set(BoolType(), FloatType(), IntType())
+
       case _                        => Set(UnknownType())
     }
     case _                          => Set(UnknownType()) // There is no parent, i.e. the root node.
@@ -254,10 +249,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _: StringConst => StringType()
 
     // Rule 2
-    case _: Null       => UnknownType()
+    case _: Null => UnknownType()
 
     // Rule 3
-    case IdnExp(idn)   => entityTipe(entity(idn))
+    case IdnExp(idn) => entityTipe(entity(idn))
 
     // Rule 4
     case RecordProj(e, idn) => tipe(e) match {
@@ -265,87 +260,59 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case Some(att: AttrType) => att.tipe
         case _                   => UnknownType()
       }
-      case t => UnknownType()
+      case _             => UnknownType()
     }
 
     // Rule 5
     case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, tipe(att.e))))
 
     // Rule 6
-    case IfThenElse(e1, e2, e3) => (tipe(e1), tipe(e2), tipe(e3)) match {
-      case (_: BoolType, t2, t3) if t2 == t3 => t2
-      case _                                 => UnknownType()
-    }
+    case IfThenElse(_, e2, _) => tipe(e2)
 
     // Rule 7 
-    // TODO: Missing preconditions?
     case FunAbs(_, t, e) => FunType(t, tipe(e))
 
     // Rule 8
-    case FunApp(f, e) => tipe(f) match {
-      case FunType(t1, t2) if t1 == tipe(e) => t2
-      case _                                => UnknownType()
+    case FunApp(f, _) => tipe(f) match {
+      case FunType(_, t2) => t2
+      case _               => UnknownType()
     }
 
     // Rule 9
-    case ZeroCollectionMonoid(m)    => CollectionType(m, UnknownType())
+    case ZeroCollectionMonoid(m) => CollectionType(m, UnknownType())
 
     // Rule 10
     case ConsCollectionMonoid(m, e) => CollectionType(m, tipe(e))
 
     // Rule 11
-    case MergeMonoid(m: PrimitiveMonoid, e1, e2) => (tipe(e1), tipe(e2)) match {
-      case (t1: PrimitiveType, t2) if t1 == t2 && m.isOfType(t1) => t1
-      case _ => UnknownType()
-    }
+    case MergeMonoid(_: PrimitiveMonoid, e1, _) => tipe(e1)
 
     // Rule 12
-    case MergeMonoid(m: CollectionMonoid, e1, e2) => (tipe(e1), tipe(e2)) match {
-      case (t1 @ CollectionType(m1, _), t2) if m == m1 && t1 == t2 => t1
-      case _ => UnknownType()
-    }
+    case MergeMonoid(_: CollectionMonoid, e1, _) => tipe(e1)
 
     // Rule 13
-    case Comp(m: PrimitiveMonoid, Nil, e) if m.isOfType(tipe(e)) => tipe(e)
+    case Comp(m: PrimitiveMonoid, Nil, e) => tipe(e)
 
     // Rule 14
-    case Comp(m: CollectionMonoid, Nil, e)                         => CollectionType(m, tipe(e))
+    case Comp(m: CollectionMonoid, Nil, e) => CollectionType(m, tipe(e))
 
     // Rule 15
-    case Comp(m, Gen(idn, e2) :: r, e1) => tipe(e2) match {
-      case CollectionType(m2, t2) if m.greaterOrEqThan(m2) => tipe(Comp(m, r, e1))
-      case _ => UnknownType()
-    }
+    case Comp(m, (_: Gen) :: r, e1) => tipe(Comp(m, r, e1))
 
     // Rule 16
-    case Comp(m, (e2: Exp) :: r, e1) => tipe(e2) match {
-      case _: BoolType => tipe(Comp(m, r, e1))
-      case _           => UnknownType()
-    }
+    case Comp(m, (_: Exp) :: r, e1) => tipe(Comp(m, r, e1))
 
     // Skip Bind
     case Comp(m, (_: Bind) :: r, e1) => tipe(Comp(m, r, e1))
 
     // Binary Expression type
-    case BinaryExp(_: ComparisonOperator, e1, e2) => (tipe(e1), tipe(e2)) match {
-      case (t1: NumberType, t2: NumberType) if t1 == t2 => BoolType()
-      case _                                            => UnknownType()
-    }
-    case BinaryExp(_: EqualityOperator, e1, e2) => (tipe(e1), tipe(e2)) match {
-      case (t1, t2) if t1 == t2 => BoolType()
-      case _                    => UnknownType()
-    }
-    case BinaryExp(_: ArithmeticOperator, e1, e2) => (tipe(e1), tipe(e2)) match {
-      case (t1: NumberType, t2: NumberType) if t1 == t2 => t1
-      case _                                            => UnknownType()
-    }
+    case BinaryExp(_: ComparisonOperator, _, _) => BoolType()
+    case BinaryExp(_: EqualityOperator, _, _)   => BoolType()
+    case BinaryExp(_: ArithmeticOperator, e1, _) => tipe(e1)
 
     // Unary Expression type
-    case UnaryExp(_: Not, _) => BoolType()
-    case UnaryExp(_: Neg, e) => tipe(e) match {
-      case t: NumberType => t
-      case _             => UnknownType()
-    }
+    case UnaryExp(_: Not, _)      => BoolType()
+    case UnaryExp(_: Neg, e)      => tipe(e)
     case UnaryExp(_: ToBool, _)   => BoolType()
     case UnaryExp(_: ToInt, _)    => IntType()
     case UnaryExp(_: ToFloat, _)  => FloatType()

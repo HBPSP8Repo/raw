@@ -84,20 +84,20 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     orExp
 
   lazy val orExp: PackratParser[Exp] =
-    andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } })
+    positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
   lazy val or: PackratParser[OrMonoid] =
     positioned("or" ^^^ OrMonoid())
 
   lazy val andExp: PackratParser[Exp] =
-    comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } })
+    positioned(comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
   lazy val and: PackratParser[AndMonoid] =
     positioned("and" ^^^ AndMonoid())
 
   lazy val comparisonExp: PackratParser[Exp] =
-    termExp ~ eqAndCompOp ~ termExp ^^ { case e1 ~ op ~ e2 => BinaryExp(op, e1, e2) } |
-    not ~ termExp ^^ { case op ~ e => UnaryExp(op, e) } |
+    positioned(termExp ~ eqAndCompOp ~ termExp ^^ { case e1 ~ op ~ e2 => BinaryExp(op, e1, e2) }) |
+    positioned(not ~ termExp ^^ { case op ~ e => UnaryExp(op, e) }) |
     termExp
 
   lazy val eqAndCompOp: PackratParser[BinaryOperator] =
@@ -113,9 +113,9 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned("not" ^^^ Not())
 
   lazy val termExp: PackratParser[Exp] =
-    productExp * (
+    positioned(productExp * (
       sum ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
-      sub ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } })
+      sub ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
   lazy val sum: PackratParser[SumMonoid] =
     positioned("+" ^^^ SumMonoid())
@@ -124,9 +124,9 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned("-" ^^^ Sub())
 
   lazy val productExp: PackratParser[Exp] =
-    mergeExp * (
+    positioned(compExp * (
       mult ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
-      div ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } })
+      div ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
   lazy val mult: PackratParser[MultiplyMonoid] =
     positioned("*" ^^^ MultiplyMonoid())
@@ -134,8 +134,12 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val div: PackratParser[Div] =
     positioned("/" ^^^ Div())
 
+  lazy val compExp: PackratParser[Exp] =
+    comp |
+    mergeExp
+
   lazy val mergeExp: PackratParser[Exp] =
-    baseExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } })
+    positioned(recordProjExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
   lazy val monoidMerge: PackratParser[Monoid] =
     positioned(
@@ -144,18 +148,19 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
       "append" ^^^ ListMonoid() |
       "max" ^^^ MaxMonoid())
 
+  lazy val recordProjExp: PackratParser[Exp] =
+    positioned(baseExp ~ rep("." ~> ident) ^^ { case e ~ ps => if (ps.isEmpty) e else ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
+
   /** `baseExp` is left-recursive since `exp` goes down to `baseExp` again.
     */
   lazy val baseExp: PackratParser[Exp] =
     const |
     ifThenElse |
     recordCons |
-    comp |
     zeroAndConsMonoid |
     unaryFun |
     funAbs |
     funApp |
-    recordProj |
     "(" ~> exp <~ ")" |
     idnExp
 
@@ -164,7 +169,7 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     boolConst |
     stringConst |
     numberConst |
-    neg ~ numberConst ^^ { case op ~ e => UnaryExp(op, e) }
+    positioned(neg ~ numberConst ^^ { case op ~ e => UnaryExp(op, e) })
 
   // TODO: Should `neg` be at the baseExp level, under `unaryFun` ???
 
@@ -193,10 +198,7 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned("if" ~> exp ~ ("then" ~> exp) ~ ("else" ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
 
   lazy val recordCons: PackratParser[RecordCons] =
-    positioned("(" ~> attrsCons <~ ")" ^^ RecordCons)
-
-  lazy val attrsCons: PackratParser[List[AttrCons]] =
-    repsep(attrCons, ",") ^^ { case atts => atts }
+    positioned("(" ~> repsep(attrCons, ",") <~ ")" ^^ RecordCons)
 
   lazy val attrCons: PackratParser[AttrCons] =
     positioned((ident <~ ":=") ~ exp ^^ { case idn ~ e => AttrCons(idn, e) })
@@ -263,7 +265,7 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     })
 
   lazy val unaryFun: PackratParser[UnaryExp] =
-    unaryOp ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => UnaryExp(op, e) }
+    positioned(unaryOp ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => UnaryExp(op, e) })
 
   lazy val unaryOp: PackratParser[UnaryOperator] =
     positioned(
@@ -310,8 +312,8 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val funApp: PackratParser[FunApp] =
     positioned(exp ~ ("(" ~> exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) })
 
-  lazy val recordProj: PackratParser[Exp] =
-    positioned(exp ~ rep1("." ~> ident) ^^ { case e ~ ps => ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
+//  lazy val recordProj: PackratParser[Exp] =
+//    positioned(exp ~ rep1("." ~> ident) ^^ { case e ~ ps => ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
 
   lazy val idnExp: PackratParser[IdnExp] =
     positioned(idnUse ^^ IdnExp)

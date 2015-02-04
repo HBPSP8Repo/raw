@@ -2,7 +2,9 @@ package raw
 
 /** Types
   */
-sealed abstract class Type extends RawNode
+sealed abstract class Type extends RawNode {
+  override def toString() = PrettyPrinter.pretty(PrettyPrinter.tipe(this))
+}
 
 /** Primitive Types
   */
@@ -43,10 +45,6 @@ case class ClassType(idn: String) extends Type
 /** Function Type `t2` -> `t1`
   */
 case class FunType(val t1: Type, val t2: Type) extends Type
-
-/** No Type: for untyped expressions
-  */
-case class NoType() extends Type
 
 /** Unknown Type: any type will do
   */

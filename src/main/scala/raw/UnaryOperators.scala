@@ -2,7 +2,9 @@ package raw
 
 /** Unary Operator
  */
-sealed abstract class UnaryOperator extends RawNode
+sealed abstract class UnaryOperator extends RawNode {
+  override def toString() = PrettyPrinter.pretty(PrettyPrinter.unaryOp(this))
+}
 
 /** Not
  */
