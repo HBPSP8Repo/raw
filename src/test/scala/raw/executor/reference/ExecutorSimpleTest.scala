@@ -16,18 +16,6 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
   val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
   val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
-  // pretty printing just to make test log readable
-  def toString(value: Value): String = value match {
-    case NullValue() => "null"
-    case IntValue(c) => c.toString()
-    case BooleanValue(c) => c.toString()
-    case FloatValue(c) => c.toString()
-    case StringValue(c) => "\"" + c.toString() + "\""
-    case SetValue(s) => s.map(toString).mkString("{", ", ", "}")
-    case ListValue(s) => s.map(toString).mkString("[", ", ", "]")
-    case RecordValue(s) => s.map({v => v._1 + ": " + toString(v._2)}).mkString("[", ", ", "]")
-  }
-
   // asserts that an expression is properly evaluated to a certain result
   def checkExpression(exp: Exp, result: Any): Unit = {
     scenario("evaluation of " + exp) {

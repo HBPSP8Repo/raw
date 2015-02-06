@@ -1,13 +1,11 @@
 package raw.executor.reference
 
-import java.util
-
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JsonAST._
-import raw._
-import algebra._
-import PhysicalAlgebra._
+import raw.algebra._
+import raw.algebra.PhysicalAlgebra._
 import raw.executor.{RawExecutorRuntimeException, Executor}
+import raw._
 
 import scala.io.BufferedSource
 
@@ -21,7 +19,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   // helper log function. You pass an expression and an environment and it logs the value + returns it
   def returnedValue(exp: Exp, env: List[Any], value: Any): Any = {
-    logger.debug("eval " + PhysicalAlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString.mkString(", ") + ") ===> " + value.toString)
+    logger.debug("eval " + PhysicalAlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + value.toString)
     value
   }
 
@@ -193,38 +191,38 @@ object ReferenceExecutor extends Executor with LazyLogging {
   private def unaryOpEval(op: UnaryOperator): Any => Any = op match {
     case _: Not => v: Any => v match {
       case b: Boolean => !b
-      case i: Float => i == 0
+      case i: Int => i == 0
       case f: Float => f == 0
       case _ => throw RawExecutorRuntimeException(s"cannot compute not($v)")
     }
     case _: Neg => v: Any => v match {
-      case i: Float => -i
+      case i: Int => -i
       case f: Float => -f
       case _ => throw RawExecutorRuntimeException(s"cannot compute neg($v)")
     }
     case _: ToBool => v: Any => v match {
       case _: Boolean => v
-      case i: Float => i != 0
+      case i: Int => i != 0
       case f: Float => f!= 0
       case _ => throw RawExecutorRuntimeException(s"cannot compute toBool($v)")
     }
     case _: ToInt  => v: Any => v match {
       case true => 1
       case false => 0
-      case _: Float => v
+      case _: Int => v
       case f: Float => f.toInt
       case _ => throw RawExecutorRuntimeException(s"cannot compute toInt($v)")
     }
     case _: ToFloat => v: Any => v match {
       case true => 1.0f
       case false => 0.0f
-      case i: Float => i
+      case i: Int => i
       case _: Float => v
       case _ => throw RawExecutorRuntimeException(s"cannot compute toFloat($v)")
     }
     case _: ToString => v: Any => v match {
       case b: Boolean => b.toString()
-      case i: Float => i.toString()
+      case i: Int => i.toString()
       case f: Float => f.toString()
       case s: String => v
       case _ => throw RawExecutorRuntimeException(s"cannot compute toString($v)")
@@ -483,7 +481,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   private def doReduce(m: Monoid, v1: Any, v2: Any): Any = (m, v1, v2) match {
     case (_: ListMonoid, v: Any, l: List[Any]) => List(v) ++ l
-    case (_: SetMonoid, v: Any, s: List[Any]) => Set(v) ++ s
+    case (_: SetMonoid, v: Any, s: Set[Any]) => Set(v) ++ s
     case (_: AndMonoid, v1: Boolean, v2: Boolean) => v1 && v2
     case (_: OrMonoid, v1: Boolean, v2: Boolean) => v1 && v2
     case (_: SumMonoid, v1: Int, v2: Int) => v1 + v2
