@@ -3,6 +3,12 @@ package algebra
 
 object LogicalAlgebra {
 
+  import org.kiama.relation.Tree
+
+  /** Tree type for Calculus
+    */
+  type Algebra = Tree[RawNode,AlgebraNode]
+
   /** Operator Nodes
     */
 

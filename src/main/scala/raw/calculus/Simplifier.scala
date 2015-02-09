@@ -214,6 +214,8 @@ object Simplifier extends LazyLogging {
 
   /** Neg(1) => -1 (i.e. remove Neg() from constants) */
   lazy val ruleDropNeg = rule[Exp] {
+    // TODO: This is invalid. Must fix the precision.
+    // TODO: Pass all int / float consts to Strings.
     case UnaryExp(_: Neg, IntConst(v))   => IntConst(-v)
     case UnaryExp(_: Neg, FloatConst(v)) => FloatConst(-v)
   }

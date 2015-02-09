@@ -13,10 +13,6 @@ import org.kiama.attribution.Attribution
   */
 class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution {
 
-// TODO!!!
-  //todo: POSITIONS UNKNOWN AND INNER COLELCTIONS VS RECORDS SCREWS UP
-//  CHECK BOX EXPECTED TYPE AND REAL TYPE CODE
-
   import org.kiama.==>
   import org.kiama.attribution.Decorators
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}

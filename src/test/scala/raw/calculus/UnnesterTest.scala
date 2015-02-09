@@ -32,6 +32,31 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.departments, query) === Result())
   }
 
+  test("complex_join") {
+    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+
+    object Result extends AlgebraLang {
+      def apply() = {
+        reduce(
+          list,
+          record("name" -> arg(1).person, "location" -> arg(1).location),
+          join(
+            arg(0).location == arg(1).location && arg(1).speed > arg(0).max_speed,
+            select(scan("speed_limits")),
+            select(scan("radar"))))
+      }
+    }
+
+    assert(process(TestWorlds.fines, query) === Result())
+  }
+
+  test("complex_join_2") {
+    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+
+    // TODO: This seems to loop when executed, due to a merge? Double check if syntax tree is ok.
+    assert(false)
+  }
+
   test("paper_query") {
     val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
 
@@ -84,6 +109,7 @@ class UnnesterTest extends FunTest {
     }
     assert(process(TestWorlds.things, query) === Result())
   }
+
 }
 
 

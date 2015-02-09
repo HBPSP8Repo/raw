@@ -1,7 +1,6 @@
 package raw.calculus
 
 import org.scalatest.FunSuite
-import raw.World
 
 class FunTest extends FunSuite {
 

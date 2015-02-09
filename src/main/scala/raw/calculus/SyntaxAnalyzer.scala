@@ -134,6 +134,7 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val div: PackratParser[Div] =
     positioned("/" ^^^ Div())
 
+  // TODO: Unsure of the placement of `comp`
   lazy val compExp: PackratParser[Exp] =
     comp |
     mergeExp

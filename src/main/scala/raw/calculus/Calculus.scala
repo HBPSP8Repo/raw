@@ -6,9 +6,10 @@ package calculus
 object Calculus {
 
   import org.kiama.relation.Tree
+  // TODO: Is the following import needed? Why so?
   import scala.collection.immutable.Seq
 
-  /** Tree type for Calculus.
+  /** Tree type for Calculus
     */
   type Calculus = Tree[RawNode,Exp]
 

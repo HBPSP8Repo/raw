@@ -133,4 +133,27 @@ object TestWorlds {
     new World(catalog)
   }
 
+  def fines = {
+    val speed_limits =
+      CollectionType(ListMonoid(),
+        RecordType(List(
+          AttrType("location", StringType()),
+          AttrType("min_speed", IntType()),
+          AttrType("max_speed", IntType()))))
+
+    val radar =
+      CollectionType(ListMonoid(),
+        RecordType(List(
+          AttrType("person", StringType()),
+          AttrType("speed", IntType()),
+        AttrType("location", StringType()))))
+
+    val catalog = Map(
+      "speed_limits" -> Source(speed_limits, EmptyLocation),
+      "radar" -> Source(radar, EmptyLocation)
+    )
+
+    new World(catalog)
+  }
+
 }
