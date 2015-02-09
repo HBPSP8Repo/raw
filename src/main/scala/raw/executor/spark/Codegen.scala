@@ -16,7 +16,7 @@ object Codegen {
   }
 
   def one(): Any => Int = {
-    val code = toolbox.parse("n: Any => { 1 }")
+    val code = toolbox.parse("(n: Any) => { 1 }")
     toolbox.eval(code).asInstanceOf[Any => Int]
   }
 
@@ -46,7 +46,7 @@ object Codegen {
     def apply(e: algebra.Exp): String = e match {
       case algebra.BinaryExp(_: Eq, lhs, rhs) => s"${apply(lhs)} == ${apply(rhs)}"
       case algebra.RecordProj(e, idn) => s"""${apply(e)}("$idn")"""
-      case algebra.Arg(idn) => "p"
+      case algebra.Arg(idn) => s"p"
       case algebra.StringConst(v) => s""""$v""""
     }
 

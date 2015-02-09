@@ -154,13 +154,29 @@ object SparkExecutor extends Executor {
           val t1: Any = childPlan.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.filter(Codegen.buildPredicate(ps)) }
 
 
-          val t2: Any = childPlan.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.map(Codegen.one()) }
+          //val t2: RDD[Int] = t1.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.map(Codegen.one()) }
+          val t2 = t1.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.map(Codegen.one()) }
+          val t3 = t2.mapPartitions{ iter => iter.map(Set(_)) }
 
+          val x = Set[Any]()
+          val y = x.+(1).+(2)
+          val z = x.+(2)
+          val w = x ++ y
+          println(w)
+
+          //t2.aggregate(0)((acc, n) => acc + n, (a, b) => a + b)
+          //t2.reduce((a, b) => a + b)
+
+          t3.reduce((a, b) => a ++ b)
+
+          t1.asInstanceOf[RDD[Any]].aggregate(Set[Any]())((acc, n) => acc.+(n), (a, b) => a ++ b)
+
+          //t1.asInstanceOf[RDD[Map[String, Any]]].reduce((a, b) => a ++ b)
 
           //t1.asInstanceOf[RDD[Any]].aggregate(0)(Codegen.hack(), (a, b) => a + b)
           //t1.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
 
-          childPlan.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
+          //childPlan.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
         }
         case loc =>
           throw SparkExecutorError(s"Spark executor does not support location $loc")
