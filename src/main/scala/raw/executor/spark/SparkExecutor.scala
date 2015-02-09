@@ -46,15 +46,15 @@ object SparkExecutor extends Executor {
 
   import algebra.PhysicalAlgebra._
 
-  @transient
+  //@transient
   val conf = new SparkConf().setAppName("RAW Spark").setMaster("local")
 
-  @transient
+  //@transient
   val sc = new SparkContext(conf)
 
   import org.kiama.util.Counter
 
-  @transient
+  //@transient
   val counter = new Counter(0)
 
   // TODO: SparkExecutor is likely not an object because it needs to keep state.
@@ -124,7 +124,7 @@ object SparkExecutor extends Executor {
 //      val code = q"""((p: Any) => false)"""
 //      val compiledCode = toolbox.compile(code)().asInstanceOf[(Any => Boolean)]
 //      compiledCode
-+//    }
+//    }
 
 //    def buildPredicate(ps: List[algebra.Exp]): (Any => Boolean) = {
 //      val code = q"""true"""
@@ -152,8 +152,15 @@ object SparkExecutor extends Executor {
           ///childPlan.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + buildExpr(e)(n), (a: Int, b: Int) => a + b)
           //val t1: Any = childPlan.asInstanceOf[RDD[Any]].filter(Codegen.buildPredicate(ps))
           val t1: Any = childPlan.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.filter(Codegen.buildPredicate(ps)) }
-          t1.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
-          //childPlan.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
+
+
+          val t2: Any = childPlan.asInstanceOf[RDD[Any]].mapPartitions{ iter => iter.map(Codegen.one()) }
+
+
+          //t1.asInstanceOf[RDD[Any]].aggregate(0)(Codegen.hack(), (a, b) => a + b)
+          //t1.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
+
+          childPlan.asInstanceOf[RDD[Any]].aggregate(0)((acc, n) => acc + 1, (a, b) => a + b)
         }
         case loc =>
           throw SparkExecutorError(s"Spark executor does not support location $loc")

@@ -10,6 +10,16 @@ object Codegen {
   protected val toolbox = runtimeMirror(getClass.getClassLoader).mkToolBox()
 
 
+  def hack(): (Int, Any) => Int = {
+    val code = toolbox.parse("(acc: Int, n: Any) => { acc + 1 }")
+    toolbox.eval(code).asInstanceOf[(Int, Any) => Int]
+  }
+
+  def one(): Any => Int = {
+    val code = toolbox.parse("n: Any => { 1 }")
+    toolbox.eval(code).asInstanceOf[Any => Int]
+  }
+
   def buildTuple(atts: Seq[AttrType]): (String => Map[String, Any]) = {
     val map = "Map(" + atts.view.zipWithIndex.map{ case (att, i) => s""""${att.idn}" -> """ + (att.tipe match {
       case IntType()    => s"cols($i).toInt"
@@ -21,7 +31,7 @@ object Codegen {
     val textCode = s"""
     (line: String) => {
       val cols = line.split(",")
-      List($map)
+      $map
     }
     """
     println(textCode)

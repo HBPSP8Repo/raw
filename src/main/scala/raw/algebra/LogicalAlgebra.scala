@@ -12,7 +12,7 @@ object LogicalAlgebra {
   /** Operator Nodes
     */
 
-  sealed abstract class AlgebraNode extends Product
+  sealed abstract class AlgebraNode extends RawNode
 
   /** Scan
     */
