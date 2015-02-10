@@ -2,11 +2,11 @@ package raw
 
 case class LocationError(err: String) extends RawException
 
-case class Source(tipe: Type, location: DataLocation)
+case class Source(tipe: CollectionType, location: DataLocation)
 
 class World(val catalog: Map[String, Source], val userTypes: Map[String, Type] = Map()) {
-  def getSource(name: String): Tuple2[Type, DataLocation] = catalog.get(name) match {
-    case Some(Source(tipe, location)) => (tipe, location)
+  def getSource(name: String): Source = catalog.get(name) match {
+    case Some(Source(tipe, location)) => Source(tipe, location)
     case None => throw LocationError(s"Unknown location $name")
   }
 }

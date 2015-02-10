@@ -10,7 +10,7 @@ object ReferenceOptimizer extends Optimizer {
   def optimize(root: LogicalAlgebra.AlgebraNode, world: World): PhysicalAlgebra.AlgebraNode = {
 
     def recurse(node: LogicalAlgebra.AlgebraNode): PhysicalAlgebra.AlgebraNode = node match {
-      case LogicalAlgebra.Scan(name)                  => { val (tipe, location) = world.getSource(name); PhysicalAlgebra.Scan(tipe, location) }
+      case LogicalAlgebra.Scan(name)                  => { val source = world.getSource(name); PhysicalAlgebra.Scan(source.tipe, source.location) }
       case LogicalAlgebra.Reduce(m, e, ps, child)     => PhysicalAlgebra.Reduce(m, e, ps, recurse(child))
       case LogicalAlgebra.Nest(m, e, f, ps, g, child) => PhysicalAlgebra.Nest(m, e, f, ps, g, recurse(child))
       case LogicalAlgebra.Select(ps, child)           => if (ps.isEmpty) recurse(child) else PhysicalAlgebra.Select(ps, recurse(child))
