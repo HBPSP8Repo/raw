@@ -4,6 +4,7 @@ package algebra
 object LogicalAlgebra {
 
   import org.kiama.relation.Tree
+  import Expressions._
 
   /** Tree type for Calculus
     */
@@ -20,31 +21,31 @@ object LogicalAlgebra {
 
   /** Reduce
     */
-  case class Reduce(m: Monoid, e: Exp, ps: List[Exp], child: AlgebraNode) extends AlgebraNode
+  case class Reduce(m: Monoid, e: FunAbs, p: FunAbs, child: AlgebraNode) extends AlgebraNode
 
   /** Nest
     */
-  case class Nest(m: Monoid, e: Exp, f: List[Arg], ps: List[Exp], g: List[Arg], child: AlgebraNode) extends AlgebraNode
+  case class Nest(m: Monoid, e: FunAbs, f: FunAbs, p: FunAbs, g: FunAbs, child: AlgebraNode) extends AlgebraNode
 
   /** Select
     */
-  case class Select(ps: List[Exp], child: AlgebraNode) extends AlgebraNode
+  case class Select(p: FunAbs, child: AlgebraNode) extends AlgebraNode
 
   /** Join
     */
-  case class Join(ps: List[Exp], left: AlgebraNode, right: AlgebraNode) extends AlgebraNode
+  case class Join(p: FunAbs, left: AlgebraNode, right: AlgebraNode) extends AlgebraNode
 
   /** Unnest
     */
-  case class Unnest(p: Path, ps: List[Exp], child: AlgebraNode) extends AlgebraNode
+  case class Unnest(path: FunAbs, pred: FunAbs, child: AlgebraNode) extends AlgebraNode
 
   /** OuterJoin
     */
-  case class OuterJoin(ps: List[Exp], left: AlgebraNode, right: AlgebraNode) extends AlgebraNode
+  case class OuterJoin(p: FunAbs, left: AlgebraNode, right: AlgebraNode) extends AlgebraNode
 
   /** OuterUnnest
     */
-  case class OuterUnnest(p: Path, ps: List[Exp], child: AlgebraNode) extends AlgebraNode
+  case class OuterUnnest(path: FunAbs, pred: FunAbs, child: AlgebraNode) extends AlgebraNode
 
   /** Merge
     */

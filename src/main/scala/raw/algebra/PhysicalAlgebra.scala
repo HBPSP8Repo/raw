@@ -3,6 +3,8 @@ package algebra
 
 object PhysicalAlgebra {
 
+   import Expressions._
+
   /** Algebra Nodes
     */
 
@@ -18,7 +20,7 @@ object PhysicalAlgebra {
 
   /** Nest
     */
-  case class Nest(m: Monoid, e: Exp, f: List[Arg], ps: List[Exp], g: List[Arg], child: AlgebraNode) extends AlgebraNode
+  case class Nest(m: Monoid, e: Exp, f: List[IdnExp], ps: List[Exp], g: List[IdnExp], child: AlgebraNode) extends AlgebraNode
 
   /** Select
     */

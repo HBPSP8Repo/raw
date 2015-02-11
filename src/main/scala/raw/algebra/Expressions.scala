@@ -1,75 +1,109 @@
 package raw
 package algebra
 
-sealed abstract class ExpNode extends Product
+object Expressions {
 
-/** Expressions
-  */
-sealed abstract class Exp extends ExpNode
+  sealed abstract class ExpNode extends Product
 
-/** Null
-  */
-case object Null extends Exp
+  /** Identifiers are represented as strings
+    */
+  type Idn = String
 
-/** Constants
-  */
-sealed abstract class Const extends Exp {
-  type T
+  /** Expressions
+    */
+  sealed abstract class Exp extends ExpNode
 
-  def value: T
+  /** Null
+    */
+  case object Null extends Exp
+
+  /** Constants
+    */
+  sealed abstract class Const extends Exp {
+    type T
+
+    def value: T
+  }
+
+  // TODO: Add DateTime, smaller/larger integers/floats.
+  case class BoolConst(value: Boolean) extends Const {
+    type T = Boolean
+  }
+
+  case class IntConst(value: Integer) extends Const {
+    type T = Integer
+  }
+
+  case class FloatConst(value: Float) extends Const {
+    type T = Float
+  }
+
+  case class StringConst(value: String) extends Const {
+    type T = String
+  }
+
+  /** Identifier reference
+    */
+  sealed abstract class IdnNode extends ExpNode {
+    def idn: String
+  }
+
+  /** Defining occurrence of an identifier
+    */
+  case class IdnDef(idn: Idn) extends IdnNode
+
+  /** Use of an identifier
+    */
+  case class IdnUse(idn: Idn) extends IdnNode
+
+  /** Identifier expression
+    */
+  case class IdnExp(idn: IdnUse) extends Exp
+
+  /** Function Abstraction
+    */
+  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
+
+  /** Product Projection
+    */
+  case class ProductProj(e: Exp, idx: Int) extends Exp
+
+  /** Product Construction
+    */
+  case class ProductCons(es: Seq[Exp]) extends Exp
+
+  /** Record Projection
+    */
+  case class RecordProj(e: Exp, idn: Idn) extends Exp
+
+  /** Record Construction
+    */
+  case class AttrCons(idn: Idn, e: Exp) extends ExpNode
+
+  case class RecordCons(atts: Seq[AttrCons]) extends Exp
+
+  /** If/Then/Else
+    */
+  case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp
+
+  /** Binary Expression
+    */
+  case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
+
+  /** Zero for Collection Monoid
+    */
+  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
+
+  /** Construction for Collection Monoid
+    */
+  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
+
+  /** Merge Monoid
+    */
+  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
+
+  /** Unary Expression
+    */
+  case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
+
 }
-
-// TODO: Add DateTime, smaller/larger integers/floats.
-case class BoolConst(value: Boolean) extends Const {
-  type T = Boolean
-}
-
-case class IntConst(value: Integer) extends Const {
-  type T = Integer
-}
-
-case class FloatConst(value: Float) extends Const {
-  type T = Float
-}
-
-case class StringConst(value: String) extends Const {
-  type T = String
-}
-
-/** Argument
-  */
-case class Arg(i: Int) extends Exp
-
-/** Record Projection
-  */
-case class RecordProj(e: Exp, idn: String) extends Exp
-
-/** Record Construction
-  */
-case class AttrCons(idn: String, e: Exp) extends ExpNode
-
-case class RecordCons(atts: Seq[AttrCons]) extends Exp
-
-/** If/Then/Else
-  */
-case class IfThenElse(e1: Exp, e2: Exp, e3: Exp) extends Exp
-
-/** Binary Expression
-  */
-case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
-
-/** Zero for Collection Monoid
-  */
-case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
-
-/** Construction for Collection Monoid
-  */
-case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
-
-/** Merge Monoid
-  */
-case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
-
-/** Unary Expression
-  */
-case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp

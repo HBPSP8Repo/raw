@@ -35,10 +35,5 @@ object CalculusPrettyPrinter extends PrettyPrinter {
     case FunAbs(idn, t, e)                 => show(idn) <> ":" <+> tipe(t) <+> "=>" <+> show(e)
     case Gen(idn, e)                       => show(idn) <+> "<-" <+> show(e)
     case Bind(idn, e)                      => show(idn) <+> ":=" <+> show(e)
-    case CanonicalComp(m, paths, preds, e) => "for" <+> parens(ssep((paths map show) ++ (preds map show), comma <> space)) <+> "yield" <+> monoid(m) <+> show(e)
-    case GenPath(idn, p)                   => show(idn) <+> "<-" <+> show(p)
-    case BoundPath(v)                      => show(v)
-    case ClassExtent(idn)                  => idn
-    case InnerPath(p, idn)                 => show(p) <> dot <> idn
   }
 }

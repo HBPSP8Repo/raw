@@ -13,7 +13,7 @@ object Simplifier extends LazyLogging {
   /** Transform an expression into a simpler but equivalent form.
     */
   def apply(tree: Calculus, world: World): Calculus = {
-    val inTree = Canonizer(tree, world)
+    val inTree = Normalizer(tree, world)
     logger.debug(s"Simplifier input tree: ${CalculusPrettyPrinter.pretty(inTree.root)}")
 
     val strategy = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +

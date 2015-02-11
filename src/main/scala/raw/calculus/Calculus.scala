@@ -136,25 +136,25 @@ object Calculus {
     */
   case class Bind(idn: IdnDef, e: Exp) extends Statement
 
-  /** Comprehension in canonical form, i.e. with paths and predicates in CNF.
-    * For details in the canonical form, refer to [1] page 19.
-    */
-  case class CanonicalComp(m: Monoid, paths: List[GenPath], preds: List[Exp], e: Exp) extends Exp
-
-  /** Generator using paths.
-    * This is only used by the canonical form.
-    */
-  case class GenPath(idn: IdnDef, p: Path) extends CalculusNode
-
-  /** Paths.
-    * These are only used by the canonical form.
-    */
-  sealed abstract class Path extends CalculusNode
-
-  case class BoundPath(idn: IdnUse) extends Path
-
-  case class InnerPath(p: Path, idn: Idn) extends Path
-
-  case class ClassExtent(idn: Idn) extends Path
+//  /** Comprehension in canonical form, i.e. with paths and predicates in CNF.
+//    * For details in the canonical form, refer to [1] page 19.
+//    */
+//  case class CanonicalComp(m: Monoid, paths: List[GenPath], preds: List[Exp], e: Exp) extends Exp
+//
+//  /** Generator using paths.
+//    * This is only used by the canonical form.
+//    */
+//  case class GenPath(idn: IdnDef, p: Path) extends CalculusNode
+//
+//  /** Paths.
+//    * These are only used by the canonical form.
+//    */
+//  sealed abstract class Path extends CalculusNode
+//
+//  case class BoundPath(idn: IdnUse) extends Path
+//
+//  case class InnerPath(p: Path, idn: Idn) extends Path
+//
+//  case class ClassExtent(idn: Idn) extends Path
 
 }

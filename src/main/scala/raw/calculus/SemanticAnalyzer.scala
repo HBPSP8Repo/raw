@@ -248,7 +248,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _: Null => UnknownType()
 
     // Rule 3
-    case IdnExp(idn) => entityTipe(entity(idn))
+    case IdnExp(idn) => idnNodeType(idn)
 
     // Rule 4
     case RecordProj(e, idn) => tipe(e) match {
@@ -327,5 +327,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case ClassEntity(_, t) => t
     case _                 => UnknownType()
   }
+
+  def idnNodeType(idn: IdnNode): Type = entityTipe(entity(idn))
 
 }

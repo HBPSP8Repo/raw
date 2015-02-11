@@ -17,6 +17,8 @@ class ReferenceResult(result: Any) extends QueryResult {
 
 object ReferenceExecutor extends Executor with LazyLogging {
 
+  import Expressions._
+
   // helper log function. You pass an expression and an environment and it logs the value + returns it
   def returnedValue(exp: Exp, env: List[Any], value: Any): Any = {
     logger.debug("eval " + PhysicalAlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + value.toString)
@@ -447,9 +449,9 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def next = recurse
   }
 
-  case class NestOperator(m: Monoid, e: Exp, f: List[Arg], ps: List[Exp], g: List[Arg], source: ScalaOperator) extends ScalaOperator {
+  case class NestOperator(m: Monoid, e: Exp, f: List[IdnExp], ps: List[Exp], g: List[IdnExp], source: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "nest (" + List(m, PhysicalAlgebraPrettyPrinter.pretty(e), f, ps.map(PhysicalAlgebraPrettyPrinter.pretty).mkString(" && "), g, source).mkString(", ") + ")"
+    override def toString() = "nest (" + List(m, ExpressionsPrettyPrinter.pretty(e), f, ps.map(ExpressionsPrettyPrinter.pretty).mkString(" && "), g, source).mkString(", ") + ")"
 
     private def readSource: List[List[Any]] = source.next match {
       case Some(v: List[Any]) => List(v) ++ readSource

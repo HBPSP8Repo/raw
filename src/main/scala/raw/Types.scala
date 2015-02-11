@@ -20,6 +20,11 @@ case class FloatType() extends NumberType
 
 case class IntType() extends NumberType
 
+/** Product Type
+  */
+
+case class ProductType(tipes: Seq[Type]) extends Type
+
 /** Record Type
   */
 case class AttrType(idn: String, tipe: Type) extends RawNode

@@ -31,6 +31,7 @@ object Query {
     }
   }
 
+  // TODO: Fix the following call. It is redundant.
   def analyze(t: Calculus.Calculus, w: World): Either[QueryError, SemanticAnalyzer] = {
     val analyzer = new SemanticAnalyzer(t, w)
     if (analyzer.errors.length == 0)
@@ -39,15 +40,12 @@ object Query {
       Left(SemanticErrors(analyzer.errors))
   }
 
-  def unnest(tree: Calculus.Calculus, analyzer: SemanticAnalyzer, world: World): LogicalAlgebra.AlgebraNode = {
-    val newTree = Simplifier(tree, world)
-    Unnester(newTree)
-  }
+  def unnest(tree: Calculus.Calculus, world: World): LogicalAlgebra.AlgebraNode = Unnester(tree, world)
 
   def apply(query: String, world: World, optimizer: Optimizer = ReferenceOptimizer, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
     parse(query, world) match {
       case Right(tree) => analyze(tree, world) match {
-        case Right(analyzer) => executor.execute(optimizer.optimize(unnest(tree, analyzer, world), world), world)
+        case Right(analyzer) => executor.execute(optimizer.optimize(unnest(tree, world), world), world)
         case Left(err)       => Left(err)
       }
       case Left(err)       => Left(err)

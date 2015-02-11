@@ -7,6 +7,9 @@ object Codegen {
 
   import scala.tools.reflect.ToolBox
 
+  import algebra.Expressions._
+  import algebra.LogicalAlgebra._
+
   protected val toolbox = runtimeMirror(getClass.getClassLoader).mkToolBox()
 
 
@@ -40,10 +43,10 @@ object Codegen {
   }
 
 
-  def buildPredicate(ps: List[algebra.Exp]): (Any => Boolean) = {
+  def buildPredicate(ps: List[Exp]): (Any => Boolean) = {
     val predicate1 = algebra.BinaryExp(Eq(), algebra.RecordProj(algebra.Arg(0), "office"), algebra.StringConst("BC100"))
 
-    def apply(e: algebra.Exp): String = e match {
+    def apply(e: Exp): String = e match {
       case algebra.BinaryExp(_: Eq, lhs, rhs) => s"${apply(lhs)} == ${apply(rhs)}"
       case algebra.RecordProj(e, idn) => s"""${apply(e)}("$idn")"""
       case algebra.Arg(idn) => s"p"
