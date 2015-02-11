@@ -3,7 +3,7 @@ package algebra
 
 import org.kiama.output.PrettyPrinter.Doc
 
-object ExpressionsPrettyPrinter extends PrettyPrinter {
+object ExpressionPrettyPrinter extends PrettyPrinter {
   import Expressions._
 
   def pretty(e: ExpNode): String =
