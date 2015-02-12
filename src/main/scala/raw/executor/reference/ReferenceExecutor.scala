@@ -17,8 +17,6 @@ class ReferenceResult(result: Any) extends QueryResult {
 
 object ReferenceExecutor extends Executor with LazyLogging {
 
-  import Expressions._
-
   case class ProductValue(items: Seq[Any])
 
   def makeProduct(x: Any, y: Any): ProductValue =  (x, y) match {
@@ -28,7 +26,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case (s1: Any, s2: Any) => ProductValue(Seq(s1, s2))
   }
 
-  def execute(root: AlgebraNode, world: World): Either[QueryError, QueryResult] = {
+  def execute(root: OperatorNode, world: World): Either[QueryError, QueryResult] = {
 
     def dataLocDecode(t: Type, data: Iterable[Any]): Iterable[Any] = {
       def recurse(t: Type, value: Any): Any = (t, value) match {
@@ -92,7 +90,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
-    def toOperator(opNode: AlgebraNode): ScalaOperator = opNode match {
+    def toOperator(opNode: OperatorNode): ScalaOperator = opNode match {
       case Join(p, left, right) => JoinOperator(p, toOperator(left), toOperator(right))
       case OuterJoin(p, left, right) => OuterJoinOperator(p, toOperator(left), toOperator(right))
       case Select(p, source) => SelectOperator(p, toOperator(source))
@@ -311,7 +309,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   case class JoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "join (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
+    override def toString() = "join (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
     val output = for (l <- left.data; r <- right.data if expEval(p, makeProduct(l, r)) == true) yield makeProduct(l, r)
     def value() = output
   }
@@ -319,7 +317,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   case class OuterJoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "outer-join (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
+    override def toString() = "outer-join (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
     val output = for (l <- left.data; r <- right.data) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else null
     def value() = output
   }
@@ -330,7 +328,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     */
   case class SelectOperator(p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "select (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    override def toString() = "select (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     def value() = child.data.filter(evalPredicate(p, _) == true)
   }
 
@@ -338,21 +336,21 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   case class UnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    override def toString() = "unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]] if evalPredicate(p, makeProduct(v, pathV))) yield makeProduct(v, pathV)
     def value() = output
   }
 
   case class OuterUnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "outer-unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    override def toString() = "outer-unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]]) yield if (evalPredicate(p, makeProduct(v, pathV))) makeProduct(v, pathV) else null
     def value() = output
   }
 
   case class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "nest (" + List(m, ExpressionPrettyPrinter.pretty(e), f, ExpressionPrettyPrinter.pretty(p), g, child).mkString(", ") + ")"
+    override def toString() = "nest (" + List(m, AlgebraPrettyPrinter.pretty(e), f, AlgebraPrettyPrinter.pretty(p), g, child).mkString(", ") + ")"
 
     // build a ProductCons of the f variables and group rows of the child by its value
     private val valuesS: Map[Any, Iterable[Any]] = child.data.groupBy({l => expEval(f, l)})
@@ -401,7 +399,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     */
   case class ReduceOperator(m: Monoid, e: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "reduce (" + List(m, ExpressionPrettyPrinter.pretty(e), ExpressionPrettyPrinter.pretty(p), source).mkString(", ") + ")"
+    override def toString() = "reduce (" + List(m, AlgebraPrettyPrinter.pretty(e), AlgebraPrettyPrinter.pretty(p), source).mkString(", ") + ")"
     val result = source.data.filter(evalPredicate(p, _)).map(expEval(e, _)).foldLeft(zeroEval(m))(monoidOp(m))
     def value() = result
   }

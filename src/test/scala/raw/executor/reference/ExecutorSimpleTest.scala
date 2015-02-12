@@ -4,7 +4,6 @@ import org.scalatest._
 import raw._
 import algebra._
 import Algebra._
-import raw.algebra.Expressions._
 
 /**
  * Created by gaidioz on 1/14/15.
@@ -30,7 +29,7 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
   }
 
   // asserts an operation returns the expected result
-  def checkOperation(opNode: AlgebraNode, result: Any): Unit = {
+  def checkOperation(opNode: OperatorNode, result: Any): Unit = {
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
       Then("it should return " + result)

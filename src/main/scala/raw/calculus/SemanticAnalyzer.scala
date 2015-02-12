@@ -41,7 +41,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
         case e: Exp =>
           // Mismatch between type expected and actual type
-          message(e, s"type error: expected ${expectedType(e) mkString "or"} got ${tipe(e)}",
+          message(e, s"expected ${expectedType(e) mkString "or"} got ${tipe(e)}",
             !expectedType(e).exists(isCompatible(_, tipe(e)))) ++
             check(e) {
               // Semantic error in monoid composition
@@ -86,9 +86,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         val atts = atts1.flatMap{ case a1 @ AttrType(idn, _) => atts2.collect{ case a2 @ AttrType(`idn`, _) => (a1.tipe, a2.tipe) } }
         !atts.isEmpty && !atts.map{ case (a1, a2) => isCompatible(a1, a2) }.contains(false)
       }
-      case (FunType(tA1, tA2), FunType(tB1, tB2)) => isCompatible(tA1, tB1) && isCompatible(tA2, tB2)
-      case (CollectionType(m1, tA), CollectionType(m2, tB)) => m1 == m2 && isCompatible(tA, tB)
-      case _ => false
+      case (FunType(tA1, tA2), FunType(tB1, tB2))            => isCompatible(tA1, tB1) && isCompatible(tA2, tB2)
+      case (CollectionType(m1, tA), CollectionType(m2, tB))  => m1 == m2 && isCompatible(tA, tB)
+      case _                                                 => false
     })
   }
 

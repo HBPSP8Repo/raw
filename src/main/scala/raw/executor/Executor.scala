@@ -13,5 +13,5 @@ case class RawExecutorRuntimeException(message: String) extends RawExecutorExcep
 }
 
 abstract class Executor {
-  def execute(root: Algebra.AlgebraNode, world: World): Either[QueryError,QueryResult]
+  def execute(root: Algebra.OperatorNode, world: World): Either[QueryError,QueryResult]
 }

@@ -66,7 +66,7 @@
 //    s"var$n"
 //  }
 //
-//  def execute(root: AlgebraNode, world: World): Either[QueryError, QueryResult] = {
+//  def execute(root: OperatorNode, world: World): Either[QueryError, QueryResult] = {
 //
 //    def buildTuple(atts: Seq[AttrType], line: String): Map[String, Any] = {
 //      def parse(t: raw.Type, item: String): Any = t match {
@@ -134,7 +134,7 @@
 //
 //
 //
-//    def buildSparkCode(n: AlgebraNode): Any = {
+//    def buildSparkCode(n: OperatorNode): Any = {
 //      n match {
 //        case Scan(CollectionType(_: ListMonoid, RecordType(atts)), LocalFileLocation(path, "text/csv")) =>
 //          sc.textFile(path).mapPartitions{ iter => iter.map(Codegen.buildTuple(atts)) }

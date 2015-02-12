@@ -37,7 +37,7 @@ object Query {
       Some(SemanticErrors(analyzer.errors))
   }
 
-  def unnest(tree: Calculus.Calculus, world: World): Algebra.AlgebraNode = Unnester(tree, world)
+  def unnest(tree: Calculus.Calculus, world: World): Algebra.OperatorNode = Unnester(tree, world)
 
   def apply(query: String, world: World, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
     parse(query, world) match {
