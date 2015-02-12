@@ -24,6 +24,8 @@ object AlgebraPrettyPrinter extends PrettyPrinter {
     case StringConst(v)                 => s""""$v""""
     case c: Const                       => c.value.toString()
     case Arg(idx)                       => s"$$$idx"
+    case ProductProj(e, idx)            => show(e) <> parens(idx.toString())
+    case ProductCons(es)                => "(" <+> es.map(show).mkString(",") <+> ")"
     case RecordProj(e, idn)             => show(e) <> dot <> idn
     case AttrCons(idn, e)               => idn <+> ":=" <+> show(e)
     case RecordCons(atts)               => list(atts.toList, prefix = "", elemToDoc = show)
@@ -33,6 +35,5 @@ object AlgebraPrettyPrinter extends PrettyPrinter {
     case ConsCollectionMonoid(m, e)     => collection(m, show(e))
     case MergeMonoid(m, e1, e2)         => show(e1) <+> merge(m) <+> show(e2)
     case UnaryExp(op, e)                => unaryOp(op) <+> show(e)
-    case ProductCons(es)                => "(" <+> es.map(show).mkString(",") <+> ")"
   }
 }
