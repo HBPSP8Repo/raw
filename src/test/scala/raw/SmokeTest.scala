@@ -3,7 +3,6 @@ package raw
 import org.scalatest._
 import executor.Executor
 import executor.reference.ReferenceExecutor
-import executor.spark.SparkExecutor
 
 abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
   val world: World
@@ -88,9 +87,11 @@ class FlatCSVReferenceTest extends FlatCSVTest {
   val executor = ReferenceExecutor
 }
 
+/*
 class FlatCSVSparkTest extends FlatCSVTest {
   val executor = SparkExecutor
 }
+*/
 
 abstract class HierarchyJSONTest extends SmokeTest {
   val movies = Source(
@@ -131,6 +132,8 @@ class HierarchyJSONReferenceTest extends HierarchyJSONTest {
   val executor = ReferenceExecutor
 }
 
+/*
 class HierarchyJSONSparkTest extends HierarchyJSONTest {
   val executor = SparkExecutor
 }
+*/
