@@ -30,24 +30,27 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   def execute(root: AlgebraNode, world: World): Either[QueryError, QueryResult] = {
 
-    def dataLocDecode(t: Type, data: Iterable[Any]): DataSource = {
-        def recurse(t: Type, value: Any): Any = (t, value) match {
-          case (IntType(), v: Int) => v
-          case (FloatType(), v: Float) => v
-          case (BoolType(), v: Boolean) => v
-          case (StringType(), v: String) => v
-          case (r: RecordType, v: Map[_, _]) => v match { case x: Map[String, Any] => x.map({ c => (c._1, recurse(r.typeOf(c._1), x(c._1)))}) }
-          case (CollectionType(ListMonoid(), what: Type), v: List[_]) => v.map({ x: Any => recurse(what, x)})
-          case (CollectionType(SetMonoid(), what: Type), v: Set[_]) => v.map({ x: Any => recurse(what, x)})
-          case _ => throw RawExecutorRuntimeException(s"cannot parse $t in $value")
+    def dataLocDecode(t: Type, data: Iterable[Any]): Iterable[Any] = {
+      def recurse(t: Type, value: Any): Any = (t, value) match {
+        case (IntType(), v: Int) => v
+        case (FloatType(), v: Float) => v
+        case (BoolType(), v: Boolean) => v
+        case (StringType(), v: String) => v
+        case (r: RecordType, v: Map[_, _]) => v match {
+          case x: Map[String, Any] => x.map({ c => (c._1, recurse(r.typeOf(c._1), x(c._1)))})
         }
-        recurse(t, data) match {
-          case l: List[Any] => MemoryDataSource(l)
-          case v => throw RawExecutorRuntimeException(s"cannot build a memory scan from $v")
-        }
+        case (CollectionType(ListMonoid(), what: Type), v: List[_]) => v.map({ x: Any => recurse(what, x)})
+        case (CollectionType(SetMonoid(), what: Type), v: Set[_]) => v.map({ x: Any => recurse(what, x)})
+        case _ => throw RawExecutorRuntimeException(s"cannot parse $t in $value")
+      }
+      recurse(t, data) match {
+        case l: List[Any] => l
+        case s: Set[Any] => s
+        case v => throw RawExecutorRuntimeException(s"cannot build a memory scan from $v")
+      }
     }
 
-    def loadCSV(t: Type, content: BufferedSource): DataSource = {
+    def loadCSV(t: Type, content: BufferedSource): Iterable[Any] = {
 
       def parse(t: Type, item: String): Any = t match {
         case IntType() => item.toInt
@@ -58,14 +61,14 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
       t match {
         case CollectionType(ListMonoid(), RecordType(atts)) => {
-          val f = (l: String) => atts.zip(l.split(",")).map{case (a, item) => (a.idn, parse(a.tipe, item))}.toMap
-          MemoryDataSource(content.getLines().toList.map(f))
+          val f = (l: String) => atts.zip(l.split(",")).map { case (a, item) => (a.idn, parse(a.tipe, item))}.toMap
+          content.getLines().toList.map(f)
         }
         case _ => throw RawExecutorRuntimeException(s"cannot make data source from $t")
       }
     }
 
-    def loadJSON(t: Type, content: BufferedSource): DataSource = {
+    def loadJSON(t: Type, content: BufferedSource): Iterable[Any] = {
       val json: JValue = org.json4s.native.JsonMethods.parse(content.mkString)
       def convert(t: Type, item: JValue): Any = (t, item) match {
         case (IntType(), JInt(i)) => i.toInt
@@ -73,21 +76,20 @@ object ReferenceExecutor extends Executor with LazyLogging {
         case (BoolType(), JBool(b)) => b
         case (StringType(), JString(s)) => s
         case (RecordType(atts), JObject(l)) => {
-          val jMap: Map[String, JValue] = l.map{jfield: JField => (jfield._1, jfield._2)}.toMap
-          val tMap: Map[String, Type] = atts.map({aType: AttrType => (aType.idn, aType.tipe)}).toMap
-          val vMap: Map[String, Any] = jMap.map({j => (j._1, convert(tMap(j._1), j._2))})
+          val jMap: Map[String, JValue] = l.map { jfield: JField => (jfield._1, jfield._2)}.toMap
+          val tMap: Map[String, Type] = atts.map({ aType: AttrType => (aType.idn, aType.tipe)}).toMap
+          val vMap: Map[String, Any] = jMap.map({ j => (j._1, convert(tMap(j._1), j._2))})
           vMap
         }
-        case (CollectionType(ListMonoid(), innerType), JArray(arr)) => arr.map({jv => convert(innerType, jv)})
-        case (CollectionType(SetMonoid(), innerType), JArray(arr)) => arr.map({jv => convert(innerType, jv)}).toSet // TODO: correct?
+        case (CollectionType(ListMonoid(), innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)})
+        case (CollectionType(SetMonoid(), innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)}).toSet // TODO: correct?
       }
 
       convert(t, json) match {
-        case l: List[Any] => MemoryDataSource(l)
-        case s: Set[Any] => MemoryDataSource(s.toList) // TODO: correct?
+        case l: List[Any] => l
+        case s: Set[Any] => s
         case v: Any => throw RawExecutorRuntimeException(s"Cannot instantiate a scan from $v")
       }
-
     }
 
     def toOperator(opNode: AlgebraNode): ScalaOperator = opNode match {
@@ -104,18 +106,15 @@ object ReferenceExecutor extends Executor with LazyLogging {
         source.location match {
           case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(source.tipe, scala.io.Source.fromFile(path)))
           case LocalFileLocation(path, "application/json") => ScanOperator(loadJSON(source.tipe, scala.io.Source.fromFile(path)))
-          case MemoryLocation(data)              => ScanOperator(dataLocDecode(source.tipe, data))
-          case loc                               => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
+          case MemoryLocation(data) => ScanOperator(dataLocDecode(source.tipe, data))
+          case loc => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
         }
       }
     }
 
     logger.debug("\n==========\n" + root + "\n" + AlgebraPrettyPrinter.pretty(root) + "\n============")
     val operator = toOperator(root)
-    operator.next match {
-      case r @ Some(v) => Right(new ReferenceResult(v))
-      case None => throw RawExecutorRuntimeException(s"unexpected None from $root")
-    }
+    Right(new ReferenceResult(operator.data))
   }
 
   private def evalPredicate(p: Exp, value: Any): Boolean = {
@@ -128,6 +127,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
   }
 
   private def expEval(exp: Exp, env: Any): Any = {
+    logger.debug("eval " + AlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ")")
     val result = exp match {
       case Null                                         => null
       case BoolConst(v)                                 => v
@@ -305,163 +305,66 @@ object ReferenceExecutor extends Executor with LazyLogging {
   }
 
   abstract class ScalaOperator {
-
-    def next: Option[Any]
-
-    case class OperatorBufferedOutput(listValue: List[Any]) {
-      private var index: Int = 0
-      private val L: List[Any] = listValue
-
-      def next(): Option[Any] = {
-        val n = index
-        index += 1
-        val nextValue = {
-          try {
-            Some(L(n))
-          } catch {
-            case ex: IndexOutOfBoundsException => None
-          }
-        }
-        nextValue
-      }
-    }
+    def value: Any
+    def data: Iterable[Any] = value.asInstanceOf[Iterable[Any]]
   }
 
-  /** Join Operator
-    */
-  // TODO: make non-case classes
   case class JoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "join (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
-
-    private def readRight: List[Any] = right.next match {
-      case Some(v) => List(v) ++ readRight
-      case None => List()
-    }
-
-    private val rightValues: List[Any] = readRight
-
-    def recurse: List[ProductValue] = left.next match {
-      case r@Some(v: Any) => (rightValues.filter{l: Any => expEval(p, makeProduct(v, l)).asInstanceOf[Boolean]}).map{l: Any => makeProduct(v, l)} ++ recurse
-      case None => List()
-    }
-
-    private val matches = OperatorBufferedOutput(recurse)
-    def next = matches.next()
+    val output = for (l <- left.data; r <- right.data if expEval(p, makeProduct(l, r)) == true) yield makeProduct(l, r)
+    def value() = output
   }
 
 
   case class OuterJoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "outer-join (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
-
-    private def readRight: List[Any] = right.next match {
-      case Some(v: Any) => List(v) ++ readRight
-      case None => List()
-    }
-
-    private val rightValues: List[Any] = readRight
-
-    def recurse: List[ProductValue] = left.next match {
-      case r@Some(v: Any) => {
-        val matches = rightValues.filter({l: Any => evalPredicate(p, makeProduct(v, l))})
-        if (matches == List())
-          List(makeProduct(v, null)) ++ recurse
-        else matches.map({i: Any => makeProduct(v, i)}) ++ recurse
-      }
-      case None => List()
-    }
-
-    private val matches = OperatorBufferedOutput(recurse)
-    def next = matches.next()
-
+    val output = for (l <- left.data; r <- right.data) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else null
+    def value() = output
   }
 
 
 
   /** Select Operator
     */
-  case class SelectOperator(p: Exp, source: ScalaOperator) extends ScalaOperator {
+  case class SelectOperator(p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "select (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + source
-
-    private val child = source
-    def recurse: Option[Any] = child.next match {
-      case r@Some(v) => if(evalPredicate(p, v)) r else recurse
-      case None => None
-    }
-
-    def next = recurse
+    override def toString() = "select (" + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    def value() = child.data.filter(evalPredicate(p, _) == true)
   }
 
 
 
-  case class UnnestOperator(path: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
+  case class UnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + source
-
-    private val child = source
-
-    def recurse: List[Any] = child.next match {
-      case r@Some(v: Any) => {
-        val pathValue = expEval(p, v)
-        // it should be Null or a Collection of values
-        pathValue match {
-          case s: Set[Any] => s.toList.map({i: Any => makeProduct(v, i)}).filter({tuple => evalPredicate(p, tuple)}) ++ recurse
-          case l: List[Any] => l.map({ i: Any => makeProduct(v, i)}).filter({tuple => evalPredicate(p, tuple)}) ++ recurse
-          case null => recurse
-          case _ => throw RawExecutorRuntimeException(s"unexpected $pathValue in unnest")
-        }
-      }
-      case None => List()
-    }
-
-    val values = OperatorBufferedOutput(recurse)
-    def next = values.next()
+    override def toString() = "unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]] if evalPredicate(p, makeProduct(v, pathV))) yield makeProduct(v, pathV)
+    def value() = output
   }
 
-  case class OuterUnnestOperator(path: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
+  case class OuterUnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "outer-unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + source
-
-    private val child = source
-
-    def recurse: Option[Any] = child.next match {
-      case r@Some(v) => {
-        val pathValue = expEval(p, v)
-        if(evalPredicate(p, v)) {
-          Some(makeProduct(v, pathValue))
-        } else recurse
-      }
-      case None => None
-    }
-
-    def next = recurse
+    override def toString() = "outer-unnest (" + path + ", " + ExpressionPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
+    private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]]) yield if (evalPredicate(p, makeProduct(v, pathV))) makeProduct(v, pathV) else null
+    def value() = output
   }
 
-  case class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, source: ScalaOperator) extends ScalaOperator {
+  case class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, child: ScalaOperator) extends ScalaOperator {
 
-    override def toString() = "nest (" + List(m, ExpressionPrettyPrinter.pretty(e), f, ExpressionPrettyPrinter.pretty(p), g, source).mkString(", ") + ")"
-
-    private def readSource: List[Any] = source.next match {
-      case Some(v: Any) => List(v) ++ readSource
-      case None => List()
-    }
+    override def toString() = "nest (" + List(m, ExpressionPrettyPrinter.pretty(e), f, ExpressionPrettyPrinter.pretty(p), g, child).mkString(", ") + ")"
 
     // build a ProductCons of the f variables and group rows of the child by its value
-    private val valuesS: Map[Any, List[Any]] = readSource.groupBy({l => expEval(f, l)})
+    private val valuesS: Map[Any, Iterable[Any]] = child.data.groupBy({l => expEval(f, l)})
     // replace the set of rows associated to each "group by value" by the value of the expression e when applied to each row
     // unless the ProductCons(g) evaluates to null, in which case we put the zero.
     private val nullG = BinaryExp(Eq(), g, Null)
-    private val valuesE: Map[Any, List[Any]] = valuesS.map(p => (p._1, p._2.map({x: Any => if (expEval(nullG, x) == true) zeroEval(m) else expEval(e, x)})))
+    private val valuesE: Map[Any, Iterable[Any]] = valuesS.map(p => (p._1, p._2.map({x: Any => if (expEval(nullG, x) == true) zeroEval(m) else expEval(e, x)})))
     // apply the reduce operation to the set of rows of each group by value
     private val values: Map[Any, Any] = valuesE.map(p => (p._1, p._2.foldLeft(zeroEval(m))({(x: Any, y: Any) => doReduce(m, x, y)})))
     // make a product of the group by value and the reduced operation result
     private val listOfList: List[ProductValue] = values.toList.map{p => makeProduct(p._1, p._2)}
-
-    private val matches = OperatorBufferedOutput(listOfList)
-    def next = matches.next()
-
+    def value() = listOfList
   }
 
   private def doReduce(m: Monoid, v1: Any, v2: Any): Any = (m, v1, v2) match {
@@ -475,26 +378,38 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _ => throw RawExecutorRuntimeException(s"cannot reduce($m, $v1, $v2)")
   }
 
+  private def monoidOp(m: Monoid): (Any, Any) => Any = m match {
+    case _: ListMonoid => (l, v) => l.asInstanceOf[List[Any]] :+ v
+    case _: SetMonoid => (s, v) => s.asInstanceOf[Set[Any]] + v
+    case _: AndMonoid => (b1, b2) => b1.asInstanceOf[Boolean] && b2.asInstanceOf[Boolean]
+    case _: OrMonoid => (b1, b2) => b1.asInstanceOf[Boolean] || b2.asInstanceOf[Boolean]
+    case _: SumMonoid => (v1, v2) => (v1, v2) match {
+      case (i1: Int, i2: Int) => i1 + i2
+      case (f1: Float, f2: Float) => f1 + f2
+    }
+    case _: MultiplyMonoid => (v1, v2) => (v1, v2) match {
+      case (i1: Int, i2: Int) => i1 * i2
+      case (f1: Float, f2: Float) => f1 * f2
+    }
+    case _: MaxMonoid => (v1, v2) => (v1, v2) match {
+      case (i1: Int, i2: Int) => math.max(i1, i2)
+      case (f1: Float, f2: Float) => math.max(f1, f2)
+    }
+  }
+
   /** Reduce Operator
     */
   case class ReduceOperator(m: Monoid, e: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "reduce (" + List(m, ExpressionPrettyPrinter.pretty(e), ExpressionPrettyPrinter.pretty(p), source).mkString(", ") + ")"
-
-    def recurse: Any = source.next match {
-      case None => zeroEval(m)
-      case r@Some(v) => doReduce(m, expEval(e, v), recurse)
-    }
-
-    val value = OperatorBufferedOutput(List(recurse))
-    def next() = value.next()
+    val result = source.data.filter(evalPredicate(p, _)).map(expEval(e, _)).foldLeft(zeroEval(m))(monoidOp(m))
+    def value() = result
   }
 
   /** Scan Operator
     */
-  case class ScanOperator(d: DataSource) extends ScalaOperator {
+  case class ScanOperator(input: Iterable[Any]) extends ScalaOperator {
     override def toString() = "scan()"
-    private val source = d
-    def next = d.next()
+    def value() = input
   }
 }

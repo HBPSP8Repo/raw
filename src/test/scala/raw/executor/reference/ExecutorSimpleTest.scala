@@ -15,14 +15,14 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
   // default very basic content for our database
   val location = MemoryLocation(List(Map("value" -> 1)))
   val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
-  val world: World = new World(Map("twoRows" -> Source(tipe, location)))
+  val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
   // asserts that an expression is properly evaluated to a certain result
   def checkExpression(exp: Exp, result: Any): Unit = {
     scenario("evaluation of " + exp) {
       When("evaluating " + exp)
       Then("it should return " + result)
-      ReferenceExecutor.execute(Reduce(SetMonoid(), exp, ProductCons(Seq()), Select(BoolConst(true), Scan("twoRows"))), world) match {
+      ReferenceExecutor.execute(Reduce(SetMonoid(), exp, BoolConst(true), Select(BoolConst(true), Scan("oneRow"))), world) match {
         case Right(q) => assert(q.value === Set(result))
         case _ => assert(false)
       }
@@ -101,13 +101,13 @@ class ReduceOperations extends  ExecutorTest {
   override val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
   override val world: World = new World(Map("twoRows" -> Source(tipe, location)))
 
-  checkOperation(Reduce(ListMonoid(), Arg(0), ProductCons(Seq()), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), ProductCons(Seq()), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(1)), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), ProductCons(Seq()), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(2)), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), ProductCons(Seq()), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), ProductCons(Seq()), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("three")), Scan("twoRows"))), List())
-  checkOperation(Reduce(SetMonoid(), Arg(0), ProductCons(Seq()), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(SetMonoid(),RecordProj(Arg(0),"name"),ProductCons(Seq()),Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"),IntConst(1)), Scan("twoRows"))), Set("one"))
+  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(1)), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst(2)), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("three")), Scan("twoRows"))), List())
+  checkOperation(Reduce(SetMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(SetMonoid(),RecordProj(Arg(0),"name"), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"),IntConst(1)), Scan("twoRows"))), Set("one"))
 }
 
 class JoinOperations extends ExecutorTest {
@@ -117,7 +117,7 @@ class JoinOperations extends ExecutorTest {
   val departments = MemoryLocation(List(Map("name" -> "dep1", "discipline" -> "Artificial Intelligence"), Map("name" -> "dep2", "discipline" -> "Operating Systems"), Map("name" -> "dep3", "discipline" -> "Robotics")))
   val studentType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("department", StringType()))))
   val depType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()))))
-  override val world: World = new World(Map("students" -> Source(studentType, students), "numbers" -> Source(studentType, students)))
+  override val world: World = new World(Map("students" -> Source(studentType, students), "departments" -> Source(depType, departments)))
 
   // list of (name, discipline) for all students (join with department)
   checkOperation(Reduce(ListMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
