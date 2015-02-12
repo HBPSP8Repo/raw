@@ -339,14 +339,14 @@ object ReferenceExecutor extends Executor with LazyLogging {
   case class UnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
-    private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]] if evalPredicate(p, makeProduct(v, pathV))) yield makeProduct(v, pathV)
+    private val output = for (v <- child.data; pathV <- expEval(path, v).asInstanceOf[Iterable[Any]] if evalPredicate(p, makeProduct(v, pathV))) yield makeProduct(v, pathV)
     def value() = output
   }
 
   case class OuterUnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "outer-unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
-    private val output = for (v <- child.data; pathV <- expEval(p, v).asInstanceOf[Iterable[Any]]) yield if (evalPredicate(p, makeProduct(v, pathV))) makeProduct(v, pathV) else null
+    private val output = for (v <- child.data; pathV <- expEval(path, v).asInstanceOf[Iterable[Any]]) yield if (evalPredicate(p, makeProduct(v, pathV))) makeProduct(v, pathV) else null
     def value() = output
   }
 
