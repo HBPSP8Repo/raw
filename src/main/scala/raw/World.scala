@@ -1,6 +1,6 @@
 package raw
 
-case class LocationError(err: String) extends RawException
+case class LocationError(err: String) extends RawException(err)
 
 case class Source(tipe: CollectionType, location: DataLocation)
 

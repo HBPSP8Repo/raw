@@ -3,7 +3,7 @@ package algebra
 
 import org.kiama.attribution.Attribution
 
-case class TyperError(err: String) extends RawException
+case class TyperError(err: String) extends RawException(err)
 
 class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
 

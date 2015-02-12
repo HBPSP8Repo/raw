@@ -135,7 +135,7 @@ class JoinOperations extends ExecutorTest {
   // number of students per department (mistakenly using join: it will not show dep3 since it doesn't have students)
   checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
                         BoolConst(true),
-                        Nest(SumMonoid(), IntConst(1), ProductCons(Seq(Arg(0))), ProductCons(Seq(Arg(1))), ProductCons(Seq()),
+                        Nest(SumMonoid(), IntConst(1), ProductCons(Seq(Arg(0))), BoolConst(true), ProductCons(Seq(Arg(1))),
                              Join(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department")),
                                   Scan("departments"), Scan("students")))),
                  Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2)))
@@ -143,7 +143,7 @@ class JoinOperations extends ExecutorTest {
   // set of students per department (using outer join, should return dep3 with zero students)
   checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
                         BoolConst(true),
-                        Nest(SumMonoid(), IntConst(1), ProductCons(Seq(Arg(0))), ProductCons(Seq()), ProductCons(Seq(Arg(1))),
+                        Nest(SumMonoid(), IntConst(1), ProductCons(Seq(Arg(0))), BoolConst(true), ProductCons(Seq(Arg(1))),
                              OuterJoin(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department")),
                                        Scan("departments"), Scan("students")))),
                  Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 0)))

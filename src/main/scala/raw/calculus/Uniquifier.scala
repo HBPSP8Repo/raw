@@ -3,7 +3,7 @@ package calculus
 
 import com.typesafe.scalalogging.LazyLogging
 
-case class UniquifierError(err: String) extends RawException
+case class UniquifierError(err: String) extends RawException(err)
 
 /** Uniquify variable names.
   */

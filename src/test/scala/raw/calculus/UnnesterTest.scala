@@ -113,7 +113,7 @@ class UnnesterTest extends FunTest {
 }
 
 
-case class AlgebraDSLError(err: String) extends RawException
+case class AlgebraDSLError(err: String) extends RawException(err)
 
 class AlgebraLang {
 

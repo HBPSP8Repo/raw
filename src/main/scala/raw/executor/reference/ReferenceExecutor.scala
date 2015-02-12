@@ -9,7 +9,7 @@ import org.json4s.JsonAST._
 import algebra.Algebra._
 import algebra._
 
-case class ReferenceExecutorError(err: String) extends RawException
+case class ReferenceExecutorError(err: String) extends RawException(err)
 
 class ReferenceResult(result: Any) extends QueryResult {
   val value = result
@@ -22,8 +22,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
   def makeProduct(x: Any, y: Any): ProductValue =  (x, y) match {
     case (ProductValue(s1), ProductValue(s2)) => ProductValue(s1 ++ s2)
     case (s1: Any, ProductValue(s2)) => ProductValue(Seq(s1) ++ s2)
-    case (ProductValue(s1), s2: Any) => ProductValue(s1 :+ s2)
-    case (s1: Any, s2: Any) => ProductValue(Seq(s1, s2))
+    case (ProductValue(s1), s2) => ProductValue(s1 :+ s2)
+    case (s1, s2) => ProductValue(Seq(s1, s2))
   }
 
   def execute(root: OperatorNode, world: World): Either[QueryError, QueryResult] = {
@@ -112,7 +112,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
     logger.debug("\n==========\n" + root + "\n" + AlgebraPrettyPrinter.pretty(root) + "\n============")
     val operator = toOperator(root)
-    Right(new ReferenceResult(operator.data))
+    Right(new ReferenceResult(operator.value))
   }
 
   private def evalPredicate(p: Exp, value: Any): Boolean = {
@@ -134,7 +134,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case StringConst(v)                               => v
       case Arg(idx)                                     => env match {
         case ProductValue(items) => items(idx)
-        case v: Any => if (idx == 0) v else throw ReferenceExecutorError(s"cannot extract $exp from $env")
+        case v => if (idx == 0) v else throw ReferenceExecutorError(s"cannot extract $exp from $env")
       }
       case ProductCons(es)                              => ProductValue(es.map(expEval(_, env)))
       case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[Seq[Any]](idx)
@@ -151,7 +151,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case IfThenElse(e1, e2, e3)                       => if (expEval(e1, env) == true) expEval(e2, env) else expEval(e3, env)
       case BinaryExp(op, e1, e2)                        => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
     }
-    logger.debug("eval " + AlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + result.toString)
+    logger.debug("eval " + AlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + (if (result == null) "<null>" else result.toString))
     result
   }
 
@@ -247,6 +247,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: Float, e2: Int) => e1 == e2
       case (e1: Boolean, e2: Boolean) => e1 == e2
       case (e1: String, e2: String) => e1 == e2
+      case (e1: ProductValue, e2: ProductValue) => e1.items == e2.items
+      case (e1: ProductValue, e2) => if (e2 == null) e1.items.contains(null) else throw RawExecutorRuntimeException(s"cannot compare $e1 and $e2")
       case _ => throw RawExecutorRuntimeException(s"cannot compute eq($i1, $i2)")
     }
     case _: Neq => (i1: Any, i2: Any) => (i1, i2) match {
@@ -318,7 +320,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
   case class OuterJoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "outer-join (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
-    val output = for (l <- left.data; r <- right.data) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else null
+    val output = for (l <- left.data; r <- right.data) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else makeProduct(l, null)
     def value() = output
   }
 

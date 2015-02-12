@@ -4,7 +4,7 @@ package algebra
 import com.typesafe.scalalogging.LazyLogging
 import calculus.{Calculus, SymbolTable}
 
-case class UnnesterError(err: String) extends RawException
+case class UnnesterError(err: String) extends RawException(err)
 
 /** Terms used during query unnesting.
   */
@@ -105,7 +105,7 @@ object Unnester extends LazyLogging {
     }
 
     def createProduct(idns: Seq[Calculus.IdnNode], vs: Seq[Calculus.IdnNode]): Algebra.Exp = {
-      Algebra.ProductCons(idns.map{ idn => Algebra.Arg(vs.map(_.idn).indexOf(idn)) })
+      Algebra.ProductCons(idns.map{ idn => Algebra.Arg(vs.indexOf(idn)) })
     }
 
     /** Rule C4

@@ -72,8 +72,8 @@ abstract class FlatCSVTest extends SmokeTest {
     Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
 
   //check("most studied discipline", """for (d <- department) yield set (name := d.discipline, number := """, "Computer Architecture")
-  //check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
-  //      Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
+  check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
+        Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
   //check("set of names departments which have the highest number of students", ???, Set("dep1"))
   //check("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))
   //check("set of profs which have the highest number of students in their department", ???, Set("Prof1"))
