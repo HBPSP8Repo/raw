@@ -3,9 +3,7 @@ package algebra
 
 import org.kiama.attribution.Attribution
 
-case class TyperError(err: String) extends RawException
-
-class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
+class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution {
 
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import Algebra._
@@ -15,8 +13,8 @@ class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
   lazy val errors: Messages =
     collectmessages(tree) {
       case n => check(n) {
-        // Algebra nodes in the middle of the tree must be collections
-        case n: AlgebraNode if !tree.isRoot(n) && !isCollection(n) => message(n, s"collection type required for non-root algebra node")
+        // Operator nodes in the middle of the tree must be collections
+        case n: OperatorNode if !tree.isRoot(n) && !isCollection(n) => message(n, s"collection type required for non-root algebra node")
 
         // Merging collections of different types
         case Merge(_, left, right) if tipe(left) != tipe(right) => message(right, s"expected ${tipe(left)} but got ${tipe(right)}")
@@ -36,25 +34,17 @@ class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
 
         // Check that "group by" and "null" variables in Nest are correct
 //        case Nest(_, _, f, _, g, _) if false => ???
-//
-//        case tree.parent.pair(e, p) => p match {
-//          case _: ProductProj => then type of e must be product type?
-//
-//
-//        }  ProductProj(e, idx)                     => expressionType(n)(e) match {
-//          case ProductType(tipes) => noMessages
-//          case t                  => throw TyperError(s"Product type expected but got $t")
-//        }
-//        case RecordProj(e, idn)                      => expressionType(n)(e) match {
-//          case RecordType(atts) => atts.collectFirst { case AttrType(`idn`, t) => t}.head
-//          case t                => throw TyperError(s"Record type expected but got $t")
-//        }
+
+        // TODO: Add type compatibility check.
+        // TODO: Rename to SemanticAnalyzer.
+        // TODO: Move 'isCompatible' method to top-level RAW package and share it between Calculus.SemanticAnalyzer and this one.
+        // TODO: (Remember to fix Calculus.SemanticAnalyzer for the point above.)
+        // TODO: Add check, either here or on expectedExpressionType, to double check if Arg(idx) refers to an existing index. It must refer to a collection already
+        // TODO: (since we already check that children are collections), but must be a collection of product type big enough.
       }
     }
 
-  // TODO: Instead of exceptions in expressionType, I should be returning UnknownType()
-
-  def isCollection(n: AlgebraNode) = tipe(n) match {
+  def isCollection(n: OperatorNode) = tipe(n) match {
     case _: CollectionType => true
     case _                 => false
   }
@@ -66,17 +56,48 @@ class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
     case _                   => false
   }
 
-
-  lazy val expected: AlgebraNode => Exp => Type = paramAttr {
+  /** Expected type of an expression (per operator node)
+    */
+  lazy val expectedExpressionType: OperatorNode => Exp => Set[Type] = paramAttr {
     n => {
       case tree.parent.pair(e: Exp, p: Exp) => p match {
-        case _: ProductProj => BoolType()
+        case ProductProj(_, idx) => Set(ProductType(List.fill(idx + 1)(UnknownType())))
+        case RecordProj(_, idn)  => Set(RecordType(List(AttrType(idn, UnknownType()))))
+
+        case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
+        case IfThenElse(_, e2, e3) if e eq e3 => Set(expressionType(n)(e2))
+
+        case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+        case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+
+        // Right-hand side of any binary expression must have the same type as the left-hand side
+        case BinaryExp(_, e1, e2) if e eq e2 => Set(expressionType(n)(e1))
+
+        case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(FloatType(), IntType())
+        case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1 => Set(BoolType())
+
+        // Merge of collections must be with same monoid collection types
+        case MergeMonoid(m: CollectionMonoid, e1, _) if e eq e1 => Set(CollectionType(m, UnknownType()))
+
+        // Right-hand side of any merge must have the same type as the left-hand side
+        case MergeMonoid(_, e1, e2) if e eq e2 => Set(expressionType(n)(e1))
+
+        case UnaryExp(_: Neg, _)      => Set(FloatType(), IntType())
+        case UnaryExp(_: Not, _)      => Set(BoolType())
+        case UnaryExp(_: ToBool, _)   => Set(FloatType(), IntType())
+        case UnaryExp(_: ToInt, _)    => Set(BoolType(), FloatType())
+        case UnaryExp(_: ToFloat, _)  => Set(IntType())
+        case UnaryExp(_: ToString, _) => Set(BoolType(), FloatType(), IntType())
+
+        case _ => Set(UnknownType())
       }
+      case _   => Set(UnknownType()) // There is no parent, i.e. the root node.
     }
   }
 
-  /** ... */
-  lazy val expressionType: AlgebraNode => Exp => Type = paramAttr {
+  /** Actual type of an expression (per operator node)
+    */
+  lazy val expressionType: OperatorNode => Exp => Type = paramAttr {
     n => {
           case Null                                    => UnknownType()
           case _: BoolConst                            => BoolType()
@@ -84,18 +105,21 @@ class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
           case _: FloatConst                           => FloatType()
           case _: StringConst                          => StringType()
           case Arg(idx)                                => tipe(n) match {
-            case CollectionType(_, ProductType(tipes)) => tipes(idx)
-            case CollectionType(_, t) if idx == 0      => t  // Arg(0) is valid even for non-product types (e.g. the output of a Scan)
-            case t                                     => UnknownType()
+            case CollectionType(_, ProductType(tipes)) if tipes.length > idx => tipes(idx)
+            case CollectionType(_, t) if idx == 0                            => t  // Arg(0) is for non-product types (e.g. the output of a Scan)
+            case t                                                           => UnknownType()
           }
           case ProductProj(e, idx)                     => expressionType(n)(e) match {
-            case ProductType(tipes) => tipes(idx)
-            case t                  => throw TyperError(s"Product type expected but got $t")
+            case ProductType(tipes) if tipes.length > idx => tipes(idx)
+            case t                                        => UnknownType()
           }
           case ProductCons(es)                         => ProductType(es.map(expressionType(n)))
           case RecordProj(e, idn)                      => expressionType(n)(e) match {
-            case RecordType(atts) => atts.collectFirst { case AttrType(`idn`, t) => t}.head
-            case t                => throw TyperError(s"Record type expected but got $t")
+            case t: RecordType => t.atts.find(_.idn == idn) match {
+              case Some(att: AttrType) => att.tipe
+              case _                   => UnknownType()
+            }
+            case _             => UnknownType()
           }
           case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(n)(att.e))))
           case IfThenElse(_, e2, _)                    => expressionType(n)(e2)
@@ -127,10 +151,10 @@ class Typer(tree: Algebra.Algebra, world: World) extends Attribution {
     case _                                     => ListMonoid()
   }
 
-  /** Algebra type.
+  /** Operator types.
     * Rules described in [1] page 29.
     */
-  lazy val tipe: AlgebraNode => Type = attr {
+  lazy val tipe: OperatorNode => Type = attr {
     case Scan(name)              => world.getSource(name).tipe
 
     /** Rule T17 */

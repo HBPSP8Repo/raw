@@ -57,6 +57,7 @@ class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: StringType                => "string"
     case _: FloatType                 => "float"
     case _: IntType                   => "int"
+    case ProductType(tipes)           => tipes mkString " x "
     case RecordType(atts)             => "record" <> list(atts.toList, prefix = "", elemToDoc = (att: AttrType) => att.idn <+> "=" <+> tipe(att.tipe))
     case CollectionType(m, innerType) => monoid(m) <> parens(tipe(innerType))
     case ClassType(idn)               => idn

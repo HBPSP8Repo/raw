@@ -80,6 +80,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     (t2 == UnknownType()) ||
     (t1 == t2) ||
     ((t1, t2) match {
+      case (ProductType(t1), ProductType(t2)) => {
+        // TODO
+        ???
+      }
       case (RecordType(atts1), RecordType(atts2)) => {
         // Record types are compatible if they have at least one identifier in common, and if all identifiers have a
         // compatible type.
