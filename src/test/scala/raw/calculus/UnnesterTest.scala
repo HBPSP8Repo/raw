@@ -11,7 +11,7 @@ class UnnesterTest extends FunTest {
     val analyzer = new SemanticAnalyzer(t, w)
     assert(analyzer.errors.length === 0)
     val nt = Simplifier(t, w)
-    Unnester(nt)
+    Unnester(nt, w)
   }
 
   test("simple_join") {
@@ -121,6 +121,7 @@ class AlgebraLang {
   import scala.language.dynamics
   import raw._
   import algebra.Algebra._
+  import algebra.Expressions._
 
   /** Expression builders
     */
@@ -244,12 +245,6 @@ class AlgebraLang {
 
   def to_string(e: Builder) = UnaryExpBuilder(ToString(), e)
 
-  // TODO: For ease-of-use, always convert any predicate to CNF
-  private def cnfToList(p: Exp): List[Exp] = p match {
-    case MergeMonoid(_: AndMonoid, e1, e2) => cnfToList(e1) ++ cnfToList(e2)
-    case _                                 => List(p)
-  }
-
   /** Monoids
     */
   def max = MaxMonoid()
@@ -281,44 +276,37 @@ class AlgebraLang {
     case UnaryExpBuilder(op, e)          => UnaryExp(op, build(e))
   }
 
-  def argbuild(b: ArgBuilder): Arg = b match {
-    case ArgBuilder(a) => a
-  }
+  def argbuild(bs: List[ArgBuilder]): Exp =
+    ProductCons(bs.map { case ArgBuilder(a) => a })
 
-  // TODO: comment saying we reuse builder for path as well
-  def builderToPath(p: Builder): Path = p match {
-    case RecordProjBuilder(lhs, idn) => InnerPath(builderToPath(lhs), idn)
-    case ArgBuilder(a)               => BoundArg(a)
-    case _                           => throw AlgebraDSLError(s"Invalid builder in path: $p")
-  }
 
   /** Algebra operators
     */
   def scan(name: String) = Scan(name)
 
-  def reduce(m: Monoid, e: Builder, p: Builder, child: AlgebraNode) = Reduce(m, build(e), cnfToList(build(p)), child)
+  def reduce(m: Monoid, e: Builder, p: Builder, child: AlgebraNode) = Reduce(m, build(e), build(p), child)
 
-  def reduce(m: Monoid, e: Builder, child: AlgebraNode) = Reduce(m, build(e), Nil, child)
+  def reduce(m: Monoid, e: Builder, child: AlgebraNode) = Reduce(m, build(e), BoolConst(true), child)
 
-  def select(p: Builder, child: AlgebraNode) = Select(cnfToList(build(p)), child)
+  def select(p: Builder, child: AlgebraNode) = Select(build(p), child)
 
-  def select(child: AlgebraNode) = Select(Nil, child)
+  def select(child: AlgebraNode) = Select(BoolConst(true), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(argbuild(_)), cnfToList(build(p)), nulls.map(argbuild(_)), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), group_by.map(argbuild(_)), Nil, nulls.map(argbuild(_)), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: AlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
 
-  def join(p: Builder, left: AlgebraNode, right: AlgebraNode) = Join(cnfToList(build(p)), left, right)
+  def join(p: Builder, left: AlgebraNode, right: AlgebraNode) = Join(build(p), left, right)
 
-  def unnest(path: Builder, pred: Builder, child: AlgebraNode) = Unnest(builderToPath(path), cnfToList(build(pred)), child)
+  def unnest(path: Builder, pred: Builder, child: AlgebraNode) = Unnest(build(path), build(pred), child)
 
-  def unnest(path: Builder, child: AlgebraNode) = Unnest(builderToPath(path), Nil, child)
+  def unnest(path: Builder, child: AlgebraNode) = Unnest(build(path), BoolConst(true), child)
 
-  def outer_join(p: Builder, left: AlgebraNode, right: AlgebraNode) = OuterJoin(cnfToList(build(p)), left, right)
+  def outer_join(p: Builder, left: AlgebraNode, right: AlgebraNode) = OuterJoin(build(p), left, right)
 
-  def outer_unnest(path: Builder, pred: Builder, child: AlgebraNode) = OuterUnnest(builderToPath(path), cnfToList(build(pred)), child)
+  def outer_unnest(path: Builder, pred: Builder, child: AlgebraNode) = OuterUnnest(build(path), build(pred), child)
 
-  def outer_unnest(path: Builder, child: AlgebraNode) = OuterUnnest(builderToPath(path), Nil, child)
+  def outer_unnest(path: Builder, child: AlgebraNode) = OuterUnnest(build(path), BoolConst(true), child)
 
   def merge(m: Monoid, left: AlgebraNode, right: AlgebraNode) = Merge(m, left, right)
 }

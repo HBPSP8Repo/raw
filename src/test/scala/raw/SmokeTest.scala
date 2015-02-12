@@ -45,7 +45,6 @@ abstract class FlatCSVTest extends SmokeTest {
 
   // some sanity check on the file content basically
   check("number of professors", "for (d <- profs) yield sum 1", 3)
-  /*
   check("number of students", "for (d <- students) yield sum 1", 7)
   check("number of departments", "for (d <- departments) yield sum 1", 3)
 
@@ -80,7 +79,6 @@ abstract class FlatCSVTest extends SmokeTest {
   //check("set of profs which have the highest number of students in their department", ???, Set("Prof1"))
   //check("set of profs which have the lowest number of students in their department", ???, Set("Prof2", "Prof3"))
   //check("set of students who study 'Artificial Intelligence'", ???, Set("Student6", "Student7"))
-  */
 }
 
 class FlatCSVReferenceTest extends FlatCSVTest {
