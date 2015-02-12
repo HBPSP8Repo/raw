@@ -23,5 +23,6 @@ object ExpressionPrettyPrinter extends PrettyPrinter {
     case ConsCollectionMonoid(m, e) => collection(m, show(e))
     case MergeMonoid(m, e1, e2)     => show(e1) <+> merge(m) <+> show(e2)
     case UnaryExp(op, e)            => unaryOp(op) <+> show(e)
+    case ProductCons(es)            => "(" <+> es.map(show).mkString(",") <+> ")"
   }
 }

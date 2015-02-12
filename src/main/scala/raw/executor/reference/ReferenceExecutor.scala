@@ -136,7 +136,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case StringConst(v)                               => v
       case Arg(idx)                                     => env match {
         case ProductValue(items) => items(idx)
-        case _ => throw ReferenceExecutorError(s"cannot extract $exp from $env")
+        case v: Any => if (idx == 0) v else throw ReferenceExecutorError(s"cannot extract $exp from $env")
       }
       case ProductCons(es)                              => ProductValue(es.map(expEval(_, env)))
       case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[Seq[Any]](idx)
@@ -305,6 +305,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
   }
 
   abstract class ScalaOperator {
+
     def next: Option[Any]
 
     case class OperatorBufferedOutput(listValue: List[Any]) {
