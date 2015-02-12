@@ -93,11 +93,13 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
 
         case _ => Set(UnknownType())
       }
+      case _   => Set(UnknownType()) // There is no parent, i.e. the root node.
     }
   }
 
-  /** ... */
-  lazy val expressionType: AlgebraNode => Exp => Type = paramAttr {
+  /** Actual type of an expression (per operator node)
+    */
+  lazy val expressionType: OperatorNode => Exp => Type = paramAttr {
     n => {
           case Null                                    => UnknownType()
           case _: BoolConst                            => BoolType()
@@ -105,18 +107,21 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
           case _: FloatConst                           => FloatType()
           case _: StringConst                          => StringType()
           case Arg(idx)                                => tipe(n) match {
-            case CollectionType(_, ProductType(tipes)) => tipes(idx)
-            case CollectionType(_, t) if idx == 0      => t  // Arg(0) is valid even for non-product types (e.g. the output of a Scan)
-            case t                                     => UnknownType()
+            case CollectionType(_, ProductType(tipes)) if tipes.length > idx => tipes(idx)
+            case CollectionType(_, t) if idx == 0                            => t  // Arg(0) is for non-product types (e.g. the output of a Scan)
+            case t                                                           => UnknownType()
           }
           case ProductProj(e, idx)                     => expressionType(n)(e) match {
-            case ProductType(tipes) => tipes(idx)
-            case t                  => throw TyperError(s"Product type expected but got $t")
+            case ProductType(tipes) if tipes.length > idx => tipes(idx)
+            case t                                        => UnknownType()
           }
           case ProductCons(es)                         => ProductType(es.map(expressionType(n)))
           case RecordProj(e, idn)                      => expressionType(n)(e) match {
-            case RecordType(atts) => atts.collectFirst { case AttrType(`idn`, t) => t}.head
-            case t                => throw TyperError(s"Record type expected but got $t")
+            case t: RecordType => t.atts.find(_.idn == idn) match {
+              case Some(att: AttrType) => att.tipe
+              case _                   => UnknownType()
+            }
+            case _             => UnknownType()
           }
           case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(n)(att.e))))
           case IfThenElse(_, e2, _)                    => expressionType(n)(e2)
@@ -148,10 +153,10 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
     case _                                     => ListMonoid()
   }
 
-  /** Algebra type.
+  /** Operator types.
     * Rules described in [1] page 29.
     */
-  lazy val tipe: AlgebraNode => Type = attr {
+  lazy val tipe: OperatorNode => Type = attr {
     case Scan(name)              => world.getSource(name).tipe
 
     /** Rule T17 */
