@@ -5,16 +5,28 @@
 //
 //case class AnalyzerError(err: String) extends RawException
 //
-//class Analyzer(tree: LogicalAlgebra.Algebra, world: World) extends Attribution {
+//class Analyzer(tree: Algebra.Algebra, world: World) extends Attribution {
 //
 //  import org.kiama.attribution.Decorators
-//  import LogicalAlgebra._
+//  import Algebra._
+//  import Expressions._
 //
 //  /** Decorators on the tree.
 //    */
 //  lazy val decorators = new Decorators(tree)
 //
 //  import decorators.{chain, Chain}
+//
+//
+//
+//  i could have tiped trees
+//  or here use chains
+//  but then, also use entities to point to the original 'thing': whether var definition or class extent
+//    if so, move that symbol code to more general places
+//
+//      BTW, ARE ALL THE GENVAR BINDVAR ETC FUNDAMENTALLY DIFFERENT? DO I NEED THEM SEparately?
+//
+//
 //
 //  /** ... */
 //  lazy val expressionType: AlgebraNode => Exp => Type = paramAttr {
@@ -24,7 +36,9 @@
 //          case _: IntConst                             => IntType()
 //          case _: FloatConst                           => FloatType()
 //          case _: StringConst                          => StringType()
-//          case Arg(i)                                  => tipe(n)(i)
+//
+//
+//          case IdnExp(idn)                             => tipe(n)(i)
 //          case RecordProj(e, idn)                      => expressionType(e) match {
 //            case RecordType(atts) => atts.collectFirst { case AttrType(`idn`, t) => t}.head
 //            case t                => throw AnalyzerError(s"Record type expected but got $t")
@@ -45,6 +59,7 @@
 //          case MergeMonoid(_, e1, _)                   => expressionType(n)(e1)
 //        }
 //      }
+//  val t = ProductType(vs.map(analyzer.idnNodeType))
 //
 //  // TODO: What about Merge between a list and a set?
 //  lazy val tipe: AlgebraNode => CollectionType = attr {

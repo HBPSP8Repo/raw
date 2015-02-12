@@ -13,9 +13,7 @@ object ExpressionPrettyPrinter extends PrettyPrinter {
     case Null                       => "null"
     case StringConst(v)             => s""""$v""""
     case c: Const                   => c.value.toString()
-    case IdnDef(idn)                => idn
-    case IdnUse(idn)                => idn
-    case IdnExp(idn)                => show(idn)
+    case Arg(idx)                   => s"$$$idx"
     case RecordProj(e, idn)         => show(e) <> dot <> idn
     case AttrCons(idn, e)           => idn <+> ":=" <+> show(e)
     case RecordCons(atts)           => list(atts.toList, prefix = "", elemToDoc = show)

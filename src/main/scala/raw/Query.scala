@@ -1,12 +1,10 @@
 package raw
 
 import org.kiama.util.Message
-import algebra.{Unnester, LogicalAlgebra}
+import algebra.{Unnester, Algebra}
 import calculus._
 import executor.Executor
 import executor.reference.ReferenceExecutor
-import optimizer.Optimizer
-import optimizer.reference.ReferenceOptimizer
 
 abstract class QueryError
 case class ParserError(error: String) extends QueryError
@@ -31,22 +29,21 @@ object Query {
     }
   }
 
-  // TODO: Fix the following call. It is redundant.
-  def analyze(t: Calculus.Calculus, w: World): Either[QueryError, SemanticAnalyzer] = {
+  def analyze(t: Calculus.Calculus, w: World): Option[QueryError] = {
     val analyzer = new SemanticAnalyzer(t, w)
     if (analyzer.errors.length == 0)
-      Right(analyzer)
+      None
     else
-      Left(SemanticErrors(analyzer.errors))
+      Some(SemanticErrors(analyzer.errors))
   }
 
-  def unnest(tree: Calculus.Calculus, world: World): LogicalAlgebra.AlgebraNode = Unnester(tree, world)
+  def unnest(tree: Calculus.Calculus, world: World): Algebra.AlgebraNode = Unnester(tree, world)
 
-  def apply(query: String, world: World, optimizer: Optimizer = ReferenceOptimizer, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
+  def apply(query: String, world: World, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
     parse(query, world) match {
       case Right(tree) => analyze(tree, world) match {
-        case Right(analyzer) => executor.execute(optimizer.optimize(unnest(tree, world), world), world)
-        case Left(err)       => Left(err)
+        case None            => executor.execute(unnest(tree, world), world)
+        case Some(err)       => Left(err)
       }
       case Left(err)       => Left(err)
     }

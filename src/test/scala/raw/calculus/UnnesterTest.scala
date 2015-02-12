@@ -120,7 +120,7 @@ class AlgebraLang {
   import scala.language.implicitConversions
   import scala.language.dynamics
   import raw._
-  import algebra.LogicalAlgebra._
+  import algebra.Algebra._
 
   /** Expression builders
     */

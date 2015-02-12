@@ -42,27 +42,9 @@ object Expressions {
     type T = String
   }
 
-  /** Identifier reference
-    */
-  sealed abstract class IdnNode extends ExpNode {
-    def idn: String
-  }
-
-  /** Defining occurrence of an identifier
-    */
-  case class IdnDef(idn: Idn) extends IdnNode
-
-  /** Use of an identifier
-    */
-  case class IdnUse(idn: Idn) extends IdnNode
-
-  /** Identifier expression
-    */
-  case class IdnExp(idn: IdnUse) extends Exp
-
-  /** Function Abstraction
-    */
-  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
+  /** Argument
+   */
+  case class Arg(idx: Int) extends Exp
 
   /** Product Projection
     */

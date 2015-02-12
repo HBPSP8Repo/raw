@@ -3,30 +3,13 @@ package algebra
 
 /** AlgebraPrettyPrinter
   */
-abstract class AlgebraPrettyPrinter extends PrettyPrinter {
+object AlgebraPrettyPrinter extends PrettyPrinter {
+
+  import Algebra._
   import Expressions._
 
-  def path(p: Path): Doc = p match {
-    case BoundArg(a)        => a
-    case ClassExtent(name)  => name
-    case InnerPath(p, name) => path(p) <> dot <> name
-  }
-
-  // TODO: Cleanup later
-  def preds(ps: List[Exp]): Doc = "predicates " + ps.map(ExpressionPrettyPrinter.show).mkString(", ")
-
-  // TODO: Cleanup later
-  def idnExps(es: List[IdnExp]) =  es.map(ExpressionPrettyPrinter.show).mkString(", ")
-}
-
-/** Logica;AlgebraPrettyPrinter
-  */
-object LogicalAlgebraPrettyPrinter extends AlgebraPrettyPrinter {
-
-  import LogicalAlgebra._
-
-  def pretty(a: AlgebraNode): String =
-    super.pretty(show(a))
+  def pretty(n: AlgebraNode): String =
+    super.pretty(show(n))
 
   def show(a: AlgebraNode): Doc = a match {
     case Scan(name)                  => "scan" <+> parens(text(name))

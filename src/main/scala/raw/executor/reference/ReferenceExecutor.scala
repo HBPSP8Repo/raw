@@ -6,7 +6,7 @@ import scala.io.BufferedSource
 
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JsonAST._
-import algebra.LogicalAlgebra._
+import algebra.Algebra._
 import algebra._
 
 case class ReferenceExecutorError(err: String) extends RawException
@@ -110,7 +110,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
-    logger.debug("\n==========\n" + root + "\n" + LogicalAlgebraPrettyPrinter.pretty(root) + "\n============")
+    logger.debug("\n==========\n" + root + "\n" + AlgebraPrettyPrinter.pretty(root) + "\n============")
     val operator = toOperator(root)
     operator.next match {
       case r @ Some(v) => Right(new ReferenceResult(v.head))
@@ -151,7 +151,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case IfThenElse(e1, e2, e3)                       => if (expEval(e1, env) == true) expEval(e2, env) else expEval(e3, env)
       case BinaryExp(op, e1, e2)                        => binaryOpEval(op)(expEval(e1, env), expEval(e2, env))
     }
-    logger.debug("eval " + LogicalAlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + result.toString)
+    logger.debug("eval " + AlgebraPrettyPrinter.pretty(exp) + " in " + "(" + env.toString + ") ===> " + result.toString)
     result
   }
 
