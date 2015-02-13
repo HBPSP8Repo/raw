@@ -72,32 +72,34 @@ object Unnester extends LazyLogging {
       vs.toSet
     }
 
-//    def convertVar(v: String, vs: List[String]): String = s"${vs.indexOf(v)}"
-
     /** Convert canonical calculus expression to algebra expression.
       * The position of each canonical expression variable is used as the argument.
       */
-    def convertExp(e: Calculus.Exp, vs: Seq[String]): Algebra.Exp = e match {
+    def convertExp(e: Calculus.Exp, idns: Seq[String]): Algebra.Exp = e match {
       case _: Calculus.Null                    => Algebra.Null
       case Calculus.BoolConst(v)               => Algebra.BoolConst(v)
       case Calculus.IntConst(v)                => Algebra.IntConst(v)
       case Calculus.FloatConst(v)              => Algebra.FloatConst(v)
       case Calculus.StringConst(v)             => Algebra.StringConst(v)
-      case Calculus.IdnExp(idn)                => Algebra.Arg(vs.indexOf(idn.idn))
-      case Calculus.RecordProj(e, idn)         => Algebra.RecordProj(convertExp(e, vs), idn)
-      case Calculus.RecordCons(atts)           => Algebra.RecordCons(atts.map { att => Algebra.AttrCons(att.idn, convertExp(att.e, vs))})
-      case Calculus.IfThenElse(e1, e2, e3)     => Algebra.IfThenElse(convertExp(e1, vs), convertExp(e2, vs), convertExp(e3, vs))
-      case Calculus.BinaryExp(op, e1, e2)      => Algebra.BinaryExp(op, convertExp(e1, vs), convertExp(e2, vs))
+      case Calculus.IdnExp(idn)                => Algebra.Arg(idns.indexOf(idn.idn))
+      case Calculus.RecordProj(e, idn)         => Algebra.RecordProj(convertExp(e, idns), idn)
+      case Calculus.RecordCons(atts)           => Algebra.RecordCons(atts.map { att => Algebra.AttrCons(att.idn, convertExp(att.e, idns))})
+      case Calculus.IfThenElse(e1, e2, e3)     => Algebra.IfThenElse(convertExp(e1, idns), convertExp(e2, idns), convertExp(e3, idns))
+      case Calculus.BinaryExp(op, e1, e2)      => Algebra.BinaryExp(op, convertExp(e1, idns), convertExp(e2, idns))
       case Calculus.ZeroCollectionMonoid(m)    => Algebra.ZeroCollectionMonoid(m)
-      case Calculus.ConsCollectionMonoid(m, e) => Algebra.ConsCollectionMonoid(m, convertExp(e, vs))
-      case Calculus.MergeMonoid(m, e1, e2)     => Algebra.MergeMonoid(m, convertExp(e1, vs), convertExp(e2, vs))
-      case Calculus.UnaryExp(op, e)            => Algebra.UnaryExp(op, convertExp(e, vs))
+      case Calculus.ConsCollectionMonoid(m, e) => Algebra.ConsCollectionMonoid(m, convertExp(e, idns))
+      case Calculus.MergeMonoid(m, e1, e2)     => Algebra.MergeMonoid(m, convertExp(e1, idns), convertExp(e2, idns))
+      case Calculus.UnaryExp(op, e)            => Algebra.UnaryExp(op, convertExp(e, idns))
       case n                                   => throw UnnesterError(s"Unexpected node: $n")
     }
 
     def createPredicate(ps: Seq[Calculus.Exp], vs: Seq[Calculus.IdnNode]): Algebra.Exp = {
-      val zero: Algebra.Exp = Algebra.BoolConst(true)
-      ps.map { p => convertExp(p, vs.map(_.idn))}.foldLeft(zero)((a, b) => Algebra.MergeMonoid(AndMonoid(), a, b))
+      val idns = vs.map(_.idn)
+      ps match {
+        case Nil          => Algebra.BoolConst(true)
+        case head :: Nil  => convertExp(head, idns)
+        case head :: tail => tail.map(convertExp(_, idns)).foldLeft(convertExp(head, idns))((a, b) => Algebra.MergeMonoid(AndMonoid(), a, b))
+      }
     }
 
     def createExp(e: Calculus.Exp, vs: Seq[Calculus.IdnNode]): Algebra.Exp = {
@@ -158,7 +160,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC8 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) => {
+      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
         logger.debug(s"Applying unnester rule C8")
         // TODO: Fix mapping BELOW!!!
         AlgebraTerm(Algebra.Nest(m, createExp(e, w), createProduct(u, w), createPredicate(p, w), createProduct(w.filterNot(u.contains), w), child))
@@ -169,7 +171,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC9 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
         logger.debug(s"Applying unnester rule C9")
         val p_v = p.filter(variables(_).map(_.idn) == Set(v.idn))
         val p_w_v = p.filter(pred => (w :+ v).toSet.map{idnNode: Calculus.IdnNode => idnNode.idn}.subsetOf(variables(pred).map(_.idn)))
@@ -182,7 +184,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC10 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
         logger.debug(s"Applying unnester rule C10")
         val (p_v, p_not_v) = p.partition(variables(_).map(_.idn) == Set(v.idn))
         CalculusTerm(CanonicalComp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(createExp(path, w), createPredicate(p_v, w :+ v), child)))
