@@ -8,7 +8,7 @@ object AlgebraPrettyPrinter extends PrettyPrinter {
   import Algebra._
 
   def pretty(n: AlgebraNode): String =
-    super.pretty(show(n))
+    super.pretty(show(n)).layout
 
   def show(a: AlgebraNode): Doc = a match {
     case Scan(name)                     => "scan" <+> parens(text(name))

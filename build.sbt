@@ -31,6 +31,9 @@ shellPrompt <<= (name, version) { (n, v) => _ => n + " " + v + "> " }
 
 // Dependencies
 
+resolvers += Opts.resolver.sonatypeReleases
+resolvers += Opts.resolver.sonatypeSnapshots
+
 libraryDependencies ++=
   Seq (
     "org.scala-lang" % "scala-compiler" % scalaVersion.value,
@@ -39,14 +42,9 @@ libraryDependencies ++=
     "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test",
     "org.scalacheck" %% "scalacheck" % "1.11.6" % "test",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing(),
+    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests") changing(),
     "ch.qos.logback" % "logback-classic" % "1.1.2",
-    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT",
-    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests"),
     "org.json4s" %% "json4s-native" % "3.2.10",
     "org.apache.spark" %% "spark-core" % "1.2.0"
   )
-
-resolvers ++= Seq (
-  Resolver.sonatypeRepo ("releases"),
-  Resolver.sonatypeRepo ("snapshots")
-)

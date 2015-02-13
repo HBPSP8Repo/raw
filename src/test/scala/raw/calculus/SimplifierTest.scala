@@ -15,7 +15,7 @@ class SimplifierTest extends FunTest {
   test("test1") {
     compare(
       process(TestWorlds.things, """for (t <- things, t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""" ),
-      """for ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a"""
+      """for  ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a"""
     )
   }
 

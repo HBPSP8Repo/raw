@@ -102,13 +102,10 @@ object Unnester extends LazyLogging {
       }
     }
 
-    def createExp(e: Calculus.Exp, vs: Seq[Calculus.IdnNode]): Algebra.Exp = {
-      convertExp(e, vs.map(_.idn))
-    }
+    def createExp(e: Calculus.Exp, vs: Seq[Calculus.IdnNode]): Algebra.Exp = convertExp(e, vs.map(_.idn))
 
-    def createProduct(idns: Seq[Calculus.IdnNode], vs: Seq[Calculus.IdnNode]): Algebra.Exp = {
+    def createProduct(idns: Seq[Calculus.IdnNode], vs: Seq[Calculus.IdnNode]): Algebra.Exp =
       Algebra.ProductCons(idns.map{ idn => Algebra.Arg(vs.indexOf(idn)) })
-    }
 
     /** Rule C4
       */
@@ -235,7 +232,6 @@ object Unnester extends LazyLogging {
 
     def freshIdn = SymbolTable.next()
 
-    // TODO: `hasNestedComp` followed by `getNestedComp` is very inefficient
     lazy val ruleC11 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, s, p, e1), u, w, child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) => {
         logger.debug(s"Applying unnester rule C11")

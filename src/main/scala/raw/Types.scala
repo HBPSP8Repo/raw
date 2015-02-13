@@ -2,9 +2,7 @@ package raw
 
 /** Types
   */
-sealed abstract class Type extends RawNode {
-  override def toString() = PrettyPrinter.pretty(PrettyPrinter.tipe(this))
-}
+sealed abstract class Type extends RawNode
 
 /** Primitive Types
   */

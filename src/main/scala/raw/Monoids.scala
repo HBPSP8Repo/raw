@@ -3,8 +3,6 @@ package raw
 /** Monoid
   */
 sealed abstract class Monoid extends RawNode {
-  override def toString() = PrettyPrinter.pretty(PrettyPrinter.monoid(this))
-
   def commutative: Boolean
   def idempotent: Boolean
 }

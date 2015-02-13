@@ -1,6 +1,7 @@
-package raw.calculus
+package raw
+package calculus
 
-import raw._
+import org.kiama.output.PrettyPrinterTypes.Width
 
 /** CalculusPrettyPrinter
   */
@@ -9,10 +10,10 @@ object CalculusPrettyPrinter extends PrettyPrinter {
   import Calculus._
 
   def pretty(n: CalculusNode): String =
-    super.pretty(show(n))
+    super.pretty(show(n)).layout
 
   def pretty(n: CalculusNode, w: Width): String =
-    super.pretty(show(n), w=w)
+    super.pretty(show(n), w=w).layout
 
   def show(n: CalculusNode): Doc = n match {
     case _: Null                           => "null"

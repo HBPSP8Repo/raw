@@ -3,8 +3,6 @@ package algebra
 
 import org.kiama.attribution.Attribution
 
-case class TyperError(err: String) extends RawException(err)
-
 class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution {
 
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
@@ -35,10 +33,9 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
         case OuterUnnest(path, _, _) if !isPath(path) => message(path, s"expected path but got ${path}")
 
         // Check that "group by" and "null" variables in Nest are correct
-//        case Nest(_, _, f, _, g, _) if false => ???
+        //        case Nest(_, _, f, _, g, _) if false => ???
 
         // TODO: Add type compatibility check.
-        // TODO: Rename to SemanticAnalyzer.
         // TODO: Move 'isCompatible' method to top-level RAW package and share it between Calculus.SemanticAnalyzer and this one.
         // TODO: (Remember to fix Calculus.SemanticAnalyzer for the point above.)
         // TODO: Add check, either here or on expectedExpressionType, to double check if Arg(idx) refers to an existing index. It must refer to a collection already
@@ -101,44 +98,44 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
     */
   lazy val expressionType: OperatorNode => Exp => Type = paramAttr {
     n => {
-          case Null                                    => UnknownType()
-          case _: BoolConst                            => BoolType()
-          case _: IntConst                             => IntType()
-          case _: FloatConst                           => FloatType()
-          case _: StringConst                          => StringType()
-          case Arg(idx)                                => tipe(n) match {
-            case CollectionType(_, ProductType(tipes)) if tipes.length > idx => tipes(idx)
-            case CollectionType(_, t) if idx == 0                            => t  // Arg(0) is for non-product types (e.g. the output of a Scan)
-            case t                                                           => UnknownType()
-          }
-          case ProductProj(e, idx)                     => expressionType(n)(e) match {
-            case ProductType(tipes) if tipes.length > idx => tipes(idx)
-            case t                                        => UnknownType()
-          }
-          case ProductCons(es)                         => ProductType(es.map(expressionType(n)))
-          case RecordProj(e, idn)                      => expressionType(n)(e) match {
-            case t: RecordType => t.atts.find(_.idn == idn) match {
-              case Some(att: AttrType) => att.tipe
-              case _                   => UnknownType()
-            }
-            case _             => UnknownType()
-          }
-          case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(n)(att.e))))
-          case IfThenElse(_, e2, _)                    => expressionType(n)(e2)
-          case BinaryExp(_: ComparisonOperator, _, _)  => BoolType()
-          case BinaryExp(_: EqualityOperator, _, _)    => BoolType()
-          case BinaryExp(_: ArithmeticOperator, e1, _) => expressionType(n)(e1)
-          case UnaryExp(_: Not, _)                     => BoolType()
-          case UnaryExp(_: Neg, e)                     => expressionType(n)(e)
-          case UnaryExp(_: ToBool, _)                  => BoolType()
-          case UnaryExp(_: ToInt, _)                   => IntType()
-          case UnaryExp(_: ToFloat, _)                 => FloatType()
-          case UnaryExp(_: ToString, _)                => StringType()
-          case ZeroCollectionMonoid(m)                 => CollectionType(m, UnknownType())
-          case ConsCollectionMonoid(m, e)              => CollectionType(m, expressionType(n)(e))
-          case MergeMonoid(_, e1, _)                   => expressionType(n)(e1)
-        }
+      case Null                                    => UnknownType()
+      case _: BoolConst                            => BoolType()
+      case _: IntConst                             => IntType()
+      case _: FloatConst                           => FloatType()
+      case _: StringConst                          => StringType()
+      case Arg(idx)                                => tipe(n) match {
+        case CollectionType(_, ProductType(tipes)) if tipes.length > idx => tipes(idx)
+        case CollectionType(_, t) if idx == 0                            => t  // Arg(0) is for non-product types (e.g. the output of a Scan)
+        case t                                                           => UnknownType()
       }
+      case ProductProj(e, idx)                     => expressionType(n)(e) match {
+        case ProductType(tipes) if tipes.length > idx => tipes(idx)
+        case t                                        => UnknownType()
+      }
+      case ProductCons(es)                         => ProductType(es.map(expressionType(n)))
+      case RecordProj(e, idn)                      => expressionType(n)(e) match {
+        case t: RecordType => t.atts.find(_.idn == idn) match {
+          case Some(att: AttrType) => att.tipe
+          case _                   => UnknownType()
+        }
+        case _             => UnknownType()
+      }
+      case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(n)(att.e))))
+      case IfThenElse(_, e2, _)                    => expressionType(n)(e2)
+      case BinaryExp(_: ComparisonOperator, _, _)  => BoolType()
+      case BinaryExp(_: EqualityOperator, _, _)    => BoolType()
+      case BinaryExp(_: ArithmeticOperator, e1, _) => expressionType(n)(e1)
+      case UnaryExp(_: Not, _)                     => BoolType()
+      case UnaryExp(_: Neg, e)                     => expressionType(n)(e)
+      case UnaryExp(_: ToBool, _)                  => BoolType()
+      case UnaryExp(_: ToInt, _)                   => IntType()
+      case UnaryExp(_: ToFloat, _)                 => FloatType()
+      case UnaryExp(_: ToString, _)                => StringType()
+      case ZeroCollectionMonoid(m)                 => CollectionType(m, UnknownType())
+      case ConsCollectionMonoid(m, e)              => CollectionType(m, expressionType(n)(e))
+      case MergeMonoid(_, e1, _)                   => expressionType(n)(e1)
+    }
+  }
 
   def makeProductType(a: Type, b: Type) = (a, b) match {
     case (ProductType(t1), ProductType(t2)) => ProductType(t1 ++ t2)

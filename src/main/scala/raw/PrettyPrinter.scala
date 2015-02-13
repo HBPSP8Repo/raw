@@ -2,7 +2,7 @@ package raw
 
 /** Base class for calculus/canonical calculus pretty printers.
   */
-class PrettyPrinter extends org.kiama.output.PrettyPrinter {
+abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
 
   def unaryOp(op: UnaryOperator) = op match {
     case _: Not      => "not"
