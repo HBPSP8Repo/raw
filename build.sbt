@@ -4,11 +4,17 @@ version := "0.0.0"
 
 organization := "raw"
 
+organizationName := "DIAS/EPFL"
+
+organizationHomepage := Some(url("http://dias.epfl.ch/"))
+
+homepage := Some(url("http://dias.epfl.ch/"))
+
 // Scala compiler settings
 
 scalaVersion := "2.11.5"
 
-scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked")
+scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
 
 // Interactive settings
 
