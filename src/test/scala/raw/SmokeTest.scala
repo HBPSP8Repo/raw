@@ -71,7 +71,7 @@ abstract class FlatCSVTest extends SmokeTest {
             )""",
     Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
 
-  //check("most studied discipline", """for (d <- department) yield set (name := d.discipline, number := """, "Computer Architecture")
+  //check("most studied discipline","""val v := for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))""", "Computer Architecture")
   check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
         Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
   //check("set of names departments which have the highest number of students", ???, Set("dep1"))
@@ -117,13 +117,14 @@ abstract class HierarchyJSONTest extends SmokeTest {
   check("set of actors in 'Seven'", "for (m <- movies, m.title = \"Seven\", a <- m.actors) yield set a", Set("Brad Pitt", "Morgan Freeman", "Kevin Spacey"))
 
   // harder
-  check("semantic error", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield list m.title""", Set("Twelve Monkeys", "Die Hard"))
   check("Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
   check("Brad Pitt movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt") yield set m.title""", Set("Seven", "Twelve Monkeys"))
-  // infinite loop
-  //check("Brad Pitt or Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"))
   check("movies with actors born after 1960 (only Brad Pitt)", "for (m <- movies, a <- actors, ma <- m.actors, a.name = ma, a.born > 1960) yield set m.title", Set("Seven", "Twelve Monkeys"))
+  check("weird semantic error (movies with Bruce Willis)", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield list m.title""", Set("Twelve Monkeys", "Die Hard"))
+  check("infinite loop (Brad Pitt or Bruce Willis movies)", """for (m <- movies, a <- m.actors, a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"))
+
 }
+
 
 
 class HierarchyJSONReferenceTest extends HierarchyJSONTest {

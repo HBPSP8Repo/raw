@@ -91,20 +91,20 @@ object ReferenceExecutor extends Executor with LazyLogging {
     }
 
     def toOperator(opNode: OperatorNode): ScalaOperator = opNode match {
-      case Join(p, left, right) => JoinOperator(p, toOperator(left), toOperator(right))
-      case OuterJoin(p, left, right) => OuterJoinOperator(p, toOperator(left), toOperator(right))
-      case Select(p, source) => SelectOperator(p, toOperator(source))
-      case Nest(m, e, f, p, g, child) => NestOperator(m, e, f.asInstanceOf[ProductCons], p, g.asInstanceOf[ProductCons], toOperator(child))
-      case OuterUnnest(path, p, child) => OuterUnnestOperator(path, p, toOperator(child))
-      case Unnest(path, p, child) => UnnestOperator(path, p, toOperator(child))
+      case Join(p, left, right) => new JoinOperator(p, toOperator(left), toOperator(right))
+      case OuterJoin(p, left, right) => new OuterJoinOperator(p, toOperator(left), toOperator(right))
+      case Select(p, source) => new SelectOperator(p, toOperator(source))
+      case Nest(m, e, f, p, g, child) => new NestOperator(m, e, f.asInstanceOf[ProductCons], p, g.asInstanceOf[ProductCons], toOperator(child))
+      case OuterUnnest(path, p, child) => new OuterUnnestOperator(path, p, toOperator(child))
+      case Unnest(path, p, child) => new UnnestOperator(path, p, toOperator(child))
       case _: Merge => ???
-      case Reduce(m, exp, ps, source) => ReduceOperator(m, exp, ps, toOperator(source))
+      case Reduce(m, exp, ps, source) => new ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(name) => {
         val source = world.getSource(name)
         source.location match {
-          case LocalFileLocation(path, "text/csv") => ScanOperator(loadCSV(source.tipe, scala.io.Source.fromFile(path)))
-          case LocalFileLocation(path, "application/json") => ScanOperator(loadJSON(source.tipe, scala.io.Source.fromFile(path)))
-          case MemoryLocation(data) => ScanOperator(dataLocDecode(source.tipe, data))
+          case LocalFileLocation(path, "text/csv") => new ScanOperator(loadCSV(source.tipe, scala.io.Source.fromFile(path)))
+          case LocalFileLocation(path, "application/json") => new ScanOperator(loadJSON(source.tipe, scala.io.Source.fromFile(path)))
+          case MemoryLocation(data) => new ScanOperator(dataLocDecode(source.tipe, data))
           case loc => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
         }
       }
@@ -309,18 +309,22 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def data: Iterable[Any] = value.asInstanceOf[Iterable[Any]]
   }
 
-  case class JoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
+  class JoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "join (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
-    val output = for (l <- left.data; r <- right.data if expEval(p, makeProduct(l, r)) == true) yield makeProduct(l, r)
+    val leftData = left.value match { case x: Iterable[Any] => x ; case x => Set(x) }
+    val rightData = right.value match { case x: Iterable[Any] => x ; case x => Set(x) }
+    val output = for (l <- leftData; r <- rightData if expEval(p, makeProduct(l, r)) == true) yield makeProduct(l, r)
     def value() = output
   }
 
 
-  case class OuterJoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
+  class OuterJoinOperator(p: Exp, left: ScalaOperator, right: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "outer-join (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + left + " X " + right
-    val output = for (l <- left.data; r <- right.data) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else makeProduct(l, null)
+    val leftData = left.value match { case x: Iterable[Any] => x ; case x => Set(x) }
+    val rightData = right.value match { case x: Iterable[Any] => x ; case x => Set(x) }
+    val output = for (l <- leftData; r <- rightData) yield if (expEval(p, makeProduct(l, r)) == true) makeProduct(l, r) else makeProduct(l, null)
     def value() = output
   }
 
@@ -328,7 +332,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   /** Select Operator
     */
-  case class SelectOperator(p: Exp, child: ScalaOperator) extends ScalaOperator {
+  class SelectOperator(p: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "select (" + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     def value() = child.data.filter(evalPredicate(p, _) == true)
@@ -336,21 +340,21 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
 
 
-  case class UnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
+  class UnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     private val output = for (v <- child.data; pathV <- expEval(path, v).asInstanceOf[Iterable[Any]] if evalPredicate(p, makeProduct(v, pathV))) yield makeProduct(v, pathV)
     def value() = output
   }
 
-  case class OuterUnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
+  class OuterUnnestOperator(path: Exp, p: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "outer-unnest (" + path + ", " + AlgebraPrettyPrinter.pretty(p).mkString(" && ") + ") " + child
     private val output = for (v <- child.data; pathV <- expEval(path, v).asInstanceOf[Iterable[Any]]) yield if (evalPredicate(p, makeProduct(v, pathV))) makeProduct(v, pathV) else null
     def value() = output
   }
 
-  case class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, child: ScalaOperator) extends ScalaOperator {
+  class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "nest (" + List(m, AlgebraPrettyPrinter.pretty(e), f, AlgebraPrettyPrinter.pretty(p), g, child).mkString(", ") + ")"
 
@@ -399,7 +403,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   /** Reduce Operator
     */
-  case class ReduceOperator(m: Monoid, e: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
+  class ReduceOperator(m: Monoid, e: Exp, p: Exp, source: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "reduce (" + List(m, AlgebraPrettyPrinter.pretty(e), AlgebraPrettyPrinter.pretty(p), source).mkString(", ") + ")"
     val result = source.data.filter(evalPredicate(p, _)).map(expEval(e, _)).foldLeft(zeroEval(m))(monoidOp(m))
@@ -408,7 +412,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   /** Scan Operator
     */
-  case class ScanOperator(input: Iterable[Any]) extends ScalaOperator {
+  class ScanOperator(input: Iterable[Any]) extends ScalaOperator {
     override def toString() = "scan()"
     def value() = input
   }
