@@ -13,7 +13,7 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
 
   // default very basic content for our database
   val location = MemoryLocation(List(Map("value" -> 1)))
-  val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()))))
+  val tipe = ListType(RecordType(List(AttrType("value", IntType()))))
   val world: World = new World(Map("oneRow" -> Source(tipe, location)))
 
   // asserts that an expression is properly evaluated to a certain result
@@ -97,7 +97,7 @@ class ExpressionsConst extends ExecutorTest {
 class ReduceOperations extends  ExecutorTest {
 
   override val location = MemoryLocation(List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
-  override val tipe = CollectionType(ListMonoid(), RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
+  override val tipe = ListType(RecordType(List(AttrType("value", IntType()), AttrType("name", StringType()))))
   override val world: World = new World(Map("twoRows" -> Source(tipe, location)))
 
   checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
@@ -114,8 +114,8 @@ class JoinOperations extends ExecutorTest {
   // two tables, students (name + department) and departments (name + discipline)
   val students = MemoryLocation(List(Map("name" -> "s1", "department" -> "dep1"), Map("name" -> "s2", "department" -> "dep2"), Map("name" -> "s3", "department" -> "dep2")))
   val departments = MemoryLocation(List(Map("name" -> "dep1", "discipline" -> "Artificial Intelligence"), Map("name" -> "dep2", "discipline" -> "Operating Systems"), Map("name" -> "dep3", "discipline" -> "Robotics")))
-  val studentType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("department", StringType()))))
-  val depType = CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()))))
+  val studentType = ListType(RecordType(List(AttrType("name", StringType()), AttrType("department", StringType()))))
+  val depType = ListType(RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()))))
   override val world: World = new World(Map("students" -> Source(studentType, students), "departments" -> Source(depType, departments)))
 
   // list of (name, discipline) for all students (join with department)

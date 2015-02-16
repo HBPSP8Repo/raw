@@ -24,17 +24,17 @@ abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
 abstract class FlatCSVTest extends SmokeTest {
 
   val students = Source(
-    CollectionType(ListMonoid(),RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
+    ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
     LocalFileLocation("src/test/data/smokeTest/students.csv", "text/csv")
   )
 
   val profs = Source(
-    CollectionType(ListMonoid(),RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
+    ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
     LocalFileLocation("src/test/data/smokeTest/profs.csv", "text/csv")
   )
 
   val departments = Source(
-    CollectionType(ListMonoid(),RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
+    ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
     LocalFileLocation("src/test/data/smokeTest/departments.csv", "text/csv")
   )
 
@@ -42,7 +42,7 @@ abstract class FlatCSVTest extends SmokeTest {
     "students" -> students,
     "profs" -> profs,
     "departments" -> departments))
-  /*
+
   // some sanity check on the file content basically
   check("number of professors", "for (d <- profs) yield sum 1", 3)
   check("number of students", "for (d <- students) yield sum 1", 7)
@@ -76,7 +76,7 @@ abstract class FlatCSVTest extends SmokeTest {
     """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number =
       (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))) yield max x.number)) yield set t
     """, "Computer Architecture")
-    */
+
   check("list of disciplines which have three students",
     """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number = 3) yield list t.name
     """, List("Computer Architecture"))
@@ -102,12 +102,12 @@ class FlatCSVSparkTest extends FlatCSVTest {
 
 abstract class HierarchyJSONTest extends SmokeTest {
   val movies = Source(
-    CollectionType(ListMonoid(), RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", CollectionType(SetMonoid(), StringType()))))),
+    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
     LocalFileLocation("src/test/data/smokeTest/movies.json", "application/json")
   )
 
   val actors = Source(
-    CollectionType(ListMonoid(), RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
+    ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
     LocalFileLocation("src/test/data/smokeTest/actors.json", "application/json")
   )
 

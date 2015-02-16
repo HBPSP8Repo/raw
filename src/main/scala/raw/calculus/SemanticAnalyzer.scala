@@ -49,24 +49,24 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                 qs.flatMap{
                   case Gen(v, g) => {
                     tipe(g) match {
-                      case CollectionType(m1, _) =>
-                        if (m1.commutative && m1.idempotent) {
-                          if (!m.commutative && !m.idempotent)
-                            message(m, "expected a commutative and idempotent monoid")
-                          else if (!m.commutative)
-                            message(m, "expected a commutative monoid")
-                          else if (!m.idempotent)
-                            message(m, "expected an idempotent monoid")
-                          else
-                            noMessages
-                        } else if (m1.commutative) {
-                          if (!m.commutative)
-                            message(m, "expected a commutative monoid")
-                          else
-                            noMessages
-                        } else
+                      case _: SetType =>
+                        if (!m.commutative && !m.idempotent)
+                          message(m, "expected a commutative and idempotent monoid")
+                        else if (!m.commutative)
+                          message(m, "expected a commutative monoid")
+                        else if (!m.idempotent)
+                          message(m, "expected an idempotent monoid")
+                        else
                           noMessages
-                      case t => message(t, s"expected collection but got $t")
+                      case _: BagType =>
+                        if (!m.commutative)
+                          message(m, "expected a commutative monoid")
+                        else
+                          noMessages
+                      case _: ListType =>
+                        noMessages
+                      case t =>
+                        message(t, s"expected collection but got $t")
                     }
                   }
                   case _ => noMessages
@@ -174,7 +174,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1 => Set(BoolType())
 
       // Merge of collections must be with same monoid collection types
-      case MergeMonoid(m: CollectionMonoid, e1, _) if e eq e1 => Set(CollectionType(m, UnknownType()))
+      case MergeMonoid(_: BagMonoid, e1, _) if e eq e1 => Set(BagType(UnknownType()))
+      case MergeMonoid(_: ListMonoid, e1, _) if e eq e1 => Set(ListType(UnknownType()))
+      case MergeMonoid(_: SetMonoid, e1, _) if e eq e1 => Set(SetType(UnknownType()))
 
       // Right-hand side of any merge must have the same type as the left-hand side
       case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
@@ -258,10 +260,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
 
     // Rule 9
-    case ZeroCollectionMonoid(m) => CollectionType(m, UnknownType())
+    case ZeroCollectionMonoid(_: BagMonoid) => BagType(UnknownType())
+    case ZeroCollectionMonoid(_: ListMonoid) => ListType(UnknownType())
+    case ZeroCollectionMonoid(_: SetMonoid) => SetType(UnknownType())
 
     // Rule 10
-    case ConsCollectionMonoid(m, e) => CollectionType(m, tipe(e))
+    case ConsCollectionMonoid(_: BagMonoid, e) => BagType(tipe(e))
+    case ConsCollectionMonoid(_: ListMonoid, e) => ListType(tipe(e))
+    case ConsCollectionMonoid(_: SetMonoid, e) => SetType(tipe(e))
 
     // Rule 11
     case MergeMonoid(_: PrimitiveMonoid, e1, _) => tipe(e1)
@@ -273,7 +279,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case Comp(m: PrimitiveMonoid, Nil, e) => tipe(e)
 
     // Rule 14
-    case Comp(m: CollectionMonoid, Nil, e) => CollectionType(m, tipe(e))
+    case Comp(_: BagMonoid, Nil, e) => BagType(tipe(e))
+    case Comp(_: ListMonoid, Nil, e) => ListType(tipe(e))
+    case Comp(_: SetMonoid, Nil, e) => SetType(tipe(e))
 
     // Rule 15
     case Comp(m, (_: Gen) :: r, e1) => tipe(Comp(m, r, e1))

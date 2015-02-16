@@ -50,8 +50,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
         case (r: RecordType, v: Map[_, _]) => v match {
           case x: Map[String, Any] => x.map({ c => (c._1, recurse(r.typeOf(c._1), x(c._1)))})
         }
-        case (CollectionType(ListMonoid(), what: Type), v: List[_]) => v.map({ x: Any => recurse(what, x)})
-        case (CollectionType(SetMonoid(), what: Type), v: Set[_]) => v.map({ x: Any => recurse(what, x)})
+        case (ListType(what: Type), v: List[_]) => v.map({ x: Any => recurse(what, x)})
+        case (SetType(what: Type), v: Set[_]) => v.map({ x: Any => recurse(what, x)})
         case _ => throw RawExecutorRuntimeException(s"cannot parse $t in $value")
       }
       recurse(t, data) match {
@@ -71,7 +71,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
         case _ => throw RawExecutorRuntimeException(s"cannot parse $t in text/csv files")
       }
       t match {
-        case CollectionType(ListMonoid(), RecordType(atts)) => {
+        case ListType(RecordType(atts)) => {
           val f = (l: String) => atts.zip(l.split(",")).map { case (a, item) => (a.idn, parse(a.tipe, item))}.toMap
           content.getLines().toList.map(f)
         }
@@ -92,8 +92,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
           val vMap: Map[String, Any] = jMap.map({ j => (j._1, convert(tMap(j._1), j._2))})
           vMap
         }
-        case (CollectionType(ListMonoid(), innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)})
-        case (CollectionType(SetMonoid(), innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)}).toSet // TODO: correct?
+        case (ListType(innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)})
+        case (SetType(innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)}).toSet // TODO: correct?
       }
 
       convert(t, json) match {

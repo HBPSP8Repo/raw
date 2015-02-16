@@ -15,8 +15,7 @@ class SemanticAnalyzerTest extends FunTest {
     assert(
       process(TestWorlds.cern, "for (e <- Events, e.RunNumber > 100, m <- e.muons) yield set (muon := m)")
         ===
-        CollectionType(
-          SetMonoid(),
+        SetType(
           RecordType(List(
             AttrType("muon", RecordType(List(
               AttrType("pt", FloatType()),
@@ -27,8 +26,7 @@ class SemanticAnalyzerTest extends FunTest {
     assert(
       process(TestWorlds.departments, """for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
         ===
-        CollectionType(
-          SetMonoid(),
+        SetType(
           RecordType(List(
             AttrType("name", StringType()),
             AttrType("address", RecordType(List(
@@ -40,19 +38,16 @@ class SemanticAnalyzerTest extends FunTest {
     assert(
       process(TestWorlds.employees, "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
         ===
-        CollectionType(
-          SetMonoid(),
+        SetType(
           RecordType(List(
             AttrType("E",
               RecordType(List(
-                AttrType("children", CollectionType(
-                  ListMonoid(),
+                AttrType("children", ListType(
                   RecordType(List(
                     AttrType("age", IntType()))))),
                 AttrType("manager", RecordType(List(
                   AttrType("name", StringType()),
-                  AttrType("children", CollectionType(
-                    ListMonoid(),
+                  AttrType("children", ListType(
                     RecordType(List(
                       AttrType("age", IntType()))))))))))),
             AttrType("M", IntType())))))

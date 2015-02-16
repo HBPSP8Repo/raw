@@ -299,13 +299,11 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned((ident <~ ":") ~ tipe ^^ { case idn ~ t => AttrType(idn, t) })
 
   lazy val collectionType: PackratParser[CollectionType] =
-    positioned(collectionTypeMonoid ~ ("(" ~> tipe <~ ")") ^^ { case m ~ t => CollectionType(m, t) })
-
-  lazy val collectionTypeMonoid: PackratParser[CollectionMonoid] =
     positioned(
-      "bag" ^^^ BagMonoid() |
-      "list" ^^^ ListMonoid() |
-      "set" ^^^ SetMonoid())
+      ("bag" ~ "(") ~> (tipe <~ ")") ^^ { case t => BagType(t) } |
+      ("list" ~ "(") ~> (tipe <~ ")") ^^ { case t => ListType(t) } |
+      ("set" ~ "(") ~> (tipe <~ ")") ^^ { case t => SetType(t) }
+    )
 
   lazy val classType: PackratParser[ClassType] =
     positioned(ident ^^ ClassType)

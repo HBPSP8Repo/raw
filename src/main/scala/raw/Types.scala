@@ -29,17 +29,22 @@ case class AttrType(idn: String, tipe: Type) extends RawNode
 
 case class RecordType(atts: Seq[AttrType]) extends Type {
   def typeOf(attribute: String): Type = {
-    val matches = atts.filter({ p => p match {
+    val matches = atts.filter {
       case c: AttrType => c.idn == attribute
     }
-    })
-    return matches.head.tipe
+    matches.head.tipe
   }
 }
 
-/** Collection Type
+/** Collection Types
   */
-case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
+abstract class CollectionType extends Type {
+  def innerType: Type
+}
+
+case class BagType(innerType: Type) extends CollectionType
+case class ListType(innerType: Type) extends CollectionType
+case class SetType(innerType: Type) extends CollectionType
 
 /** Class Type
   */
@@ -47,7 +52,7 @@ case class ClassType(idn: String) extends Type
 
 /** Function Type `t2` -> `t1`
   */
-case class FunType(val t1: Type, val t2: Type) extends Type
+case class FunType(t1: Type, t2: Type) extends Type
 
 /** Unknown Type: any type will do
   */
@@ -71,7 +76,9 @@ object Types {
           atts.nonEmpty && !atts.map{ case (a1, a2) => compatible(a1, a2) }.contains(false)
         }
         case (FunType(tA1, tA2), FunType(tB1, tB2))            => compatible(tA1, tB1) && compatible(tA2, tB2)
-        case (CollectionType(m1, tA), CollectionType(m2, tB))  => m1 == m2 && compatible(tA, tB)
+        case (BagType(tA), BagType(tB))                        => compatible(tA, tB)
+        case (ListType(tA), ListType(tB))                      => compatible(tA, tB)
+        case (SetType(tA), SetType(tB))                        => compatible(tA, tB)
         case _                                                 => false
       })
   }
