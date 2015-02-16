@@ -42,7 +42,7 @@ abstract class FlatCSVTest extends SmokeTest {
     "students" -> students,
     "profs" -> profs,
     "departments" -> departments))
-
+  /*
   // some sanity check on the file content basically
   check("number of professors", "for (d <- profs) yield sum 1", 3)
   check("number of students", "for (d <- students) yield sum 1", 7)
@@ -71,9 +71,18 @@ abstract class FlatCSVTest extends SmokeTest {
             )""",
     Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
 
-  //check("most studied discipline","""val v := for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))""", "Computer Architecture")
-  check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
-        Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
+
+  check("most studied discipline",
+    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number =
+      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))) yield max x.number)) yield set t
+    """, "Computer Architecture")
+    */
+  check("list of disciplines which have three students",
+    """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number = 3) yield list t.name
+    """, List("Computer Architecture"))
+
+  //check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
+  //      Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
   //check("set of names departments which have the highest number of students", ???, Set("dep1"))
   //check("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))
   //check("set of profs which have the highest number of students in their department", ???, Set("Prof1"))
