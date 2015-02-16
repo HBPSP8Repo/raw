@@ -13,35 +13,59 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
   lazy val errors: Messages =
     collectmessages(tree) {
       case n => check(n) {
-        // Operator nodes in the middle of the tree must be collections
-        case n: OperatorNode if !tree.isRoot(n) && !isCollection(n) => message(n, s"collection type required for non-root algebra node")
+        // Root node of the tree must be a Reduce or a Merge
+        case n if tree.isRoot(n) && !n.isInstanceOf[Reduce] && !n.isInstanceOf[Merge] => message(n, s"root node must either be a reduce or a merge")
 
         // Merging collections of different types
         case Merge(_, left, right) if tipe(left) != tipe(right) => message(right, s"expected ${tipe(left)} but got ${tipe(right)}")
 
-        // Predicates must be boolean expressions
-        case Join(p, _, child)          if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case OuterJoin(p, _, child)     if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case Select(p, child)           if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case Unnest(_, p, child)        if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case OuterUnnest(_, p, child)   if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case Reduce(_, _, p, child)     if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
-        case Nest(_, _, _, p, _, child) if expressionType(child)(p) != BoolType() => message(p, s"expected predicate but got ${expressionType(child)(p)}")
+        case j @ Join(p, left, right) => {
+          message(j, s"join expects at least one collection", !isCollection(left) && !isCollection(right)) ++
+            message(p, s"expected ${expectedExpressionType(j)(p) mkString "or"} got ${expressionType(j)(p)}", hasExpectedType(j, p)) ++
+            message(p, s"expected predicate but got ${expressionType(j)(p)}", isPredicate(j, p))
+        }
+        case j @ OuterJoin(p, left, right) => {
+          message(j, s"join expects at least one collection", !isCollection(left) && !isCollection(right)) ++
+            message(p, s"expected ${expectedExpressionType(j)(p) mkString "or"} got ${expressionType(j)(p)}", hasExpectedType(j, p)) ++
+            message(p, s"expected predicate but got ${expressionType(j)(p)}", isPredicate(j, p))
+        }
+        case s @ Select(p, child) => {
+          message(child, s"expected collection but got ${tipe(child)}", !isCollection(child)) ++
+            message(p, s"expected ${expectedExpressionType(s)(p) mkString "or"} got ${expressionType(s)(p)}", hasExpectedType(s, p)) ++
+            message(p, s"expected predicate but got ${expressionType(s)(p)}", isPredicate(s, p))
+        }
+        case u @ Unnest(path, pred, child) => {
+          message(child, s"expected collection but got ${tipe(child)}", !isCollection(child)) ++
+          message(path,  s"expected path but got $path", !isPath(path)) ++
+            message(pred, s"expected ${expectedExpressionType(u)(pred) mkString "or"} got ${expressionType(u)(pred)}", hasExpectedType(u, pred)) ++
+            message(pred, s"expected predicate but got ${expressionType(u)(pred)}", isPredicate(u, pred))
+        }
+        case u @ OuterUnnest(path, pred, child) => {
+          message(child, s"expected collection but got ${tipe(child)}", !isCollection(child)) ++
+            message(path,  s"expected path but got $path", !isPath(path)) ++
+            message(pred, s"expected ${expectedExpressionType(u)(pred) mkString "or"} got ${expressionType(u)(pred)}", hasExpectedType(u, pred)) ++
+            message(pred, s"expected predicate but got ${expressionType(u)(pred)}", isPredicate(u, pred))
+        }
+        case r @ Reduce(_, e, p, child) => {
+          message(child, s"expected collection but got ${tipe(child)}", !isCollection(child)) ++
+            message(e, s"expected ${expectedExpressionType(r)(e) mkString "or"} got ${expressionType(r)(p)}", hasExpectedType(r, p)) ++
+            message(p, s"expected ${expectedExpressionType(r)(p) mkString "or"} got ${expressionType(r)(p)}", hasExpectedType(r, p)) ++
+            message(p, s"expected predicate but got ${expressionType(r)(p)}", isPredicate(r, p))
+        }
 
-        // Paths must be formed of either record projections or arguments
-        case Unnest(path, _, _)      if !isPath(path) => message(path, s"expected path but got ${path}")
-        case OuterUnnest(path, _, _) if !isPath(path) => message(path, s"expected path but got ${path}")
+        // TODO: Support for Nest
 
-        // Check that "group by" and "null" variables in Nest are correct
-        //        case Nest(_, _, f, _, g, _) if false => ???
+        // TODO: Check that "group by" and "null" variables in Nest are correct: both together encompass the whole expression.
+        // TODO: case Nest(_, _, f, _, g, _) =>
 
-        // TODO: Add type compatibility check.
-        // TODO: Move 'isCompatible' method to top-level RAW package and share it between Calculus.SemanticAnalyzer and this one.
-        // TODO: (Remember to fix Calculus.SemanticAnalyzer for the point above.)
         // TODO: Add check, either here or on expectedExpressionType, to double check if Arg(idx) refers to an existing index. It must refer to a collection already
         // TODO: (since we already check that children are collections), but must be a collection of product type big enough.
+
+        // TODO: Fix 'isCompatible' implementation in top-level class for ProductTypes
       }
     }
+
+  def isPredicate(n: OperatorNode, p: Exp) = !Types.compatible(expressionType(n)(p), BoolType())
 
   def isCollection(n: OperatorNode) = tipe(n) match {
     case _: CollectionType => true
@@ -54,6 +78,8 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
     case RecordProj(e1, idn) => isPath(e1)
     case _                   => false
   }
+
+  def hasExpectedType(n: OperatorNode, e: Exp) = !expectedExpressionType(n)(e).exists(Types.compatible(_, expressionType(n)(e)))
 
   /** Expected type of an expression (per operator node)
     */
@@ -94,7 +120,7 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
     }
   }
 
-  /** Actual type of an expression (per operator node)
+  /** Actual type of an expression (parameterized per operator node).
     */
   lazy val expressionType: OperatorNode => Exp => Type = paramAttr {
     n => {
@@ -151,7 +177,7 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
   }
 
   /** Operator types.
-    * Rules described in [1] page 29.
+    * The rules are described in [1] page 29, but were extended to support joins between collections and primitive types.
     */
   lazy val tipe: OperatorNode => Type = attr {
     case Scan(name)              => world.getSource(name).tipe
@@ -160,12 +186,16 @@ class SemanticAnalyzer(tree: Algebra.Algebra, world: World) extends Attribution 
     case Join(_, left, right) => {
       (tipe(left),  tipe(right)) match {
         case (CollectionType(m1, t1), CollectionType(m2, t2)) => CollectionType(maxMonoid(m1, m2), makeProductType(t1, t2))
+        case (CollectionType(m1, t1), t2)                     => CollectionType(m1, makeProductType(t1, t2))
+        case (t1, CollectionType(m2, t2))                     => CollectionType(m2, makeProductType(t1, t2))
         case _                                                => UnknownType()
       }
     }
     case OuterJoin(_, left, right) => {
       (tipe(left),  tipe(right)) match {
         case (CollectionType(m1, t1), CollectionType(m2, t2)) => CollectionType(maxMonoid(m1, m2), makeProductType(t1, t2))
+        case (CollectionType(m1, t1), t2)                     => CollectionType(m1, makeProductType(t1, t2))
+        case (t1, CollectionType(m2, t2))                     => CollectionType(m2, makeProductType(t1, t2))
         case _                                                => UnknownType()
       }
     }

@@ -42,7 +42,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case e: Exp =>
           // Mismatch between type expected and actual type
           message(e, s"expected ${expectedType(e) mkString "or"} got ${tipe(e)}",
-            !expectedType(e).exists(isCompatible(_, tipe(e)))) ++
+            !expectedType(e).exists(Types.compatible(_, tipe(e)))) ++
             check(e) {
               // Semantic error in monoid composition
               case Comp(m, qs, _) =>
@@ -74,27 +74,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
             }
       }
     }
-
-  def isCompatible(t1: Type, t2: Type): Boolean = {
-    (t1 == UnknownType()) ||
-    (t2 == UnknownType()) ||
-    (t1 == t2) ||
-    ((t1, t2) match {
-      case (ProductType(t1), ProductType(t2)) => {
-        // TODO
-        ???
-      }
-      case (RecordType(atts1), RecordType(atts2)) => {
-        // Record types are compatible if they have at least one identifier in common, and if all identifiers have a
-        // compatible type.
-        val atts = atts1.flatMap{ case a1 @ AttrType(idn, _) => atts2.collect{ case a2 @ AttrType(`idn`, _) => (a1.tipe, a2.tipe) } }
-        !atts.isEmpty && !atts.map{ case (a1, a2) => isCompatible(a1, a2) }.contains(false)
-      }
-      case (FunType(tA1, tA2), FunType(tB1, tB2))            => isCompatible(tA1, tB1) && isCompatible(tA2, tB2)
-      case (CollectionType(m1, tA), CollectionType(m2, tB))  => m1 == m2 && isCompatible(tA, tB)
-      case _                                                 => false
-    })
-  }
 
   /** Looks up identifier in the World catalog. If it is in catalog returns a new `ClassEntity` instance, otherwise
     * returns `UnknownType`. Note that when looking up a given identifier, a new `ClassEntity` instance is generated
