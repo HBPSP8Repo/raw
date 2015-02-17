@@ -155,8 +155,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
       case IfThenElse(_, e2, e3) if e eq e3 => Set(tipe(e2))
 
-      case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
-      case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+      case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(NumberType())
+      case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(NumberType())
 
       // Right-hand side of any binary expression must have the same type as the left-hand side
       case BinaryExp(_, e1, e2) if e eq e2 => Set(tipe(e1))
@@ -170,30 +170,29 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case _              => Set(UnknownType())
       }
 
-      case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(FloatType(), IntType())
-      case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1 => Set(BoolType())
+      case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(NumberType())
+      case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1   => Set(BoolType())
 
       // Merge of collections must be with same monoid collection types
-      case MergeMonoid(_: BagMonoid, e1, _) if e eq e1 => Set(BagType(UnknownType()))
+      case MergeMonoid(_: BagMonoid, e1, _) if e eq e1  => Set(BagType(UnknownType()))
       case MergeMonoid(_: ListMonoid, e1, _) if e eq e1 => Set(ListType(UnknownType()))
-      case MergeMonoid(_: SetMonoid, e1, _) if e eq e1 => Set(SetType(UnknownType()))
+      case MergeMonoid(_: SetMonoid, e1, _) if e eq e1  => Set(SetType(UnknownType()))
 
       // Right-hand side of any merge must have the same type as the left-hand side
       case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
 
       // Comprehension with a primitive monoid must have compatible projection type
-      case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(FloatType(), IntType())
-      case Comp(_: BoolMonoid, _, e1) if e eq e1 => Set(BoolType())
+      case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(NumberType())
+      case Comp(_: BoolMonoid, _, e1) if e eq e1   => Set(BoolType())
 
       // Qualifiers that are expressions (i.e. where there is an `expectedType`) must be predicates
       case Comp(_, qs, _) if qs.exists{case q => q eq e} => Set(BoolType())
 
-      case UnaryExp(_: Neg, _)      => Set(FloatType(), IntType())
+      case UnaryExp(_: Neg, _)      => Set(NumberType())
       case UnaryExp(_: Not, _)      => Set(BoolType())
-      case UnaryExp(_: ToBool, _)   => Set(FloatType(), IntType())
-      case UnaryExp(_: ToInt, _)    => Set(BoolType(), FloatType())
-      case UnaryExp(_: ToFloat, _)  => Set(IntType())
-      case UnaryExp(_: ToString, _) => Set(BoolType(), FloatType(), IntType())
+      case UnaryExp(_: ToBool, _)   => Set(NumberType())
+      case UnaryExp(_: ToNumber, _) => Set(BoolType(), NumberType())
+      case UnaryExp(_: ToString, _) => Set(BoolType(), NumberType())
 
       case _                        => Set(UnknownType())
     }
@@ -225,8 +224,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
     // Rule 1
     case _: BoolConst   => BoolType()
-    case _: IntConst    => IntType()
-    case _: FloatConst  => FloatType()
+    case _: NumberConst => NumberType()
     case _: StringConst => StringType()
 
     // Rule 2
@@ -260,14 +258,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
 
     // Rule 9
-    case ZeroCollectionMonoid(_: BagMonoid) => BagType(UnknownType())
+    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(UnknownType())
     case ZeroCollectionMonoid(_: ListMonoid) => ListType(UnknownType())
-    case ZeroCollectionMonoid(_: SetMonoid) => SetType(UnknownType())
+    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(UnknownType())
 
     // Rule 10
-    case ConsCollectionMonoid(_: BagMonoid, e) => BagType(tipe(e))
+    case ConsCollectionMonoid(_: BagMonoid, e)  => BagType(tipe(e))
     case ConsCollectionMonoid(_: ListMonoid, e) => ListType(tipe(e))
-    case ConsCollectionMonoid(_: SetMonoid, e) => SetType(tipe(e))
+    case ConsCollectionMonoid(_: SetMonoid, e)  => SetType(tipe(e))
 
     // Rule 11
     case MergeMonoid(_: PrimitiveMonoid, e1, _) => tipe(e1)
@@ -279,9 +277,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case Comp(m: PrimitiveMonoid, Nil, e) => tipe(e)
 
     // Rule 14
-    case Comp(_: BagMonoid, Nil, e) => BagType(tipe(e))
+    case Comp(_: BagMonoid, Nil, e)  => BagType(tipe(e))
     case Comp(_: ListMonoid, Nil, e) => ListType(tipe(e))
-    case Comp(_: SetMonoid, Nil, e) => SetType(tipe(e))
+    case Comp(_: SetMonoid, Nil, e)  => SetType(tipe(e))
 
     // Rule 15
     case Comp(m, (_: Gen) :: r, e1) => tipe(Comp(m, r, e1))
@@ -293,16 +291,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case Comp(m, (_: Bind) :: r, e1) => tipe(Comp(m, r, e1))
 
     // Binary Expression type
-    case BinaryExp(_: ComparisonOperator, _, _) => BoolType()
-    case BinaryExp(_: EqualityOperator, _, _)   => BoolType()
+    case BinaryExp(_: ComparisonOperator, _, _)  => BoolType()
+    case BinaryExp(_: EqualityOperator, _, _)    => BoolType()
     case BinaryExp(_: ArithmeticOperator, e1, _) => tipe(e1)
 
     // Unary Expression type
     case UnaryExp(_: Not, _)      => BoolType()
     case UnaryExp(_: Neg, e)      => tipe(e)
     case UnaryExp(_: ToBool, _)   => BoolType()
-    case UnaryExp(_: ToInt, _)    => IntType()
-    case UnaryExp(_: ToFloat, _)  => FloatType()
+    case UnaryExp(_: ToNumber, _) => NumberType()
     case UnaryExp(_: ToString, _) => StringType()
 
     case _                        => UnknownType()

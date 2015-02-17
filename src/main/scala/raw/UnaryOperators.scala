@@ -16,13 +16,9 @@ case class Neg() extends UnaryOperator
  */
 case class ToBool() extends UnaryOperator
 
-/** Convert to integer
+/** Convert to number
  */
-case class ToInt() extends UnaryOperator
-
-/** Convert to float
- */
-case class ToFloat() extends UnaryOperator
+case class ToNumber() extends UnaryOperator
 
 /** Convert to string
  */

@@ -18,8 +18,8 @@ class SemanticAnalyzerTest extends FunTest {
         SetType(
           RecordType(List(
             AttrType("muon", RecordType(List(
-              AttrType("pt", FloatType()),
-              AttrType("eta", FloatType()))))))))
+              AttrType("pt", NumberType()),
+              AttrType("eta", NumberType()))))))))
   }
 
   test("paper_query_1") {
@@ -44,12 +44,12 @@ class SemanticAnalyzerTest extends FunTest {
               RecordType(List(
                 AttrType("children", ListType(
                   RecordType(List(
-                    AttrType("age", IntType()))))),
+                    AttrType("age", NumberType()))))),
                 AttrType("manager", RecordType(List(
                   AttrType("name", StringType()),
                   AttrType("children", ListType(
                     RecordType(List(
-                      AttrType("age", IntType()))))))))))),
-            AttrType("M", IntType())))))
+                      AttrType("age", NumberType()))))))))))),
+            AttrType("M", NumberType())))))
   }
 }

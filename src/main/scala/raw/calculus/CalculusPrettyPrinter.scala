@@ -17,8 +17,9 @@ object CalculusPrettyPrinter extends PrettyPrinter {
 
   def show(n: CalculusNode): Doc = n match {
     case _: Null                           => "null"
+    case BoolConst(v)                      => v.toString
+    case NumberConst(v)                    => v
     case StringConst(v)                    => s""""$v""""
-    case c: Const                          => c.value.toString()
     case IdnDef(idn)                       => idn
     case IdnUse(idn)                       => idn
     case IdnExp(idn)                       => show(idn)

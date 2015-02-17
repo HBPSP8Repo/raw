@@ -78,8 +78,7 @@ object Unnester extends LazyLogging {
     def convertExp(e: Calculus.Exp, idns: Seq[String]): Algebra.Exp = e match {
       case _: Calculus.Null                    => Algebra.Null
       case Calculus.BoolConst(v)               => Algebra.BoolConst(v)
-      case Calculus.IntConst(v)                => Algebra.IntConst(v)
-      case Calculus.FloatConst(v)              => Algebra.FloatConst(v)
+      case Calculus.NumberConst(v)             => Algebra.NumberConst(v)
       case Calculus.StringConst(v)             => Algebra.StringConst(v)
       case Calculus.IdnExp(idn)                => Algebra.Arg(idns.indexOf(idn.idn))
       case Calculus.RecordProj(e, idn)         => Algebra.RecordProj(convertExp(e, idns), idn)
@@ -157,7 +156,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC8 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C8")
         // TODO: Fix mapping BELOW!!!
         AlgebraTerm(Algebra.Nest(m, createExp(e, w), createProduct(u, w), createPredicate(p, w), createProduct(w.filterNot(u.contains), w), child))
@@ -168,7 +167,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC9 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C9")
         val p_v = p.filter(variables(_).map(_.idn) == Set(v.idn))
         val p_w_v = p.filter(pred => (w :+ v).toSet.map{idnNode: Calculus.IdnNode => idnNode.idn}.subsetOf(variables(pred).map(_.idn)))
@@ -181,7 +180,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC10 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C10")
         val (p_v, p_not_v) = p.partition(variables(_).map(_.idn) == Set(v.idn))
         CalculusTerm(CanonicalComp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(createExp(path, w), createPredicate(p_v, w :+ v), child)))

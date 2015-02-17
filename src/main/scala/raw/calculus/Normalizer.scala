@@ -128,9 +128,9 @@ object Normalizer extends LazyLogging {
       logger.debug(s"Applying normalizer rule 5")
       m match {
         // TODO: Add proper zero monoids for primitive types: e.g. -infinity
-        case _: MaxMonoid        => Calculus.IntConst(0)
-        case _: MultiplyMonoid   => Calculus.IntConst(1)
-        case _: SumMonoid        => Calculus.IntConst(0)
+        case _: MaxMonoid        => Calculus.NumberConst("0")
+        case _: MultiplyMonoid   => Calculus.NumberConst("1")
+        case _: SumMonoid        => Calculus.NumberConst("0")
         case _: AndMonoid        => Calculus.BoolConst(true)
         case _: OrMonoid         => Calculus.BoolConst(false)
         case m: CollectionMonoid => Calculus.ZeroCollectionMonoid(m)

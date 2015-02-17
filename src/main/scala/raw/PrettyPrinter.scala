@@ -8,8 +8,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: Not      => "not"
     case _: Neg      => "-"
     case _: ToBool   => "to_bool"
-    case _: ToInt    => "to_int"
-    case _: ToFloat  => "to_float"
+    case _: ToNumber => "to_number"
     case _: ToString => "to_string"
   }
 
@@ -55,8 +54,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
   def tipe(t: Type): Doc = t match {
     case _: BoolType                  => "bool"
     case _: StringType                => "string"
-    case _: FloatType                 => "float"
-    case _: IntType                   => "int"
+    case _: NumberType                => "number"
     case ProductType(tipes)           => tipes mkString " x "
     case RecordType(atts)             => "record" <> list(atts.toList, prefix = "", elemToDoc = (att: AttrType) => att.idn <+> "=" <+> tipe(att.tipe))
     case BagType(innerType)           => "bag" <> parens(tipe(innerType))

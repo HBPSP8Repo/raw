@@ -92,27 +92,28 @@
 //        case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
 //        case IfThenElse(_, e2, e3) if e eq e3 => Set(expressionType(n)(e2))
 //
-//        case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
-//        case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(FloatType(), IntType())
+//        case BinaryExp(_: ComparisonOperator, e1, _) if e eq e1 => Set(NumberType())
+//        case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(NumberType())
 //
 //        // Right-hand side of any binary expression must have the same type as the left-hand side
 //        case BinaryExp(_, e1, e2) if e eq e2 => Set(expressionType(n)(e1))
 //
-//        case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(FloatType(), IntType())
-//        case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1 => Set(BoolType())
+//        case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(NumberType())
+//        case MergeMonoid(_: BoolMonoid, e1, _) if e eq e1   => Set(BoolType())
 //
 //        // Merge of collections must be with same monoid collection types
-//        case MergeMonoid(m: CollectionMonoid, e1, _) if e eq e1 => Set(CollectionType(m, UnknownType()))
+//        case MergeMonoid(m: BagMonoid, e1, _) if e eq e1  => Set(BagType(UnknownType()))
+//        case MergeMonoid(m: ListMonoid, e1, _) if e eq e1 => Set(ListType(UnknownType()))
+//        case MergeMonoid(m: SetMonoid, e1, _) if e eq e1  => Set(SetType(UnknownType()))
 //
 //        // Right-hand side of any merge must have the same type as the left-hand side
 //        case MergeMonoid(_, e1, e2) if e eq e2 => Set(expressionType(n)(e1))
 //
-//        case UnaryExp(_: Neg, _)      => Set(FloatType(), IntType())
+//        case UnaryExp(_: Neg, _)      => Set(NumberType())
 //        case UnaryExp(_: Not, _)      => Set(BoolType())
-//        case UnaryExp(_: ToBool, _)   => Set(FloatType(), IntType())
-//        case UnaryExp(_: ToInt, _)    => Set(BoolType(), FloatType())
-//        case UnaryExp(_: ToFloat, _)  => Set(IntType())
-//        case UnaryExp(_: ToString, _) => Set(BoolType(), FloatType(), IntType())
+//        case UnaryExp(_: ToBool, _)   => Set(NumberType())
+//        case UnaryExp(_: ToNumber, _) => Set(BoolType(), NumberType())
+//        case UnaryExp(_: ToString, _) => Set(BoolType(), NumberType())
 //
 //        case _ => Set(UnknownType())
 //      }
@@ -126,8 +127,7 @@
 //    n => {
 //      case Null                                    => UnknownType()
 //      case _: BoolConst                            => BoolType()
-//      case _: IntConst                             => IntType()
-//      case _: FloatConst                           => FloatType()
+//      case _: NumberConst                          => NumberType()
 //      case _: StringConst                          => StringType()
 //      case Arg(idx)                                => tipe(n) match {
 //        case CollectionType(_, ProductType(tipes)) if tipes.length > idx => tipes(idx)
@@ -154,11 +154,14 @@
 //      case UnaryExp(_: Not, _)                     => BoolType()
 //      case UnaryExp(_: Neg, e)                     => expressionType(n)(e)
 //      case UnaryExp(_: ToBool, _)                  => BoolType()
-//      case UnaryExp(_: ToInt, _)                   => IntType()
-//      case UnaryExp(_: ToFloat, _)                 => FloatType()
+//      case UnaryExp(_: ToNumber, _)                => NumberType()
 //      case UnaryExp(_: ToString, _)                => StringType()
-//      case ZeroCollectionMonoid(m)                 => CollectionType(m, UnknownType())
-//      case ConsCollectionMonoid(m, e)              => CollectionType(m, expressionType(n)(e))
+//      case ZeroCollectionMonoid(_: BagMonoid)      => BagType(UnknownType())
+//      case ZeroCollectionMonoid(_: ListMonoid)     => ListType(UnknownType())
+//      case ZeroCollectionMonoid(_: SetMonoid)      => SetType(UnknownType())
+//      case ConsCollectionMonoid(_: BagMonoid, e)   => BagType(expressionType(n)(e))
+//      case ConsCollectionMonoid(_: ListMonoid, e)  => ListType(expressionType(n)(e))
+//      case ConsCollectionMonoid(_: SetMonoid, e)   => SetType(expressionType(n)(e))
 //      case MergeMonoid(_, e1, _)                   => expressionType(n)(e1)
 //    }
 //  }

@@ -196,9 +196,9 @@ class AlgebraLang {
     */
   implicit def boolToExp(v: Boolean): ConstBuilder = ConstBuilder(BoolConst(v))
 
-  implicit def intToExp(v: Int): ConstBuilder = ConstBuilder(IntConst(v))
+  implicit def intToExp(v: Int): ConstBuilder = ConstBuilder(NumberConst(v.toString))
 
-  implicit def floatToExp(v: Float): ConstBuilder = ConstBuilder(FloatConst(v))
+  implicit def floatToExp(v: Float): ConstBuilder = ConstBuilder(NumberConst(v.toString))
 
   implicit def stringToExp(v: String): ConstBuilder = ConstBuilder(StringConst(v))
 
@@ -238,9 +238,7 @@ class AlgebraLang {
 
   def to_bool(e: Builder) = UnaryExpBuilder(ToBool(), e)
 
-  def to_int(e: Builder) = UnaryExpBuilder(ToInt(), e)
-
-  def to_float(e: Builder) = UnaryExpBuilder(ToFloat(), e)
+  def to_number(e: Builder) = UnaryExpBuilder(ToNumber(), e)
 
   def to_string(e: Builder) = UnaryExpBuilder(ToString(), e)
 
