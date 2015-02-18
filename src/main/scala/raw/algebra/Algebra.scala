@@ -72,9 +72,13 @@ object Algebra {
   // TODO: Add DateTime, smaller/larger integers/floats.
   case class BoolConst(value: Boolean) extends Const
 
-  case class NumberConst(value: String) extends Const
-
   case class StringConst(value: String) extends Const
+
+  sealed abstract class NumberConst extends Const
+
+  case class IntConst(value: String) extends NumberConst
+
+  case class FloatConst(value: String) extends NumberConst
 
   /** Argument
     */

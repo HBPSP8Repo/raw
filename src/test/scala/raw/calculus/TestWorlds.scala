@@ -14,10 +14,10 @@ object TestWorlds {
 
     val instructor =
       RecordType(List(
-        AttrType("ssn", NumberType()),
+        AttrType("ssn", IntType()),
         AttrType("name", StringType()),
         AttrType("address", address),
-        AttrType("salary", NumberType()),
+        AttrType("salary", IntType()),
         AttrType("rank", StringType()),
         AttrType("degrees", SetType(StringType())),
         AttrType("dept", ClassType("Department")),
@@ -26,7 +26,7 @@ object TestWorlds {
 
     val department =
       RecordType(List(
-        AttrType("dno", NumberType()),
+        AttrType("dno", IntType()),
         AttrType("name", StringType()),
         AttrType("head", ClassType("Instructor")),
         AttrType("instructors", ClassType("Instructors")),
@@ -62,7 +62,7 @@ object TestWorlds {
     val children =
       ListType(
         RecordType(List(
-          AttrType("age", NumberType()))))
+          AttrType("age", IntType()))))
     val manager =
       RecordType(List(
         AttrType("name", StringType()),
@@ -84,23 +84,23 @@ object TestWorlds {
     val events =
       ListType(
         RecordType(List(
-          AttrType("RunNumber", NumberType()),
-          AttrType("lbn", NumberType()),
+          AttrType("RunNumber", IntType()),
+          AttrType("lbn", IntType()),
           AttrType("muons",
             ListType(
               RecordType(List(
-                AttrType("pt", NumberType()),
-                AttrType("eta", NumberType()))))),
+                AttrType("pt", FloatType()),
+                AttrType("eta", FloatType()))))),
           AttrType("jets",
             ListType(
               RecordType(List(
-                AttrType("pt", NumberType()),
-                AttrType("eta", NumberType()))))))))
+                AttrType("pt", FloatType()),
+                AttrType("eta", FloatType()))))))))
 
     val goodRuns =
       ListType(
         RecordType(List(
-          AttrType("Run", NumberType()),
+          AttrType("Run", IntType()),
           AttrType("OK", BoolType()))))
 
     val catalog = Map(
@@ -115,15 +115,15 @@ object TestWorlds {
     val things =
       SetType(
         RecordType(List(
-          AttrType("a", NumberType()),
-          AttrType("b", NumberType()),
+          AttrType("a", IntType()),
+          AttrType("b", IntType()),
           AttrType("set_a",
             SetType(
-              NumberType())),
+              FloatType())),
           AttrType("set_b",
             SetType(
-              NumberType())))))
-              
+              FloatType())))))
+
     val catalog = Map(
       "things" -> Source(things, EmptyLocation)
     )
@@ -136,14 +136,14 @@ object TestWorlds {
       ListType(
         RecordType(List(
           AttrType("location", StringType()),
-          AttrType("min_speed", NumberType()),
-          AttrType("max_speed", NumberType()))))
+          AttrType("min_speed", IntType()),
+          AttrType("max_speed", IntType()))))
 
     val radar =
       ListType(
         RecordType(List(
           AttrType("person", StringType()),
-          AttrType("speed", NumberType()),
+          AttrType("speed", IntType()),
         AttrType("location", StringType()))))
 
     val catalog = Map(

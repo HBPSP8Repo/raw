@@ -8,7 +8,8 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: Not      => "not"
     case _: Neg      => "-"
     case _: ToBool   => "to_bool"
-    case _: ToNumber => "to_number"
+    case _: ToInt    => "to_int"
+    case _: ToFloat  => "to_float"
     case _: ToString => "to_string"
   }
 

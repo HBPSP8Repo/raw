@@ -146,7 +146,10 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned("-" ^^^ Neg())
 
   lazy val numberConst: PackratParser[NumberConst] =
-    positioned(numericLit ^^ NumberConst)
+    positioned(numericLit ^^ { case v =>
+      def isInt(s: String) = try { s.toInt; true } catch { case _: Throwable => false }
+      if (isInt(v)) IntConst(v) else FloatConst(v)
+      })
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned("if" ~> exp ~ ("then" ~> exp) ~ ("else" ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
@@ -224,7 +227,8 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val unaryOp: PackratParser[UnaryOperator] =
     positioned(
       "to_bool" ^^^ ToBool() |
-      "to_number" ^^^ ToNumber() |
+      "to_int" ^^^ ToInt() |
+      "to_float" ^^^ ToFloat() |
       "to_string" ^^^ ToString())
 
   lazy val funAbs: PackratParser[FunAbs] =
@@ -240,7 +244,8 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val primitiveType: PackratParser[PrimitiveType] =
     positioned(
       "bool" ^^^ BoolType() |
-      "number" ^^^ NumberType() |
+      "int" ^^^ IntType() |
+      "float" ^^^ FloatType() |
       "string" ^^^ StringType())
 
   lazy val recordType: PackratParser[RecordType] =

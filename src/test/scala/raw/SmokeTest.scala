@@ -24,7 +24,7 @@ abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
 abstract class FlatCSVTest extends SmokeTest {
 
   val students = Source(
-    ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", NumberType()), AttrType("office", StringType()), AttrType("department", StringType())))),
+    ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
     LocalFileLocation("src/test/data/smokeTest/students.csv", "text/csv")
   )
 
@@ -102,12 +102,12 @@ class FlatCSVSparkTest extends FlatCSVTest {
 
 abstract class HierarchyJSONTest extends SmokeTest {
   val movies = Source(
-    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", NumberType()), AttrType("actors", SetType(StringType()))))),
+    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
     LocalFileLocation("src/test/data/smokeTest/movies.json", "application/json")
   )
 
   val actors = Source(
-    ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", NumberType())))),
+    ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
     LocalFileLocation("src/test/data/smokeTest/actors.json", "application/json")
   )
 

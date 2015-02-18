@@ -22,7 +22,8 @@ object AlgebraPrettyPrinter extends PrettyPrinter {
     case Merge(m, left, right)          => "merge" <+> monoid(m) <@> nest(show(left)) <@> nest(show(right))
     case Null                           => "null"
     case BoolConst(v)                   => v.toString
-    case NumberConst(v)                 => v
+    case IntConst(v)                    => v
+    case FloatConst(v)                  => v
     case StringConst(v)                 => s""""$v""""
     case Arg(idx)                       => s"$$$idx"
     case ProductProj(e, idx)            => show(e) <> parens(idx.toString)

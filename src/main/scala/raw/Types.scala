@@ -12,7 +12,11 @@ case class BoolType() extends PrimitiveType
 
 case class StringType() extends PrimitiveType
 
-case class NumberType() extends PrimitiveType
+sealed abstract class NumberType extends PrimitiveType
+
+case class IntType() extends NumberType
+
+case class FloatType() extends NumberType
 
 /** Product Type
   */

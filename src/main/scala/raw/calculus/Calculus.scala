@@ -42,7 +42,11 @@ object Calculus {
 
   case class StringConst(value: String) extends Const
 
-  case class NumberConst(value: String) extends Const
+  sealed abstract class NumberConst extends Const
+
+  case class IntConst(value: String) extends NumberConst
+
+  case class FloatConst(value: String) extends NumberConst
 
   /** Identifier reference
     */

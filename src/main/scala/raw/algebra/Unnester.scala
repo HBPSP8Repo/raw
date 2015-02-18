@@ -78,7 +78,8 @@ object Unnester extends LazyLogging {
     def convertExp(e: Calculus.Exp, idns: Seq[String]): Algebra.Exp = e match {
       case _: Calculus.Null                    => Algebra.Null
       case Calculus.BoolConst(v)               => Algebra.BoolConst(v)
-      case Calculus.NumberConst(v)             => Algebra.NumberConst(v)
+      case Calculus.IntConst(v)                => Algebra.IntConst(v)
+      case Calculus.FloatConst(v)              => Algebra.FloatConst(v)
       case Calculus.StringConst(v)             => Algebra.StringConst(v)
       case Calculus.IdnExp(idn)                => Algebra.Arg(idns.indexOf(idn.idn))
       case Calculus.RecordProj(e, idn)         => Algebra.RecordProj(convertExp(e, idns), idn)

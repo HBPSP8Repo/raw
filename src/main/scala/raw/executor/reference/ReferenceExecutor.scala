@@ -17,8 +17,6 @@ class ReferenceResult(result: Any) extends QueryResult {
 
 object ReferenceExecutor extends Executor with LazyLogging {
 
-  type myNumber = Float
-  
   case class ProductValue(items: Seq[Any])
 
   def makeProduct(x: Any, y: Any): ProductValue =  (x, y) match {
@@ -30,7 +28,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
     def show(x: Any): String = x match {
       case _: Boolean => x.toString
-      case _: myNumber => x.toString
+      case _: Float => x.toString
       case _: String => x.toString
       case xy: Tuple2[String, Any] => (xy._1.toString, show(xy._2)).toString()
       case m: Map[String, Any] => "{" ++ m.map(kv => (kv._1, show(kv._2))).mkString(", ") ++ "}"
@@ -44,8 +42,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
     def dataLocDecode(t: Type, data: Iterable[Any]): Iterable[Any] = {
       def recurse(t: Type, value: Any): Any = (t, value) match {
-        case (NumberType(), v: Int) => v.toFloat.asInstanceOf[myNumber]
-        case (NumberType(), v: Float) => v.asInstanceOf[myNumber]
+        case (IntType(), v: Int) => v
+        case (FloatType(), v: Float) => v
         case (BoolType(), v: Boolean) => v
         case (StringType(), v: String) => v
         case (r: RecordType, v: Map[_, _]) => v match {
@@ -65,7 +63,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def loadCSV(t: Type, content: BufferedSource): Iterable[Any] = {
 
       def parse(t: Type, item: String): Any = t match {
-        case NumberType() => item.toFloat
+        case IntType() => item.toInt
+        case FloatType() => item.toFloat
         case BoolType() => item.toBoolean
         case StringType() => item
         case _ => throw RawExecutorRuntimeException(s"cannot parse $t in text/csv files")
@@ -82,8 +81,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def loadJSON(t: Type, content: BufferedSource): Iterable[Any] = {
       val json: JValue = org.json4s.native.JsonMethods.parse(content.mkString)
       def convert(t: Type, item: JValue): Any = (t, item) match {
-        case (NumberType(), JInt(i)) => i.toFloat
-        case (NumberType(), JDouble(d)) => d.toFloat
+        case (IntType(), JInt(i)) => i
+        case (FloatType(), JDouble(d)) => d
         case (BoolType(), JBool(b)) => b
         case (StringType(), JString(s)) => s
         case (RecordType(atts), JObject(l)) => {
@@ -142,7 +141,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
     val result = exp match {
       case Null                                         => null
       case BoolConst(v)                                 => v
-      case NumberConst(v)                               => v.toFloat
+      case IntConst(v)                                  => v.toInt
+      case FloatConst(v)                                => v.toFloat
       case StringConst(v)                               => v
       case Arg(idx)                                     => env match {
         case ProductValue(items) => items(idx)
@@ -173,9 +173,9 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _: BagMonoid => ???
     case _: AndMonoid => true
     case _: OrMonoid => false
-    case _: SumMonoid => 0f
-    case _: MultiplyMonoid => 1f
-    case _: MaxMonoid => 0f // TODO
+    case _: SumMonoid => 0
+    case _: MultiplyMonoid => 1
+    case _: MaxMonoid => 0 // TODO
   }
 
   private def consCollectionEval(m: CollectionMonoid): Any => Any = m match {
@@ -213,27 +213,39 @@ object ReferenceExecutor extends Executor with LazyLogging {
   private def unaryOpEval(op: UnaryOperator): Any => Any = op match {
     case _: Not => v: Any => v match {
       case b: Boolean => !b
-      case f: myNumber => f == 0f
+      case f: Float => f == 0f
+      case i: Int => i == 0
       case _ => throw RawExecutorRuntimeException(s"cannot compute not($v)")
     }
     case _: Neg => v: Any => v match {
-      case f: myNumber => -f
+      case f: Float => -f
+      case i: Int => -i
       case _ => throw RawExecutorRuntimeException(s"cannot compute neg($v)")
     }
     case _: ToBool => v: Any => v match {
       case _: Boolean => v
-      case i: myNumber => i != 0f
+      case f: Float => f != 0f
+      case i: Int => i != 0
       case _ => throw RawExecutorRuntimeException(s"cannot compute toBool($v)")
     }
-    case _: ToNumber  => v: Any => v match {
+    case _: ToInt  => v: Any => v match {
+      case true => 1
+      case false => 0
+      case f: Float => f.toInt
+      case _: Int => v
+      case _ => throw RawExecutorRuntimeException(s"cannot compute toNumber($v)")
+    }
+    case _: ToFloat  => v: Any => v match {
       case true => 1f
       case false => 0f
-      case _: myNumber => v
+      case i: Int => i.toInt
+      case _: Float => v
       case _ => throw RawExecutorRuntimeException(s"cannot compute toNumber($v)")
     }
     case _: ToString => v: Any => v match {
       case b: Boolean => b.toString()
-      case f: myNumber => f.toString()
+      case f: Float => f.toString()
+      case i: Int => i.toString()
       case s: String => v
       case _ => throw RawExecutorRuntimeException(s"cannot compute toString($v)")
     }
@@ -241,7 +253,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   private def binaryOpEval(op: BinaryOperator): (Any, Any) => Any = op match {
     case _: Eq => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 == e2
+      case (e1: Float, e2: Float) => e1 == e2
+      case (e1: Int, e2: Int) => e1 == e2
       case (e1: Boolean, e2: Boolean) => e1 == e2
       case (e1: String, e2: String) => e1 == e2
       case (e1: ProductValue, e2: ProductValue) => e1.items == e2.items
@@ -249,33 +262,40 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case _ => throw RawExecutorRuntimeException(s"cannot compute eq($i1, $i2)")
     }
     case _: Neq => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 != e2
+      case (e1: Float, e2: Float) => e1 != e2
+      case (e1: Int, e2: Int) => e1 != e2
       case (e1: Boolean, e2: Boolean) => e1 != e2
       case (e1: String, e2: String) => e1 != e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute neq($i1, $i2)")
     }
     case _: Lt => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 < e2
+      case (e1: Float, e2: Float) => e1 < e2
+      case (e1: Int, e2: Int) => e1 < e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute lt($i1, $i2)")
     }
     case _: Le => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 <= e2
+      case (e1: Float, e2: Float) => e1 <= e2
+      case (e1: Int, e2: Int) => e1 <= e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute le($i1, $i2)")
     }
     case _: Ge => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 >= e2
+      case (e1: Float, e2: Float) => e1 >= e2
+      case (e1: Int, e2: Int) => e1 >= e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute ge($i1, $i2)")
     }
     case _: Gt => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 > e2
+      case (e1: Float, e2: Float) => e1 > e2
+      case (e1: Int, e2: Int) => e1 > e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute gt($i1, $i2)")
     }
     case _: Div => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 / e2
+      case (e1: Float, e2: Float) => e1 / e2
+      case (e1: Int, e2: Int) => e1 / e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute div($i1, $i2)")
     }
     case _: Sub => (i1: Any, i2: Any) => (i1, i2) match {
-      case (e1: myNumber, e2: myNumber) => e1 - e2
+      case (e1: Float, e2: Float) => e1 - e2
+      case (e1: Int, e2: Int) => e1 - e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute sub($i1, $i2)")
     }
   }
@@ -381,9 +401,12 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case (_: SetMonoid, v: Any, s: Set[Any]) => Set(v) ++ s
     case (_: AndMonoid, v1: Boolean, v2: Boolean) => v1 && v2
     case (_: OrMonoid, v1: Boolean, v2: Boolean) => v1 && v2
-    case (_: SumMonoid, v1: myNumber, v2: myNumber) => v1 + v2
-    case (_: MultiplyMonoid, v1: myNumber, v2: myNumber) => v1 * v2
-    case (_: MaxMonoid, v1: myNumber, v2: myNumber) => math.max(v1, v2)
+    case (_: SumMonoid, v1: Float, v2: Float) => v1 + v2
+    case (_: SumMonoid, v1: Int, v2: Int) => v1 + v2
+    case (_: MultiplyMonoid, v1: Float, v2: Float) => v1 * v2
+    case (_: MultiplyMonoid, v1: Int, v2: Int) => v1 * v2
+    case (_: MaxMonoid, v1: Float, v2: Float) => math.max(v1, v2)
+    case (_: MaxMonoid, v1: Int, v2: Int) => math.max(v1, v2)
     case _ => throw RawExecutorRuntimeException(s"cannot reduce($m, $v1, $v2)")
   }
 
@@ -393,13 +416,13 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _: AndMonoid => (b1, b2) => b1.asInstanceOf[Boolean] && b2.asInstanceOf[Boolean]
     case _: OrMonoid => (b1, b2) => b1.asInstanceOf[Boolean] || b2.asInstanceOf[Boolean]
     case _: SumMonoid => (v1, v2) => (v1, v2) match {
-      case (f1: myNumber, f2: myNumber) => f1 + f2
+      case (f1: Float, f2: Float) => f1 + f2
     }
     case _: MultiplyMonoid => (v1, v2) => (v1, v2) match {
-      case (f1: myNumber, f2: myNumber) => f1 * f2
+      case (f1: Float, f2: Float) => f1 * f2
     }
     case _: MaxMonoid => (v1, v2) => (v1, v2) match {
-      case (f1: myNumber, f2: myNumber) => math.max(f1, f2)
+      case (f1: Float, f2: Float) => math.max(f1, f2)
     }
   }
 
