@@ -25,9 +25,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
     case IdnUse(idn)                       => idn
     case IdnExp(idn)                       => show(idn)
     case RecordProj(e, idn)                => show(e) <> dot <> idn
-      // TODO; Fix inheritance
-    //case AttrCons(idn, e)                  => idn <+> ":=" <+> show(e)
-    //case RecordCons(atts)                  => list(atts.toList, prefix = "", elemToDoc = show)
+    case AttrCons(idn, e)                  => idn <+> ":=" <+> show(e)
+    case RecordCons(atts)                  => list(atts.toList, prefix = "", elemToDoc = show)
     case IfThenElse(e1, e2, e3)            => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
     case BinaryExp(op, e1, e2)             => show(e1) <+> binaryOp(op) <+> show(e2)
     case FunApp(f, e)                      => show(f) <> parens(show(e))
