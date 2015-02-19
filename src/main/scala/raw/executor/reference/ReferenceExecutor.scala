@@ -6,8 +6,8 @@ import scala.io.BufferedSource
 
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JsonAST._
-import algebra.Algebra._
 import algebra._
+import Algebra._
 
 case class ReferenceExecutorError(err: String) extends RawException(err)
 
