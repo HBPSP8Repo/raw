@@ -232,7 +232,10 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
       "to_string" ^^^ ToString())
 
   lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> idnDef ~ (":" ~> tipe) ~ ("->" ~> exp) ^^ { case idn ~ t ~ e => FunAbs(idn, t, e) })
+    positioned("\\" ~> idnDef ~ opt(":" ~> tipe) ~ ("->" ~> exp) ^^ {
+      case idn ~ Some(t) ~ e => FunAbs(idn, t, e)
+      case idn ~ None ~ e    => FunAbs(idn, TypeVariable(), e)
+    })
 
   lazy val tipe: PackratParser[Type] =
     primitiveType |

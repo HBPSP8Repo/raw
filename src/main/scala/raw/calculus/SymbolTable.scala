@@ -40,10 +40,10 @@ object SymbolTable extends Environments {
 
   /** A function argument entity.
    */
-   case class FunArg(t: Type) extends RawEntity
+   case class FunArg(var t: Type) extends RawEntity
 
   /** A class entity.
    */
-  case class ClassEntity(name: String, t: Type) extends RawEntity
+  case class ClassEntity(name: String, var t: Type) extends RawEntity
 
 }

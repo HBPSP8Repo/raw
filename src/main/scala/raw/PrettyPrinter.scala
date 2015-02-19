@@ -63,7 +63,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case SetType(innerType)           => "set" <> parens(tipe(innerType))
     case ClassType(idn)               => idn
     case FunType(t1, t2)              => tipe(t1) <+> "->" <+> tipe(t2)
-    case _: UnknownType               => "unknown"
+    case TypeVariable(tipes)          => list(tipes.toList, prefix = "type_var", elemToDoc = tipe)
   }
 
 }

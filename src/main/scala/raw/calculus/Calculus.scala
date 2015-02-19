@@ -6,6 +6,7 @@ package calculus
 object Calculus {
 
   import org.kiama.relation.Tree
+
   // TODO: Is the following import needed? Why so?
   import scala.collection.immutable.Seq
 
@@ -84,6 +85,10 @@ object Calculus {
     */
   case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
+  /** Function Abstraction
+    */
+  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
+
   /** Function Application
     */
   case class FunApp(f: Exp, e: Exp) extends Exp
@@ -107,10 +112,6 @@ object Calculus {
   /** Unary Expression
     */
   case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
-
-  /** Function Abstraction
-    */
-  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
 
   /** Statements
     */
