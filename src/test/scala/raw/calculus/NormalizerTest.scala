@@ -80,7 +80,7 @@ class NormalizerTest extends FunTest {
   test("rule7") {
     compare(
       process(TestWorlds.things, """for (t <- things, t1 <- t.set_a union t.set_b, t1 > 10.0) yield set t1"""),
-      """for ($0 <- things, $1 <- $0.set_a, $1 > 10.0) yield set $1 union for  ($2 <- things, $3 <- $2.set_b, $3 > 10.0) yield set $3""")
+      """for ($0 <- things, $1 <- $0.set_a, $1 > 10.0) yield set $1 union for ($2 <- things, $3 <- $2.set_b, $3 > 10.0) yield set $3""")
   }
 
   test("rule8") {

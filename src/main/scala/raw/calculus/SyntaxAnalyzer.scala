@@ -1,10 +1,7 @@
 package raw
 package calculus
 
-import scala.util.parsing.combinator.PackratParsers
-import scala.util.parsing.combinator.lexical.StdLexical
-import scala.util.parsing.combinator.syntactical.StandardTokenParsers
-import scala.util.parsing.input.CharSequenceReader
+import org.kiama.util.PositionedParserUtilities
 
 // TODO: Add support for remaining monoids - max, union, bag_union, append - as MergeMonoid expressions
 // TODO: Sort out the relative priorities between MergeMonoids + BinaryExp + UnaryExp
@@ -16,14 +13,14 @@ import scala.util.parsing.input.CharSequenceReader
 
 /** Parser for monoid comprehensions.
   */
-class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
+class SyntaxAnalyzer extends PositionedParserUtilities {
 
   import Calculus._
   import scala.collection.immutable.List
+  import scala.collection.immutable.HashSet
 
-  lexical.delimiters += ("(", ")", "=", "<>", "<=", "<", ">=", ">", "+", "-", "*", "/", ",", ".", ":", ":=", "<-", "->", "\\")
-
-  lexical.reserved += ("or", "and", "not",
+  val reservedWords = HashSet(
+    "or", "and", "not",
     "union", "bag_union", "append", "max", "sum",
     "null", "true", "false",
     "for", "yield",
@@ -33,9 +30,9 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
-  def makeAST(query: String): Either[String, Exp] = phrase(exp)(new lexical.Scanner(query)) match {
+  def makeAST(query: String): Either[String, Exp] = parseAll(exp, query) match {
     case Success(ast, _) => Right(ast)
-    case f               => Left(f.toString)
+    case f => Left(f.toString)
   }
 
   lazy val exp: PackratParser[Exp] =
@@ -110,6 +107,14 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val recordProjExp: PackratParser[Exp] =
     positioned(baseExp ~ rep("." ~> ident) ^^ { case e ~ ps => if (ps.isEmpty) e else ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
 
+  def ident: Parser[Idn] =
+    """[a-zA-Z]\w*""".r into (s => {
+      if (reservedWords contains s)
+        failure(s"""reserved keyword '${s}' found where identifier expected""")
+      else
+        success(s)
+    })
+
   /** `baseExp` is left-recursive since `exp` goes down to `baseExp` again.
     */
   lazy val baseExp: PackratParser[Exp] =
@@ -142,6 +147,9 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val stringConst: PackratParser[StringConst] =
     positioned(stringLit ^^ StringConst)
 
+  def stringLit: Parser[String] =
+    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s.drop(1).dropRight(1))
+
   lazy val neg: PackratParser[Neg] =
     positioned("-" ^^^ Neg())
 
@@ -150,6 +158,9 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
       def isInt(s: String) = try { s.toInt; true } catch { case _: Throwable => false }
       if (isInt(v)) IntConst(v) else FloatConst(v)
       })
+
+  def numericLit: Parser[String] =
+    """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned("if" ~> exp ~ ("then" ~> exp) ~ ("else" ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
@@ -210,8 +221,6 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
           case m: ListMonoid => m.copy()
         }
 
-        // TODO: This ought to be a fold incl. always the ZeroCollectionMonoid, but the type checker does not (yet)
-        // TODO: unify a CollectionType(UnknownType) with a CollectionType(<Some Type>).
         if (es.isEmpty)
           ZeroCollectionMonoid(m)
         else {

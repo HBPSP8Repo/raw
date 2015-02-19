@@ -69,7 +69,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                       case _: ListType =>
                         noMessages
                       case t =>
-                        message(t, s"expected collection but got $t")
+                        message(g, s"expected collection but got $t")
                     }
                   }
                   case _         => noMessages
