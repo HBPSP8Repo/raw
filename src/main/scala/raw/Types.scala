@@ -1,5 +1,7 @@
 package raw
 
+import scala.collection.immutable.Seq
+
 /** Types
   */
 sealed abstract class Type extends RawNode

@@ -1,5 +1,6 @@
 package raw.executor.reference
 
+import scala.collection.immutable.Seq
 import org.scalatest._
 import raw._
 import algebra._

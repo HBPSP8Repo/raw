@@ -57,13 +57,13 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: StringType                => "string"
     case _: NumberType                => "number"
     case ProductType(tipes)           => tipes mkString " x "
-    case RecordType(atts)             => "record" <> list(atts.toList, prefix = "", elemToDoc = (att: AttrType) => att.idn <+> "=" <+> tipe(att.tipe))
+    case RecordType(atts)             => "record" <> list(atts, prefix = "", elemToDoc = (att: AttrType) => att.idn <+> "=" <+> tipe(att.tipe))
     case BagType(innerType)           => "bag" <> parens(tipe(innerType))
     case ListType(innerType)          => "list" <> parens(tipe(innerType))
     case SetType(innerType)           => "set" <> parens(tipe(innerType))
     case ClassType(idn)               => idn
     case FunType(t1, t2)              => tipe(t1) <+> "->" <+> tipe(t2)
-    case TypeVariable(tipes)          => list(tipes.toList, prefix = "type_var", elemToDoc = tipe)
+    case TypeVariable(tipes)          => "type_var" <> parens(group(nest(lsep(tipes.toList.map(tipe), comma))))
   }
 
 }

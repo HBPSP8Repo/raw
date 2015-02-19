@@ -119,6 +119,7 @@ class AlgebraLang {
 
   import scala.language.implicitConversions
   import scala.language.dynamics
+  import scala.collection.immutable.Seq
   import raw._
   import algebra.Algebra._
 
@@ -209,7 +210,7 @@ class AlgebraLang {
 
   /** Record Construction
     */
-  def record(atts: Tuple2[String, Builder]*) = RecordConsBuilder(atts.map { att => AttrConsBuilder(att._1, att._2)})
+  def record(atts: Tuple2[String, Builder]*) = RecordConsBuilder(atts.map{ att => AttrConsBuilder(att._1, att._2)}.to[scala.collection.immutable.Seq])
 
   /** If `e1` Then `e2` Else `e3`
     */

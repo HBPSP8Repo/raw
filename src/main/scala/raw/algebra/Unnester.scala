@@ -1,6 +1,7 @@
 package raw
 package algebra
 
+import scala.collection.immutable.Seq
 import com.typesafe.scalalogging.LazyLogging
 import calculus.{Calculus, SymbolTable}
 

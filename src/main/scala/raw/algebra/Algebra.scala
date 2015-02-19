@@ -4,6 +4,7 @@ package algebra
 object Algebra {
 
   import org.kiama.relation.Tree
+  import scala.collection.immutable.Seq
 
   /** Tree type for Calculus
     */
