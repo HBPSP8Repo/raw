@@ -51,7 +51,7 @@ object Normalizer extends LazyLogging {
       case Comp(m, Rule1(r, Bind(IdnDef(x), u), s), e) =>
         logger.debug(s"Applying normalizer rule 1")
         val strategy = everywhere(rule[Exp] {
-          case IdnExp(IdnUse(`x`)) => logger.debug(s"u is $u with ${u.productIterator.toList} and clz ${u.getClass()}"); val nc = deepclone(u); logger.debug(s"cabum with nc $nc"); nc
+          case IdnExp(IdnUse(`x`)) => deepclone(u)
         })
         val ns = rewrite(strategy)(s)
         val ne = rewrite(strategy)(e)

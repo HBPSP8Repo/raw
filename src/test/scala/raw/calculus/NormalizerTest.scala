@@ -7,7 +7,6 @@ class NormalizerTest extends FunTest {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
     val analyzer = new SemanticAnalyzer(t, w)
-    if (analyzer.errors.length > 0) println("t is " + t.root + " and errors are " + analyzer.errors)
     assert(analyzer.errors.length === 0)
     CalculusPrettyPrinter.pretty(Normalizer(t, w).root, 200)
   }
