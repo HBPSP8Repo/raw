@@ -28,12 +28,12 @@ class NormalizerTest extends FunTest {
     )
 
     compare(
-      process(TestWorlds.cern, "(for (e <- Events, a := e) yield set a) union (for  (e <- Events, a := e) yield set a)"),
-      "for ($0 <- Events) yield set $0 union for  ($1 <- Events) yield set $1"
+      process(TestWorlds.cern, "(for (e <- Events, a := e) yield set a) union (for (e <- Events, a := e) yield set a)"),
+      "for ($0 <- Events) yield set $0 union for ($1 <- Events) yield set $1"
     )
 
     compare(
-      process(TestWorlds.cern, "for (x := for  (e <- Events) yield set e, y <- x) yield set y"),
+      process(TestWorlds.cern, "for (x := for (e <- Events) yield set e, y <- x) yield set y"),
       "for ($0 <- Events) yield set $0"
     )
   }
@@ -44,7 +44,7 @@ class NormalizerTest extends FunTest {
       "for ($0 <- Events, $0.RunNumber > 40 + 2) yield set $0")
 
     compare(
-      process(TestWorlds.cern, """for  (e <- Events, f := (\v: int -> v + 2), e.RunNumber > f(40)) yield set e"""),
+      process(TestWorlds.cern, """for (e <- Events, f := (\v: int -> v + 2), e.RunNumber > f(40)) yield set e"""),
       "for ($0 <- Events, $0.RunNumber > 40 + 2) yield set $0")
 
     compare(
@@ -103,7 +103,7 @@ class NormalizerTest extends FunTest {
 
   test("paper_query") {
     compare(
-      process(TestWorlds.departments, """for (el <- for  (d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (Name := e.name, Address := e.address)"""),
+      process(TestWorlds.departments, """for (el <- for (d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (Name := e.name, Address := e.address)"""),
       """for ($0 <- Departments, $0.name = "CSE", $1 <- $0.instructors, $2 <- $1.teaches, $2.name = "cse5331") yield set (Name := $1.name, Address := $1.address)""")
   }
 
