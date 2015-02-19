@@ -39,7 +39,7 @@ class NormalizerTest extends FunTest {
 
   test("rule2") {
     compare(
-      process(TestWorlds.cern, """for (e <- Events, e.RunNumber > (\v: int -> v + 2)(40)) yield set e"""),
+      process(TestWorlds.cern, """for (e <- Events, e.RunNumber > ((\v: int -> v + 2)(40))) yield set e"""),
       "for ($0 <- Events, $0.RunNumber > 40 + 2) yield set $0")
 
     compare(
