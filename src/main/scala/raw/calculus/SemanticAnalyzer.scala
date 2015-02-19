@@ -326,9 +326,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     *
     */
   lazy val pass2: Exp => Type = dynAttr {
-    case tree.parent.pair(e, p) => p match {
+    case tree.parent.pair(e: Exp, p) => p match {
 
-      case r @ RecordProj(e, idn) =>
+      case r @ RecordProj(_, idn) =>
         // The parent node `RecordProj` is no longer of `RecordType`. To reconstruct the `RecordType` with the more
         // precise type given by the parent for a given `idn`, we use the `intersect` method, which, for record types,
         // always creates a new record type with all identifiers and the more precise type in each one.
@@ -340,11 +340,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         //  that is, `idn1` becomes more precise but `idn2`, which is unknown to the parent, remains unchanged.
         Types.intersect(RecordType(List(AttrType(idn, pass2(r)))), pass1(e))
 
-      // Match an expression to its parent `RecordCons` while skipping the `AttrCons` object in between them.
+      // Skip `AttrCons`, which is inbetween `e` and `RecordCons`.
       case tree.parent(r @ RecordCons(atts)) =>
-        // Find our identifier.
+        // Find the identifier for `e` in the parent `RecordCons`.
         val myIdn = atts.collectFirst{ case AttrCons(idn, e1) if e eq e1 => idn }.head
-        // Get our more precise type from our `RecordCons` parent.
+        // Get more precise type for `e` from the parent `RecordCons`.
         pass2(r) match {
           case RecordType(tipes) => tipes.find(_.idn == myIdn) match {
             case Some(att: AttrType) => att.tipe
@@ -385,8 +385,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
       case u @ UnaryExp(_: Neg, _) => pass2(u)
 
-        // TODO: Looks dodgy
-      case _ => pass1(e.asInstanceOf[Exp])
+      case _ => pass1(e)
     }
     case e: Exp => pass1(e)
   }
