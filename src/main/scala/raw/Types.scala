@@ -81,9 +81,9 @@ object Types {
     def apply(t1: Type, t2: Type): Type = (t1, t2) match {
       case (tA: PrimitiveType, tB: PrimitiveType) if tA == tB => tA
       case (FunType(tA1, tA2), FunType(tB1, tB2))             => FunType(apply(tA1, tB1), apply(tA2, tB2))
-      case (BagType(tA), BagType(tB))                         => apply(tA, tB)
-      case (ListType(tA), ListType(tB))                       => apply(tA, tB)
-      case (SetType(tA), SetType(tB))                         => apply(tA, tB)
+      case (BagType(tA), BagType(tB))                         => BagType(apply(tA, tB))
+      case (ListType(tA), ListType(tB))                       => ListType(apply(tA, tB))
+      case (SetType(tA), SetType(tB))                         => SetType(apply(tA, tB))
       case (r1: RecordType, r2: RecordType) =>
         RecordType(
           r1.atts.filterNot{ case att => r2.idns.contains(att.idn) } ++
