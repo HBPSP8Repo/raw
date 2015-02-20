@@ -2,7 +2,7 @@ package raw.calculus
 
 class SyntaxAnalyzerTest extends FunTest {
 
-  def isOK(q: String) = assert(CalculusPrettyPrinter.pretty(parse(q), 200) === q)
+  def isOK(q: String) = assert(CalculusPrettyPrinter(parse(q), 200) === q)
   
   test("cern_events") {
     isOK("for (e1 <- Events, e1.RunNumber > 100) yield set (muon := e1.muon)")

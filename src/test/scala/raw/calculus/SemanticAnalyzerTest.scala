@@ -8,6 +8,9 @@ class SemanticAnalyzerTest extends FunTest {
     val ast = parse(q)
     val analyzer = new SemanticAnalyzer(new Calculus.Calculus(ast), w)
     assert(analyzer.errors.length === 0)
+
+    analyzer.debugTreeTypes
+
     analyzer.tipe(ast)
   }
 
@@ -52,4 +55,33 @@ class SemanticAnalyzerTest extends FunTest {
                       AttrType("age", IntType()))))))))))),
             AttrType("M", IntType())))))
   }
+
+  test("simple_inference") {
+    assert(
+      process(new World(Map("unknown" -> Source(SetType(TypeVariable()), EmptyLocation))), """for (l <- unknown) yield set (l + 2)""")
+      ===
+      SetType(IntType())
+    )
+  }
+
+  test("inference_with_function") {
+    assert(
+      process(new World(Map("unknown" -> Source(SetType(TypeVariable()), EmptyLocation))), """for (l <- unknown, f := (\v -> v + 2)) yield set f(l)""")
+      ===
+      SetType(IntType())
+    )
+
+    //process(new World(Map("unknown" -> Source(SetType(TypeVariable()), EmptyLocation))), """for (a <- unknown, b <- unknown2, f := (\v -> v + b)) yield set (f(a) + 1)""")
+  }
+
+  test("infer_across_bind") {    assert(
+    process(new World(Map("unknown" -> Source(SetType(TypeVariable()), EmptyLocation))), """for (j <- unknown, v := j) yield set (v + 0)""")
+    ===
+    SetType(IntType())
+    )
+    // what we really want to assert is that j is of type int and unknown is of type Set(int)
+  }
+
+
+
 }

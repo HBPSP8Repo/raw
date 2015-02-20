@@ -24,7 +24,7 @@ object Unnester extends LazyLogging {
 
   def apply(tree: Calculus.Calculus, world: World): Algebra.OperatorNode = {
     val inTree = calculus.Simplifier(tree, world)
-    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter.pretty(inTree.root)}")
+    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(inTree.root)}")
 
     val analyzer = new calculus.SemanticAnalyzer(inTree, world)
 

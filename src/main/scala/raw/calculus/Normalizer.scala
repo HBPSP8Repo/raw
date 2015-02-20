@@ -21,7 +21,7 @@ object Normalizer extends LazyLogging {
     */
   def apply(tree: Calculus, world: World): Calculus = {
     val inTree = Uniquifier(tree, world)
-    logger.debug(s"Normalizer input tree: ${CalculusPrettyPrinter.pretty(tree.root)}")
+    logger.debug(s"Normalizer input tree: ${CalculusPrettyPrinter(tree.root)}")
 
     val analyzer = new SemanticAnalyzer(tree, world)
 
@@ -208,7 +208,7 @@ object Normalizer extends LazyLogging {
     lazy val strategy: Strategy = doloop(reduce(rule1), oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10)) //attempt(everywhere(rule1)) <* (oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10) < strategy + id)
 
     val outTree = rewriteTree(strategy)(inTree)
-    logger.debug(s"Normalizer output tree: ${CalculusPrettyPrinter.pretty(outTree.root)}")
+    logger.debug(s"Normalizer output tree: ${CalculusPrettyPrinter(outTree.root)}")
     outTree
   }
 }

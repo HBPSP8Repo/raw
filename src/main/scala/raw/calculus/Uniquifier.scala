@@ -16,7 +16,7 @@ object Uniquifier extends LazyLogging {
   /** Transform all identifiers in the AST into identifiers that are unique.
     */
   def apply(tree: Calculus, world: World): Calculus = {
-    logger.debug(s"Uniquifier input tree: ${CalculusPrettyPrinter.pretty(tree.root)}")
+    logger.debug(s"Uniquifier input tree: ${CalculusPrettyPrinter(tree.root)}")
 
     val analyzer = new SemanticAnalyzer(tree, world)
 
@@ -34,7 +34,7 @@ object Uniquifier extends LazyLogging {
     })
 
     val outTree = rewriteTree(renameIdns)(tree)
-    logger.debug(s"Uniquifier output tree: ${CalculusPrettyPrinter.pretty(outTree.root)}")
+    logger.debug(s"Uniquifier output tree: ${CalculusPrettyPrinter(outTree.root)}")
     outTree
   }
 

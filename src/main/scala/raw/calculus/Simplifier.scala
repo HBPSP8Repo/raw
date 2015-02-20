@@ -14,7 +14,7 @@ object Simplifier extends LazyLogging {
     */
   def apply(tree: Calculus, world: World): Calculus = {
     val inTree = Normalizer(tree, world)
-    logger.debug(s"Simplifier input tree: ${CalculusPrettyPrinter.pretty(inTree.root)}")
+    logger.debug(s"Simplifier input tree: ${CalculusPrettyPrinter(inTree.root)}")
 
     val analyzer = new SemanticAnalyzer(tree, world)
 
@@ -311,7 +311,7 @@ object Simplifier extends LazyLogging {
       //ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
 
     val outTree = rewriteTree(strategy)(inTree)
-    logger.debug(s"Simplifier output tree: ${CalculusPrettyPrinter.pretty(outTree.root)}")
+    logger.debug(s"Simplifier output tree: ${CalculusPrettyPrinter(outTree.root)}")
     outTree
   }
 }

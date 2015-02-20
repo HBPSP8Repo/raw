@@ -1,10 +1,7 @@
-package raw.calculus
-
-import raw._
+package raw
+package calculus
 
 object TestWorlds {
-
-  import SymbolTable.ClassEntity
 
   def departments = {
     val address =

@@ -79,19 +79,27 @@ object Types {
 
   def intersect(t1: Type, t2: Type): Type = {
     def apply(t1: Type, t2: Type): Type = (t1, t2) match {
-      case (tA: PrimitiveType, tB: PrimitiveType) if tA == tB => tA
+      case (tA, tB) if tA == tB => tA
       case (FunType(tA1, tA2), FunType(tB1, tB2))             => FunType(apply(tA1, tB1), apply(tA2, tB2))
       case (BagType(tA), BagType(tB))                         => BagType(apply(tA, tB))
       case (ListType(tA), ListType(tB))                       => ListType(apply(tA, tB))
       case (SetType(tA), SetType(tB))                         => SetType(apply(tA, tB))
-      case (r1: RecordType, r2: RecordType) =>
+      case (r1: RecordType, r2: RecordType) => println("r1 "+ r1 + "   " + r2)
         RecordType(
           r1.atts.filterNot{ case att => r2.idns.contains(att.idn) } ++
             r2.atts.filterNot{ case att => r1.idns.contains(att.idn) } ++
             (for (att1 <- r1.atts; att2 <- r2.atts; if att1.idn == att2.idn) yield AttrType(att1.idn, apply(att1.tipe, att2.tipe))))
-      case (TypeVariable(tipes1), TypeVariable(tipes2)) =>
-        val tipes = for (t1 <- tipes1; t2 <- tipes2) yield (t1, t2)
-        TypeVariable(tipes.map{case (t1, t2) => apply(t1, t2)}.toSet.filter{_ != TypeVariable()})
+      case (t1 @ TypeVariable(tipes1), t2 @ TypeVariable(tipes2)) =>
+        if (tipes1.isEmpty)
+          t2
+        else if (tipes2.isEmpty)
+          t1
+        else {
+          val tipes = for (t1 <- tipes1; t2 <- tipes2) yield (t1, t2)
+          TypeVariable(tipes.map { case (t1, t2) => apply(t1, t2)}.toSet.filter {
+            _ != TypeVariable()
+          })
+        }
       case (t1: TypeVariable, t2) => apply(t1, TypeVariable(Set(t2)))
       case (t1, t2: TypeVariable) => apply(TypeVariable(Set(t1)), t2)
       case _ => TypeVariable()

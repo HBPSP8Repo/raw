@@ -1,6 +1,7 @@
 package raw
 package calculus
 
+import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 
 /** Analyzes the semantics of an AST.
@@ -11,7 +12,7 @@ import org.kiama.attribution.Attribution
   * Class entities are the data sources available to the user.
   *   e.g., in expression `e <- Events` the class entity is `Events`.
   */
-class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution {
+class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution with LazyLogging {
 
   import org.kiama.==>
   import org.kiama.attribution.Decorators
@@ -92,8 +93,12 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     n match {
       case tree.parent(p) => {
         p match {
-          case Bind(_, e)      => BindVar(e)
-          case Gen(_, e)       => GenVar(e)
+          case Bind(_, e)      => BindVar(TypeVariable())  //pass1(e))
+          case Gen(_, e)       => GenVar(TypeVariable())
+//            pass1(e) match {
+//            case t: CollectionType => t.innerType
+//            case _ => TypeVariable()
+//          })
           case FunAbs(_, t, _) => FunArg(t)
         }
       }
@@ -222,7 +227,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
   }
 
-  lazy val pass1Internal: Exp => Type = dynAttr {
+  def pass1Internal(e: Exp): Type = e match {
 
     // Rule 1
     case _: BoolConst   => BoolType()
@@ -252,7 +257,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case IfThenElse(_, e2, e3) => Types.intersect(pass1(e2), pass1(e3))
 
     // Rule 7 
-    case FunAbs(_, t, e) => FunType(t, pass1(e))
+    //case FunAbs(_, t, e) => FunType(t, pass1(e))
+    case FunAbs(idn, _, e) => FunType(idnNodeType(idn), pass1(e))
 
     // Rule 8
     case FunApp(f, _) => pass1(f) match {
@@ -309,15 +315,12 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _ => TypeVariable()
   }
 
-  lazy val entityTipe: Entity => Type = attr {
-    case BindVar(e)        => pass1(e)
-    case GenVar(e)         => pass1(e) match {
-      case t: CollectionType => t.innerType
-      case _                 => TypeVariable()
-    }
+  def entityTipe(e: Entity): Type = e match {
+      // TODO: Refactor symbols to a single one??
+    case BindVar(t)        => t
+    case GenVar(t)         => t
     case FunArg(t)         => t
     case ClassEntity(_, t) => t
-    case _                 => TypeVariable()
   }
 
   def idnNodeType(idn: IdnNode): Type = entityTipe(entity(idn))
@@ -327,6 +330,32 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     */
   lazy val pass2: Exp => Type = dynAttr {
     case tree.parent.pair(e: Exp, p) => p match {
+
+      // TODO: This is wrong!!!
+       // what we must do is that when we infer the type of 'v' (of an identifier) to be something,
+       //we must intersect that type with the type of the identity, and change the identity.
+      case Bind(idn, _) => val t = Types.intersect(idnNodeType(idn), pass1(e)); entity(idn) match {
+        case b: BindVar => b.t = t
+      }; t
+
+      case Gen(idn, _) => val t = pass1(e) match {
+        case t: SetType  => Types.intersect(SetType(idnNodeType(idn)), t)
+        case t: BagType  => Types.intersect(BagType(idnNodeType(idn)), t)
+        case t: ListType => Types.intersect(ListType(idnNodeType(idn)), t)
+      }; entity(idn) match {
+        case g: GenVar => g.t = t match {
+          case c: CollectionType => c.innerType
+        }
+      }; t
+
+        // so on pass two, intersect the IdnExp that we inferred with the type on the entity.
+        // but we do that.
+        // but then we must go back and change the body of the type being BOUND TO.
+
+//      case Bind(idn, _) => entity(idn) match {
+//        case BindVar(e1) => Types.intersect(pass2(e1), pass1(e))
+//      }
+
 
       case r @ RecordProj(_, idn) =>
         // The parent node `RecordProj` is no longer of `RecordType`. To reconstruct the `RecordType` with the more
@@ -340,7 +369,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         //  that is, `idn1` becomes more precise but `idn2`, which is unknown to the parent, remains unchanged.
         Types.intersect(RecordType(List(AttrType(idn, pass2(r)))), pass1(e))
 
-      // Skip `AttrCons`, which is inbetween `e` and `RecordCons`.
+      // Skip `AttrCons`, which is in between `e` and `RecordCons`.
       case tree.parent(r @ RecordCons(atts)) =>
         // Find the identifier for `e` in the parent `RecordCons`.
         val myIdn = atts.collectFirst{ case AttrCons(idn, e1) if e eq e1 => idn }.head
@@ -367,9 +396,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case FunType(_, t2) => t2
       }
 
-      case f @ FunApp(f1, e1) if e eq f1 => FunType(pass1(e1), pass2(f))
-      case f @ FunApp(f1, e1) if e eq e1 => pass2(f1) match {
-        case FunType(t, _) => t
+      case f @ FunApp(f1, e1) if e eq f1 => pass1(f1) match {
+        case FunType(t, _) => FunType(Types.intersect(t, pass1(e1)), pass2(f))
+        case t => t
+      }
+      case FunApp(f1, e1) if e eq e1 => pass1(f1) match {
+        case FunType(t, _) => Types.intersect(t, pass1(e1))
+        case t => t
       }
 
       case c: ConsCollectionMonoid => pass2(c) match {
@@ -387,35 +420,37 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
       case _ => pass1(e)
     }
-    case e: Exp => pass1(e)
+    case e => pass1(e)
   }
 
   def tipe(e: Exp): Type = {
     // get all idn exps
     var idns = scala.collection.mutable.Set[IdnExp]()
     everywhere(query[IdnExp] { case idn: IdnExp => idns += idn})(tree.root)
+    //println("idns are " + idns)
 
     // split them into groups based on entity
     //val idnsByEntity: Map[Entity, scala.collection.mutable.Set[IdnExp]] = idns.groupBy{ case IdnExp(idn) => entity(idn) }
     val idnsByEntity = idns
-      .filter{ case IdnExp(idn) =>
-        entity(idn) match {
-          case f: FunArg => true
-          case c: ClassEntity => true
-          case _ => false
-        }}
       .groupBy{ case IdnExp(idn) => entity(idn) }
+    //println("idnsByEntity are " + idnsByEntity)
 
     // for each, run phase 2
     var updated = false
     for ( (entity, idns) <- idnsByEntity) {
       val typedIdns = idns.map(pass2)
       val finalType = typedIdns.tail.foldLeft(typedIdns.head)(Types.intersect)
+      //println("Entity is " + entity + " and finalType is " + finalType)
       entity match {
-        case f: FunArg => if (f.t != finalType) { println(s"${f.t}\n$finalType") ; f.t = finalType; updated = true }
-        case c: ClassEntity => if (c.t != finalType) { println(s"c.t=${c.t}\nfin=$finalType, ${c.t != finalType}"); c.t = finalType; updated = true }
+        case f: FunArg => if (f.t != finalType) { f.t = finalType; updated = true }//println("Here1 " + f.t + " " + finalType);
+        case c: ClassEntity => if (c.t != finalType) { c.t = finalType; updated = true } // println("Here2 " + c.t + " " + finalType)
+        case b: BindVar => if (b.t != finalType) { b.t = finalType; updated = true }
+        case g: GenVar => if (g.t != finalType) { g.t = finalType; updated = true }
       }
     }
+
+
+    //
 
     if (!updated) {
       pass2(e)
@@ -437,6 +472,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // if nothing changed,
     // return the phase 2 type of 'e'
   }
+
+  def debugTreeTypes =
+    everywherebu(query[Exp] {
+      case n => logger.error(CalculusPrettyPrinter(tree.root, debug = Some({ case `n` => s"[${PrettyPrinter(tipe(n))}] " })))
+    })(tree.root)
 
 }
 

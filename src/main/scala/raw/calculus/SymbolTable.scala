@@ -32,11 +32,11 @@ object SymbolTable extends Environments {
 
   /** A bound variable entity.
    */
-  case class BindVar(e: Exp) extends RawEntity
+  case class BindVar(var t: Type) extends RawEntity
 
   /** A generator variable entity.
    */
-  case class GenVar(e: Exp) extends RawEntity
+  case class GenVar(var t: Type) extends RawEntity
 
   /** A function argument entity.
    */
