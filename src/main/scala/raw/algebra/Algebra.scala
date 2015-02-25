@@ -8,7 +8,7 @@ object Algebra {
 
   /** Tree type for Calculus
     */
-  type Algebra = Tree[RawNode,AlgebraNode]
+  type Algebra = Tree[RawNode,OperatorNode]
 
   /** Base class for all Algebra nodes.
     */

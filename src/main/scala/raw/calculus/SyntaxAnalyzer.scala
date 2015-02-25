@@ -19,6 +19,8 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
   import scala.collection.immutable.List
   import scala.collection.immutable.HashSet
 
+  //lexical.delimiters += ("(", ")", "=", "<>", "<=", "<", ">=", ">", "+", "-", "*", "/", ",", ".", ":", ":=", "<-", "->", "\\")
+
   val reservedWords = HashSet(
     "or", "and", "not",
     "union", "bag_union", "append", "max", "sum",
@@ -34,6 +36,10 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     case Success(ast, _) => Right(ast)
     case f => Left(f.toString)
   }
+//  def makeAST(query: String): Either[String, Exp] = phrase(exp)(new lexical.Scanner(query)) match {
+//    case Success(ast, _) => Right(ast)
+//    case f               => Left(f.toString)
+//  }
 
   lazy val exp: PackratParser[Exp] =
     orExp
@@ -203,7 +209,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     positioned((idnDef <~ "<-") ~ exp ^^ { case idn ~ e => Gen(idn, e) })
 
   lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ^^ IdnDef)
+    positioned(ident ~ opt(":" ~> tipe) ^^ IdnDef)
 
   lazy val bind: PackratParser[Bind] =
     positioned((idnDef <~ ":=") ~ exp ^^ { case idn ~ e => Bind(idn, e) })
@@ -241,10 +247,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
       "to_string" ^^^ ToString())
 
   lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> idnDef ~ opt(":" ~> tipe) ~ ("->" ~> exp) ^^ {
-      case idn ~ Some(t) ~ e => FunAbs(idn, t, e)
-      case idn ~ None ~ e    => FunAbs(idn, TypeVariable(), e)
-    })
+    positioned("\\" ~> idnDef ~ ("->" ~> exp) ^^ FunAbs)
 
   lazy val tipe: PackratParser[Type] =
     primitiveType |
