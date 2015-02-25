@@ -45,7 +45,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case e: Exp =>
           // Mismatch between type expected and actual type
           message(e, s"expected ${expectedType(e).map{ case p => PrettyPrinter(p) }.mkString(" or ")} got ${PrettyPrinter(tipe(e))}",
-            typesCompatible(e)) ++
+            !typesCompatible(e)) ++
             check(e) {
               // Semantic error in monoid composition
               case Comp(m, qs, _) =>
@@ -179,7 +179,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       // Mismatch in function application
       case FunApp(f, e1) if e eq e1 => tipe(f) match {
         case FunType(t1, _) => Set(t1)
-        case _              => Set()
+        case _              => Set(NothingType())
       }
 
       case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(IntType(), FloatType())
@@ -208,9 +208,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case UnaryExp(_: ToFloat, _)  => Set(BoolType(), IntType())
       case UnaryExp(_: ToString, _) => Set(BoolType(), IntType(), FloatType())
 
-      case _ => Set()
+      case _ => Set(AnyType())
     }
-    case _ => Set() // There is no parent, i.e. the root node.
+    case _ => Set(AnyType()) // There is no parent, i.e. the root node.
   }
 
   /** Checks for type compatibility between expected and actual types of an expression.
@@ -325,11 +325,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case Comp(m, (_: Bind) :: r, e1) => pass1(Comp(m, r, e1))
 
     // Binary Expression type
-    case BinaryExp(_: ComparisonOperator, e1, e2) =>
+    case BinaryExp(_: EqualityOperator, e1, e2) =>
       unify(pass1(e1), pass1(e2))
       BoolType()
 
-    case BinaryExp(_: EqualityOperator, e1, e2) =>
+    case BinaryExp(_: ComparisonOperator, e1, e2) =>
       unify(pass1(e1), pass1(e2))
       BoolType()
 
