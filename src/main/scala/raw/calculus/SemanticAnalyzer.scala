@@ -112,6 +112,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       lookup(env.in(n), idn, lookupCatalog(idn))
   }
 
+  // TODO: The bug now is that the generator connection is somewhat lost...
+
   def freshVar(t: Type): Variable = {
     val v = new Variable()
     variableMap.update(v, t)
@@ -219,6 +221,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   def typesCompatible(e: Exp): Boolean = {
     val actual = tipe(e)
     for (expected <- expectedType(e)) {
+      logger.debug(s"here on $e with $expected vs $actual")
       (expected, actual) match {
         case (RecordType(atts1), RecordType(atts2)) =>
           // Handle the special case of an expected type being a record type containing a given identifier.
@@ -238,7 +241,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // Run for its side-effect: types the nodes and builds the variableMap
   pass1(tree.root)
 
-  def tipe(e: Exp) = {
+  def tipe(e: Exp): Type = {
     def walk(t: Type): Type = t match {
       case TypeVariable(v) => walk(variableMap(v))
       case _ => t
@@ -262,18 +265,18 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _: StringConst => StringType()
 
     // Rule 2
-    case _: Null => val v = freshVar(AnyType()); TypeVariable(v)
+    case _: Null => TypeVariable(freshVar(AnyType()))
 
     // Rule 3
     case IdnExp(idn) => idnType(idn)
 
     // Rule 4
-    case RecordProj(e, idn) => pass1(e) match {
+    case RecordProj(e, idn) => logger.debug(s"actual record proj $e is ${pass1(e)}"); pass1(e) match {
       case RecordType(atts) => atts.find(_.idn == idn) match {
         case Some(att: AttrType) => att.tipe
         case _                   => NothingType()
       }
-      case _                => NothingType()
+      case _                => AnyType() // TODO: ?
     }
 
     // Rule 5
@@ -288,7 +291,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Rule 8
     case FunApp(f, _) => pass1(f) match {
       case FunType(_, t2) => t2
-      case _ => NothingType()
+      case _ => AnyType() // TODO: ?
     }
 
     // Rule 9
