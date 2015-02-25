@@ -24,7 +24,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case IntConst(v)                => v
       case FloatConst(v)              => v
       case StringConst(v)             => s""""$v""""
-      case IdnDef(idn)                => idn
+      case IdnDef(idn, Some(t))       => idn <+> ":" <+> tipe(t)
+      case IdnDef(idn, None)          => idn
       case IdnUse(idn)                => idn
       case IdnExp(idn)                => apply(idn)
       case RecordProj(e, idn)         => apply(e) <> dot <> idn
@@ -38,7 +39,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case MergeMonoid(m, e1, e2)     => apply(e1) <+> merge(m) <+> apply(e2)
       case Comp(m, qs, e)             => "for" <+> parens(group(nest(lsep(qs.map(apply), comma)))) <+> "yield" <+> monoid(m) <+> apply(e)
       case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
-      case FunAbs(idn, t, e)          => apply(idn) <> ":" <+> tipe(t) <+> "=>" <+> apply(e)
+      case FunAbs(idn, e)             => apply(idn) <+> "=>" <+> apply(e)
       case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)
       case Bind(idn, e)               => apply(idn) <+> ":=" <+> apply(e)
     })

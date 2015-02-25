@@ -195,7 +195,7 @@ object Unnester extends LazyLogging {
     /** Returns true if the comprehension `c` does not depend on `s` generators.
       */
     def areIndependent(c: Calculus.Comp, s: List[Calculus.Gen]) = {
-      val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.IdnDef(v), _) => v}.toSet
+      val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.IdnDef(v, _), _) => v}.toSet
       variables(c).map(_.idn).intersect(sVs).isEmpty
     }
 
@@ -241,7 +241,7 @@ object Unnester extends LazyLogging {
         val np = p.map(rewrite(attempt(oncetd(rule[Calculus.Exp] {
           case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
         })))(_))
-        CalculusTerm(CanonicalComp(m, s, np, e1), u, w :+ Calculus.IdnDef(v), CalculusTerm(c, w, w, child))
+        CalculusTerm(CanonicalComp(m, s, np, e1), u, w :+ Calculus.IdnDef(v, None), CalculusTerm(c, w, w, child))
       }
     }
 
@@ -255,7 +255,7 @@ object Unnester extends LazyLogging {
         val nf = rewrite(oncetd(rule[Calculus.Exp] {
           case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
         }))(f)
-        CalculusTerm(CanonicalComp(m, Nil, p, nf), u, w :+ Calculus.IdnDef(v), CalculusTerm(c, w, w, child))
+        CalculusTerm(CanonicalComp(m, Nil, p, nf), u, w :+ Calculus.IdnDef(v, None), CalculusTerm(c, w, w, child))
       }
     }
 

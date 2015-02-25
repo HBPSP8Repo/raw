@@ -48,7 +48,7 @@ object Normalizer extends LazyLogging {
     }
 
     lazy val rule1 = rule[Comp] {
-      case Comp(m, Rule1(r, Bind(IdnDef(x), u), s), e) =>
+      case Comp(m, Rule1(r, Bind(IdnDef(x, _), u), s), e) =>
         logger.debug(s"Applying normalizer rule 1")
         val strategy = everywhere(rule[Exp] {
           case IdnExp(IdnUse(`x`)) => deepclone(u)
@@ -61,7 +61,7 @@ object Normalizer extends LazyLogging {
     /** Rule 2
       */
     lazy val rule2 = rule[Exp] {
-      case f @ FunApp(FunAbs(IdnDef(idn), _, e1), e2) => {
+      case f @ FunApp(FunAbs(IdnDef(idn, _), e1), e2) => {
         logger.debug(s"Applying normalizer rule 2")
         rewrite(everywhere(rule[Exp] {
           case IdnExp(IdnUse(`idn`)) => deepclone(e2)
@@ -104,8 +104,8 @@ object Normalizer extends LazyLogging {
 
       rewrite(
         everywhere(rule[IdnNode] {
-          case IdnDef(idn) if idn.startsWith("$") => IdnDef(newIdn(idn))
-          case IdnUse(idn) if idn.startsWith("$") => IdnUse(newIdn(idn))
+          case IdnDef(idn, _) if idn.startsWith("$") => IdnDef(newIdn(idn), None)
+          case IdnUse(idn)    if idn.startsWith("$") => IdnUse(newIdn(idn))
         }))(e)
     }
 

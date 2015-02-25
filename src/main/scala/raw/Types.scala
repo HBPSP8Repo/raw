@@ -1,7 +1,6 @@
 package raw
 
 import scala.collection.immutable.Seq
-import org.kiama.util.Entity
 
 /** Types
   */
@@ -63,7 +62,7 @@ case class FunType(t1: Type, t2: Type) extends Type
   */
 case class TypeVariable(v: Variable) extends Type
 
-class Variable() extends Entity
+class Variable()
 
 /** Any Type
   * The top type.

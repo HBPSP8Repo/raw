@@ -1,8 +1,9 @@
 package raw.calculus
 
 import org.scalatest.FunSuite
+import com.typesafe.scalalogging.LazyLogging
 
-class FunTest extends FunSuite {
+class FunTest extends FunSuite with LazyLogging {
 
   def parse(q: String): Calculus.Exp = {
     val parser = new SyntaxAnalyzer()

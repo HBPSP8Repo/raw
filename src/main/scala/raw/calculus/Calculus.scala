@@ -57,7 +57,7 @@ object Calculus {
 
   /** Defining occurrence of an identifier
     */
-  case class IdnDef(idn: Idn, tipe: Option[Type]) extends IdnNode
+  case class IdnDef(idn: Idn, t: Option[Type]) extends IdnNode
 
   /** Use of an identifier
     */

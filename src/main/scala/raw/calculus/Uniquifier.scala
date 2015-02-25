@@ -26,7 +26,7 @@ object Uniquifier extends LazyLogging {
     }
 
     val renameIdns = everywhere(rule[IdnNode]{
-      case n @ IdnDef(idn) => IdnDef(entity(n).id)
+      case n @ IdnDef(idn, t) => IdnDef(entity(n).id, t)
       case n @ IdnUse(idn) => entity(n) match {
         case _: ClassEntity => IdnUse(idn)    // For class entities, keep the original identifier use.
         case e              => IdnUse(e.id)   // Otherwise, replace by the internal, globally unique identifier.
