@@ -74,8 +74,8 @@ abstract class FlatCSVTest extends SmokeTest {
 
   check("most studied discipline",
     """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number =
-      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))) yield max x.number)) yield set t
-    """, "Computer Architecture")
+      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
+    """, Set("Computer Architecture"))
 
   check("list of disciplines which have three students",
     """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number = 3) yield list t.name
@@ -129,8 +129,7 @@ abstract class HierarchyJSONTest extends SmokeTest {
   check("Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
   check("Brad Pitt movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt") yield set m.title""", Set("Seven", "Twelve Monkeys"))
   check("movies with actors born after 1960 (only Brad Pitt)", "for (m <- movies, a <- actors, ma <- m.actors, a.name = ma, a.born > 1960) yield set m.title", Set("Seven", "Twelve Monkeys"))
-  check("weird semantic error (movies with Bruce Willis)", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield list m.title""", Set("Twelve Monkeys", "Die Hard"))
-  check("infinite loop (Brad Pitt or Bruce Willis movies)", """for (m <- movies, a <- m.actors, a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"))
+  check("Brad Pitt or Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"))
 
 }
 

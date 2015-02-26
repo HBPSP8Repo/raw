@@ -81,8 +81,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def loadJSON(t: Type, content: BufferedSource): Iterable[Any] = {
       val json: JValue = org.json4s.native.JsonMethods.parse(content.mkString)
       def convert(t: Type, item: JValue): Any = (t, item) match {
-        case (IntType(), JInt(i)) => i
-        case (FloatType(), JDouble(d)) => d
+        case (IntType(), JInt(i)) => i.toInt
+        case (FloatType(), JDouble(d)) => d.toFloat
         case (BoolType(), JBool(b)) => b
         case (StringType(), JString(s)) => s
         case (RecordType(atts), JObject(l)) => {
