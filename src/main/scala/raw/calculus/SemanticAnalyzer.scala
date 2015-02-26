@@ -84,7 +84,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     */
   def lookupCatalog(idn: String): Entity =
     if (world.catalog.contains(idn))
-      ClassEntity(idn, freshVar(world.catalog(idn).tipe))
+      ClassEntity(idn, world.catalog(idn).tipe)
     else
       UnknownEntity()
 
@@ -102,16 +102,54 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 //      }
 //    }
 
+
+//  lazy val entity: IdnNode => Entity = attr {
+//    case n@IdnDef(idn, _) => {
+//      if (isDefinedInScope(env.in(n), idn))
+//        MultipleEntity()
+//      else {
+//        case tree.parent(p) => {
+//          p match {
+//            case s: Bind => StatementEntity(TypeVariable(freshVar(AnyType())), s)
+//            case s: Gen => StatementEntity(TypeVariable(freshVar(AnyType())), s)
+//            case _ => VariableEntity(TypeVariable(freshVar(AnyType())))
+//          }
+//        }
+//      }
+//    }
+//    case n @ IdnUse(idn) => lookup(env.in(n), idn, lookupCatalog(idn))
+//  }
+
+    def entity(i: IdnNode): Entity = i match {
+      case n@IdnDef(idn, _) => {
+        if (isDefinedInScope(env.in(n), idn))
+          MultipleEntity()
+        else n match {
+          case tree.parent(p) => {
+            p match {
+              case s: Bind => StatementEntity(TypeVariable(freshVar(AnyType())), s)
+              case s: Gen => StatementEntity(TypeVariable(freshVar(AnyType())), s)
+              case _ => VariableEntity(TypeVariable(freshVar(AnyType())))
+            }
+          }
+        }
+      }
+      case n @ IdnUse(idn) => lookup(env.in(n), idn, lookupCatalog(idn))
+    }
+
+
+
+  /*
   lazy val entity: IdnNode => Entity = attr {
     case n @ IdnDef(idn, _) =>
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
-        VariableEntity(freshVar(AnyType()))
+        VariableEntity(TypeVariable(freshVar(AnyType())))
     case n @ IdnUse(idn) =>
       lookup(env.in(n), idn, lookupCatalog(idn))
   }
-
+*/
   // TODO: The bug now is that the generator connection is somewhat lost...
 
   def freshVar(t: Type): Variable = {
@@ -226,11 +264,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case (RecordType(atts1), RecordType(atts2)) =>
           // Handle the special case of an expected type being a record type containing a given identifier.
           val idn = atts1(0).idn
-          atts2.collect { case AttrType(`idn`, _) => true }.nonEmpty
-        case _ => unify(expected, actual) match {
-          case _: NothingType => return false
-          case _ => return true
-        }
+          if (atts2.collect { case AttrType(`idn`, _) => true }.nonEmpty) return true
+        case _ => if(unify(expected, actual) != NothingType) return true
       }
     }
     false
@@ -244,14 +279,34 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   def tipe(e: Exp): Type = {
     def walk(t: Type): Type = t match {
       case TypeVariable(v) => walk(variableMap(v))
+      case RecordType(atts) => RecordType(atts.map{case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt))})
+      case ListType(innerType) => ListType(walk(innerType))
+      case SetType(innerType) => SetType(walk(innerType))
+      case BagType(innerType) => BagType(walk(innerType))
+      case FunType(aType, eType) => FunType(walk(aType), walk(eType))
+      // case ProductType?
       case _ => t
     }
     walk(pass1(e))
   }
 
-  lazy val entityType: Entity => Type = attr {
-    case VariableEntity(v) => TypeVariable(v)
-    case ClassEntity(_, v) => TypeVariable(v)
+  def entityType(e: Entity): Type = {
+    val t = e match {
+      case StatementEntity(t, s) => s match {
+        case Bind(_, e) => unify(t, pass1(e))
+        case Gen(_, e) => pass1(e) match {
+          case SetType(innerType) => unify(t, innerType)
+          case ListType(innerType) => unify(t, innerType)
+          case BagType(innerType) => unify(t, innerType)
+        }
+      }
+      case VariableEntity(t) => t
+      case ClassEntity(_, t) => t
+    }
+    t match {
+      case ClassType(name) => world.userTypes(name)
+      case _ => t
+    }
   }
 
   def idnType(idn: IdnNode): Type = entityType(entity(idn))

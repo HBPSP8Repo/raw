@@ -91,19 +91,22 @@ class SemanticAnalyzerTest extends FunTest {
           "floats" -> Source(SetType(FloatType()), EmptyLocation),
           "booleans" -> Source(SetType(BoolType()), EmptyLocation),
           "strings" -> Source(SetType(StringType()), EmptyLocation),
-          "records"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), EmptyLocation)
+          "records"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), EmptyLocation),
+          "unknownrecords"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), EmptyLocation)
       ))
     assert(process(world, query) === t)
   }
+
+  checkTopType("for (r <- integers) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1.0", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- integers, r = x) yield r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- integers, r + x = 2*x) yield r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- floats, r + x = x) yield r", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- booleans, r and x) yield r", SetType(BoolType()))
-  checkTopType("for (r <- unknown, x <- strings, r = x) yield r", SetType(StringType()))
-  //checkTopType("for (r <- unknown) yield max r", SetType(TypeVariable(Set(IntType(), FloatType()))))
-  checkTopType("for (r <- unknown) yield set r.dead or r.alive", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
+  checkTopType("for (r <- unknown, x <- integers, r = x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown, x <- integers, r + x = 2*x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown, x <- floats, r + x = x) yield set r", SetType(FloatType()))
+  checkTopType("for (r <- unknown, x <- booleans, r and x) yield set r", SetType(BoolType()))
+  checkTopType("for (r <- unknown, x <- strings, r = x) yield set r", SetType(StringType()))
+  checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
+  checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
   checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
   checkTopType("for (r <- unknown, (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
   checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))

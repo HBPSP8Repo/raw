@@ -1,6 +1,8 @@
 package raw.calculus
 
 import org.kiama.util.Environments
+import raw.Type
+import raw.calculus.Calculus.Statement
 
 object SymbolTable extends Environments {
 
@@ -31,10 +33,11 @@ object SymbolTable extends Environments {
 
   /** Entity for a variable/identifier.
     */
-  case class VariableEntity(v: Variable) extends RawEntity
+  case class VariableEntity(t: Type) extends RawEntity
+  case class StatementEntity(t: Type, s: Statement) extends RawEntity
 
   /** Entity for a user-defined class extent.
     */
-  case class ClassEntity(name: String, v: Variable) extends RawEntity
+  case class ClassEntity(name: String, t: Type) extends RawEntity
 
 }
