@@ -264,6 +264,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _: Neq => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 != e2
       case (e1: Int, e2: Int) => e1 != e2
+      case (e1: Int, e2: Float) => e1 != e2
+      case (e1: Int, e2: Float) => e1 != e2
       case (e1: Boolean, e2: Boolean) => e1 != e2
       case (e1: String, e2: String) => e1 != e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute neq($i1, $i2)")
@@ -271,31 +273,43 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _: Lt => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 < e2
       case (e1: Int, e2: Int) => e1 < e2
+      case (e1: Int, e2: Float) => e1 < e2
+      case (e1: Int, e2: Float) => e1 < e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute lt($i1, $i2)")
     }
     case _: Le => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 <= e2
       case (e1: Int, e2: Int) => e1 <= e2
+      case (e1: Int, e2: Float) => e1 <= e2
+      case (e1: Int, e2: Float) => e1 <= e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute le($i1, $i2)")
     }
     case _: Ge => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 >= e2
       case (e1: Int, e2: Int) => e1 >= e2
+      case (e1: Int, e2: Float) => e1 >= e2
+      case (e1: Int, e2: Float) => e1 >= e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute ge($i1, $i2)")
     }
     case _: Gt => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 > e2
       case (e1: Int, e2: Int) => e1 > e2
+      case (e1: Int, e2: Float) => e1 > e2
+      case (e1: Int, e2: Float) => e1 > e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute gt($i1, $i2)")
     }
     case _: Div => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 / e2
       case (e1: Int, e2: Int) => e1 / e2
+      case (e1: Int, e2: Float) => e1 / e2
+      case (e1: Int, e2: Float) => e1 / e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute div($i1, $i2)")
     }
     case _: Sub => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 - e2
       case (e1: Int, e2: Int) => e1 - e2
+      case (e1: Int, e2: Float) => e1 - e2
+      case (e1: Int, e2: Float) => e1 - e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute sub($i1, $i2)")
     }
   }
@@ -417,12 +431,22 @@ object ReferenceExecutor extends Executor with LazyLogging {
     case _: OrMonoid => (b1, b2) => b1.asInstanceOf[Boolean] || b2.asInstanceOf[Boolean]
     case _: SumMonoid => (v1, v2) => (v1, v2) match {
       case (f1: Float, f2: Float) => f1 + f2
+      case (f1: Int, f2: Float) => f1 + f2
+      case (f1: Float, f2: Int) => f1 + f2
+      case (f1: Int, f2: Int) => f1 + f2
     }
     case _: MultiplyMonoid => (v1, v2) => (v1, v2) match {
       case (f1: Float, f2: Float) => f1 * f2
+      case (f1: Int, f2: Float) => f1 * f2
+      case (f1: Float, f2: Int) => f1 * f2
+      case (f1: Int, f2: Int) => f1 * f2
     }
     case _: MaxMonoid => (v1, v2) => (v1, v2) match {
       case (f1: Float, f2: Float) => math.max(f1, f2)
+      case (f1: Int, f2: Float) => math.max(f1, f2)
+      case (f1: Float, f2: Int) => math.max(f1, f2)
+      case (f1: Int, f2: Int) => math.max(f1, f2)
+
     }
   }
 
