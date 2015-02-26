@@ -21,14 +21,16 @@ object AlgebraPrettyPrinter extends PrettyPrinter {
     case OuterUnnest(path, pred, child) => "outer_unnest" <+> show(path) <+> show(pred) <@> nest(show(child))
     case Merge(m, left, right)          => "merge" <+> monoid(m) <@> nest(show(left)) <@> nest(show(right))
     case Null                           => "null"
+    case BoolConst(v)                   => v.toString
+    case IntConst(v)                    => v
+    case FloatConst(v)                  => v
     case StringConst(v)                 => s""""$v""""
-    case c: Const                       => c.value.toString()
     case Arg(idx)                       => s"$$$idx"
-    case ProductProj(e, idx)            => show(e) <> parens(idx.toString())
+    case ProductProj(e, idx)            => show(e) <> parens(idx.toString)
     case ProductCons(es)                => "(" <+> es.map(show).mkString(",") <+> ")"
     case RecordProj(e, idn)             => show(e) <> dot <> idn
     case AttrCons(idn, e)               => idn <+> ":=" <+> show(e)
-    case RecordCons(atts)               => list(atts.toList, prefix = "", elemToDoc = show)
+    case RecordCons(atts)               => parens(group(nest(lsep(atts.map(show), comma))))
     case IfThenElse(e1, e2, e3)         => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
     case BinaryExp(op, e1, e2)          => show(e1) <+> binaryOp(op) <+> show(e2)
     case ZeroCollectionMonoid(m)        => collection(m, empty)

@@ -21,7 +21,7 @@ case class ToBool() extends UnaryOperator
 case class ToInt() extends UnaryOperator
 
 /** Convert to float
- */
+  */
 case class ToFloat() extends UnaryOperator
 
 /** Convert to string

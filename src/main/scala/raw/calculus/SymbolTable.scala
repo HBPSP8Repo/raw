@@ -1,11 +1,11 @@
-package raw.calculus
+package raw
+package calculus
 
 import org.kiama.util.Environments
 
 object SymbolTable extends Environments {
 
   import org.kiama.util.{Counter, Entity}
-  import raw.Type
   import Calculus.Exp
 
   val counter = new Counter(0)
@@ -30,20 +30,20 @@ object SymbolTable extends Environments {
     val id = next()
   }
 
-  /** A bound variable entity.
-   */
-  case class BindVar(e: Exp) extends RawEntity
+  /** Entity for a bind statement.
+    */
+  case class BindEntity(t: Option[Type], e: Exp) extends RawEntity
 
-  /** A generator variable entity.
-   */
-  case class GenVar(e: Exp) extends RawEntity
+  /** Entity for a generator statement.
+    */
+  case class GenEntity(t: Option[Type], e: Exp) extends RawEntity
 
-  /** A function argument entity.
-   */
-   case class FunArg(t: Type) extends RawEntity
+  /** Entity for a function abstraction.
+    */
+  case class FunAbsEntity(t: Option[Type]) extends RawEntity
 
-  /** A class entity.
-   */
+  /** Entity for a user-defined class extent.
+    */
   case class ClassEntity(name: String, t: Type) extends RawEntity
 
 }

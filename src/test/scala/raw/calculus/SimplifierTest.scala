@@ -9,13 +9,13 @@ class SimplifierTest extends FunTest {
     val t = new Calculus.Calculus(ast)
     val analyzer = new SemanticAnalyzer(t, w)
     assert(analyzer.errors.length === 0)
-    CalculusPrettyPrinter.pretty(Simplifier(t, w).root, 200)
+    CalculusPrettyPrinter(Simplifier(t, w).root, 200)
   }
 
   test("test1") {
     compare(
       process(TestWorlds.things, """for (t <- things, t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""" ),
-      """for  ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a"""
+      """for ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a"""
     )
   }
 

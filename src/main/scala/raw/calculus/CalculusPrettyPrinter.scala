@@ -9,32 +9,41 @@ object CalculusPrettyPrinter extends PrettyPrinter {
 
   import Calculus._
 
-  def pretty(n: CalculusNode): String =
-    super.pretty(show(n)).layout
+  def apply(n: CalculusNode, w: Width = 120, debug: Option[PartialFunction[CalculusNode, String]] = None): String =
+    super.pretty(show(n, debug), w=w).layout
 
-  def pretty(n: CalculusNode, w: Width): String =
-    super.pretty(show(n), w=w).layout
+  def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
+    def apply(n: CalculusNode): Doc =
+      (debug match {
+        case Some(f) => if (f.isDefinedAt(n)) f(n) else ""
+        case None    => ""
+      }) <>
+      (n match {
+      case _: Null                    => "null"
+      case BoolConst(v)               => v.toString
+      case IntConst(v)                => v
+      case FloatConst(v)              => v
+      case StringConst(v)             => s""""$v""""
+      case IdnDef(idn, Some(t))       => idn <+> ":" <+> tipe(t)
+      case IdnDef(idn, None)          => idn
+      case IdnUse(idn)                => idn
+      case IdnExp(idn)                => apply(idn)
+      case RecordProj(e, idn)         => apply(e) <> dot <> idn
+      case AttrCons(idn, e)           => idn <+> ":=" <+> apply(e)
+      case RecordCons(atts)           => parens(group(nest(lsep(atts.map(apply), comma))))
+      case IfThenElse(e1, e2, e3)     => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)
+      case BinaryExp(op, e1, e2)      => apply(e1) <+> binaryOp(op) <+> apply(e2)
+      case FunApp(f, e)               => apply(f) <> parens(apply(e))
+      case ZeroCollectionMonoid(m)    => collection(m, empty)
+      case ConsCollectionMonoid(m, e) => collection(m, apply(e))
+      case MergeMonoid(m, e1, e2)     => apply(e1) <+> merge(m) <+> apply(e2)
+      case Comp(m, qs, e)             => "for" <+> parens(group(nest(lsep(qs.map(apply), comma)))) <+> "yield" <+> monoid(m) <+> apply(e)
+      case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
+      case FunAbs(idn, e)             => apply(idn) <+> "=>" <+> apply(e)
+      case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)
+      case Bind(idn, e)               => apply(idn) <+> ":=" <+> apply(e)
+    })
 
-  def show(n: CalculusNode): Doc = n match {
-    case _: Null                           => "null"
-    case StringConst(v)                    => s""""$v""""
-    case c: Const                          => c.value.toString()
-    case IdnDef(idn)                       => idn
-    case IdnUse(idn)                       => idn
-    case IdnExp(idn)                       => show(idn)
-    case RecordProj(e, idn)                => show(e) <> dot <> idn
-    case AttrCons(idn, e)                  => idn <+> ":=" <+> show(e)
-    case RecordCons(atts)                  => list(atts.toList, prefix = "", elemToDoc = show)
-    case IfThenElse(e1, e2, e3)            => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
-    case BinaryExp(op, e1, e2)             => show(e1) <+> binaryOp(op) <+> show(e2)
-    case FunApp(f, e)                      => show(f) <> parens(show(e))
-    case ZeroCollectionMonoid(m)           => collection(m, empty)
-    case ConsCollectionMonoid(m, e)        => collection(m, show(e))
-    case MergeMonoid(m, e1, e2)            => show(e1) <+> merge(m) <+> show(e2)
-    case Comp(m, qs, e)                    => "for" <+> list(qs.toList, prefix = "", elemToDoc = show) <+> "yield" <+> monoid(m) <+> show(e)
-    case UnaryExp(op, e)                   => unaryOp(op) <+> show(e)
-    case FunAbs(idn, t, e)                 => show(idn) <> ":" <+> tipe(t) <+> "=>" <+> show(e)
-    case Gen(idn, e)                       => show(idn) <+> "<-" <+> show(e)
-    case Bind(idn, e)                      => show(idn) <+> ":=" <+> show(e)
+    apply(n)
   }
 }

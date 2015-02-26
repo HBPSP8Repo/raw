@@ -1,10 +1,7 @@
 package raw
 package calculus
 
-import scala.util.parsing.combinator.PackratParsers
-import scala.util.parsing.combinator.lexical.StdLexical
-import scala.util.parsing.combinator.syntactical.StandardTokenParsers
-import scala.util.parsing.input.CharSequenceReader
+import org.kiama.util.PositionedParserUtilities
 
 // TODO: Add support for remaining monoids - max, union, bag_union, append - as MergeMonoid expressions
 // TODO: Sort out the relative priorities between MergeMonoids + BinaryExp + UnaryExp
@@ -16,56 +13,16 @@ import scala.util.parsing.input.CharSequenceReader
 
 /** Parser for monoid comprehensions.
   */
-class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
+class SyntaxAnalyzer extends PositionedParserUtilities {
 
   import Calculus._
   import scala.collection.immutable.List
+  import scala.collection.immutable.HashSet
 
-  class ExprLexical extends StdLexical {
-    override def token: Parser[Token] = floatingLit | super.token
+  //lexical.delimiters += ("(", ")", "=", "<>", "<=", "<", ">=", ">", "+", "-", "*", "/", ",", ".", ":", ":=", "<-", "->", "\\")
 
-    def floatingLit: Parser[Token] =
-      rep1(digit) ~ optFraction ~ optExponent ^^
-        { case intPart ~ frac ~ exp => NumericLit((intPart mkString "") :: frac :: exp :: Nil mkString "") }
-
-    def char(c: Char) =
-      elem("", ch => ch == c )
-
-    def sign =
-      char('+') | char('-')
-
-    def optSign =
-      opt(sign) ^^ {
-        case None => ""
-        case Some(sign) => sign
-      }
-
-    def fraction =
-      '.' ~ rep(digit) ^^ { case dot ~ ff => dot :: (ff mkString "") :: Nil mkString "" }
-
-    def optFraction =
-      opt(fraction) ^^ {
-        case None => ""
-        case Some(fraction) => fraction
-      }
-
-    def exponent =
-      (char('e') | char('E')) ~ optSign ~ rep1(digit) ^^ {
-        case e ~ optSign ~ exp => e :: optSign :: (exp mkString "") :: Nil mkString ""
-      }
-
-    def optExponent =
-      opt(exponent) ^^ {
-        case None => ""
-        case Some(exponent) => exponent
-      }
-  }
-
-  override val lexical = new ExprLexical
-
-  lexical.delimiters += ("(", ")", "=", "<>", "<=", "<", ">=", ">", "+", "-", "*", "/", ",", ".", ":", ":=", "<-", "->", "\\")
-
-  lexical.reserved += ("or", "and", "not",
+  val reservedWords = HashSet(
+    "or", "and", "not",
     "union", "bag_union", "append", "max", "sum",
     "null", "true", "false",
     "for", "yield",
@@ -75,10 +32,14 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
-  def makeAST(query: String): Either[String, Exp] = phrase(exp)(new lexical.Scanner(query)) match {
+  def makeAST(query: String): Either[String, Exp] = parseAll(exp, query) match {
     case Success(ast, _) => Right(ast)
-    case f               => Left(f.toString)
+    case f => Left(f.toString)
   }
+//  def makeAST(query: String): Either[String, Exp] = phrase(exp)(new lexical.Scanner(query)) match {
+//    case Success(ast, _) => Right(ast)
+//    case f               => Left(f.toString)
+//  }
 
   lazy val exp: PackratParser[Exp] =
     orExp
@@ -152,6 +113,14 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val recordProjExp: PackratParser[Exp] =
     positioned(baseExp ~ rep("." ~> ident) ^^ { case e ~ ps => if (ps.isEmpty) e else ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
 
+  def ident: Parser[Idn] =
+    """[a-zA-Z]\w*""".r into (s => {
+      if (reservedWords contains s)
+        failure(s"""reserved keyword '${s}' found where identifier expected""")
+      else
+        success(s)
+    })
+
   /** `baseExp` is left-recursive since `exp` goes down to `baseExp` again.
     */
   lazy val baseExp: PackratParser[Exp] =
@@ -184,16 +153,20 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val stringConst: PackratParser[StringConst] =
     positioned(stringLit ^^ StringConst)
 
+  def stringLit: Parser[String] =
+    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s.drop(1).dropRight(1))
+
   lazy val neg: PackratParser[Neg] =
     positioned("-" ^^^ Neg())
 
   lazy val numberConst: PackratParser[NumberConst] =
     positioned(numericLit ^^ { case v =>
-      def asInt(s: String) = try { Some(s.toInt) } catch { case _: Throwable => None }
-      asInt(v) match {
-        case Some(v) => IntConst(v)
-        case None    => FloatConst(v.toFloat)
-      }})
+      def isInt(s: String) = try { s.toInt; true } catch { case _: Throwable => false }
+      if (isInt(v)) IntConst(v) else FloatConst(v)
+      })
+
+  def numericLit: Parser[String] =
+    """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned("if" ~> exp ~ ("then" ~> exp) ~ ("else" ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
@@ -236,7 +209,7 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned((idnDef <~ "<-") ~ exp ^^ { case idn ~ e => Gen(idn, e) })
 
   lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ^^ IdnDef)
+    positioned(ident ~ opt(":" ~> tipe) ^^ IdnDef)
 
   lazy val bind: PackratParser[Bind] =
     positioned((idnDef <~ ":=") ~ exp ^^ { case idn ~ e => Bind(idn, e) })
@@ -254,8 +227,6 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
           case m: ListMonoid => m.copy()
         }
 
-        // TODO: This ought to be a fold incl. always the ZeroCollectionMonoid, but the type checker does not (yet)
-        // TODO: unify a CollectionType(UnknownType) with a CollectionType(<Some Type>).
         if (es.isEmpty)
           ZeroCollectionMonoid(m)
         else {
@@ -271,12 +242,12 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val unaryOp: PackratParser[UnaryOperator] =
     positioned(
       "to_bool" ^^^ ToBool() |
-      "to_float" ^^^ ToFloat() |
       "to_int" ^^^ ToInt() |
+      "to_float" ^^^ ToFloat() |
       "to_string" ^^^ ToString())
 
   lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> idnDef ~ (":" ~> tipe) ~ ("->" ~> exp) ^^ { case idn ~ t ~ e => FunAbs(idn, t, e) })
+    positioned("\\" ~> idnDef ~ ("->" ~> exp) ^^ FunAbs)
 
   lazy val tipe: PackratParser[Type] =
     primitiveType |
@@ -288,8 +259,8 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
   lazy val primitiveType: PackratParser[PrimitiveType] =
     positioned(
       "bool" ^^^ BoolType() |
-      "float" ^^^ FloatType() |
       "int" ^^^ IntType() |
+      "float" ^^^ FloatType() |
       "string" ^^^ StringType())
 
   lazy val recordType: PackratParser[RecordType] =
@@ -299,22 +270,17 @@ class SyntaxAnalyzer extends StandardTokenParsers with PackratParsers {
     positioned((ident <~ ":") ~ tipe ^^ { case idn ~ t => AttrType(idn, t) })
 
   lazy val collectionType: PackratParser[CollectionType] =
-    positioned(collectionTypeMonoid ~ ("(" ~> tipe <~ ")") ^^ { case m ~ t => CollectionType(m, t) })
-
-  lazy val collectionTypeMonoid: PackratParser[CollectionMonoid] =
     positioned(
-      "bag" ^^^ BagMonoid() |
-      "list" ^^^ ListMonoid() |
-      "set" ^^^ SetMonoid())
+      ("bag" ~ "(") ~> (tipe <~ ")") ^^ { case t => BagType(t) } |
+      ("list" ~ "(") ~> (tipe <~ ")") ^^ { case t => ListType(t) } |
+      ("set" ~ "(") ~> (tipe <~ ")") ^^ { case t => SetType(t) }
+    )
 
   lazy val classType: PackratParser[ClassType] =
     positioned(ident ^^ ClassType)
 
   lazy val funApp: PackratParser[FunApp] =
     positioned(exp ~ ("(" ~> exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) })
-
-//  lazy val recordProj: PackratParser[Exp] =
-//    positioned(exp ~ rep1("." ~> ident) ^^ { case e ~ ps => ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
 
   lazy val idnExp: PackratParser[IdnExp] =
     positioned(idnUse ^^ IdnExp)

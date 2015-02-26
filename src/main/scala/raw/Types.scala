@@ -1,5 +1,7 @@
 package raw
 
+import scala.collection.immutable.Seq
+
 /** Types
   */
 sealed abstract class Type extends RawNode
@@ -14,13 +16,12 @@ case class StringType() extends PrimitiveType
 
 sealed abstract class NumberType extends PrimitiveType
 
-case class FloatType() extends NumberType
-
 case class IntType() extends NumberType
+
+case class FloatType() extends NumberType
 
 /** Product Type
   */
-
 case class ProductType(tipes: Seq[Type]) extends Type
 
 /** Record Type
@@ -28,18 +29,26 @@ case class ProductType(tipes: Seq[Type]) extends Type
 case class AttrType(idn: String, tipe: Type) extends RawNode
 
 case class RecordType(atts: Seq[AttrType]) extends Type {
-  def typeOf(attribute: String): Type = {
-    val matches = atts.filter({ p => p match {
-      case c: AttrType => c.idn == attribute
+  def idns = atts.map(_.idn)
+
+  // TODO: Reuse this impl elsewhere
+    def typeOf(attribute: String): Type = {
+      val matches = atts.filter {
+        case c: AttrType => c.idn == attribute
+      }
+      matches.head.tipe
     }
-    })
-    return matches.head.tipe
-  }
 }
 
-/** Collection Type
+/** Collection Types
   */
-case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
+abstract class CollectionType extends Type {
+  def innerType: Type
+}
+
+case class BagType(innerType: Type) extends CollectionType
+case class ListType(innerType: Type) extends CollectionType
+case class SetType(innerType: Type) extends CollectionType
 
 /** Class Type
   */
@@ -47,33 +56,20 @@ case class ClassType(idn: String) extends Type
 
 /** Function Type `t2` -> `t1`
   */
-case class FunType(val t1: Type, val t2: Type) extends Type
+case class FunType(t1: Type, t2: Type) extends Type
 
-/** Unknown Type: any type will do
+/** Type Variable
   */
-case class UnknownType() extends Type
+case class TypeVariable(v: Variable) extends Type
 
-object Types {
+class Variable()
 
-  def compatible(t1: Type, t2: Type): Boolean = {
-    (t1 == UnknownType()) ||
-      (t2 == UnknownType()) ||
-      (t1 == t2) ||
-      ((t1, t2) match {
-        case (ProductType(t1), ProductType(t2)) => {
-          // TODO
-          ???
-        }
-        case (RecordType(atts1), RecordType(atts2)) => {
-          // Record types are compatible if they have at least one identifier in common, and if all identifiers have a
-          // compatible type.
-          val atts = atts1.flatMap{ case a1 @ AttrType(idn, _) => atts2.collect{ case a2 @ AttrType(`idn`, _) => (a1.tipe, a2.tipe) } }
-          atts.nonEmpty && !atts.map{ case (a1, a2) => compatible(a1, a2) }.contains(false)
-        }
-        case (FunType(tA1, tA2), FunType(tB1, tB2))            => compatible(tA1, tB1) && compatible(tA2, tB2)
-        case (CollectionType(m1, tA), CollectionType(m2, tB))  => m1 == m2 && compatible(tA, tB)
-        case _                                                 => false
-      })
-  }
+/** Any Type
+  * The top type.
+  */
+case class AnyType() extends Type
 
-}
+/** Nothing Type
+  * The bottom type.
+  */
+case class NothingType() extends Type

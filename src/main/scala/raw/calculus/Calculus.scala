@@ -6,6 +6,7 @@ package calculus
 object Calculus {
 
   import org.kiama.relation.Tree
+
   // TODO: Is the following import needed? Why so?
   import scala.collection.immutable.Seq
 
@@ -17,7 +18,7 @@ object Calculus {
     */
   type Idn = String
 
-  /** Base class for all nodes.
+  /** Base class for all Calculus nodes.
     */
   sealed abstract class CalculusNode extends RawNode
 
@@ -35,30 +36,18 @@ object Calculus {
 
   /** Constants
     */
-  sealed abstract class Const extends Exp {
-    type T
-
-    def value: T
-  }
+  sealed abstract class Const extends Exp
 
   // TODO: Add DateTime, smaller/larger integers/floats.
-  case class BoolConst(value: Boolean) extends Const {
-    type T = Boolean
-  }
+  case class BoolConst(value: Boolean) extends Const
 
-  case class StringConst(value: String) extends Const {
-    type T = String
-  }
+  case class StringConst(value: String) extends Const
 
   sealed abstract class NumberConst extends Const
 
-  case class IntConst(value: Integer) extends NumberConst {
-    type T = Integer
-  }
+  case class IntConst(value: String) extends NumberConst
 
-  case class FloatConst(value: Float) extends NumberConst {
-    type T = Float
-  }
+  case class FloatConst(value: String) extends NumberConst
 
   /** Identifier reference
     */
@@ -68,7 +57,7 @@ object Calculus {
 
   /** Defining occurrence of an identifier
     */
-  case class IdnDef(idn: Idn) extends IdnNode
+  case class IdnDef(idn: Idn, t: Option[Type]) extends IdnNode
 
   /** Use of an identifier
     */
@@ -96,6 +85,10 @@ object Calculus {
     */
   case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
+  /** Function Abstraction
+    */
+  case class FunAbs(idn: IdnDef, e: Exp) extends Exp
+
   /** Function Application
     */
   case class FunApp(f: Exp, e: Exp) extends Exp
@@ -120,10 +113,6 @@ object Calculus {
     */
   case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
 
-  /** Function Abstraction
-    */
-  case class FunAbs(idn: IdnDef, t: Type, e: Exp) extends Exp
-
   /** Statements
     */
   sealed abstract class Statement extends Qual
@@ -135,26 +124,5 @@ object Calculus {
   /** Bind
     */
   case class Bind(idn: IdnDef, e: Exp) extends Statement
-
-//  /** Comprehension in canonical form, i.e. with paths and predicates in CNF.
-//    * For details in the canonical form, refer to [1] page 19.
-//    */
-//  case class CanonicalComp(m: Monoid, paths: List[GenPath], preds: List[Exp], e: Exp) extends Exp
-//
-//  /** Generator using paths.
-//    * This is only used by the canonical form.
-//    */
-//  case class GenPath(idn: IdnDef, p: Path) extends CalculusNode
-//
-//  /** Paths.
-//    * These are only used by the canonical form.
-//    */
-//  sealed abstract class Path extends CalculusNode
-//
-//  case class BoundPath(idn: IdnUse) extends Path
-//
-//  case class InnerPath(p: Path, idn: Idn) extends Path
-//
-//  case class ClassExtent(idn: Idn) extends Path
 
 }

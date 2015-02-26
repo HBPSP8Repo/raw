@@ -52,6 +52,14 @@ class UnnesterTest extends FunTest {
 
   test("complex_join_2") {
     val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+//
+//    object Result extends AlgebraLang {
+//      def apply() = {
+//
+//      }
+//    }
+//
+//    println(AlgebraPrettyPrinter.pretty(process(TestWorlds.fines, query)))
 
     // TODO: This seems to loop when executed, due to a merge? Double check if syntax tree is ok.
     assert(false)
@@ -119,6 +127,7 @@ class AlgebraLang {
 
   import scala.language.implicitConversions
   import scala.language.dynamics
+  import scala.collection.immutable.Seq
   import raw._
   import algebra.Algebra._
 
@@ -196,9 +205,9 @@ class AlgebraLang {
     */
   implicit def boolToExp(v: Boolean): ConstBuilder = ConstBuilder(BoolConst(v))
 
-  implicit def intToExp(v: Int): ConstBuilder = ConstBuilder(IntConst(v))
+  implicit def intToExp(v: Int): ConstBuilder = ConstBuilder(IntConst(v.toString))
 
-  implicit def floatToExp(v: Float): ConstBuilder = ConstBuilder(FloatConst(v))
+  implicit def floatToExp(v: Float): ConstBuilder = ConstBuilder(FloatConst(v.toString))
 
   implicit def stringToExp(v: String): ConstBuilder = ConstBuilder(StringConst(v))
 
@@ -209,7 +218,7 @@ class AlgebraLang {
 
   /** Record Construction
     */
-  def record(atts: Tuple2[String, Builder]*) = RecordConsBuilder(atts.map { att => AttrConsBuilder(att._1, att._2)})
+  def record(atts: Tuple2[String, Builder]*) = RecordConsBuilder(atts.map{ att => AttrConsBuilder(att._1, att._2)}.to[scala.collection.immutable.Seq])
 
   /** If `e1` Then `e2` Else `e3`
     */

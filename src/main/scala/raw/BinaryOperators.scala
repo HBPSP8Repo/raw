@@ -4,21 +4,9 @@ package raw
   */
 sealed abstract class BinaryOperator extends RawNode
 
-/** Equality Operator
-  */
-sealed abstract class EqualityOperator extends BinaryOperator
-
-/** Equals
-  */
-case class Eq() extends EqualityOperator
-
-/** Not equals
-  */
-case class Neq() extends EqualityOperator
-
 /** Comparison Operator
   */
-sealed abstract class ComparisonOperator extends EqualityOperator
+sealed abstract class ComparisonOperator extends BinaryOperator
 
 /** Greater or equal than
   */
@@ -35,6 +23,18 @@ case class Le() extends ComparisonOperator
 /** Less than
   */
 case class Lt() extends ComparisonOperator
+
+/** Equality Operator
+  */
+sealed abstract class EqualityOperator extends ComparisonOperator
+
+/** Equals
+  */
+case class Eq() extends EqualityOperator
+
+/** Not equals
+  */
+case class Neq() extends EqualityOperator
 
 /** Arithmetic Operator
   */

@@ -4,16 +4,18 @@ package algebra
 object Algebra {
 
   import org.kiama.relation.Tree
+  import scala.collection.immutable.Seq
 
   /** Tree type for Calculus
     */
-  type Algebra = Tree[RawNode,AlgebraNode]
+  type Algebra = Tree[RawNode,OperatorNode]
+
+  /** Base class for all Algebra nodes.
+    */
+  sealed abstract class AlgebraNode extends RawNode
 
   /** Operator Nodes
     */
-
-  sealed abstract class AlgebraNode extends RawNode
-
   sealed abstract class OperatorNode extends AlgebraNode
 
   /** Scan
@@ -66,28 +68,18 @@ object Algebra {
 
   /** Constants
     */
-  sealed abstract class Const extends Exp {
-    type T
-
-    def value: T
-  }
+  sealed abstract class Const extends Exp
 
   // TODO: Add DateTime, smaller/larger integers/floats.
-  case class BoolConst(value: Boolean) extends Const {
-    type T = Boolean
-  }
+  case class BoolConst(value: Boolean) extends Const
 
-  case class IntConst(value: Integer) extends Const {
-    type T = Integer
-  }
+  case class StringConst(value: String) extends Const
 
-  case class FloatConst(value: Float) extends Const {
-    type T = Float
-  }
+  sealed abstract class NumberConst extends Const
 
-  case class StringConst(value: String) extends Const {
-    type T = String
-  }
+  case class IntConst(value: String) extends NumberConst
+
+  case class FloatConst(value: String) extends NumberConst
 
   /** Argument
     */

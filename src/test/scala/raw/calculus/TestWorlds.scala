@@ -1,10 +1,7 @@
-package raw.calculus
-
-import raw._
+package raw
+package calculus
 
 object TestWorlds {
-
-  import SymbolTable.ClassEntity
 
   def departments = {
     val address =
@@ -19,10 +16,10 @@ object TestWorlds {
         AttrType("address", address),
         AttrType("salary", IntType()),
         AttrType("rank", StringType()),
-        AttrType("degrees", CollectionType(SetMonoid(), StringType())),
+        AttrType("degrees", SetType(StringType())),
         AttrType("dept", ClassType("Department")),
-        AttrType("teaches", CollectionType(SetMonoid(), ClassType("Course")))))
-    val instructors = CollectionType(SetMonoid(), instructor)
+        AttrType("teaches", SetType(ClassType("Course")))))
+    val instructors = SetType(instructor)
 
     val department =
       RecordType(List(
@@ -31,7 +28,7 @@ object TestWorlds {
         AttrType("head", ClassType("Instructor")),
         AttrType("instructors", ClassType("Instructors")),
         AttrType("courses", ClassType("Courses"))))
-    val departments = CollectionType(BagMonoid(), department)
+    val departments = BagType(department)
 
     val course =
       RecordType(List(
@@ -40,8 +37,8 @@ object TestWorlds {
         AttrType("offered_by", ClassType("Department")),
         AttrType("taught_by", ClassType("Instructor")),
         AttrType("is_prerequisite_for", ClassType("Courses")),
-        AttrType("has_prerequisites", CollectionType(SetMonoid(), ClassType("Course")))))
-    val courses = CollectionType(SetMonoid(), course)
+        AttrType("has_prerequisites", SetType(ClassType("Course")))))
+    val courses = SetType(course)
 
     val userTypes = Map(
       "Instructor" -> instructor,
@@ -60,8 +57,7 @@ object TestWorlds {
 
   def employees = {
     val children =
-      CollectionType(
-        ListMonoid(),
+      ListType(
         RecordType(List(
           AttrType("age", IntType()))))
     val manager =
@@ -69,8 +65,7 @@ object TestWorlds {
         AttrType("name", StringType()),
         AttrType("children", children)))
     val employees =
-      CollectionType(
-        SetMonoid(),
+      SetType(
         RecordType(List(
           AttrType("children", children),
           AttrType("manager", manager))))
@@ -84,23 +79,23 @@ object TestWorlds {
 
   def cern = {
     val events =
-      CollectionType(ListMonoid(),
+      ListType(
         RecordType(List(
           AttrType("RunNumber", IntType()),
           AttrType("lbn", IntType()),
           AttrType("muons",
-            CollectionType(ListMonoid(),
+            ListType(
               RecordType(List(
                 AttrType("pt", FloatType()),
                 AttrType("eta", FloatType()))))),
           AttrType("jets",
-            CollectionType(ListMonoid(),
+            ListType(
               RecordType(List(
                 AttrType("pt", FloatType()),
                 AttrType("eta", FloatType()))))))))
 
     val goodRuns =
-      CollectionType(ListMonoid(),
+      ListType(
         RecordType(List(
           AttrType("Run", IntType()),
           AttrType("OK", BoolType()))))
@@ -115,17 +110,17 @@ object TestWorlds {
 
   def things = {
     val things =
-      CollectionType(SetMonoid(),
+      SetType(
         RecordType(List(
           AttrType("a", IntType()),
           AttrType("b", IntType()),
           AttrType("set_a",
-            CollectionType(SetMonoid(),
+            SetType(
               FloatType())),
           AttrType("set_b",
-            CollectionType(SetMonoid(),
+            SetType(
               FloatType())))))
-              
+
     val catalog = Map(
       "things" -> Source(things, EmptyLocation)
     )
@@ -135,14 +130,14 @@ object TestWorlds {
 
   def fines = {
     val speed_limits =
-      CollectionType(ListMonoid(),
+      ListType(
         RecordType(List(
           AttrType("location", StringType()),
           AttrType("min_speed", IntType()),
           AttrType("max_speed", IntType()))))
 
     val radar =
-      CollectionType(ListMonoid(),
+      ListType(
         RecordType(List(
           AttrType("person", StringType()),
           AttrType("speed", IntType()),

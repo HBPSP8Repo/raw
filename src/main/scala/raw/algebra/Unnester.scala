@@ -1,6 +1,7 @@
 package raw
 package algebra
 
+import scala.collection.immutable.Seq
 import com.typesafe.scalalogging.LazyLogging
 import calculus.{Calculus, SymbolTable}
 
@@ -23,7 +24,7 @@ object Unnester extends LazyLogging {
 
   def apply(tree: Calculus.Calculus, world: World): Algebra.OperatorNode = {
     val inTree = calculus.Simplifier(tree, world)
-    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter.pretty(inTree.root)}")
+    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(inTree.root)}")
 
     val analyzer = new calculus.SemanticAnalyzer(inTree, world)
 
@@ -157,7 +158,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC8 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C8")
         // TODO: Fix mapping BELOW!!!
         AlgebraTerm(Algebra.Nest(m, createExp(e, w), createProduct(u, w), createPredicate(p, w), createProduct(w.filterNot(u.contains), w), child))
@@ -168,7 +169,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC9 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C9")
         val p_v = p.filter(variables(_).map(_.idn) == Set(v.idn))
         val p_w_v = p.filter(pred => (w :+ v).toSet.map{idnNode: Calculus.IdnNode => idnNode.idn}.subsetOf(variables(pred).map(_.idn)))
@@ -181,7 +182,7 @@ object Unnester extends LazyLogging {
       */
 
     lazy val ruleC10 = rule[Term] {
-      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) if !u.isEmpty => {
+      case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, path) :: r, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C10")
         val (p_v, p_not_v) = p.partition(variables(_).map(_.idn) == Set(v.idn))
         CalculusTerm(CanonicalComp(m, r, p_not_v, e), u, w :+ v, AlgebraTerm(Algebra.OuterUnnest(createExp(path, w), createPredicate(p_v, w :+ v), child)))
@@ -194,7 +195,7 @@ object Unnester extends LazyLogging {
     /** Returns true if the comprehension `c` does not depend on `s` generators.
       */
     def areIndependent(c: Calculus.Comp, s: List[Calculus.Gen]) = {
-      val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.IdnDef(v), _) => v}.toSet
+      val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.IdnDef(v, _), _) => v}.toSet
       variables(c).map(_.idn).intersect(sVs).isEmpty
     }
 
@@ -240,7 +241,7 @@ object Unnester extends LazyLogging {
         val np = p.map(rewrite(attempt(oncetd(rule[Calculus.Exp] {
           case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
         })))(_))
-        CalculusTerm(CanonicalComp(m, s, np, e1), u, w :+ Calculus.IdnDef(v), CalculusTerm(c, w, w, child))
+        CalculusTerm(CanonicalComp(m, s, np, e1), u, w :+ Calculus.IdnDef(v, None), CalculusTerm(c, w, w, child))
       }
     }
 
@@ -254,7 +255,7 @@ object Unnester extends LazyLogging {
         val nf = rewrite(oncetd(rule[Calculus.Exp] {
           case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
         }))(f)
-        CalculusTerm(CanonicalComp(m, Nil, p, nf), u, w :+ Calculus.IdnDef(v), CalculusTerm(c, w, w, child))
+        CalculusTerm(CanonicalComp(m, Nil, p, nf), u, w :+ Calculus.IdnDef(v, None), CalculusTerm(c, w, w, child))
       }
     }
 
