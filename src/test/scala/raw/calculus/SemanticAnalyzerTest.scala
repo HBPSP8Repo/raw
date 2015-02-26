@@ -92,7 +92,7 @@ class SemanticAnalyzerTest extends FunTest {
           "booleans" -> Source(SetType(BoolType()), EmptyLocation),
           "strings" -> Source(SetType(StringType()), EmptyLocation),
           "records"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), EmptyLocation),
-          "unknownrecords"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), EmptyLocation)
+          "unknownrecords" -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), EmptyLocation)
       ))
     assert(process(world, query) === t)
   }
@@ -106,7 +106,8 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- unknown, x <- booleans, r and x) yield set r", SetType(BoolType()))
   checkTopType("for (r <- unknown, x <- strings, r = x) yield set r", SetType(StringType()))
   checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
-  checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
+  checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
+  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
   checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
   checkTopType("for (r <- unknown, (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
   checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))
