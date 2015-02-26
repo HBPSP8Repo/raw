@@ -156,15 +156,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case tree.parent.pair(e, p) => p match {
       case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, AnyType()))))
 
+      // If condition must be a boolean
       case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
-      // TODO: I believe this is no longer needed since the unification handles it.
-      //case IfThenElse(_, e2, e3) if e eq e3 => tipe(e2)
 
+      // Arithmetic operation must be over Int or Float
       case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(IntType(), FloatType())
-
-      // TODO: I believe this is no longer needed since the unification handles it.
-      // Right-hand side of any binary expression must have the same type as the left-hand side
-      //case BinaryExp(_, e1, e2) if e eq e2 => tipe(e1)
 
       // Function application must be on a function type
       case FunApp(f, _) if e eq f => Set(FunType(AnyType(), AnyType()))
@@ -179,17 +175,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case MergeMonoid(_: BoolMonoid, e1, _)   if e eq e1 => Set(BoolType())
 
       // Merge of collections must be with same monoid collection types
-      case MergeMonoid(_: BagMonoid, e1, _) if e eq e1  => Set(BagType(AnyType()))
+      case MergeMonoid(_: BagMonoid, e1, _)  if e eq e1 => Set(BagType(AnyType()))
       case MergeMonoid(_: ListMonoid, e1, _) if e eq e1 => Set(ListType(AnyType()))
-      case MergeMonoid(_: SetMonoid, e1, _) if e eq e1  => Set(SetType(AnyType()))
-
-      // TODO: I believe this is no longer needed since the unification handles it.
-      // Right-hand side of any merge must have the same type as the left-hand side
-      //case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
+      case MergeMonoid(_: SetMonoid, e1, _)  if e eq e1 => Set(SetType(AnyType()))
 
       // Comprehension with a primitive monoid must have compatible projection type
       case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(IntType(), FloatType())
-      case Comp(_: BoolMonoid, _, e1) if e eq e1 => Set(BoolType())
+      case Comp(_: BoolMonoid, _, e1)   if e eq e1 => Set(BoolType())
 
       // Qualifiers that are expressions must be predicates
       case Comp(_, qs, _) if qs.contains(e) => Set(BoolType())
@@ -212,7 +204,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   def typesCompatible(e: Exp): Boolean = {
     val actual = tipe(e)
     for (expected <- expectedType(e)) {
-      //logger.debug(s"here on $e with $expected vs $actual")
       (expected, actual) match {
         case (RecordType(atts1), RecordType(atts2)) =>
           // Handle the special case of an expected type being a record type containing a given identifier.
@@ -226,7 +217,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   var variableMap = scala.collection.mutable.Map[Variable, Type]()
 
-  // Run for its side-effect: types the nodes and builds the variableMap
+  /** Run once for its side-effect, which is to type the nodes and build the `variableMap`.
+    */
   pass1(tree.root)
 
   def tipe(e: Exp): Type = {
@@ -281,7 +273,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case IdnExp(idn) => idnType(idn)
 
     // Rule 4
-    case RecordProj(e, idn) => logger.debug(s"actual record proj $e is ${pass1(e)}"); pass1(e) match {
+    case RecordProj(e, idn) => pass1(e) match {
       case RecordType(atts) => atts.find(_.idn == idn) match {
         case Some(att: AttrType) => att.tipe
         case _                   => NothingType()
@@ -295,7 +287,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Rule 6
     case IfThenElse(_, e2, e3) => unify(pass1(e2), pass1(e3))
 
-    // Rule 7 
+    // Rule 7
     case FunAbs(idn, e) => FunType(idnType(idn), pass1(e))
 
     // Rule 8
