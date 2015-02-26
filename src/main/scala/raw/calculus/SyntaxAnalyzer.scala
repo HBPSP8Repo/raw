@@ -3,14 +3,6 @@ package calculus
 
 import org.kiama.util.PositionedParserUtilities
 
-// TODO: Add support for remaining monoids - max, union, bag_union, append - as MergeMonoid expressions
-// TODO: Sort out the relative priorities between MergeMonoids + BinaryExp + UnaryExp
-// TODO: Pattern matching support?
-// TODO: Tuple type?
-// TODO: Modulo operator
-// TODO: Intersect? Set minus? Subset?
-// TODO: Add support for comments in the language
-
 /** Parser for monoid comprehensions.
   */
 class SyntaxAnalyzer extends PositionedParserUtilities {
@@ -95,7 +87,6 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val div: PackratParser[Div] =
     positioned("/" ^^^ Div())
 
-  // TODO: Unsure of the placement of `comp`
   lazy val compExp: PackratParser[Exp] =
     comp |
     mergeExp
@@ -140,8 +131,6 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     stringConst |
     numberConst |
     positioned(neg ~ numberConst ^^ { case op ~ e => UnaryExp(op, e) })
-
-  // TODO: Should `neg` be at the baseExp level, under `unaryFun` ???
 
   lazy val nullConst: PackratParser[Null] =
     positioned("null" ^^^ Null())

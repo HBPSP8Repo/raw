@@ -7,7 +7,6 @@ object Calculus {
 
   import org.kiama.relation.Tree
 
-  // TODO: Is the following import needed? Why so?
   import scala.collection.immutable.Seq
 
   /** Tree type for Calculus
@@ -38,7 +37,6 @@ object Calculus {
     */
   sealed abstract class Const extends Exp
 
-  // TODO: Add DateTime, smaller/larger integers/floats.
   case class BoolConst(value: Boolean) extends Const
 
   case class StringConst(value: String) extends Const

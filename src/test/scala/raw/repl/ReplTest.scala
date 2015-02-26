@@ -15,8 +15,7 @@
 //  /** Test cases.
 //   *  
 //   *  Comparisons based on string outputs sound hacky, but the alternative - generating a algebra tree in code - is unreadable.
-//   *  TODO: Create a parser for the algebra to use to create algebra plans directly.
-//   *  
+//   *
 //   */
 //  
 //  /** Simple CERN-like query.

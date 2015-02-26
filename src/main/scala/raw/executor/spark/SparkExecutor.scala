@@ -57,7 +57,7 @@
 //  //@transient
 //  val counter = new Counter(0)
 //
-//  // TODO: SparkExecutor is likely not an object because it needs to keep state.
+//  //       SparkExecutor is likely not an object because it needs to keep state.
 //  //       Should an executor return a new world? Or a world diff?
 //
 //  def freshName(): String = {

@@ -278,7 +278,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case Some(att: AttrType) => att.tipe
         case _                   => NothingType()
       }
-      case _                => AnyType() // TODO: ?
+      case _                => AnyType()
     }
 
     // Rule 5
@@ -293,7 +293,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Rule 8
     case FunApp(f, _) => pass1(f) match {
       case FunType(_, t2) => t2
-      case _ => AnyType() // TODO: ?
+      case _ => AnyType()
     }
 
     // Rule 9

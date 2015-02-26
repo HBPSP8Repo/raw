@@ -19,6 +19,4 @@ class SimplifierTest extends FunTest {
     )
   }
 
-  // TODO: Add tests that randomly generate expressions and compare their results to the Scala equivalent.
-
 }

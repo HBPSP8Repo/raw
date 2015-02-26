@@ -35,7 +35,6 @@ object Unnester extends LazyLogging {
       }
     }
 
-    // TODO: There must be a better way to define the strategy without relying explicitly on recursion.
     lazy val unnesterRules: Strategy =
       reduce(ruleC11 < unnesterRules + (ruleC12 < unnesterRules + (ruleC4 <+ ruleC5 <+ ruleC6 <+ ruleC7 <+ ruleC8 <+ ruleC9 <+ ruleC10 + ruleTopLevelMerge)))
 
@@ -114,7 +113,6 @@ object Unnester extends LazyLogging {
     lazy val ruleC4 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), Nil, Nil, EmptyTerm) => {
         logger.debug(s"Applying unnester rule C4")
-        // TODO: Clean up set comparisons (in all the remaining rules)
         val (p_v, p_not_v) = p.partition(variables(_).map(_.idn) == Set(v.idn))
         CalculusTerm(CanonicalComp(m, r, p_not_v, e), Nil, List(v), AlgebraTerm(Algebra.Select(createPredicate(p_v, Seq(v)), Algebra.Scan(x))))
       }
@@ -160,7 +158,6 @@ object Unnester extends LazyLogging {
     lazy val ruleC8 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Nil, p, e), u, w, AlgebraTerm(child)) if u.nonEmpty => {
         logger.debug(s"Applying unnester rule C8")
-        // TODO: Fix mapping BELOW!!!
         AlgebraTerm(Algebra.Nest(m, createExp(e, w), createProduct(u, w), createPredicate(p, w), createProduct(w.filterNot(u.contains), w), child))
       }
     }

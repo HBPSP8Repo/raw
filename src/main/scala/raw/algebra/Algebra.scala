@@ -70,7 +70,6 @@ object Algebra {
     */
   sealed abstract class Const extends Exp
 
-  // TODO: Add DateTime, smaller/larger integers/floats.
   case class BoolConst(value: Boolean) extends Const
 
   case class StringConst(value: String) extends Const

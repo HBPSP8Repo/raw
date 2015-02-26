@@ -127,7 +127,6 @@ object Normalizer extends LazyLogging {
       case Comp(m, Rule5(q, Gen(idn, ze: ZeroCollectionMonoid), s), e) => {
         logger.debug(s"Applying normalizer rule 5")
         m match {
-          // TODO: Add proper zero monoids for primitive types: e.g. -infinity
           case _: MaxMonoid        => getNumberConst(analyzer.tipe(e), 0)
           case _: MultiplyMonoid   => getNumberConst(analyzer.tipe(e), 1)
           case _: SumMonoid        => getNumberConst(analyzer.tipe(e), 0)

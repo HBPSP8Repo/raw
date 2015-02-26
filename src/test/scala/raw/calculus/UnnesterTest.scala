@@ -61,7 +61,6 @@ class UnnesterTest extends FunTest {
 //
 //    println(AlgebraPrettyPrinter.pretty(process(TestWorlds.fines, query)))
 
-    // TODO: This seems to loop when executed, due to a merge? Double check if syntax tree is ok.
     assert(false)
   }
 
@@ -212,7 +211,6 @@ class AlgebraLang {
   implicit def stringToExp(v: String): ConstBuilder = ConstBuilder(StringConst(v))
 
   /** Variable
-    * TODO: Create new algebra node "var" with i as an argument
     */
   def arg(i: Int) = ArgBuilder(Arg(i))
 
@@ -271,7 +269,6 @@ class AlgebraLang {
 
   def set = SetMonoid()
 
-  // TODO: Distinguish between nodes that actually need a build from those that do not (e.g that have already the inner object)
   def build(b: Builder): Exp = b match {
     case NullBuilder                     => Null
     case ConstBuilder(c)                 => c

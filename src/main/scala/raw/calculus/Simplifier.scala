@@ -193,7 +193,6 @@ object Simplifier extends LazyLogging {
       case BinaryExp(_: Div, x, BinaryExp(_: Div, y, z)) => BinaryExp(Div(), MergeMonoid(MultiplyMonoid(), x, z), y)
     }
 
-    // TODO: Fix the following rules to use their "more primitive" versions and to support arbitrary precision math.
     //
     //  /** 1 / 2 => 0
     //    * 1 / 2.0 => 0.5
@@ -209,8 +208,8 @@ object Simplifier extends LazyLogging {
     //
     //  /** Neg(1) => -1 (i.e. remove Neg() from constants) */
     //  lazy val ruleDropNeg = rule[Exp] {
-    //    // TODO: This is invalid. Must fix the precision.
-    //    // TODO: Pass all int / float consts to Strings.
+    //    // This is invalid. Must fix the precision.
+    //    // Pass all int / float consts to Strings.
     //    case UnaryExp(_: Neg, IntConst(v))   => IntConst(-v)
     //    case UnaryExp(_: Neg, FloatConst(v)) => FloatConst(-v)
     //  }
@@ -292,7 +291,7 @@ object Simplifier extends LazyLogging {
     //    }
     //  }
     //
-    //  // TODO: `hasNumber` followed by `splitOnNumbers` is inefficient
+    //  // `hasNumber` followed by `splitOnNumbers` is inefficient
     //  lazy val ruleFoldConsts = rule[Exp] {
     //   case MergeMonoid(m: NumberMonoid, lhs: NumberConst, rhs) if hasNumber(m, rhs) => {
     //     logger.debug("ruleFoldConsts")

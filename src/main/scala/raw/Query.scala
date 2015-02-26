@@ -15,8 +15,6 @@ case class SemanticErrors(errors: Seq[Message]) extends QueryError
   */
 abstract class QueryResult {
   def value: Any
-
-  // TODO: def toRDD
 }
 
 object Query {
