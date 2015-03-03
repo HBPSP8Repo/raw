@@ -60,7 +60,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("simple_inference") {
     assert(
-      process(new World(Map("unknown" -> Source(SetType(AnyType()), EmptyLocation))), """for (l <- unknown) yield set (l + 2)""")
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown) yield set (l + 2)""")
       ===
       SetType(IntType())
     )
@@ -68,7 +68,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("inference_with_function") {
     assert(
-      process(new World(Map("unknown" -> Source(SetType(AnyType()), EmptyLocation))), """for (l <- unknown, f := (\v -> v + 2)) yield set f(l)""")
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown, f := (\v -> v + 2)) yield set f(l)""")
       ===
       SetType(IntType())
     )
@@ -77,7 +77,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("infer_across_bind") {    assert(
-    process(new World(Map("unknown" -> Source(SetType(AnyType()), EmptyLocation))), """for (j <- unknown, v := j) yield set (v + 0)""")
+    process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (j <- unknown, v := j) yield set (v + 0)""")
     ===
     SetType(IntType())
     )
@@ -86,13 +86,13 @@ class SemanticAnalyzerTest extends FunTest {
 
   def checkTopType(query: String, t: Type) = test(query) {
     val world = new World(
-      Map("unknown"  -> Source(SetType(AnyType()), EmptyLocation),
-          "integers" -> Source(SetType(IntType()), EmptyLocation),
-          "floats" -> Source(SetType(FloatType()), EmptyLocation),
-          "booleans" -> Source(SetType(BoolType()), EmptyLocation),
-          "strings" -> Source(SetType(StringType()), EmptyLocation),
-          "records"  -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), EmptyLocation),
-          "unknownrecords" -> Source(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), EmptyLocation)
+      Map("unknown"  -> MemoryLocation(SetType(AnyType()), Nil),
+          "integers" -> MemoryLocation(SetType(IntType()), Nil),
+          "floats" -> MemoryLocation(SetType(FloatType()), Nil),
+          "booleans" -> MemoryLocation(SetType(BoolType()), Nil),
+          "strings" -> MemoryLocation(SetType(StringType()), Nil),
+          "records"  -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), Nil),
+          "unknownrecords" -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), Nil)
       ))
     assert(process(world, query) === t)
   }

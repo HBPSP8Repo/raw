@@ -49,7 +49,7 @@ object TestWorlds {
       "Courses" -> courses)
 
     val catalog = Map(
-      "Departments" -> Source(departments, EmptyLocation)
+      "Departments" -> MemoryLocation(departments, Nil)
     )
 
     new World(catalog, userTypes=userTypes)
@@ -71,7 +71,7 @@ object TestWorlds {
           AttrType("manager", manager))))
 
     val catalog = Map(
-      "Employees" -> Source(employees, EmptyLocation)
+      "Employees" -> MemoryLocation(employees, Nil)
     )
 
     new World(catalog)
@@ -101,8 +101,8 @@ object TestWorlds {
           AttrType("OK", BoolType()))))
 
     val catalog = Map(
-      "Events" -> Source(events, EmptyLocation),
-      "GoodRuns" -> Source(goodRuns, EmptyLocation)
+      "Events" -> MemoryLocation(events, Nil),
+      "GoodRuns" -> MemoryLocation(goodRuns, Nil)
     )
 
     new World(catalog)
@@ -122,7 +122,7 @@ object TestWorlds {
               FloatType())))))
 
     val catalog = Map(
-      "things" -> Source(things, EmptyLocation)
+      "things" -> MemoryLocation(things, Nil)
     )
 
     new World(catalog)
@@ -144,8 +144,8 @@ object TestWorlds {
         AttrType("location", StringType()))))
 
     val catalog = Map(
-      "speed_limits" -> Source(speed_limits, EmptyLocation),
-      "radar" -> Source(radar, EmptyLocation)
+      "speed_limits" -> MemoryLocation(speed_limits, Nil),
+      "radar" -> MemoryLocation(radar, Nil)
     )
 
     new World(catalog)

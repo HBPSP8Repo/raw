@@ -112,11 +112,11 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case _: Merge => ???
       case Reduce(m, exp, ps, source) => new ReduceOperator(m, exp, ps, toOperator(source))
       case Scan(name) => {
-        val source = world.getSource(name)
-        source.location match {
-          case LocalFileLocation(path, "text/csv") => new ScanOperator(loadCSV(source.tipe, scala.io.Source.fromFile(path)))
-          case LocalFileLocation(path, "application/json") => new ScanOperator(loadJSON(source.tipe, scala.io.Source.fromFile(path)))
-          case MemoryLocation(data) => new ScanOperator(dataLocDecode(source.tipe, data))
+        val location = world.getLocation(name)
+        location match {
+          case LocalFileLocation(tipe, path, "text/csv") => new ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
+          case LocalFileLocation(tipe, path, "application/json") => new ScanOperator(loadJSON(tipe, scala.io.Source.fromFile(path)))
+          case MemoryLocation(tipe, data) => new ScanOperator(dataLocDecode(tipe, data))
           case loc => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
         }
       }
@@ -144,12 +144,12 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case IntConst(v)                                  => v.toInt
       case FloatConst(v)                                => v.toFloat
       case StringConst(v)                               => v
-      case Arg(idx)                                     => env match {
+      case Arg(idx)                                      => env match {
         case ProductValue(items) => items(idx)
         case v => if (idx == 0) v else throw ReferenceExecutorError(s"cannot extract $exp from $env")
       }
       case ProductCons(es)                              => ProductValue(es.map(expEval(_, env)))
-      case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[Seq[Any]](idx)
+      case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[Seq[Any]](idx) // TODO: BUG? Aren't we using ProductValue and cast'ing it wrong???
       case RecordCons(attributes)                       => attributes.map(att => (att.idn, expEval(att.e, env))).toMap
       case RecordProj(e, idn)                           => expEval(e, env) match {
         case v: Map[String, Any] => v(idn)
