@@ -23,20 +23,20 @@ abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
 
 abstract class FlatCSVTest extends SmokeTest {
 
-  val students = Source(
+  val students = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
-    LocalFileLocation("src/test/data/smokeTest/students.csv", "text/csv")
-  )
+    "src/test/data/smokeTest/students.csv",
+    "text/csv")
 
-  val profs = Source(
+  val profs = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
-    LocalFileLocation("src/test/data/smokeTest/profs.csv", "text/csv")
-  )
+    "src/test/data/smokeTest/profs.csv",
+    "text/csv")
 
-  val departments = Source(
+  val departments = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
-    LocalFileLocation("src/test/data/smokeTest/departments.csv", "text/csv")
-  )
+    "src/test/data/smokeTest/departments.csv",
+    "text/csv")
 
   val world: World = new World(Map(
     "students" -> students,
@@ -101,15 +101,15 @@ class FlatCSVSparkTest extends FlatCSVTest {
 */
 
 abstract class HierarchyJSONTest extends SmokeTest {
-  val movies = Source(
+  val movies = LocalFileLocation(
     ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
-    LocalFileLocation("src/test/data/smokeTest/movies.json", "application/json")
-  )
+    "src/test/data/smokeTest/movies.json",
+    "application/json")
 
-  val actors = Source(
+  val actors = LocalFileLocation(
     ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
-    LocalFileLocation("src/test/data/smokeTest/actors.json", "application/json")
-  )
+    "src/test/data/smokeTest/actors.json",
+    "application/json")
 
   val world = new World(Map(
     "movies" -> movies,
