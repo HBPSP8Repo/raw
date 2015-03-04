@@ -73,7 +73,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                     }
                   }
                   case _         => noMessages
-                }.toIndexedSeq
+                }.toVector
             }
       }
     }
