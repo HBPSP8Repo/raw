@@ -1,7 +1,7 @@
 package raw
 
 import org.kiama.util.Message
-import algebra.{Unnester, Algebra}
+import algebra.{Unnester, LogicalAlgebra}
 import calculus._
 import executor.Executor
 import executor.reference.ReferenceExecutor
@@ -35,7 +35,7 @@ object Query {
       Some(SemanticErrors(analyzer.errors))
   }
 
-  def unnest(tree: Calculus.Calculus, world: World): Algebra.OperatorNode = Unnester(tree, world)
+  def unnest(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = Unnester(tree, world)
 
   def apply(query: String, world: World, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
     parse(query, world) match {

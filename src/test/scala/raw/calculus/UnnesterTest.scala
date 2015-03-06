@@ -128,7 +128,8 @@ class AlgebraLang {
   import scala.language.dynamics
   import scala.collection.immutable.Seq
   import raw._
-  import algebra.Algebra._
+  import algebra.LogicalAlgebra._
+  import algebra.Expressions._
 
   /** Expression builders
     */
@@ -289,29 +290,29 @@ class AlgebraLang {
     */
   def scan(name: String) = Scan(name)
 
-  def reduce(m: Monoid, e: Builder, p: Builder, child: OperatorNode) = Reduce(m, build(e), build(p), child)
+  def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), build(p), child)
 
-  def reduce(m: Monoid, e: Builder, child: OperatorNode) = Reduce(m, build(e), BoolConst(true), child)
+  def reduce(m: Monoid, e: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), BoolConst(true), child)
 
-  def select(p: Builder, child: OperatorNode) = Select(build(p), child)
+  def select(p: Builder, child: LogicalAlgebraNode) = Select(build(p), child)
 
-  def select(child: OperatorNode) = Select(BoolConst(true), child)
+  def select(child: LogicalAlgebraNode) = Select(BoolConst(true), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
 
-  def join(p: Builder, left: OperatorNode, right: OperatorNode) = Join(build(p), left, right)
+  def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Join(build(p), left, right)
 
-  def unnest(path: Builder, pred: Builder, child: OperatorNode) = Unnest(build(path), build(pred), child)
+  def unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = Unnest(build(path), build(pred), child)
 
-  def unnest(path: Builder, child: OperatorNode) = Unnest(build(path), BoolConst(true), child)
+  def unnest(path: Builder, child: LogicalAlgebraNode) = Unnest(build(path), BoolConst(true), child)
 
-  def outer_join(p: Builder, left: OperatorNode, right: OperatorNode) = OuterJoin(build(p), left, right)
+  def outer_join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = OuterJoin(build(p), left, right)
 
-  def outer_unnest(path: Builder, pred: Builder, child: OperatorNode) = OuterUnnest(build(path), build(pred), child)
+  def outer_unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), build(pred), child)
 
-  def outer_unnest(path: Builder, child: OperatorNode) = OuterUnnest(build(path), BoolConst(true), child)
+  def outer_unnest(path: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), BoolConst(true), child)
 
-  def merge(m: Monoid, left: OperatorNode, right: OperatorNode) = Merge(m, left, right)
+  def merge(m: Monoid, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Merge(m, left, right)
 }

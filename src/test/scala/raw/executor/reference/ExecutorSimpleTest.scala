@@ -4,7 +4,8 @@ import scala.collection.immutable.Seq
 import org.scalatest._
 import raw._
 import algebra._
-import Algebra._
+import LogicalAlgebra._
+import Expressions._
 
 /**
  * Created by gaidioz on 1/14/15.
@@ -31,7 +32,7 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
   }
 
   // asserts an operation returns the expected result
-  def checkOperation(opNode: OperatorNode, result: Any): Unit = {
+  def checkOperation(opNode: LogicalAlgebraNode, result: Any): Unit = {
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
       Then("it should return " + result)
