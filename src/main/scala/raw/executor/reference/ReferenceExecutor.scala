@@ -20,13 +20,14 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   case class ProductValue(items: Seq[Any])
 
-  def makeProduct(x: Any, y: Any): ProductValue =  (x, y) match {
+  def makeProduct(x: Any, y: Any): ProductValue = (x, y) match {
     case (ProductValue(s1), ProductValue(s2)) => ProductValue(s1 ++ s2)
-    case (s1: Any, ProductValue(s2)) => ProductValue(Seq(s1) ++ s2)
-    case (ProductValue(s1), s2) => ProductValue(s1 :+ s2)
-    case (s1, s2) => ProductValue(Seq(s1, s2))
+    case (s1, ProductValue(s2))               => ProductValue(Seq(s1) ++ s2)
+    case (ProductValue(s1), s2)               => ProductValue(s1 :+ s2)
+    case (s1, s2)                             => ProductValue(Seq(s1, s2))
   }
 
+  // TODO: Remove and swap for a pretty printer?
     def show(x: Any): String = x match {
       case _: Boolean => x.toString
       case _: Float => x.toString
@@ -145,12 +146,9 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case IntConst(v)                                  => v.toInt
       case FloatConst(v)                                => v.toFloat
       case StringConst(v)                               => v
-      case Arg(idx)                                      => env match {
-        case ProductValue(items) => items(idx)
-        case v => if (idx == 0) v else throw ReferenceExecutorError(s"cannot extract $exp from $env")
-      }
+      case Arg                                          => env
       case ProductCons(es)                              => ProductValue(es.map(expEval(_, env)))
-      case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[Seq[Any]](idx) // TODO: BUG? Aren't we using ProductValue and cast'ing it wrong???
+      case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[ProductValue].items(idx)
       case RecordCons(attributes)                       => attributes.map(att => (att.idn, expEval(att.e, env))).toMap
       case RecordProj(e, idn)                           => expEval(e, env) match {
         case v: Map[String, Any] => v(idn)

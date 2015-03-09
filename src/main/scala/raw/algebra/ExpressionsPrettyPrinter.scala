@@ -14,7 +14,7 @@ object ExpressionsPrettyPrinter extends PrettyPrinter {
     case IntConst(v)                    => v
     case FloatConst(v)                  => v
     case StringConst(v)                 => s""""$v""""
-    case Arg(idx)                       => s"$$$idx"
+    case Arg                            => "$$arg"
     case ProductProj(e, idx)            => show(e) <> parens(idx.toString)
     case ProductCons(es)                => "(" <+> es.map(show).mkString(",") <+> ")"
     case RecordProj(e, idn)             => show(e) <> dot <> idn

@@ -33,7 +33,7 @@ object Expressions {
 
   /** Argument
     */
-  case class Arg(idx: Int) extends Exp
+  case object Arg extends Exp
 
   /** Product Projection
     */

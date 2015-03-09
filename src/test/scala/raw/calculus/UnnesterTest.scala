@@ -86,7 +86,7 @@ class UnnesterTest extends FunTest {
               outer_unnest(
                 path=arg(0).manager.children,
                 outer_unnest(
-                  path=arg(0).children,
+                  path=arg().children,
                   select(
                     scan("Employees")))))))
       }
@@ -104,12 +104,12 @@ class UnnesterTest extends FunTest {
           set,
           reduce(
             set,
-            arg(0),
+            arg(),
             select(
               scan("things"))),
           reduce(
             set,
-            arg(0),
+            arg(),
             select(
               scan("things"))))
       }
@@ -181,7 +181,9 @@ class AlgebraLang {
 
   case class ConstBuilder(c: Const) extends Builder
 
-  case class ArgBuilder(a: Arg) extends Builder
+  case object ArgBuilder extends Builder
+
+  case class ProductProjBuilder(lhs: Builder, idx: Int) extends Builder
 
   case class RecordProjBuilder(lhs: Builder, idn: String) extends Builder
 
@@ -213,7 +215,7 @@ class AlgebraLang {
 
   /** Variable
     */
-  def arg(i: Int) = ArgBuilder(Arg(i))
+  def arg(i: Int = -1) = if (i < 0) ArgBuilder else ProductProjBuilder(ArgBuilder, i)
 
   /** Record Construction
     */
@@ -273,7 +275,8 @@ class AlgebraLang {
   def build(b: Builder): Exp = b match {
     case NullBuilder                     => Null
     case ConstBuilder(c)                 => c
-    case ArgBuilder(a)                   => a
+    case ArgBuilder                      => Arg
+    case ProductProjBuilder(lhs, idx)    => ProductProj(build(lhs), idx)
     case RecordProjBuilder(lhs, idn)     => RecordProj(build(lhs), idn)
     case RecordConsBuilder(atts)         => RecordCons(atts.map { att => AttrCons(att.idn, build(att.b))})
     case IfThenElseBuilder(i)            => i
@@ -282,8 +285,8 @@ class AlgebraLang {
     case UnaryExpBuilder(op, e)          => UnaryExp(op, build(e))
   }
 
-  def argbuild(bs: List[ArgBuilder]): Exp =
-    ProductCons(bs.map { case ArgBuilder(a) => a })
+  def argbuild(bs: List[Builder]): Exp =
+    ProductCons(bs.map(build))
 
 
   /** Algebra operators
@@ -298,9 +301,9 @@ class AlgebraLang {
 
   def select(child: LogicalAlgebraNode) = Select(BoolConst(true), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], p: Builder, nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
 
   def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Join(build(p), left, right)
 
