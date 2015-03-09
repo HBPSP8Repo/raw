@@ -27,17 +27,17 @@ abstract class FlatCSVTest extends SmokeTest {
   val students = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
     "src/test/data/smokeTest/students.csv",
-    "text/csv")
+    TEXT_CSV)
 
   val profs = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
     "src/test/data/smokeTest/profs.csv",
-    "text/csv")
+    TEXT_CSV)
 
   val departments = LocalFileLocation(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
     "src/test/data/smokeTest/departments.csv",
-    "text/csv")
+    TEXT_CSV)
 
   val world: World = new World(Map(
     "students" -> students,
@@ -105,12 +105,12 @@ abstract class HierarchyJSONTest extends SmokeTest {
   val movies = LocalFileLocation(
     ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
     "src/test/data/smokeTest/movies.json",
-    "application/json")
+    APPLICATION_JSON)
 
   val actors = LocalFileLocation(
     ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
     "src/test/data/smokeTest/actors.json",
-    "application/json")
+    APPLICATION_JSON)
 
   val world = new World(Map(
     "movies" -> movies,

@@ -2,6 +2,8 @@ package raw
 package executor
 package reference
 
+import raw.TEXT_CSV
+
 import scala.io.BufferedSource
 
 import com.typesafe.scalalogging.LazyLogging
@@ -114,8 +116,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case Scan(name) => {
         val location = world.getLocation(name)
         location match {
-          case LocalFileLocation(tipe, path, "text/csv") => new ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
-          case LocalFileLocation(tipe, path, "application/json") => new ScanOperator(loadJSON(tipe, scala.io.Source.fromFile(path)))
+          case LocalFileLocation(tipe, path, TEXT_CSV) => new ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
+          case LocalFileLocation(tipe, path, APPLICATION_JSON) => new ScanOperator(loadJSON(tipe, scala.io.Source.fromFile(path)))
           case MemoryLocation(tipe, data) => new ScanOperator(dataLocDecode(tipe, data))
           case loc => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
         }
