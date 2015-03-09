@@ -81,7 +81,7 @@ object Unnester extends LazyLogging {
       case Calculus.IntConst(v)                => Expressions.IntConst(v)
       case Calculus.FloatConst(v)              => Expressions.FloatConst(v)
       case Calculus.StringConst(v)             => Expressions.StringConst(v)
-      case Calculus.IdnExp(idn)                => Expressions.Arg(idns.indexOf(idn.idn))
+      case Calculus.IdnExp(idn)                => if (idns.length > 1) Expressions.ProductProj(Expressions.Arg, idns.indexOf(idn.idn)) else Expressions.Arg
       case Calculus.RecordProj(e, idn)         => Expressions.RecordProj(convertExp(e, idns), idn)
       case Calculus.RecordCons(atts)           => Expressions.RecordCons(atts.map { att => Expressions.AttrCons(att.idn, convertExp(att.e, idns))})
       case Calculus.IfThenElse(e1, e2, e3)     => Expressions.IfThenElse(convertExp(e1, idns), convertExp(e2, idns), convertExp(e3, idns))
@@ -105,7 +105,8 @@ object Unnester extends LazyLogging {
     def createExp(e: Calculus.Exp, vs: Seq[Calculus.IdnNode]): Expressions.Exp = convertExp(e, vs.map(_.idn))
 
     def createProduct(idns: Seq[Calculus.IdnNode], vs: Seq[Calculus.IdnNode]): Expressions.Exp =
-      Expressions.ProductCons(idns.map{ idn => Expressions.Arg(vs.indexOf(idn)) })
+      // TODO: ???
+      Expressions.ProductCons(idns.map{ idn => Expressions.ProductProj(Expressions.Arg, vs.indexOf(idn)) })
 
     /** Rule C4
       */
