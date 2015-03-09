@@ -2,7 +2,7 @@ package raw.calculus
 
 class SyntaxAnalyzerTest extends FunTest {
 
-  def isOK(q: String) = assert(CalculusPrettyPrinter(parse(q), 200) === q)
+  def isOK(q: String) = { logger.debug(parse(q).toString); assert(CalculusPrettyPrinter(parse(q), 200) === q) }
   
   test("cern_events") {
     isOK("for (e1 <- Events, e1.RunNumber > 100) yield set (muon := e1.muon)")
@@ -18,5 +18,13 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("backticks") {
     isOK("""for (e <- Employees) yield set (`Employee Children` := e.children)""")
+  }
+
+  test("product_projection") {
+    isOK("""("Foo", "Bar").1""")
+  }
+
+  test("product_and_record_projection") {
+    isOK("""((`Employee Name` := "Ben", Age := 35).`Employee Name`, "Foo").1""")
   }
 }
