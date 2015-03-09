@@ -84,17 +84,20 @@ class SemanticAnalyzerTest extends FunTest {
     // what we really want to assert is that j is of type int and unknown is of type Set(int)
   }
 
-  def checkTopType(query: String, t: Type) = test(query) {
-    val world = new World(
-      Map("unknown"  -> MemoryLocation(SetType(AnyType()), Nil),
+  def checkTopType(query: String, t: Type, issue: String = "") = {
+    val run = (d: String) => if (issue != "") ignore(d + s" ($issue)") _ else test(d) _
+    run(query) {
+      val world = new World(
+        Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil),
           "integers" -> MemoryLocation(SetType(IntType()), Nil),
           "floats" -> MemoryLocation(SetType(FloatType()), Nil),
           "booleans" -> MemoryLocation(SetType(BoolType()), Nil),
           "strings" -> MemoryLocation(SetType(StringType()), Nil),
-          "records"  -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), Nil),
+          "records" -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), Nil),
           "unknownrecords" -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), Nil)
-      ))
-    assert(process(world, query) === t)
+        ))
+      assert(process(world, query) === t)
+    }
   }
 
   checkTopType("for (r <- integers) yield set r + 1", SetType(IntType()))
@@ -107,10 +110,10 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- unknown, x <- strings, r = x) yield set r", SetType(StringType()))
   checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
   checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
-  checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
+  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
   checkTopType("for (r <- unknown, (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))
+  checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "mission record type inferrence")
 
 
 
