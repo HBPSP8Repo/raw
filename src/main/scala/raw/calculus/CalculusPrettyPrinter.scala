@@ -34,7 +34,9 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case IdnDef(idn, None)          => ident(idn)
       case IdnUse(idn)                => ident(idn)
       case IdnExp(idn)                => apply(idn)
-      case RecordProj(e, idn)         => apply(e) <> dot <> idn
+      case ProductProj(e, idx)        => apply(e) <> dot <> idx.toString
+      case ProductCons(es)            => parens(group(nest(lsep(es.map(apply), comma))))
+      case RecordProj(e, idn)         => apply(e) <> dot <> ident(idn)
       case AttrCons(idn, e)           => ident(idn) <+> ":=" <+> apply(e)
       case RecordCons(atts)           => parens(group(nest(lsep(atts.map(apply), comma))))
       case IfThenElse(e1, e2, e3)     => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)

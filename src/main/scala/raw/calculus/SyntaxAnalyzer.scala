@@ -92,7 +92,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     mergeExp
 
   lazy val mergeExp: PackratParser[Exp] =
-    positioned(recordProjExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
+    positioned(baseExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
   lazy val monoidMerge: PackratParser[Monoid] =
     positioned(
@@ -101,29 +101,14 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
       "append" ^^^ ListMonoid() |
       "max" ^^^ MaxMonoid())
 
-  lazy val recordProjExp: PackratParser[Exp] =
-    positioned(baseExp ~ rep("." ~> ident) ^^ { case e ~ ps => if (ps.isEmpty) e else ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
-
-  def ident: Parser[Idn] =
-    escapeName |
-    varName
-
-  def escapeName: Parser[Idn] =
-    """`[\w\t ]+`""".r into (s => success(s.drop(1).dropRight(1)))
-
-  def varName: Parser[Idn] =
-    """[a-zA-Z]\w*""".r into (s => {
-      if (reservedWords contains s)
-        failure(s"""reserved keyword '${s}' found where identifier expected""")
-      else
-        success(s)
-    })
-
   /** `baseExp` is left-recursive since `exp` goes down to `baseExp` again.
     */
   lazy val baseExp: PackratParser[Exp] =
     const |
+    recordProj |
+    productProj |
     ifThenElse |
+    productCons |
     recordCons |
     zeroAndConsMonoid |
     unaryFun |
@@ -164,8 +149,37 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
   def numericLit: Parser[String] =
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
+  lazy val recordProj: PackratParser[Exp] =
+    positioned(exp ~ ("." ~> ident) ^^ RecordProj)
+
+  def ident: Parser[Idn] =
+    escapeName |
+      varName
+
+  def escapeName: Parser[Idn] =
+    """`[\w\t ]+`""".r into (s => success(s.drop(1).dropRight(1)))
+
+  def varName: Parser[Idn] =
+    """[a-zA-Z]\w*""".r into (s => {
+      if (reservedWords contains s)
+        failure(s"""reserved keyword '${s}' found where identifier expected""")
+      else
+        success(s)
+    })
+
+  lazy val productProj: PackratParser[Exp] =
+    positioned(exp ~ ("." ~> integer) ^^ ProductProj)
+
+  def integer: Parser[Int] =
+    """\d+""".r into (s => success(s.toInt))
+
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned("if" ~> exp ~ ("then" ~> exp) ~ ("else" ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
+
+  lazy val productCons: PackratParser[ProductCons] =
+    positioned(("(" ~> exp) ~ ("," ~> rep1sep(exp, ",") <~ ")") ^^ {
+      case head ~ tail => ProductCons(head :: tail)
+    })
 
   lazy val recordCons: PackratParser[RecordCons] =
     positioned("(" ~> repsep(attrCons, ",") <~ ")" ^^ RecordCons)
