@@ -50,7 +50,7 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.fines, query) === Result())
   }
 
-  test("complex_join_2") {
+  ignore("complex_join_2") {
     val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
 //
 //    object Result extends AlgebraLang {
