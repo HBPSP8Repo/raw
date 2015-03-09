@@ -12,6 +12,12 @@ object CalculusPrettyPrinter extends PrettyPrinter {
   def apply(n: CalculusNode, w: Width = 120, debug: Option[PartialFunction[CalculusNode, String]] = None): String =
     super.pretty(show(n, debug), w=w).layout
 
+  def isEscaped(s: String): Boolean =
+    ("""[\t ]""".r findFirstIn(s)).isDefined
+
+  def ident(idn: Idn): String =
+    if (isEscaped(idn)) s"`$idn`" else idn
+
   def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
     def apply(n: CalculusNode): Doc =
       (debug match {
@@ -25,11 +31,11 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case FloatConst(v)              => v
       case StringConst(v)             => s""""$v""""
       case IdnDef(idn, Some(t))       => idn <+> ":" <+> tipe(t)
-      case IdnDef(idn, None)          => idn
-      case IdnUse(idn)                => idn
+      case IdnDef(idn, None)          => ident(idn)
+      case IdnUse(idn)                => ident(idn)
       case IdnExp(idn)                => apply(idn)
       case RecordProj(e, idn)         => apply(e) <> dot <> idn
-      case AttrCons(idn, e)           => idn <+> ":=" <+> apply(e)
+      case AttrCons(idn, e)           => ident(idn) <+> ":=" <+> apply(e)
       case RecordCons(atts)           => parens(group(nest(lsep(atts.map(apply), comma))))
       case IfThenElse(e1, e2, e3)     => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)
       case BinaryExp(op, e1, e2)      => apply(e1) <+> binaryOp(op) <+> apply(e2)

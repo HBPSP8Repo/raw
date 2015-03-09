@@ -15,4 +15,8 @@ class SyntaxAnalyzerTest extends FunTest {
   test("paper_query_2") {
     isOK("""for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
   }
+
+  test("backticks") {
+    isOK("""for (e <- Employees) yield set (`Employee Children` := e.children)""")
+  }
 }

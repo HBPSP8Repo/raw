@@ -105,6 +105,13 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     positioned(baseExp ~ rep("." ~> ident) ^^ { case e ~ ps => if (ps.isEmpty) e else ps.foldLeft(e)((e, id) => RecordProj(e, id)) })
 
   def ident: Parser[Idn] =
+    escapeName |
+    varName
+
+  def escapeName: Parser[Idn] =
+    """`[\w\t ]+`""".r into (s => success(s.drop(1).dropRight(1)))
+
+  def varName: Parser[Idn] =
     """[a-zA-Z]\w*""".r into (s => {
       if (reservedWords contains s)
         failure(s"""reserved keyword '${s}' found where identifier expected""")
@@ -198,6 +205,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     positioned((idnDef <~ "<-") ~ exp ^^ { case idn ~ e => Gen(idn, e) })
 
   lazy val idnDef: PackratParser[IdnDef] =
+  // TODO: ???
     positioned(ident ~ opt(":" ~> tipe) ^^ IdnDef)
 
   lazy val bind: PackratParser[Bind] =
@@ -275,6 +283,7 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
     positioned(idnUse ^^ IdnExp)
 
   lazy val idnUse: PackratParser[IdnUse] =
+  // TODO: ???
     positioned(ident ^^ IdnUse)
 
 }
