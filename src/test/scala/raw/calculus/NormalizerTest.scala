@@ -11,6 +11,12 @@ class NormalizerTest extends FunTest {
     CalculusPrettyPrinter(Normalizer(t, w).root, 200)
   }
 
+  test("ruleExpBlock") {
+    compare(
+      process(TestWorlds.departments, """for (d <- Departments) yield set { name := d.name; (deptName := name) }"""),
+      """for ($0 <- Departments) yield set (deptName := $0.name)""")
+  }
+
   test("rule1") {
     compare(
       process(TestWorlds.cern, "for (e <- Events, e1 := e, (for (a <- Events, a1 := a, a1.RunNumber > 200) yield max a1.RunNumber) < 300, e1.RunNumber > 100) yield set (muons := e1.muons)"),

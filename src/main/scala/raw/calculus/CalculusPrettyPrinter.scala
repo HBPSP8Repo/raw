@@ -7,6 +7,7 @@ import org.kiama.output.PrettyPrinterTypes.Width
   */
 object CalculusPrettyPrinter extends PrettyPrinter {
 
+  import scala.collection.immutable.Seq
   import Calculus._
 
   def apply(n: CalculusNode, w: Width = 120, debug: Option[PartialFunction[CalculusNode, String]] = None): String =
@@ -34,8 +35,6 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case IdnDef(idn, None)          => ident(idn)
       case IdnUse(idn)                => ident(idn)
       case IdnExp(idn)                => apply(idn)
-      case ProductProj(e, idx)        => apply(e) <> dot <> idx.toString
-      case ProductCons(es)            => parens(group(nest(lsep(es.map(apply), comma))))
       case RecordProj(e, idn)         => apply(e) <> dot <> ident(idn)
       case AttrCons(idn, e)           => ident(idn) <+> ":=" <+> apply(e)
       case RecordCons(atts)           => parens(group(nest(lsep(atts.map(apply), comma))))
@@ -50,6 +49,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case FunAbs(idn, e)             => apply(idn) <+> "=>" <+> apply(e)
       case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)
       case Bind(idn, e)               => apply(idn) <+> ":=" <+> apply(e)
+      case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
     })
 
     apply(n)
