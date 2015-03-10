@@ -65,14 +65,6 @@ object Calculus {
     */
   case class IdnExp(idn: IdnUse) extends Exp
 
-  /** Product Projection
-    */
-  case class ProductProj(e: Exp, idx: Int) extends Exp
-
-  /** Product Construction
-    */
-  case class ProductCons(es: Seq[Exp]) extends Exp
-
   /** Record Projection
     */
   case class RecordProj(e: Exp, idn: Idn) extends Exp
@@ -130,5 +122,13 @@ object Calculus {
   /** Bind
     */
   case class Bind(idn: IdnDef, e: Exp) extends Statement
+
+  /** Syntactic sugar
+    *
+    */
+
+  /** Expression in a Block with Binds
+    */
+  case class ExpBlock(bs: Seq[Bind], e: Exp) extends Exp
 
 }

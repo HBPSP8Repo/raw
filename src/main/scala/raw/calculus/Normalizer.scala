@@ -41,6 +41,20 @@ object Normalizer extends LazyLogging {
       }
     }
 
+    /** De-sugar expression blocks
+      */
+
+    lazy val ruleExpBlocks = rule[Exp] {
+      case ExpBlock(Bind(IdnDef(x, _), u) :: rest, e) =>
+        val strategy = everywhere(rule[Exp] {
+          case IdnExp(IdnUse(`x`)) => deepclone(u)
+        })
+        val nrest = rewrite(strategy)(rest)
+        val ne = rewrite(strategy)(e)
+        ExpBlock(nrest, ne)
+      case ExpBlock(Nil, e) => e
+    }
+
     /** Rule 1
       */
     object Rule1 {
@@ -204,7 +218,7 @@ object Normalizer extends LazyLogging {
       }
     }
 
-    lazy val strategy: Strategy = doloop(reduce(rule1), oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10)) //attempt(everywhere(rule1)) <* (oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10) < strategy + id)
+    lazy val strategy: Strategy = doloop(reduce(ruleExpBlocks + rule1), oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10))
 
     val outTree = rewriteTree(strategy)(inTree)
     logger.debug(s"Normalizer output tree: ${CalculusPrettyPrinter(outTree.root)}")

@@ -116,7 +116,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   def envin(in: RawNode => Environment): RawNode ==> Environment = {
     case n if tree.isRoot(n) => rootenv()
-    case c: Comp => enter(in(c))
+
+    // Entering new scopes
+    case c: Comp     => enter(in(c))
+    case b: ExpBlock => enter(in(b))
 
     // If we are in a function abstraction, we must open a new scope for the variable argument. But if the parent is a
     // `Bind`, then the `in` environment of the function abstraction must be the same as the `in` environment of the
@@ -131,8 +134,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   }
 
   def envout(out: RawNode => Environment): RawNode ==> Environment = {
-    // The `out` environment of a comprehension must remove the scope that was inserted.
-    case c: Comp => leave(out(c))
+    // Leaving a scope
+    case c: Comp     => leave(out(c))
+    case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
     case f: FunAbs => leave(out(f))
@@ -352,6 +356,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case UnaryExp(_: ToInt, _)    => IntType()
     case UnaryExp(_: ToFloat, _)  => FloatType()
     case UnaryExp(_: ToString, _) => StringType()
+
+    // Expression block type
+    case ExpBlock(_, e) => pass1(e)
 
     case _ => NothingType()
   }
