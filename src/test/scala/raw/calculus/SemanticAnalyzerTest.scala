@@ -120,7 +120,21 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))
   checkTopType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
 
-//  test("bad patterns") {
+  checkTopType("{ (a,b) := (1, 2); a+b }", IntType())
+  checkTopType("{ (a,b) := (1, 2.2); a }", IntType())
+  checkTopType("{ (a,b) := (1, 2.2); b }", FloatType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); a }", IntType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); b }", FloatType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); c }", IntType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); a+c }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); a }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); b }", FloatType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); c }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
+
+  checkTopType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
+
+  //  test("bad patterns") {
 //   """{ (a, b, c) := (1, 2); a + b + c }""" should produce a message with incompatible pattern... how to test exact error mssage? or approximate error message?
 //  }
 
