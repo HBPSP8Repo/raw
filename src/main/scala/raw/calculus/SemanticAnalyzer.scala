@@ -43,9 +43,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           message(u, s"$i is not declared")
 
         // Check whether pattern structure matches expression type
-        case PatternBind(p, e) => logger.debug(s"we were here: $p and $e"); patternCompatible(p, tipe(e), e)
+        case PatternBind(p, e) => patternCompatible(p, tipe(e), e)
         case PatternGen(p, e)  => tipe(e) match {
-          case t: CollectionType => patternCompatible(p, t, e)
+          case t: CollectionType => patternCompatible(p, t.innerType, e)
           case _                 => noMessages // Initial error is already signaled elsewhere
         }
 
@@ -73,9 +73,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       if (ps.length != atts.length)
         message(e, s"expected record with ${ps.length} attributes but got record with ${atts.length} attributes")
       else
-        ps.zip(atts).flatMap { case (p, att) => patternCompatible(p, att.tipe, e) }.toVector
-    case (_: PatternProd, t) =>
-      message(e, s"expected record type but got ${PrettyPrinter(t)}")
+        ps.zip(atts).flatMap { case (p1, att) => patternCompatible(p1, att.tipe, e) }.toVector
+    case (p1: PatternProd, t1) =>
+      message(e, s"expected ${PrettyPrinter(patternType(p1))} but got ${PrettyPrinter(t1)}")
     case (_: PatternIdn, _) => noMessages
   }
 
@@ -118,21 +118,22 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         else n match {
           case tree.parent(p) => {
 
-            // Go up pattern recursively while building expression to project the expression out of the record pattern.
-            def recurse(n: Pattern): (Exp, CalculusNode) = n match {
-              case tree.parent(s @ PatternBind(_, e)) => (e, s)
-              case tree.parent(p @ PatternProd(ps)) => val (e, s) = recurse(p); (RecordProj(e, s"_${ps.indexOf(n)+1}"), s)
+            // Walk up pattern recursively while building a record project that projects the expression out of the pattern.
+            def walk(n: Pattern): (Seq[Int], CalculusNode) = n match {
+              case tree.parent(b: PatternBind)      => (Nil, b)
+              case tree.parent(g: PatternGen)       => (Nil, g)
+              case tree.parent(p @ PatternProd(ps)) => val (w, e) = walk(p); (w :+ ps.indexOf(n), e)
             }
 
             p match {
-              case p: Pattern => recurse(p) match {
-                case (e, _: PatternBind)   => logger.debug(s"here we are with $e"); BindEntity(t, e)
-                case (e, _: PatternGen)    => GenEntity(t, e)
-                case (e, _: PatternFunAbs) => FunArgEntity(t)
+              case p: Pattern => val (idxs, n1) = walk(p); n1 match {
+                case PatternBind(_, e) => PatternBindEntity(t, e, idxs)
+                case PatternGen(_, e)  => PatternGenEntity(t, e, idxs)
               }
-              case Bind(_, e) => BindEntity(t, e)
-              case Gen(_, e)  => GenEntity(t, e)
-              case _: FunAbs  => FunArgEntity(t)
+              case Bind(_, e)       => BindEntity(t, e)
+              case Gen(_, e)        => GenEntity(t, e)
+              case _: FunAbs        => FunArgEntity(t)
+              case _: PatternFunAbs => FunArgEntity(t)
             }
           }
         }
@@ -283,25 +284,48 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     walk(pass1(e))
   }
 
+  // Build a new expression with the records projected
+  def projectPattern(e: Exp, idxs: Seq[Int]): Exp = idxs match {
+    case idx :: rest => projectPattern(RecordProj(e, s"_${idx + 1}"), rest)
+    case Nil         => e
+  }
+
+  // Returns the type if defined; otherwise, returns a type variable.
+  def optType(t: Option[Type]) = t match {
+    case Some(t1) => t1
+    case None     => TypeVariable(freshVar(AnyType()))
+  }
+
+  // Return the type corresponding to a given list of pattern indexes
+  def indexesType(t: Type, idxs: Seq[Int]): Type = idxs match {
+    case idx :: rest => t match {
+      case RecordType(atts) if atts.length > idx => indexesType(atts(idx).tipe, rest)
+      case _                                     => NothingType()
+    }
+    case Nil         => t
+  }
+
   lazy val realEntityType: Entity => Type = attr {
-    case BindEntity(Some(t), e) => unify(t, pass1(e))
-    case BindEntity(None, e) => unify(TypeVariable(freshVar(AnyType())), pass1(e))
-    case GenEntity(Some(t), e) => pass1(e) match {
-      case c: CollectionType => unify(t, c.innerType)
+    case BindEntity(optT, e)              => unify(optType(optT), pass1(e))
+    case PatternBindEntity(optT, e, idxs) => unify(optType(optT), pass1(projectPattern(e, idxs)))
+
+    case GenEntity(optT, e)              => pass1(e) match {
+      case c: CollectionType => unify(optType(optT), c.innerType)
       case _ => NothingType()
     }
-    case GenEntity(None, e) => pass1(e) match {
-      case c: CollectionType => unify(TypeVariable(freshVar(AnyType())), c.innerType)
+    case PatternGenEntity(optT, e, idxs) => pass1(e) match {
+      case c: CollectionType => unify(optType(optT), indexesType(c.innerType, idxs))
       case _ => NothingType()
     }
-    case FunArgEntity(Some(t)) => t
-    case FunArgEntity(None) => TypeVariable(freshVar(AnyType()))
+
+    case FunArgEntity(optT) => optType(optT)
+
     case ClassEntity(_, t) => t
   }
 
   def entityType(e: Entity): Type = realEntityType(e) match {
     case ClassType(name) => world.userTypes(name)
-    case t => t
+    case t               => t
   }
 
   def idnType(idn: IdnNode): Type = entityType(entity(idn))

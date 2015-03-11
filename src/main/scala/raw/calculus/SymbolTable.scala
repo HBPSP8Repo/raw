@@ -46,4 +46,12 @@ object SymbolTable extends Environments {
     */
   case class ClassEntity(name: String, t: Type) extends RawEntity
 
+  /** Entity for a pattern bind statement.
+    */
+  case class PatternBindEntity(t: Option[Type], e: Exp, idxs: Seq[Int]) extends RawEntity
+
+  /** Entity for a pattern generator statement.
+    */
+  case class PatternGenEntity(t: Option[Type], e: Exp, idxs: Seq[Int]) extends RawEntity
+
 }
