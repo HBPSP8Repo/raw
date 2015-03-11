@@ -18,7 +18,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("cern events") {
     assert(
-      process(TestWorlds.cern, "for (e <- Events, e.RunNumber > 100, m <- e.muons) yield set (muon := m)")
+      process(TestWorlds.cern, "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)")
         ===
         SetType(
           RecordType(List(
@@ -29,7 +29,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("paper query 1") {
     assert(
-      process(TestWorlds.departments, """for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
+      process(TestWorlds.departments, """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
         ===
         SetType(
           RecordType(List(
@@ -41,7 +41,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("paper query 2") {
     assert(
-      process(TestWorlds.employees, "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
+      process(TestWorlds.employees, "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
         ===
         SetType(
           RecordType(List(
@@ -68,7 +68,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("inference with function") {
     assert(
-      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown, f := (\v -> v + 2)) yield set f(l)""")
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown; f := (\v -> v + 2)) yield set f(l)""")
       ===
       SetType(IntType())
     )
@@ -76,7 +76,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("infer across bind") {
     assert(
-      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (j <- unknown, v := j) yield set (v + 0)""")
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (j <- unknown; v := j) yield set (v + 0)""")
       ===
       SetType(IntType())
     )
@@ -84,7 +84,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("expression block type") {
     assert(
-      process(TestWorlds.departments, """for ( d <- Departments, d.name = "CSE") yield set { name := d.name; (deptName := name) }""")
+      process(TestWorlds.departments, """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""")
         ===
         SetType(
           RecordType(List(
@@ -107,16 +107,21 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- integers) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1.0", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- integers, r = x) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- integers, r + x = 2*x) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- floats, r + x = x) yield set r", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- booleans, r and x) yield set r", SetType(BoolType()))
-  checkTopType("for (r <- unknown, x <- strings, r = x) yield set r", SetType(StringType()))
+  checkTopType("for (r <- unknown; x <- integers; r = x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; x <- integers; r + x = 2*x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; x <- floats; r + x = x) yield set r", SetType(FloatType()))
+  checkTopType("for (r <- unknown; x <- booleans; r and x) yield set r", SetType(BoolType()))
+  checkTopType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
   checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
   checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
-  checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
-  checkTopType("for (r <- unknown, (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))
+  checkTopType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))))
+  checkTopType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
+  checkTopType("for (r <- unknown; (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))))
+  checkTopType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
+
+//  test("bad patterns") {
+//   """{ (a, b, c) := (1, 2); a + b + c }""" should produce a message with incompatible pattern... how to test exact error mssage? or approximate error message?
+//  }
 
 }
