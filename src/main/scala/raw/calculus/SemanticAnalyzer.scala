@@ -42,41 +42,64 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case u @ IdnUse(i) if entity(u) == UnknownEntity() =>
           message(u, s"$i is not declared")
 
+        // Check whether pattern structure matches expression type
+        case PatternBind(p, e) => logger.debug(s"we were here: $p and $e"); patternCompatible(p, tipe(e), e)
+        case PatternGen(p, e)  => tipe(e) match {
+          case t: CollectionType => patternCompatible(p, t, e)
+          case _                 => noMessages // Initial error is already signaled elsewhere
+        }
+
         case e: Exp =>
           // Mismatch between type expected and actual type
           message(e, s"expected ${expectedType(e).map{ case p => PrettyPrinter(p) }.mkString(" or ")} got ${PrettyPrinter(tipe(e))}",
             !typesCompatible(e)) ++
             check(e) {
+
               // Semantic error in monoid composition
               case Comp(m, qs, _) =>
                 qs.flatMap {
-                  case Gen(v, g) => {
-                    tipe(g) match {
-                      case _: SetType =>
-                        if (!m.commutative && !m.idempotent)
-                          message(m, "expected a commutative and idempotent monoid")
-                        else if (!m.commutative)
-                          message(m, "expected a commutative monoid")
-                        else if (!m.idempotent)
-                          message(m, "expected an idempotent monoid")
-                        else
-                          noMessages
-                      case _: BagType =>
-                        if (!m.commutative)
-                          message(m, "expected a commutative monoid")
-                        else
-                          noMessages
-                      case _: ListType =>
-                        noMessages
-                      case t =>
-                        message(g, s"expected collection but got ${PrettyPrinter(t)}")
-                    }
-                  }
-                  case _         => noMessages
+                  case Gen(_, g)        => monoidsCompatible(m, g)
+                  case PatternGen(_, g) => monoidsCompatible(m, g)
+                  case _                => noMessages
                 }.toVector
             }
       }
     }
+
+  // Return error messages if the pattern is not compatible with the type.
+  // `e` is only used as a marker to position the error message
+  def patternCompatible(p: Pattern, t: Type, e: Exp): Messages = (p, t) match {
+    case (PatternProd(ps), RecordType(atts)) =>
+      if (ps.length != atts.length)
+        message(e, s"expected record with ${ps.length} attributes but got record with ${atts.length} attributes")
+      else
+        ps.zip(atts).flatMap { case (p, att) => patternCompatible(p, att.tipe, e) }.toVector
+    case (_: PatternProd, t) =>
+      message(e, s"expected record type but got ${PrettyPrinter(t)}")
+    case (_: PatternIdn, _) => noMessages
+  }
+
+  // Return error message if the monoid is not compatible with the generator expression type.
+  def monoidsCompatible(m: Monoid, g: Exp) = tipe(g) match {
+    case _: SetType =>
+      if (!m.commutative && !m.idempotent)
+        message(m, "expected a commutative and idempotent monoid")
+      else if (!m.commutative)
+        message(m, "expected a commutative monoid")
+      else if (!m.idempotent)
+        message(m, "expected an idempotent monoid")
+      else
+        noMessages
+    case _: BagType =>
+      if (!m.commutative)
+        message(m, "expected a commutative monoid")
+      else
+        noMessages
+    case _: ListType =>
+      noMessages
+    case t =>
+      message(g, s"expected collection but got ${PrettyPrinter(t)}")
+  }
 
   /** Looks up identifier in the World catalog. If it is in catalog returns a new `ClassEntity` instance.
     * Note that when looking up a given identifier, a new `ClassEntity` instance is generated each time, to ensure that
@@ -94,10 +117,22 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           MultipleEntity()
         else n match {
           case tree.parent(p) => {
+
+            // Go up pattern recursively while building expression to project the expression out of the record pattern.
+            def recurse(n: Pattern): (Exp, CalculusNode) = n match {
+              case tree.parent(s @ PatternBind(_, e)) => (e, s)
+              case tree.parent(p @ PatternProd(ps)) => val (e, s) = recurse(p); (RecordProj(e, s"_${ps.indexOf(n)+1}"), s)
+            }
+
             p match {
+              case p: Pattern => recurse(p) match {
+                case (e, _: PatternBind)   => logger.debug(s"here we are with $e"); BindEntity(t, e)
+                case (e, _: PatternGen)    => GenEntity(t, e)
+                case (e, _: PatternFunAbs) => FunArgEntity(t)
+              }
               case Bind(_, e) => BindEntity(t, e)
-              case Gen(_, e) => GenEntity(t, e)
-              case _: FunAbs => FunAbsEntity(t)
+              case Gen(_, e)  => GenEntity(t, e)
+              case _: FunAbs  => FunArgEntity(t)
             }
           }
         }
@@ -122,15 +157,21 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case b: ExpBlock => enter(in(b))
 
     // If we are in a function abstraction, we must open a new scope for the variable argument. But if the parent is a
-    // `Bind`, then the `in` environment of the function abstraction must be the same as the `in` environment of the
-    // `Bind`.
-    case tree.parent.pair(_: FunAbs, b: Bind) => enter(env.in(b))
-    case f: FunAbs                            => enter(in(f))
+    // bind, then the `in` environment of the function abstraction must be the same as the `in` environment of the
+    // bind.
+    case tree.parent.pair(_: FunAbs, b: Bind)               => enter(env.in(b))
+    case tree.parent.pair(_: FunAbs, b: PatternBind)        => enter(env.in(b))
+    case tree.parent.pair(_: PatternFunAbs, b: Bind)        => enter(env.in(b))
+    case tree.parent.pair(_: PatternFunAbs, b: PatternBind) => enter(env.in(b))
+    case f: FunAbs                                          => enter(in(f))
+    case f: PatternFunAbs                                   => enter(in(f))
 
-    // If we are in an expression and the parent is a `Bind` or a `Gen`, then the `in` environment of the expression is
-    // the same as that of the parent `Bind` or `Gen`. That is, it does not include the lhs of the assignment.
-    case tree.parent.pair(_: Exp, b: Bind) => env.in(b)
-    case tree.parent.pair(_: Exp, g: Gen)  => env.in(g)
+    // If we are in an expression and the parent is a bind or a generator, then the `in` environment of the expression
+    // is the same as that of the parent: the environment does not include the left hand side of the assignment.
+    case tree.parent.pair(_: Exp, b: Bind)        => env.in(b)
+    case tree.parent.pair(_: Exp, b: PatternBind) => env.in(b)
+    case tree.parent.pair(_: Exp, g: Gen)         => env.in(g)
+    case tree.parent.pair(_: Exp, g: PatternGen)  => env.in(g)
   }
 
   def envout(out: RawNode => Environment): RawNode ==> Environment = {
@@ -139,17 +180,20 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
-    case f: FunAbs => leave(out(f))
+    case f: FunAbs        => leave(out(f))
+    case f: PatternFunAbs => leave(out(f))
 
     // A new variable was defined in the current scope.
     case n @ IdnDef(i, _) => define(out(n), i, entity(n))
 
-    // The `out` environment of a `Bind`/`Gen` is the environment after the assignment.
-    case Bind(idn, _) => env(idn)
-    case Gen(idn, _)  => env(idn)
+    // The `out` environment of a bind or generator is the environment after the assignment.
+    case Bind(idn, _)      => env(idn)
+    case PatternBind(p, _) => env(p)
+    case Gen(idn, _)       => env(idn)
+    case PatternGen(p, _)  => env(p)
 
-    // `Exp` cannot define variables for the nodes that follow, so its `out` environment is always the same as its `in`
-    // environment. That is, there is no need to go "inside" the expression to finding any bindings.
+    // Expressions cannot define new variables, so their `out` environment is always the same as their `in`
+    // environment. The chain does not need to go "inside" the expression to finding any bindings.
     case e: Exp => env.in(e)
   }
 
@@ -250,8 +294,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case c: CollectionType => unify(TypeVariable(freshVar(AnyType())), c.innerType)
       case _ => NothingType()
     }
-    case FunAbsEntity(Some(t)) => t
-    case FunAbsEntity(None) => TypeVariable(freshVar(AnyType()))
+    case FunArgEntity(Some(t)) => t
+    case FunArgEntity(None) => TypeVariable(freshVar(AnyType()))
     case ClassEntity(_, t) => t
   }
 
@@ -292,7 +336,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case IfThenElse(_, e2, e3) => unify(pass1(e2), pass1(e3))
 
     // Rule 7
-    case FunAbs(idn, e) => FunType(idnType(idn), pass1(e))
+    case FunAbs(idn, e)      => FunType(idnType(idn), pass1(e))
+    case PatternFunAbs(p, e) => FunType(patternType(p), pass1(e))
 
     // Rule 8
     case FunApp(f, _) => pass1(f) match {
@@ -330,12 +375,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
     // Rule 15
     case Comp(m, (_: Gen) :: r, e1) => pass1(Comp(m, r, e1))
+    case Comp(m, (_: PatternGen) :: r, e1) => pass1(Comp(m, r, e1))
 
     // Rule 16
     case Comp(m, (_: Exp) :: r, e1) => pass1(Comp(m, r, e1))
 
-    // Skip Bind
+    // Skip Binds
     case Comp(m, (_: Bind) :: r, e1) => pass1(Comp(m, r, e1))
+    case Comp(m, (_: PatternBind) :: r, e1) => pass1(Comp(m, r, e1))
 
     // Binary Expression type
     case BinaryExp(_: EqualityOperator, e1, e2) =>
@@ -363,6 +410,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _ => NothingType()
   }
 
+  // Return the type corresponding to a given pattern
+  def patternType(p: Pattern): Type = p match {
+    case PatternIdn(idn) => idnType(idn)
+    case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))})
+  }
+
+  // Hindley-Milner unification
   def unify(t1: Type, t2: Type): Type = (t1, t2) match {
     case (n: NothingType, _) => n
     case (_, n: NothingType) => n

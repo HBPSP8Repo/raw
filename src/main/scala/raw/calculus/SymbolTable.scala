@@ -40,7 +40,7 @@ object SymbolTable extends Environments {
 
   /** Entity for a function abstraction.
     */
-  case class FunAbsEntity(t: Option[Type]) extends RawEntity
+  case class FunArgEntity(t: Option[Type]) extends RawEntity
 
   /** Entity for a user-defined class extent.
     */
