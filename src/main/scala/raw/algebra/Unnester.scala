@@ -136,7 +136,8 @@ object Unnester extends LazyLogging {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(v, ExtractClassExtent(x)) :: r, p, e), Nil, w, AlgebraTerm(child)) => {
         logger.debug(s"Applying unnester rule C6")
         val p_v = p.filter(variables(_).map(_.idn) == Set(v.idn))
-        val p_w_v = p.filter(pred => (w :+ v).toSet.map{idnNode: Calculus.IdnNode => idnNode.idn}.subsetOf(variables(pred).map{a => a.idn}))
+        val p_w_v = p.filter(pred => !p_v.contains(pred)
+                                     && variables(pred).map{i: Calculus.IdnNode => i.idn}.subsetOf((w :+ v).toSet.map{i: Calculus.IdnNode => i.idn}))
         val p_rest = p.filter(pred => !p_v.contains(pred) && !p_w_v.contains(pred))
         CalculusTerm(CanonicalComp(m, r, p_rest, e), Nil, w :+ v, AlgebraTerm(LogicalAlgebra.Join(createPredicate(p_w_v, w :+ v), child, LogicalAlgebra.Select(createPredicate(p_v, Seq(v)), LogicalAlgebra.Scan(x)))))
       }
