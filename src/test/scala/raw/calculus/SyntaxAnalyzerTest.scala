@@ -4,6 +4,7 @@ class SyntaxAnalyzerTest extends FunTest {
 
   def pprintParseTree(q: String) = CalculusPrettyPrinter(parse(q), 200)
 
+  // Utility function. If `expected` is empty, the parsed string must be the same as the input string `q`.
   def matches(q: String, expected: String = "") = {
     logger.debug(pprintParseTree(q))
     logger.debug(parse(q).toString)

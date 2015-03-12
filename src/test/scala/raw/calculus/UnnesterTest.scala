@@ -14,8 +14,8 @@ class UnnesterTest extends FunTest {
     Unnester(nt, w)
   }
 
-  test("simple_join") {
-    val query = "for (a <- Departments, b <- Departments, a.dno = b.dno) yield set (a1 := a, b1 := b)"
+  test("simple join") {
+    val query = "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -32,8 +32,8 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.departments, query) === Result())
   }
 
-  test("complex_join") {
-    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+  test("complex join") {
+    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -50,8 +50,8 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.fines, query) === Result())
   }
 
-  ignore("complex_join_2") {
-    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+  ignore("complex join 2") {
+    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
 //
 //    object Result extends AlgebraLang {
 //      def apply() = {
@@ -64,8 +64,8 @@ class UnnesterTest extends FunTest {
     assert(false)
   }
 
-  test("paper_query") {
-    val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
+  test("paper query") {
+    val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -95,7 +95,7 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.employees, query) === Result())
   }
 
-  test("top_level_merge") {
+  test("top-level merge") {
     val query = "for (x <- things union things) yield set x"
 
     object Result extends AlgebraLang {

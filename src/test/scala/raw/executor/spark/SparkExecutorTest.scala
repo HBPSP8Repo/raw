@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 
 class SparkExecutorTest extends FunSuite {
 
-  test("scan_select") {
+  test("scan + select") {
 
   }
 

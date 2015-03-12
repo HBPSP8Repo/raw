@@ -104,13 +104,13 @@ class ReduceOperations extends  ExecutorTest {
     List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
   override val world: World = new World(Map("twoRows" -> location))
 
-  checkOperation(Reduce(ListMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0), "value"), IntConst("1")), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
-  checkOperation(Reduce(ListMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0),"value"), IntConst("2")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0),"name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0),"name"), StringConst("three")), Scan("twoRows"))), List())
-  checkOperation(Reduce(SetMonoid(), ProductProj(Arg, 0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0),"name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(SetMonoid(),RecordProj(ProductProj(Arg, 0),"name"), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(ProductProj(Arg, 0),"value"), IntConst("1")), Scan("twoRows"))), Set("one"))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("1")), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("2")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("three")), Scan("twoRows"))), List())
+  checkOperation(Reduce(SetMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(SetMonoid(), RecordProj(Arg,"name"), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("1")), Scan("twoRows"))), Set("one"))
 }
 
 class JoinOperations extends ExecutorTest {
