@@ -41,8 +41,92 @@ object Normalizer extends LazyLogging {
       }
     }
 
+    /** De-sugar pattern function abstractions into expression blocks.
+      * e.g. `\((a,b),c) -> a + b + c` becomes `\x -> { (a,b) := x._1; c := x._2; a + b + c }`
+      */
+
+    lazy val rulePatternFunAbs = rule[Exp] {
+      case PatternFunAbs(p @ PatternProd(ps), e) =>
+        val idn = SymbolTable.next()
+        FunAbs(IdnDef(idn, Some(analyzer.patternType(p))),
+          ExpBlock(
+            ps.zipWithIndex.map{
+              case (p1, idx) => p1 match {
+                case PatternIdn(idn1) => Bind(idn1, RecordProj(IdnExp(IdnUse(idn)), s"_${idx + 1}"))
+                case p2: PatternProd  => PatternBind(p2, RecordProj(IdnExp(IdnUse(idn)), s"_${idx + 1}"))
+              }
+            }, e))
+    }
+
+    /** De-sugar pattern generators.
+      * e.g. `for ( ((a,b),c) <- X, ...` becomes `for (x <- X, ((a,b),c) := x, ...)`
+      */
+
+    object RulePatternGen {
+      def unapply(qs: Seq[Qual]) = splitWith[Qual, PatternGen](qs, { case g: PatternGen => g})
+    }
+
+    lazy val rulePatternGen = rule[Comp] {
+      case Comp(m, RulePatternGen(r, PatternGen(p, u), s), e) =>
+        val idn = SymbolTable.next()
+        Comp(m, r ++ Seq(Gen(IdnDef(idn, Some(analyzer.patternType(p))), u), PatternBind(p, IdnExp(IdnUse(idn)))) ++ s, e)
+    }
+
+    /** De-sugar pattern binds inside expression blocks.
+      * e.g. `{ ((a,b),c) = X; ... }` becomes `{ (a,b) = X._1; c = X._2; ... }`
+      */
+
+    lazy val rulePatternBindExpBlock = rule[ExpBlock] {
+      case ExpBlock(PatternBind(PatternProd(ps), u) :: rest, e) =>
+        ExpBlock(ps.zipWithIndex.map {
+          case (p, idx) => p match {
+            case PatternIdn(idn) => Bind(idn, RecordProj(u, s"_${idx + 1}"))
+            case p1: PatternProd => PatternBind(p1, RecordProj(u, s"_${idx + 1}"))
+          }
+        } ++ rest, e)
+    }
+
+    /** De-sugar pattern binds inside comprehension qualifiers.
+      * e.g. `for (..., ((a,b),c) = X, ...)` becomes `for (..., (a,b) = X._1, c = X._2, ...)`
+      */
+
+    object RulePatternBindComp {
+      def unapply(qs: Seq[Qual]) = splitWith[Qual, PatternBind](qs, { case b: PatternBind => b})
+    }
+
+    lazy val rulePatternBindComp = rule[Comp] {
+      case Comp(m, RulePatternBindComp(r, PatternBind(PatternProd(ps), u), s), e) =>
+        Comp(m, r ++ ps.zipWithIndex.map {
+          case (p, idx) => p match {
+            case PatternIdn(idn) => Bind(idn, RecordProj(u, s"_${idx + 1}"))
+            case p1: PatternProd => PatternBind(p1, RecordProj(u, s"_${idx + 1}"))
+          }
+        } ++ s, e)
+    }
+
+    /** De-sugar expression blocks by removing the binds one-at-a-time.
+      */
+
+    lazy val ruleExpBlocks = rule[ExpBlock] {
+      case ExpBlock(Bind(IdnDef(x, _), u) :: rest, e) =>
+        val strategy = everywhere(rule[Exp] {
+          case IdnExp(IdnUse(`x`)) => deepclone(u)
+        })
+        val nrest = rewrite(strategy)(rest)
+        val ne = rewrite(strategy)(e)
+        ExpBlock(nrest, ne)
+    }
+
+    /** De-sugar expression blocks without bind statements.
+      */
+
+    lazy val ruleEmptyExpBlock = rule[Exp] {
+      case ExpBlock(Nil, e) => e
+    }
+
     /** Rule 1
       */
+
     object Rule1 {
       def unapply(qs: Seq[Qual]) = splitWith[Qual, Bind](qs, { case b: Bind => b})
     }
@@ -60,6 +144,7 @@ object Normalizer extends LazyLogging {
 
     /** Rule 2
       */
+
     lazy val rule2 = rule[Exp] {
       case f @ FunApp(FunAbs(IdnDef(idn, _), e1), e2) => {
         logger.debug(s"Applying normalizer rule 2")
@@ -71,6 +156,7 @@ object Normalizer extends LazyLogging {
 
     /** Rule 3
       */
+
     lazy val rule3 = rule[Exp] {
       case r @ RecordProj(RecordCons(atts), idn) => {
         logger.debug(s"Applying normalizer rule 3")
@@ -120,7 +206,7 @@ object Normalizer extends LazyLogging {
     def getNumberConst(t: Type, v: Int): NumberConst = t match {
       case _: IntType   => IntConst(v.toString)
       case _: FloatType => FloatConst(v.toString)
-      case t            => throw NormalizerError(s"Unexpected type $t")
+      case t1           => throw NormalizerError(s"Unexpected type $t1")
     }
 
     lazy val rule5 = rule[Exp] {
@@ -204,7 +290,10 @@ object Normalizer extends LazyLogging {
       }
     }
 
-    lazy val strategy: Strategy = doloop(reduce(rule1), oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10)) //attempt(everywhere(rule1)) <* (oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10) < strategy + id)
+    lazy val desugar = reduce(rulePatternFunAbs + rulePatternGen + rulePatternBindExpBlock + rulePatternBindComp + ruleExpBlocks + ruleEmptyExpBlock)
+    lazy val normalize = doloop(reduce(rule1), oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10))
+
+    lazy val strategy = desugar <* normalize
 
     val outTree = rewriteTree(strategy)(inTree)
     logger.debug(s"Normalizer output tree: ${CalculusPrettyPrinter(outTree.root)}")

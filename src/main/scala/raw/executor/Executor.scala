@@ -1,7 +1,7 @@
 package raw
 package executor
 
-import algebra.Algebra
+import algebra.LogicalAlgebra
 
 abstract class RawExecutorException(message: String) extends RawException(message)
 
@@ -10,5 +10,5 @@ case class RawExecutorRuntimeException(message: String) extends RawExecutorExcep
 }
 
 abstract class Executor {
-  def execute(root: Algebra.OperatorNode, world: World): Either[QueryError,QueryResult]
+  def execute(root: LogicalAlgebra.LogicalAlgebraNode, world: World): Either[QueryError,QueryResult]
 }

@@ -46,11 +46,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ListMonoid     => "list"
   }
 
-  def collection(m: CollectionMonoid, d: Doc): Doc = m match {
-    case _: BagMonoid  => "bag{" <+> d <+> "}"
-    case _: SetMonoid  => "{" <+> d <+> "}"
-    case _: ListMonoid => "[" <+> d <+> "]"
-  }
+  def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
 
   def tipe(t: Type): Doc = t match {
     case _: BoolType         => "bool"

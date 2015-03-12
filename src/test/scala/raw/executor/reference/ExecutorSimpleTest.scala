@@ -4,11 +4,8 @@ import scala.collection.immutable.Seq
 import org.scalatest._
 import raw._
 import algebra._
-import Algebra._
-
-/**
- * Created by gaidioz on 1/14/15.
- */
+import LogicalAlgebra._
+import Expressions._
 
 abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matchers {
 
@@ -31,7 +28,7 @@ abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matcher
   }
 
   // asserts an operation returns the expected result
-  def checkOperation(opNode: OperatorNode, result: Any): Unit = {
+  def checkOperation(opNode: LogicalAlgebraNode, result: Any): Unit = {
     scenario("evaluation of " + opNode) {
       When("evaluating " + opNode)
       Then("it should return " + result)
@@ -103,13 +100,13 @@ class ReduceOperations extends  ExecutorTest {
     List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
   override val world: World = new World(Map("twoRows" -> location))
 
-  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst("1")), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst("2")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(ListMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("three")), Scan("twoRows"))), List())
-  checkOperation(Reduce(SetMonoid(), Arg(0), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
-  checkOperation(Reduce(SetMonoid(),RecordProj(Arg(0),"name"), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg(0),"value"), IntConst("1")), Scan("twoRows"))), Set("one"))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BoolConst(true), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one"), Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("1")), Scan("twoRows"))), List(Map("value" -> 1, "name" -> "one")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("2")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("two")), Scan("twoRows"))), List(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(ListMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("three")), Scan("twoRows"))), List())
+  checkOperation(Reduce(SetMonoid(), Arg, BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "name"), StringConst("two")), Scan("twoRows"))), Set(Map("value" -> 2, "name" -> "two")))
+  checkOperation(Reduce(SetMonoid(), RecordProj(Arg,"name"), BoolConst(true), Select(BinaryExp(Eq(),RecordProj(Arg, "value"), IntConst("1")), Scan("twoRows"))), Set("one"))
 }
 
 class JoinOperations extends ExecutorTest {
@@ -123,32 +120,32 @@ class JoinOperations extends ExecutorTest {
   override val world: World = new World(Map("students" -> students, "departments" -> departments))
 
   // list of (name, discipline) for all students (join with department)
-  checkOperation(Reduce(ListMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+  checkOperation(Reduce(ListMonoid(), RecordCons(List(AttrCons("student", RecordProj(ProductProj(Arg, 0), "name")), AttrCons("discipline", RecordProj(ProductProj(Arg, 1), "discipline")))),
                         BoolConst(true),
-                        Join(BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name")),
+                        Join(BinaryExp(Eq(), RecordProj(ProductProj(Arg, 0), "department"), RecordProj(ProductProj(Arg, 1), "name")),
                              Scan("students"), Scan("departments"))),
                  List(Map("student" -> "s1", "discipline" -> "Artificial Intelligence"), Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
 
   // set of (student name, discipline) only if department is dep2 (join + filter during join).
-  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("student", RecordProj(Arg(0), "name")), AttrCons("discipline", RecordProj(Arg(1), "discipline")))),
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("student", RecordProj(ProductProj(Arg, 0), "name")), AttrCons("discipline", RecordProj(ProductProj(Arg, 1), "discipline")))),
                         BoolConst(true),
-                        Join(MergeMonoid(AndMonoid(), BinaryExp(Eq(), RecordProj(Arg(0), "department"), RecordProj(Arg(1), "name")), BinaryExp(Eq(), RecordProj(Arg(1), "name"), StringConst("dep2"))),
+                        Join(MergeMonoid(AndMonoid(), BinaryExp(Eq(), RecordProj(ProductProj(Arg, 0), "department"), RecordProj(ProductProj(Arg, 1), "name")), BinaryExp(Eq(), RecordProj(ProductProj(Arg, 1), "name"), StringConst("dep2"))),
                              Scan("students"), Scan("departments"))),
                  Set(Map("student" -> "s2", "discipline" -> "Operating Systems"), Map("student" -> "s3", "discipline" -> "Operating Systems")))
 
   // number of students per department (mistakenly using join: it will not show dep3 since it doesn't have students)
-  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(ProductProj(Arg, 0), "name")), AttrCons("count", ProductProj(Arg, 1)))),
                         BoolConst(true),
-                        Nest(SumMonoid(), IntConst("1"), ProductCons(Seq(Arg(0))), BoolConst(true), ProductCons(Seq(Arg(1))),
-                             Join(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department")),
+                        Nest(SumMonoid(), IntConst("1"), ProductCons(Seq(ProductProj(Arg, 0))), BoolConst(true), ProductCons(Seq(ProductProj(Arg, 1))),
+                             Join(BinaryExp(Eq(), RecordProj(ProductProj(Arg, 0), "name"), RecordProj(ProductProj(Arg, 1), "department")),
                                   Scan("departments"), Scan("students")))),
                  Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2)))
 
   // set of students per department (using outer join, should return dep3 with zero students)
-  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(Arg(0), "name")), AttrCons("count", Arg(1)))),
+  checkOperation(Reduce(SetMonoid(), RecordCons(List(AttrCons("name", RecordProj(ProductProj(Arg, 0), "name")), AttrCons("count", ProductProj(Arg, 1)))),
                         BoolConst(true),
-                        Nest(SumMonoid(), IntConst("1"), ProductCons(Seq(Arg(0))), BoolConst(true), ProductCons(Seq(Arg(1))),
-                             OuterJoin(BinaryExp(Eq(), RecordProj(Arg(0), "name"), RecordProj(Arg(1), "department")),
+                        Nest(SumMonoid(), IntConst("1"), ProductCons(Seq(ProductProj(Arg, 0))), BoolConst(true), ProductCons(Seq(ProductProj(Arg, 1))),
+                             OuterJoin(BinaryExp(Eq(), RecordProj(ProductProj(Arg, 0), "name"), RecordProj(ProductProj(Arg, 1), "department")),
                                        Scan("departments"), Scan("students")))),
                  Set(Map("name" -> "dep1", "count" -> 1), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 0)))
 }

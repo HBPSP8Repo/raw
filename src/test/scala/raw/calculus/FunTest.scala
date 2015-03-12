@@ -9,7 +9,7 @@ class FunTest extends FunSuite with LazyLogging {
     val parser = new SyntaxAnalyzer()
     parser.makeAST(q) match {
       case Right(ast) => ast
-      case Left(err) => println(s"Parser error: $err"); ???
+      case Left(err) => fail(s"Parser error: $err")
     }
   }
 

@@ -1,58 +1,9 @@
 package raw
 package algebra
 
-object Algebra {
+object Expressions {
 
-  import org.kiama.relation.Tree
   import scala.collection.immutable.Seq
-
-  /** Tree type for Calculus
-    */
-  type Algebra = Tree[RawNode,OperatorNode]
-
-  /** Base class for all Algebra nodes.
-    */
-  sealed abstract class AlgebraNode extends RawNode
-
-  /** Operator Nodes
-    */
-  sealed abstract class OperatorNode extends AlgebraNode
-
-  /** Scan
-    */
-  case class Scan(name: String) extends OperatorNode
-
-  /** Reduce
-    */
-  case class Reduce(m: Monoid, e: Exp, p: Exp, child: OperatorNode) extends OperatorNode
-
-  /** Nest
-    */
-  case class Nest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: OperatorNode) extends OperatorNode
-
-  /** Select
-    */
-  case class Select(p: Exp, child: OperatorNode) extends OperatorNode
-
-  /** Join
-    */
-  case class Join(p: Exp, left: OperatorNode, right: OperatorNode) extends OperatorNode
-
-  /** Unnest
-    */
-  case class Unnest(path: Exp, pred: Exp, child: OperatorNode) extends OperatorNode
-
-  /** OuterJoin
-    */
-  case class OuterJoin(p: Exp, left: OperatorNode, right: OperatorNode) extends OperatorNode
-
-  /** OuterUnnest
-    */
-  case class OuterUnnest(path: Exp, pred: Exp, child: OperatorNode) extends OperatorNode
-
-  /** Merge
-    */
-  case class Merge(m: Monoid, left: OperatorNode, right: OperatorNode) extends OperatorNode
 
   /** Identifiers are represented as strings
     */
@@ -82,7 +33,7 @@ object Algebra {
 
   /** Argument
     */
-  case class Arg(idx: Int) extends Exp
+  case object Arg extends Exp
 
   /** Product Projection
     */

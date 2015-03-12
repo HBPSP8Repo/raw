@@ -50,36 +50,36 @@ abstract class FlatCSVTest extends SmokeTest {
   check("number of departments", "for (d <- departments) yield sum 1", 3)
 
   // more fancy stuff
-  check("set of students born in 1990", """for (d <- students, d.birthYear = 1990) yield set d.name""", Set("Student1", "Student2"))
-  check("number of students born in 1992", """for (d <- students, d.birthYear = 1992) yield sum 1""", 2)
-  check("number of students born before 1991 (included)", """for (d <- students, d.birthYear <= 1991) yield sum 1""", 5)
-  check("set of students in BC123", """for (d <- students, d.office = "BC123") yield set d.name""", Set("Student1", "Student3", "Student5"))
-  check("set of students in dep2", """for (d <- students, d.department = "dep2") yield set d.name""", Set("Student2", "Student4"))
-  check("number of students in dep1", """for (d <- students, d.department = "dep1") yield sum 1""", 3)
+  check("set of students born in 1990", """for (d <- students; d.birthYear = 1990) yield set d.name""", Set("Student1", "Student2"))
+  check("number of students born in 1992", """for (d <- students; d.birthYear = 1992) yield sum 1""", 2)
+  check("number of students born before 1991 (included)", """for (d <- students; d.birthYear <= 1991) yield sum 1""", 5)
+  check("set of students in BC123", """for (d <- students; d.office = "BC123") yield set d.name""", Set("Student1", "Student3", "Student5"))
+  check("set of students in dep2", """for (d <- students; d.department = "dep2") yield set d.name""", Set("Student2", "Student4"))
+  check("number of students in dep1", """for (d <- students; d.department = "dep1") yield sum 1""", 3)
   check("set of department (using only students table)", """for (s <- students) yield set s.department""", Set("dep1", "dep2", "dep3"))
 
   // hard stuff
   check("set of department and the headcount (using only students table)",
     """
         for (d <- (for (s <- students) yield set s.department))
-             yield set (name := d, count := (for (s <- students, s.department = d) yield sum 1)
+             yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1)
             )""",
     Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   check("set of department and the headcount (using both departments and students table)",
     """
         for (d <- (for (d <- departments) yield set d.name))
-             yield set (name := d, count := (for (s <- students, s.department = d) yield sum 1)
+             yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1)
             )""",
     Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
 
 
   check("most studied discipline",
-    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number =
-      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
+    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
+      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
     """, Set("Computer Architecture"))
 
   check("list of disciplines which have three students",
-    """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students, s.department = d.name) yield sum 1)), t.number = 3) yield list t.name
+    """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number = 3) yield list t.name
     """, List("Computer Architecture"))
 
   //check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
@@ -123,14 +123,14 @@ abstract class HierarchyJSONTest extends SmokeTest {
 
   // simple stuff
   check("most recent movie release year", "for (y <- (for (m <- movies) yield set m.year)) yield max y", 1995)
-  check("set of most recent movies", "for (m <- movies, m.year = (for (y <- (for (m <- movies) yield set m.year)) yield max y)) yield set m.title", Set("Twelve Monkeys", "Seven"))
-  check("set of actors in 'Seven'", "for (m <- movies, m.title = \"Seven\", a <- m.actors) yield set a", Set("Brad Pitt", "Morgan Freeman", "Kevin Spacey"))
+  check("set of most recent movies", "for (m <- movies; m.year = (for (y <- (for (m <- movies) yield set m.year)) yield max y)) yield set m.title", Set("Twelve Monkeys", "Seven"))
+  check("set of actors in 'Seven'", "for (m <- movies; m.title = \"Seven\"; a <- m.actors) yield set a", Set("Brad Pitt", "Morgan Freeman", "Kevin Spacey"))
 
   // harder
-  check("Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
-  check("Brad Pitt movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt") yield set m.title""", Set("Seven", "Twelve Monkeys"))
-  check("movies with actors born after 1960 (only Brad Pitt)", "for (m <- movies, a <- actors, ma <- m.actors, a.name = ma, a.born > 1960) yield set m.title", Set("Seven", "Twelve Monkeys"))
-  check("Brad Pitt or Bruce Willis movies", """for (m <- movies, a <- m.actors, a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"), "#29")
+  check("Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
+  check("Brad Pitt movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt") yield set m.title""", Set("Seven", "Twelve Monkeys"))
+  check("movies with actors born after 1960 (only Brad Pitt)", "for (m <- movies; a <- actors; ma <- m.actors; a.name = ma; a.born > 1960) yield set m.title", Set("Seven", "Twelve Monkeys"))
+  check("Brad Pitt or Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"), "#29")
 
 }
 

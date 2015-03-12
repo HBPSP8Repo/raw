@@ -14,8 +14,8 @@ class UnnesterTest extends FunTest {
     Unnester(nt, w)
   }
 
-  test("simple_join") {
-    val query = "for (a <- Departments, b <- Departments, a.dno = b.dno) yield set (a1 := a, b1 := b)"
+  test("simple join") {
+    val query = "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -32,8 +32,8 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.departments, query) === Result())
   }
 
-  test("complex_join") {
-    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+  test("complex join") {
+    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -50,8 +50,8 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.fines, query) === Result())
   }
 
-  ignore("complex_join_2") {
-    val query = "for (speed_limit <- speed_limits, observation <- radar, speed_limit.location = observation.location, observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+  ignore("complex join 2") {
+    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
 //
 //    object Result extends AlgebraLang {
 //      def apply() = {
@@ -64,8 +64,8 @@ class UnnesterTest extends FunTest {
     assert(false)
   }
 
-  test("paper_query") {
-    val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
+  test("paper query") {
+    val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
 
     object Result extends AlgebraLang {
       def apply() = {
@@ -86,7 +86,7 @@ class UnnesterTest extends FunTest {
               outer_unnest(
                 path=arg(0).manager.children,
                 outer_unnest(
-                  path=arg(0).children,
+                  path=arg().children,
                   select(
                     scan("Employees")))))))
       }
@@ -95,7 +95,7 @@ class UnnesterTest extends FunTest {
     assert(process(TestWorlds.employees, query) === Result())
   }
 
-  test("top_level_merge") {
+  test("top-level merge") {
     val query = "for (x <- things union things) yield set x"
 
     object Result extends AlgebraLang {
@@ -104,12 +104,12 @@ class UnnesterTest extends FunTest {
           set,
           reduce(
             set,
-            arg(0),
+            arg(),
             select(
               scan("things"))),
           reduce(
             set,
-            arg(0),
+            arg(),
             select(
               scan("things"))))
       }
@@ -128,7 +128,8 @@ class AlgebraLang {
   import scala.language.dynamics
   import scala.collection.immutable.Seq
   import raw._
-  import algebra.Algebra._
+  import algebra.LogicalAlgebra._
+  import algebra.Expressions._
 
   /** Expression builders
     */
@@ -180,7 +181,9 @@ class AlgebraLang {
 
   case class ConstBuilder(c: Const) extends Builder
 
-  case class ArgBuilder(a: Arg) extends Builder
+  case object ArgBuilder extends Builder
+
+  case class ProductProjBuilder(lhs: Builder, idx: Int) extends Builder
 
   case class RecordProjBuilder(lhs: Builder, idn: String) extends Builder
 
@@ -212,7 +215,7 @@ class AlgebraLang {
 
   /** Variable
     */
-  def arg(i: Int) = ArgBuilder(Arg(i))
+  def arg(i: Int = -1) = if (i < 0) ArgBuilder else ProductProjBuilder(ArgBuilder, i)
 
   /** Record Construction
     */
@@ -272,7 +275,8 @@ class AlgebraLang {
   def build(b: Builder): Exp = b match {
     case NullBuilder                     => Null
     case ConstBuilder(c)                 => c
-    case ArgBuilder(a)                   => a
+    case ArgBuilder                      => Arg
+    case ProductProjBuilder(lhs, idx)    => ProductProj(build(lhs), idx)
     case RecordProjBuilder(lhs, idn)     => RecordProj(build(lhs), idn)
     case RecordConsBuilder(atts)         => RecordCons(atts.map { att => AttrCons(att.idn, build(att.b))})
     case IfThenElseBuilder(i)            => i
@@ -281,37 +285,37 @@ class AlgebraLang {
     case UnaryExpBuilder(op, e)          => UnaryExp(op, build(e))
   }
 
-  def argbuild(bs: List[ArgBuilder]): Exp =
-    ProductCons(bs.map { case ArgBuilder(a) => a })
+  def argbuild(bs: List[Builder]): Exp =
+    ProductCons(bs.map(build))
 
 
   /** Algebra operators
     */
   def scan(name: String) = Scan(name)
 
-  def reduce(m: Monoid, e: Builder, p: Builder, child: OperatorNode) = Reduce(m, build(e), build(p), child)
+  def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), build(p), child)
 
-  def reduce(m: Monoid, e: Builder, child: OperatorNode) = Reduce(m, build(e), BoolConst(true), child)
+  def reduce(m: Monoid, e: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), BoolConst(true), child)
 
-  def select(p: Builder, child: OperatorNode) = Select(build(p), child)
+  def select(p: Builder, child: LogicalAlgebraNode) = Select(build(p), child)
 
-  def select(child: OperatorNode) = Select(BoolConst(true), child)
+  def select(child: LogicalAlgebraNode) = Select(BoolConst(true), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], p: Builder, nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], p: Builder, nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[ArgBuilder], nulls: List[ArgBuilder], child: OperatorNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
 
-  def join(p: Builder, left: OperatorNode, right: OperatorNode) = Join(build(p), left, right)
+  def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Join(build(p), left, right)
 
-  def unnest(path: Builder, pred: Builder, child: OperatorNode) = Unnest(build(path), build(pred), child)
+  def unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = Unnest(build(path), build(pred), child)
 
-  def unnest(path: Builder, child: OperatorNode) = Unnest(build(path), BoolConst(true), child)
+  def unnest(path: Builder, child: LogicalAlgebraNode) = Unnest(build(path), BoolConst(true), child)
 
-  def outer_join(p: Builder, left: OperatorNode, right: OperatorNode) = OuterJoin(build(p), left, right)
+  def outer_join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = OuterJoin(build(p), left, right)
 
-  def outer_unnest(path: Builder, pred: Builder, child: OperatorNode) = OuterUnnest(build(path), build(pred), child)
+  def outer_unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), build(pred), child)
 
-  def outer_unnest(path: Builder, child: OperatorNode) = OuterUnnest(build(path), BoolConst(true), child)
+  def outer_unnest(path: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), BoolConst(true), child)
 
-  def merge(m: Monoid, left: OperatorNode, right: OperatorNode) = Merge(m, left, right)
+  def merge(m: Monoid, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Merge(m, left, right)
 }

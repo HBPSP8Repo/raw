@@ -40,10 +40,18 @@ object SymbolTable extends Environments {
 
   /** Entity for a function abstraction.
     */
-  case class FunAbsEntity(t: Option[Type]) extends RawEntity
+  case class FunArgEntity(t: Option[Type]) extends RawEntity
 
   /** Entity for a user-defined class extent.
     */
   case class ClassEntity(name: String, t: Type) extends RawEntity
+
+  /** Entity for a pattern bind statement.
+    */
+  case class PatternBindEntity(t: Option[Type], e: Exp, idxs: Seq[Int]) extends RawEntity
+
+  /** Entity for a pattern generator statement.
+    */
+  case class PatternGenEntity(t: Option[Type], e: Exp, idxs: Seq[Int]) extends RawEntity
 
 }
