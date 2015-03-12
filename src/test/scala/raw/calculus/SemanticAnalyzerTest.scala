@@ -16,9 +16,9 @@ class SemanticAnalyzerTest extends FunTest {
     analyzer.tipe(ast)
   }
 
-  test("cern_events") {
+  test("cern events") {
     assert(
-      process(TestWorlds.cern, "for (e <- Events, e.RunNumber > 100, m <- e.muons) yield set (muon := m)")
+      process(TestWorlds.cern, "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)")
         ===
         SetType(
           RecordType(List(
@@ -27,9 +27,9 @@ class SemanticAnalyzerTest extends FunTest {
               AttrType("eta", FloatType()))))))))
   }
 
-  test("paper_query_1") {
+  test("paper query 1") {
     assert(
-      process(TestWorlds.departments, """for ( el <- for ( d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
+      process(TestWorlds.departments, """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
         ===
         SetType(
           RecordType(List(
@@ -39,9 +39,9 @@ class SemanticAnalyzerTest extends FunTest {
               AttrType("zipcode", StringType()))))))))
   }
 
-  test("paper_query_2") {
+  test("paper query 2") {
     assert(
-      process(TestWorlds.employees, "for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
+      process(TestWorlds.employees, "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
         ===
         SetType(
           RecordType(List(
@@ -58,7 +58,7 @@ class SemanticAnalyzerTest extends FunTest {
             AttrType("M", IntType())))))
   }
 
-  test("simple_inference") {
+  test("simple inference") {
     assert(
       process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown) yield set (l + 2)""")
       ===
@@ -66,22 +66,29 @@ class SemanticAnalyzerTest extends FunTest {
     )
   }
 
-  test("inference_with_function") {
+  test("inference with function") {
     assert(
-      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown, f := (\v -> v + 2)) yield set f(l)""")
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (l <- unknown; f := (\v -> v + 2)) yield set f(l)""")
       ===
       SetType(IntType())
     )
+}
 
-    //process(new World(Map("unknown" -> Source(SetType(TypeVariable()), EmptyLocation))), """for (a <- unknown, b <- unknown2, f := (\v -> v + b)) yield set (f(a) + 1)""")
+  test("infer across bind") {
+    assert(
+      process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (j <- unknown; v := j) yield set (v + 0)""")
+      ===
+      SetType(IntType())
+    )
   }
 
-  test("infer_across_bind") {    assert(
-    process(new World(Map("unknown" -> MemoryLocation(SetType(AnyType()), Nil))), """for (j <- unknown, v := j) yield set (v + 0)""")
-    ===
-    SetType(IntType())
-    )
-    // what we really want to assert is that j is of type int and unknown is of type Set(int)
+  test("expression block type") {
+    assert(
+      process(TestWorlds.departments, """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""")
+        ===
+        SetType(
+          RecordType(List(
+            AttrType("deptName", StringType())))))
   }
 
   def checkTopType(query: String, t: Type, issue: String = "") = {
@@ -103,18 +110,31 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- integers) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1", SetType(IntType()))
   checkTopType("for (r <- unknown) yield set r + 1.0", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- integers, r = x) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- integers, r + x = 2*x) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, x <- floats, r + x = x) yield set r", SetType(FloatType()))
-  checkTopType("for (r <- unknown, x <- booleans, r and x) yield set r", SetType(BoolType()))
-  checkTopType("for (r <- unknown, x <- strings, r = x) yield set r", SetType(StringType()))
+  checkTopType("for (r <- unknown; x <- integers; r = x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; x <- integers; r + x = 2*x) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; x <- floats; r + x = x) yield set r", SetType(FloatType()))
+  checkTopType("for (r <- unknown; x <- booleans; r and x) yield set r", SetType(BoolType()))
+  checkTopType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
   checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
   checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
-  checkTopType("for (r <- unknown, ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
-  checkTopType("for (r <- unknown, (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown, (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "mission record type inferrence")
+  checkTopType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  checkTopType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  checkTopType("for (r <- unknown; (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
+  checkTopType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "missing record type inference")
+  checkTopType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
 
+  checkTopType("{ (a,b) := (1, 2); a+b }", IntType())
+  checkTopType("{ (a,b) := (1, 2.2); a }", IntType())
+  checkTopType("{ (a,b) := (1, 2.2); b }", FloatType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); a }", IntType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); b }", FloatType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); c }", IntType())
+  checkTopType("{ ((a,b),c) := ((1, 2.2), 3); a+c }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); a }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); b }", FloatType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); c }", IntType())
+  checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
 
+  checkTopType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
 
 }

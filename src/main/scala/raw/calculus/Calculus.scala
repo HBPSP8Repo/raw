@@ -121,6 +121,33 @@ object Calculus {
 
   /** Bind
     */
-  case class Bind(idn: IdnDef, e: Exp) extends Statement
+  sealed abstract class AnyBind extends Statement
+  case class Bind(idn: IdnDef, e: Exp) extends AnyBind
+
+  /** Syntactic sugar
+    *
+    */
+
+  /** Expression in a Block with Binds
+    */
+  case class ExpBlock(bs: Seq[AnyBind], e: Exp) extends Exp
+
+  /** Pattern-match Bind
+    */
+  case class PatternBind(p: Pattern, e: Exp) extends AnyBind
+
+  /** Pattern-match Generator
+    */
+  case class PatternGen(p: Pattern, e: Exp) extends Statement
+
+  /** Pattern-match FunAbs
+    */
+  case class PatternFunAbs(p: Pattern, e: Exp) extends Exp
+
+  /** Patterns
+    */
+  sealed abstract class Pattern extends CalculusNode
+  case class PatternIdn(idn: IdnDef) extends Pattern
+  case class PatternProd(ps: Seq[Pattern]) extends Pattern
 
 }
