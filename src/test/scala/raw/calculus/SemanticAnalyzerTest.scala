@@ -117,10 +117,10 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
   checkTopType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
   checkTopType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  checkTopType("for (r <- unknownrecords, r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  checkTopType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
   checkTopType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
   checkTopType("for (r <- unknown; (for (x <- integers) yield set r > x) = true) yield set r", SetType(IntType()))
-  checkTopType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "mission record type inferrence")
+  checkTopType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "missing record type inference")
   checkTopType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
 
   checkTopType("{ (a,b) := (1, 2); a+b }", IntType())
@@ -136,9 +136,5 @@ class SemanticAnalyzerTest extends FunTest {
   checkTopType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
 
   checkTopType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
-
-//  test("bad patterns") {
-//   """{ (a, b, c) := (1, 2); a + b + c }""" should produce a message with incompatible pattern... how to test exact error mssage? or approximate error message?
-//  }
 
 }

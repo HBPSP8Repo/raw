@@ -7,10 +7,6 @@ import algebra._
 import LogicalAlgebra._
 import Expressions._
 
-/**
- * Created by gaidioz on 1/14/15.
- */
-
 abstract class ExecutorTest extends FeatureSpec with GivenWhenThen with  Matchers {
 
   // default very basic content for our database
