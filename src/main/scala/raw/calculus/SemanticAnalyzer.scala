@@ -118,7 +118,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         else n match {
           case tree.parent(p) => {
 
-            // Walk up pattern recursively while building a record project that projects the expression out of the pattern.
+            // Walk up pattern recursively while building a record projection that projects the expression out of the
+            // pattern.
             def walk(n: Pattern): (Seq[Int], CalculusNode) = n match {
               case tree.parent(b: PatternBind)      => (Nil, b)
               case tree.parent(g: PatternGen)       => (Nil, g)

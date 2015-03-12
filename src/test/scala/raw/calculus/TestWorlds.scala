@@ -151,4 +151,6 @@ object TestWorlds {
     new World(catalog)
   }
 
+  def empty = new World()
+
 }

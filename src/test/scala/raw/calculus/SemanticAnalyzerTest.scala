@@ -137,7 +137,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   checkTopType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
 
-  //  test("bad patterns") {
+//  test("bad patterns") {
 //   """{ (a, b, c) := (1, 2); a + b + c }""" should produce a message with incompatible pattern... how to test exact error mssage? or approximate error message?
 //  }
 
