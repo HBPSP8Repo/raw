@@ -38,7 +38,7 @@ object SymbolTable extends Environments {
     */
   case class GenEntity(t: Option[Type], e: Exp) extends RawEntity
 
-  /** Entity for a function abstraction.
+  /** Entity for the argument of function abstraction.
     */
   case class FunArgEntity(t: Option[Type]) extends RawEntity
 
@@ -53,5 +53,9 @@ object SymbolTable extends Environments {
   /** Entity for a pattern generator statement.
     */
   case class PatternGenEntity(t: Option[Type], e: Exp, idxs: Seq[Int]) extends RawEntity
+
+  /** Entity for the pattern argment of a function abstraction.
+    */
+  case class PatternFunArgEntity(t: Option[Type], idxs: Seq[Int]) extends RawEntity
 
 }

@@ -123,6 +123,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
             def walk(n: Pattern): (Seq[Int], CalculusNode) = n match {
               case tree.parent(b: PatternBind)      => (Nil, b)
               case tree.parent(g: PatternGen)       => (Nil, g)
+              case tree.parent(f: PatternFunAbs)    => (Nil, f)
               case tree.parent(p @ PatternProd(ps)) => val (w, e) = walk(p); (w :+ ps.indexOf(n), e)
             }
 
@@ -130,6 +131,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
               case p: Pattern => val (idxs, n1) = walk(p); n1 match {
                 case PatternBind(_, e) => PatternBindEntity(t, e, idxs)
                 case PatternGen(_, e)  => PatternGenEntity(t, e, idxs)
+                case _: PatternFunAbs  => PatternFunArgEntity(t, idxs)
               }
               case Bind(_, e)       => BindEntity(t, e)
               case Gen(_, e)        => GenEntity(t, e)
@@ -212,6 +214,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       // Arithmetic operation must be over Int or Float
       case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(IntType(), FloatType())
 
+      // The type of the right-hand-side of a binary expression must match the type of the left-hand-side
+      case BinaryExp(_, e1, e2) if e eq e2 => Set(tipe(e1))
+
       // Function application must be on a function type
       case FunApp(f, _) if e eq f => Set(FunType(AnyType(), AnyType()))
 
@@ -228,6 +233,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case MergeMonoid(_: BagMonoid, e1, _)  if e eq e1 => Set(BagType(AnyType()))
       case MergeMonoid(_: ListMonoid, e1, _) if e eq e1 => Set(ListType(AnyType()))
       case MergeMonoid(_: SetMonoid, e1, _)  if e eq e1 => Set(SetType(AnyType()))
+
+      // The type of the right-hand-side of a merge expression must match the type of the left-hand-side
+      case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
 
       // Comprehension with a primitive monoid must have compatible projection type
       case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(IntType(), FloatType())
@@ -253,7 +261,16 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     */
   def typesCompatible(e: Exp): Boolean = {
     val actual = tipe(e)
+    // Type checker keeps quiet on nothing types because the actual error will be signalled in one of its children
+    // through the `expectedType` comparison.
+    if (actual == NothingType())
+      return true
     for (expected <- expectedType(e)) {
+      // Type checker keeps quiet on nothing types because the actual error will be signalled in one of its children
+      // through the `expectedType` comparison.
+      if (expected == NothingType())
+        return true
+
       (expected, actual) match {
         case (RecordType(atts1), RecordType(atts2)) =>
           // Handle the special case of an expected type being a record type containing a given identifier.
@@ -319,9 +336,12 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case _ => NothingType()
     }
 
-    case FunArgEntity(optT) => optType(optT)
+    case FunArgEntity(optT)              => optType(optT)
+    case PatternFunArgEntity(optT, idxs) => indexesType(optType(optT), idxs)
 
     case ClassEntity(_, t) => t
+
+    case _: UnknownEntity => NothingType()
   }
 
   def entityType(e: Entity): Type = realEntityType(e) match {

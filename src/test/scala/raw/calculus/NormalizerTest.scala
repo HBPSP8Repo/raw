@@ -7,15 +7,9 @@ class NormalizerTest extends FunTest {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
     val analyzer = new SemanticAnalyzer(t, w)
+    analyzer.errors.map((err) => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
     CalculusPrettyPrinter(Normalizer(t, w).root, 200)
-  }
-
-  test("ruleExpBlock") {
-    compare(
-      process(
-        """for (d <- Departments) yield set { name := d.name; (deptName := name) }""", TestWorlds.departments),
-        """for ($0 <- Departments) yield set (deptName := $0.name)""")
   }
 
   test("rule1") {
@@ -139,10 +133,9 @@ class NormalizerTest extends FunTest {
 
   ignore("desugar PatternFunAbs") {
     compare(
-      process("""\(a,b) -> a + b""", TestWorlds.empty),
+      process("""\(a: int, b: int) -> a + b + 2""", TestWorlds.empty),
       """"""
     )
   }
-
 
 }
