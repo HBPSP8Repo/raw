@@ -48,7 +48,7 @@ object Normalizer extends LazyLogging {
     lazy val rulePatternFunAbs = rule[Exp] {
       case PatternFunAbs(p @ PatternProd(ps), e) =>
         val idn = SymbolTable.next()
-        FunAbs(IdnDef(idn, Some(analyzer.patternType(p))),
+        FunAbs(IdnDef(idn, None),
           ExpBlock(
             ps.zipWithIndex.map{
               case (p1, idx) => p1 match {
@@ -69,7 +69,7 @@ object Normalizer extends LazyLogging {
     lazy val rulePatternGen = rule[Comp] {
       case Comp(m, RulePatternGen(r, PatternGen(p, u), s), e) =>
         val idn = SymbolTable.next()
-        Comp(m, r ++ Seq(Gen(IdnDef(idn, Some(analyzer.patternType(p))), u), PatternBind(p, IdnExp(IdnUse(idn)))) ++ s, e)
+        Comp(m, r ++ Seq(Gen(IdnDef(idn, None), u), PatternBind(p, IdnExp(IdnUse(idn)))) ++ s, e)
     }
 
     /** De-sugar pattern binds inside expression blocks.

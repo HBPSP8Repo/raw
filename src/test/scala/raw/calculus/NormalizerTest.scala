@@ -131,11 +131,25 @@ class NormalizerTest extends FunTest {
         """for ($0 <- Departments) yield set (deptName := $0.name)""")
   }
 
-  ignore("desugar PatternFunAbs") {
+  test("desugar PatternFunAbs") {
     compare(
-      process("""\(a: int, b: int) -> a + b + 2""", TestWorlds.empty),
-      """"""
-    )
+      process(
+        """\(a: int, b: int) -> a + b + 2"""),
+        """\ $0 -> $0._1 + $0._2 + 2""")
+  }
+
+  test("desugar PatternGen") {
+    compare(
+      process(
+        """for ((a, b, c, d) <- things) yield set (a, d)""", TestWorlds.things),
+        """for ($0 <- things) yield set (_1 := $0._1, _2 := $0._4)""")
+  }
+
+  test("desugar PatternBind") {
+    compare(
+      process(
+        """{ (a, b) := (1, 2); a + b }"""),
+        """1 + 2""")
   }
 
 }
