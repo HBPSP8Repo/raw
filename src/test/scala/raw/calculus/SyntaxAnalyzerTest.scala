@@ -168,16 +168,4 @@ class SyntaxAnalyzerTest extends FunTest {
   test("parentheses - lt and comparison - variables - redundant") {
     matches("(a < b) = c", "a < b = c")
   }
-
-  test("cern_events") {
-    matches("for (e1 <- Events, e1.RunNumber > 100) yield set (muon := e1.muon)")
-  }
-
-  test("paper_query_1") {
-    matches( """for (el <- for (d <- Departments, d.name = "CSE") yield set d.instructors, e <- el, for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
-  }
-
-  test("paper_query_2") {
-    matches( """for (e <- Employees) yield set (E := e, M := for (c <- e.children, for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
-  }
 }
