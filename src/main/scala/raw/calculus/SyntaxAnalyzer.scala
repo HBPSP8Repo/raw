@@ -5,7 +5,7 @@ import org.kiama.util.PositionedParserUtilities
 
 /** Parser for monoid comprehensions.
   */
-class SyntaxAnalyzer extends PositionedParserUtilities {
+object SyntaxAnalyzer extends PositionedParserUtilities {
 
   import Calculus._
   import scala.collection.immutable.List
@@ -25,8 +25,8 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
-  def makeAST(query: String): Either[String, Exp] = parseAll(exp, query) match {
-    case Success(ast, _) => Right(ast)
+  def apply(query: String): Either[String, Exp] = parseAll(exp, query) match {
+    case Success(ast, _) => println(s"Object: ${ast.pos}"); Right(ast)
     case f => Left(f.toString)
   }
 

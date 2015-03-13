@@ -8,7 +8,6 @@ import raw.executor.Executor
 import raw.executor.reference.ReferenceExecutor
 
 object RawRepl extends REPL {
-  val parser = new SyntaxAnalyzer()
 //  val world = World()
 //
 //  def apply(query: String, world: World, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
@@ -34,7 +33,7 @@ object RawRepl extends REPL {
   override def banner: String = "Raw REPL"
 
   override def processline(query: String, console: Console, config: REPLConfig): Option[REPLConfig] = {
-    parser.makeAST(query) match {
+    SyntaxAnalyzer(query) match {
       case Right(ast) => {
         val calculus = new Calculus.Calculus(ast)
         println(s"AST: $ast")
