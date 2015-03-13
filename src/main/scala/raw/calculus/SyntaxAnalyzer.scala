@@ -26,7 +26,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
   def apply(query: String): Either[String, Exp] = parseAll(exp, query) match {
-    case Success(ast, _) => println(s"Object: ${ast.pos}"); Right(ast)
+    case Success(ast, _) => Right(ast)
     case f => Left(f.toString)
   }
 
