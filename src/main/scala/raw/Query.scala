@@ -19,7 +19,7 @@ abstract class QueryResult {
 
 object Query {
 
-  def parse(query: String, world: World): Either[QueryError, Calculus.Calculus] = {
+  def parse(query: String): Either[QueryError, Calculus.Calculus] = {
     val parser = new SyntaxAnalyzer()
     parser.makeAST(query) match {
       case Right(ast) => Right(new Calculus.Calculus(ast))
@@ -27,23 +27,24 @@ object Query {
     }
   }
 
-  def analyze(t: Calculus.Calculus, w: World): Option[QueryError] = {
-    val analyzer = new SemanticAnalyzer(t, w)
+  def analyze(tree: Calculus.Calculus, world: World): Option[QueryError] = {
+    val analyzer = new SemanticAnalyzer(tree, world)
     if (analyzer.errors.length == 0)
       None
     else
       Some(SemanticErrors(analyzer.errors))
   }
 
-  def unnest(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = Unnester(tree, world)
+  def unnest(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode =
+    Unnester(tree, world)
 
   def apply(query: String, world: World, executor: Executor = ReferenceExecutor): Either[QueryError, QueryResult] = {
-    parse(query, world) match {
+    parse(query) match {
       case Right(tree) => analyze(tree, world) match {
-        case None            => executor.execute(unnest(tree, world), world)
-        case Some(err)       => Left(err)
+        case None        => executor.execute(unnest(tree, world), world)
+        case Some(error) => Left(error)
       }
-      case Left(err)       => Left(err)
+      case Left(error) => Left(error)
     }
   }
 
