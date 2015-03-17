@@ -15,15 +15,13 @@ object ExpressionsPrettyPrinter extends PrettyPrinter {
     case FloatConst(v)                  => v
     case StringConst(v)                 => s""""$v""""
     case Arg                            => "$$arg"
-    case ProductProj(e, idx)            => show(e) <> parens(idx.toString)
-    case ProductCons(es)                => "(" <+> es.map(show).mkString(",") <+> ")"
-    case RecordProj(e, idn)             => show(e) <> dot <> idn
+    case RecordProj(e1, idn)            => show(e1) <> dot <> idn
     case RecordCons(atts)               => parens(group(nest(lsep(atts.map{ att => att.idn <+> ":=" <+> show(att.e) }, comma))))
     case IfThenElse(e1, e2, e3)         => "if" <+> show(e1) <+> "then" <+> show(e2) <+> "else" <+> show(e3)
     case BinaryExp(op, e1, e2)          => show(e1) <+> binaryOp(op) <+> show(e2)
     case ZeroCollectionMonoid(m)        => collection(m, empty)
-    case ConsCollectionMonoid(m, e)     => collection(m, show(e))
+    case ConsCollectionMonoid(m, e1)    => collection(m, show(e1))
     case MergeMonoid(m, e1, e2)         => show(e1) <+> merge(m) <+> show(e2)
-    case UnaryExp(op, e)                => unaryOp(op) <+> show(e)
+    case UnaryExp(op, e1)               => unaryOp(op) <+> show(e1)
   }
 }

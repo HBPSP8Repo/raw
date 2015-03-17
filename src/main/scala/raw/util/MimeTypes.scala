@@ -1,4 +1,4 @@
-package raw
+package raw.util
 
 sealed abstract class MimeType
 

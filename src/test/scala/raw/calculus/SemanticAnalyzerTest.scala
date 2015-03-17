@@ -1,6 +1,8 @@
 package raw
 package calculus
 
+import raw.util.MemoryLocation
+
 class SemanticAnalyzerTest extends FunTest {
 
   def assertRootType(query: String, tipe: Type, issue: String = "", world: World = null) = {
@@ -10,14 +12,14 @@ class SemanticAnalyzerTest extends FunTest {
         if (world != null)
           world
         else
-          new World(Map(
-            "unknown" -> MemoryLocation(SetType(AnyType()), Nil),
-            "integers" -> MemoryLocation(SetType(IntType()), Nil),
-            "floats" -> MemoryLocation(SetType(FloatType()), Nil),
-            "booleans" -> MemoryLocation(SetType(BoolType()), Nil),
-            "strings" -> MemoryLocation(SetType(StringType()), Nil),
-            "records" -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))), Nil),
-            "unknownrecords" -> MemoryLocation(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))), Nil)))
+          new World(dataSources=Map(
+            "unknown" -> EmptyDataSource(SetType(AnyType())),
+            "integers" -> EmptyDataSource(SetType(IntType())),
+            "floats" -> EmptyDataSource(SetType(FloatType())),
+            "booleans" -> EmptyDataSource(SetType(BoolType())),
+            "strings" -> EmptyDataSource(SetType(StringType())),
+            "records" -> EmptyDataSource(SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType()))))),
+            "unknownrecords" -> EmptyDataSource(SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())))))))
 
       val ast = parse(query)
       val analyzer = new SemanticAnalyzer(new Calculus.Calculus(ast), w)
@@ -89,7 +91,16 @@ class SemanticAnalyzerTest extends FunTest {
   assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); c }", IntType())
   assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
 
-  assertRootType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
+  assertRootType("""\a: int -> a + 2""", FunType(IntType(), IntType()))
+  assertRootType("""\a: int -> a""", FunType(IntType(), IntType()))
+  assertRootType("""\a -> a + 2""", FunType(IntType(), IntType()))
+  assertRootType("""\a -> a + a + 2""", FunType(IntType(), IntType()))
+  assertRootType("""\a -> a""", FunType(AnyType(), AnyType()))
 
-  assertFailure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", "expected int got float", TestWorlds.things)
+  assertRootType("""\(a: int, b: int) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
+  assertRootType("""\(a, b) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
+
+//  assertRootType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
+//
+//  assertFailure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", "expected int got float", TestWorlds.things)
 }

@@ -301,8 +301,8 @@ class SyntaxAnalyzer extends PositionedParserUtilities {
       ("set" ~ "(") ~> (tipe <~ ")") ^^ SetType
     )
 
-  lazy val classType: PackratParser[ClassType] =
-    positioned(attrName ^^ ClassType)
+  lazy val classType: PackratParser[UserType] =
+    positioned(attrName ^^ UserType)
 
   lazy val funApp: PackratParser[FunApp] =
     positioned(exp ~ exp ^^ FunApp)

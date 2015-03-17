@@ -35,14 +35,6 @@ object Expressions {
     */
   case object Arg extends Exp
 
-  /** Product Projection
-    */
-  case class ProductProj(e: Exp, idx: Int) extends Exp
-
-  /** Product Construction
-    */
-  case class ProductCons(es: Seq[Exp]) extends Exp
-
   /** Record Projection
     */
   case class RecordProj(e: Exp, idn: Idn) extends Exp

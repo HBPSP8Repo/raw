@@ -11,7 +11,8 @@ object LogicalAlgebraPrettyPrinter extends PrettyPrinter {
     super.pretty(show(n)).layout
 
   def show(a: LogicalAlgebraNode): Doc = a match {
-    case Scan(name)                     => "scan" <+> parens(text(name))
+      // TODO: FIX!
+    case Scan(it, t)                    => "scan" <+> parens(tipe(t))
     case Reduce(m, e, p, child)         => "reduce" <+> monoid(m) <+> ExpressionsPrettyPrinter(e) <+> ExpressionsPrettyPrinter(p) <@> nest(show(child))
     case Nest(m, e, f, p, g, child)     => "nest" <+> monoid(m) <+> ExpressionsPrettyPrinter(e) <+> ExpressionsPrettyPrinter(f) <+> ExpressionsPrettyPrinter(p) <+> ExpressionsPrettyPrinter(g) <@> nest(show(child))
     case Select(p, child)               => "select" <+> ExpressionsPrettyPrinter(p) <@> nest(show(child))

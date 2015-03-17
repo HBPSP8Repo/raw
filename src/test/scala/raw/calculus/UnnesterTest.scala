@@ -16,38 +16,44 @@ class UnnesterTest extends FunTest {
 
   test("simple join") {
     val query = "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)"
+    val w = TestWorlds.departments
 
     object Result extends AlgebraLang {
+      val world = w
+
       def apply() = {
         reduce(
           set,
-          record("a1" -> arg(0), "b1" -> arg(1)),
+          record("a1" -> arg._1, "b1" -> arg._2),
           join(
-            arg(0).dno == arg(1).dno,
+            arg._1.dno == arg._2.dno,
             select(scan("Departments")),
             select(scan("Departments"))))
       }
     }
 
-    assert(process(TestWorlds.departments, query) === Result())
+    assert(process(w, query) === Result())
   }
 
   test("complex join") {
     val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
+    val w = TestWorlds.fines
 
     object Result extends AlgebraLang {
+      val world = w
+
       def apply() = {
         reduce(
           list,
-          record("name" -> arg(1).person, "location" -> arg(1).location),
+          record("name" -> arg._2.person, "location" -> arg._2.location),
           join(
-            arg(0).location == arg(1).location && arg(1).speed > arg(0).max_speed,
+            arg._1.location == arg._2.location && arg._2.speed > arg._1.max_speed,
             select(scan("speed_limits")),
             select(scan("radar"))))
       }
     }
 
-    assert(process(TestWorlds.fines, query) === Result())
+    assert(process(w, query) === Result())
   }
 
   ignore("complex join 2") {
@@ -66,55 +72,61 @@ class UnnesterTest extends FunTest {
 
   test("paper query") {
     val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
+    val w = TestWorlds.employees
 
     object Result extends AlgebraLang {
+      val world = w
+
       def apply() = {
         reduce(
           set,
-          record("E" -> arg(0), "M" -> arg(1)),
+          record("E" -> arg._1, "M" -> arg._2),
           nest(
             sum,
             e=1,
-            group_by=List(arg(0)),
-            p=arg(2),
-            nulls=List(arg(1), arg(2)),
+            group_by=List(arg._1._1),
+            p=arg._2,
+            nulls=List(arg._1._2, arg._2),
             nest(
               and,
-              e=arg(1).age > arg(2).age,
-              group_by=List(arg(0), arg(1)),
-              nulls=List(arg(2)),
+              e=arg._1._2.age > arg._2.age,
+              group_by=List(arg._1._1, arg._1._2),
+              nulls=List(arg._2),
               outer_unnest(
-                path=arg(0).manager.children,
+                path=arg._1.manager.children,
                 outer_unnest(
-                  path=arg().children,
+                  path=arg.children,
                   select(
                     scan("Employees")))))))
       }
     }
 
-    assert(process(TestWorlds.employees, query) === Result())
+    assert(process(w, query) === Result())
   }
 
   test("top-level merge") {
     val query = "for (x <- things union things) yield set x"
+    val w = TestWorlds.things
 
     object Result extends AlgebraLang {
+      val world = w
+
       def apply() = {
         merge(
           set,
           reduce(
             set,
-            arg(),
+            arg,
             select(
               scan("things"))),
           reduce(
             set,
-            arg(),
+            arg,
             select(
               scan("things"))))
       }
     }
-    assert(process(TestWorlds.things, query) === Result())
+    assert(process(w, query) === Result())
   }
 
 }
@@ -122,7 +134,7 @@ class UnnesterTest extends FunTest {
 
 case class AlgebraDSLError(err: String) extends RawException(err)
 
-class AlgebraLang {
+abstract class AlgebraLang {
 
   import scala.language.implicitConversions
   import scala.language.dynamics
@@ -131,9 +143,14 @@ class AlgebraLang {
   import algebra.LogicalAlgebra._
   import algebra.Expressions._
 
+  /** World
+    */
+  val world: World
+
   /** Expression builders
     */
   sealed abstract class Builder extends Dynamic {
+
     /** Record Projection
       */
     def selectDynamic(idn: String) = RecordProjBuilder(this, idn)
@@ -183,8 +200,6 @@ class AlgebraLang {
 
   case object ArgBuilder extends Builder
 
-  case class ProductProjBuilder(lhs: Builder, idx: Int) extends Builder
-
   case class RecordProjBuilder(lhs: Builder, idn: String) extends Builder
 
   case class AttrConsBuilder(idn: String, b: Builder)
@@ -215,11 +230,15 @@ class AlgebraLang {
 
   /** Variable
     */
-  def arg(i: Int = -1) = if (i < 0) ArgBuilder else ProductProjBuilder(ArgBuilder, i)
+  //def arg(i: Int = -1) = if (i < 0) ArgBuilder else RecordProjBuilder(ArgBuilder, s"_${i + 1}")
+  def arg = ArgBuilder
 
   /** Record Construction
     */
-  def record(atts: Tuple2[String, Builder]*) = RecordConsBuilder(atts.map{ att => AttrConsBuilder(att._1, att._2)}.to[scala.collection.immutable.Seq])
+  def record(atts: Tuple2[String, Builder]*) = {
+    val atts1 = Seq(atts:_*)
+    RecordConsBuilder(atts1.map { case att => AttrConsBuilder(att._1, att._2)})
+  }
 
   /** If `e1` Then `e2` Else `e3`
     */
@@ -276,7 +295,6 @@ class AlgebraLang {
     case NullBuilder                     => Null
     case ConstBuilder(c)                 => c
     case ArgBuilder                      => Arg
-    case ProductProjBuilder(lhs, idx)    => ProductProj(build(lhs), idx)
     case RecordProjBuilder(lhs, idn)     => RecordProj(build(lhs), idn)
     case RecordConsBuilder(atts)         => RecordCons(atts.map { att => AttrCons(att.idn, build(att.b))})
     case IfThenElseBuilder(i)            => i
@@ -286,12 +304,15 @@ class AlgebraLang {
   }
 
   def argbuild(bs: List[Builder]): Exp =
-    ProductCons(bs.map(build))
+    RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b)) })
 
 
   /** Algebra operators
     */
-  def scan(name: String) = Scan(name)
+  def scan(name: String) = world.dataSource(name) match {
+    case Some(ScalaDataSource(s @ ScalaDataSource(obj))) => Scan(obj.asInstanceOf[Iterable[Any]], s.tipe)
+    case Some(EmptyDataSource(t)) => Scan(List(), t)
+  }
 
   def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), build(p), child)
 

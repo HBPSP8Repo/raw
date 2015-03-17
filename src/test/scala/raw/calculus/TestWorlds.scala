@@ -1,6 +1,8 @@
 package raw
 package calculus
 
+import raw.util.MemoryLocation
+
 object TestWorlds {
 
   def departments = {
@@ -17,27 +19,27 @@ object TestWorlds {
         AttrType("salary", IntType()),
         AttrType("rank", StringType()),
         AttrType("degrees", SetType(StringType())),
-        AttrType("dept", ClassType("Department")),
-        AttrType("teaches", SetType(ClassType("Course")))))
+        AttrType("dept", UserType("Department")),
+        AttrType("teaches", SetType(UserType("Course")))))
     val instructors = SetType(instructor)
 
     val department =
       RecordType(List(
         AttrType("dno", IntType()),
         AttrType("name", StringType()),
-        AttrType("head", ClassType("Instructor")),
-        AttrType("instructors", ClassType("Instructors")),
-        AttrType("courses", ClassType("Courses"))))
+        AttrType("head", UserType("Instructor")),
+        AttrType("instructors", UserType("Instructors")),
+        AttrType("courses", UserType("Courses"))))
     val departments = BagType(department)
 
     val course =
       RecordType(List(
         AttrType("code", StringType()),
         AttrType("name", StringType()),
-        AttrType("offered_by", ClassType("Department")),
-        AttrType("taught_by", ClassType("Instructor")),
-        AttrType("is_prerequisite_for", ClassType("Courses")),
-        AttrType("has_prerequisites", SetType(ClassType("Course")))))
+        AttrType("offered_by", UserType("Department")),
+        AttrType("taught_by", UserType("Instructor")),
+        AttrType("is_prerequisite_for", UserType("Courses")),
+        AttrType("has_prerequisites", SetType(UserType("Course")))))
     val courses = SetType(course)
 
     val userTypes = Map(
@@ -46,13 +48,14 @@ object TestWorlds {
       "Department" -> department,
       "Departments" -> departments,
       "Course" -> course,
-      "Courses" -> courses)
-
-    val catalog = Map(
-      "Departments" -> MemoryLocation(departments, Nil)
+      "Courses" -> courses
     )
 
-    new World(catalog, userTypes=userTypes)
+    val dataSources = Map(
+      "Departments" -> EmptyDataSource(UserType("Departments"))
+    )
+
+    new World(userTypes, dataSources)
   }
 
   def employees = {
@@ -70,11 +73,11 @@ object TestWorlds {
           AttrType("children", children),
           AttrType("manager", manager))))
 
-    val catalog = Map(
-      "Employees" -> MemoryLocation(employees, Nil)
+    val dataSources = Map(
+      "Employees" -> EmptyDataSource(employees)
     )
 
-    new World(catalog)
+    new World(dataSources=dataSources)
   }
 
   def cern = {
@@ -100,12 +103,12 @@ object TestWorlds {
           AttrType("Run", IntType()),
           AttrType("OK", BoolType()))))
 
-    val catalog = Map(
-      "Events" -> MemoryLocation(events, Nil),
-      "GoodRuns" -> MemoryLocation(goodRuns, Nil)
+    val dataSources = Map(
+      "Events" -> EmptyDataSource(events),
+      "GoodRuns" -> EmptyDataSource(goodRuns)
     )
 
-    new World(catalog)
+    new World(dataSources=dataSources)
   }
 
   def things = {
@@ -121,11 +124,7 @@ object TestWorlds {
             SetType(
               FloatType())))))
 
-    val catalog = Map(
-      "things" -> MemoryLocation(things, Nil)
-    )
-
-    new World(catalog)
+    new World(dataSources=Map("things" -> EmptyDataSource(things)))
   }
 
   def fines = {
@@ -143,12 +142,12 @@ object TestWorlds {
           AttrType("speed", IntType()),
         AttrType("location", StringType()))))
 
-    val catalog = Map(
-      "speed_limits" -> MemoryLocation(speed_limits, Nil),
-      "radar" -> MemoryLocation(radar, Nil)
+    val dataSources = Map(
+      "speed_limits" -> EmptyDataSource(speed_limits),
+      "radar" -> EmptyDataSource(radar)
     )
 
-    new World(catalog)
+    new World(dataSources=dataSources)
   }
 
   def empty = new World()

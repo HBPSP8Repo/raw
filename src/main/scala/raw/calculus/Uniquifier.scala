@@ -10,7 +10,7 @@ case class UniquifierError(err: String) extends RawException(err)
 object Uniquifier extends LazyLogging {
 
   import Calculus.{Calculus, Idn, IdnNode, IdnDef, IdnUse}
-  import SymbolTable.{ClassEntity, RawEntity}
+  import SymbolTable.{DataSourceEntity, RawEntity}
   import org.kiama.rewriting.Rewriter._
 
   /** Transform all identifiers in the AST into identifiers that are unique.
@@ -28,8 +28,8 @@ object Uniquifier extends LazyLogging {
     val renameIdns = everywhere(rule[IdnNode]{
       case n @ IdnDef(idn, t) => IdnDef(entity(n).id, t)
       case n @ IdnUse(idn) => entity(n) match {
-        case _: ClassEntity => IdnUse(idn)    // For class entities, keep the original identifier use.
-        case e              => IdnUse(e.id)   // Otherwise, replace by the internal, globally unique identifier.
+        case _: DataSourceEntity => IdnUse(idn)    // For data sources, keep the original identifier use.
+        case e                   => IdnUse(e.id)   // Otherwise, replace by the internal, globally unique identifier.
       }
     })
 

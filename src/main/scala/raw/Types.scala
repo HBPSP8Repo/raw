@@ -20,10 +20,6 @@ case class IntType() extends NumberType
 
 case class FloatType() extends NumberType
 
-/** Product Type
-  */
-case class ProductType(tipes: Seq[Type]) extends Type
-
 /** Record Type
   */
 case class AttrType(idn: String, tipe: Type) extends RawNode
@@ -49,9 +45,9 @@ case class BagType(innerType: Type) extends CollectionType
 case class ListType(innerType: Type) extends CollectionType
 case class SetType(innerType: Type) extends CollectionType
 
-/** Class Type
+/** User Type
   */
-case class ClassType(idn: String) extends Type
+case class UserType(idn: String) extends Type
 
 /** Function Type `t2` -> `t1`
   */

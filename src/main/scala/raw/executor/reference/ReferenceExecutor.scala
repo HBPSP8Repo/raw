@@ -2,7 +2,7 @@ package raw
 package executor
 package reference
 
-import raw.TextCsv
+import raw.util.{ApplicationJson, TextCsv}
 
 import scala.io.BufferedSource
 
@@ -20,14 +20,7 @@ class ReferenceResult(result: Any) extends QueryResult {
 
 object ReferenceExecutor extends Executor with LazyLogging {
 
-  case class ProductValue(items: Seq[Any])
-
-  def makeProduct(x: Any, y: Any): ProductValue = (x, y) match {
-    case (ProductValue(s1), ProductValue(s2)) => ProductValue(s1 ++ s2)
-    case (s1, ProductValue(s2))               => ProductValue(Seq(s1) ++ s2)
-    case (ProductValue(s1), s2)               => ProductValue(s1 :+ s2)
-    case (s1, s2)                             => ProductValue(Seq(s1, s2))
-  }
+  def makeProduct(x: Any, y: Any): Map[String, Any] = Map("_1" -> x, "_2" -> y)
 
   // TODO: Remove and swap for a pretty printer?
     def show(x: Any): String = x match {
@@ -38,7 +31,6 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case m: Map[String, Any] => "{" ++ m.map(kv => (kv._1, show(kv._2))).mkString(", ") ++ "}"
       case l: List[Any] => "[" ++ l.map(show).mkString(", ") ++ "]"
       case s: Set[Any] => "(" ++ s.map(show).mkString(", ") ++ ")"
-      case p: ProductValue => "x[" ++ p.items.map(show).mkString(" . ") ++ "]x"
       case _ => "null"
     }
 
@@ -64,66 +56,16 @@ object ReferenceExecutor extends Executor with LazyLogging {
       }
     }
 
-    def loadCSV(t: Type, content: BufferedSource): Iterable[Any] = {
-
-      def parse(t: Type, item: String): Any = t match {
-        case IntType() => item.toInt
-        case FloatType() => item.toFloat
-        case BoolType() => item.toBoolean
-        case StringType() => item
-        case _ => throw RawExecutorRuntimeException(s"cannot parse $t in text/csv files")
-      }
-      t match {
-        case ListType(RecordType(atts)) => {
-          val f = (l: String) => atts.zip(l.split(",")).map { case (a, item) => (a.idn, parse(a.tipe, item))}.toMap
-          content.getLines().toList.map(f)
-        }
-        case _ => throw RawExecutorRuntimeException(s"cannot make data source from $t")
-      }
-    }
-
-    def loadJSON(t: Type, content: BufferedSource): Iterable[Any] = {
-      val json: JValue = org.json4s.native.JsonMethods.parse(content.mkString)
-      def convert(t: Type, item: JValue): Any = (t, item) match {
-        case (IntType(), JInt(i)) => i.toInt
-        case (FloatType(), JDouble(d)) => d.toFloat
-        case (BoolType(), JBool(b)) => b
-        case (StringType(), JString(s)) => s
-        case (RecordType(atts), JObject(l)) => {
-          val jMap: Map[String, JValue] = l.map { jfield: JField => (jfield._1, jfield._2)}.toMap
-          val tMap: Map[String, Type] = atts.map({ aType: AttrType => (aType.idn, aType.tipe)}).toMap
-          val vMap: Map[String, Any] = jMap.map({ j => (j._1, convert(tMap(j._1), j._2))})
-          vMap
-        }
-        case (ListType(innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)})
-        case (SetType(innerType), JArray(arr)) => arr.map({ jv => convert(innerType, jv)}).toSet // TODO: correct?
-      }
-
-      convert(t, json) match {
-        case l: List[Any] => l
-        case s: Set[Any] => s
-        case v: Any => throw RawExecutorRuntimeException(s"Cannot instantiate a scan from $v")
-      }
-    }
-
     def toOperator(opNode: LogicalAlgebraNode): ScalaOperator = opNode match {
       case Join(p, left, right) => new JoinOperator(p, toOperator(left), toOperator(right))
       case OuterJoin(p, left, right) => new OuterJoinOperator(p, toOperator(left), toOperator(right))
       case Select(p, source) => new SelectOperator(p, toOperator(source))
-      case Nest(m, e, f, p, g, child) => new NestOperator(m, e, f.asInstanceOf[ProductCons], p, g.asInstanceOf[ProductCons], toOperator(child))
+      case Nest(m, e, f, p, g, child) => new NestOperator(m, e, f, p, g, toOperator(child))
       case OuterUnnest(path, p, child) => new OuterUnnestOperator(path, p, toOperator(child))
       case Unnest(path, p, child) => new UnnestOperator(path, p, toOperator(child))
       case _: Merge => ???
       case Reduce(m, exp, ps, source) => new ReduceOperator(m, exp, ps, toOperator(source))
-      case Scan(name) => {
-        val location = world.getLocation(name)
-        location match {
-          case LocalFileLocation(tipe, path, TextCsv(sep)) => new ScanOperator(loadCSV(tipe, scala.io.Source.fromFile(path)))
-          case LocalFileLocation(tipe, path, ApplicationJson) => new ScanOperator(loadJSON(tipe, scala.io.Source.fromFile(path)))
-          case MemoryLocation(tipe, data) => new ScanOperator(dataLocDecode(tipe, data))
-          case loc => throw ReferenceExecutorError(s"Reference executor does not support location $loc")
-        }
-      }
+      case Scan(it, t) => new ScanOperator(it, t)
     }
 
     logger.debug("\n==========\n" + root + "\n" + LogicalAlgebraPrettyPrinter(root) + "\n============")
@@ -149,8 +91,6 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case FloatConst(v)                                => v.toFloat
       case StringConst(v)                               => v
       case Arg                                          => env
-      case ProductCons(es)                              => ProductValue(es.map(expEval(_, env)))
-      case ProductProj(e, idx)                          => expEval(e, env).asInstanceOf[ProductValue].items(idx)
       case RecordCons(attributes)                       => attributes.map(att => (att.idn, expEval(att.e, env))).toMap
       case RecordProj(e, idn)                           => expEval(e, env) match {
         case v: Map[String, Any] => v(idn)
@@ -258,15 +198,13 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: Int, e2: Int) => e1 == e2
       case (e1: Boolean, e2: Boolean) => e1 == e2
       case (e1: String, e2: String) => e1 == e2
-      case (e1: ProductValue, e2: ProductValue) => e1.items == e2.items
-      case (e1: ProductValue, e2) => if (e2 == null) e1.items.contains(null) else throw RawExecutorRuntimeException(s"cannot compare $e1 and $e2")
       case _ => throw RawExecutorRuntimeException(s"cannot compute eq($i1, $i2)")
     }
     case _: Neq => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 != e2
       case (e1: Int, e2: Int) => e1 != e2
       case (e1: Int, e2: Float) => e1 != e2
-      case (e1: Int, e2: Float) => e1 != e2
+      case (e1: Float, e2: Int) => e1 != e2
       case (e1: Boolean, e2: Boolean) => e1 != e2
       case (e1: String, e2: String) => e1 != e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute neq($i1, $i2)")
@@ -275,14 +213,14 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: Float, e2: Float) => e1 < e2
       case (e1: Int, e2: Int) => e1 < e2
       case (e1: Int, e2: Float) => e1 < e2
-      case (e1: Int, e2: Float) => e1 < e2
+      case (e1: Float, e2: Int) => e1 < e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute lt($i1, $i2)")
     }
     case _: Le => (i1: Any, i2: Any) => (i1, i2) match {
       case (e1: Float, e2: Float) => e1 <= e2
       case (e1: Int, e2: Int) => e1 <= e2
       case (e1: Int, e2: Float) => e1 <= e2
-      case (e1: Int, e2: Float) => e1 <= e2
+      case (e1: Float, e2: Int) => e1 <= e2
       case _ => throw RawExecutorRuntimeException(s"cannot compute le($i1, $i2)")
     }
     case _: Ge => (i1: Any, i2: Any) => (i1, i2) match {
@@ -391,7 +329,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     def value() = output
   }
 
-  class NestOperator(m: Monoid, e: Exp, f: ProductCons, p: Exp, g: ProductCons, child: ScalaOperator) extends ScalaOperator {
+  class NestOperator(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: ScalaOperator) extends ScalaOperator {
 
     override def toString() = "nest (" + List(m, ExpressionsPrettyPrinter(e), f, ExpressionsPrettyPrinter(p), g, child).mkString(", ") + ")"
 
@@ -406,7 +344,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
     // apply the reduce operation to the set of rows of each group by value
     private val values: Map[Any, Any] = valuesE.map(p => (p._1, p._2.foldLeft(zeroEval(m))({(x: Any, y: Any) => doReduce(m, x, y)})))
     // make a product of the group by value and the reduced operation result
-    private val output: List[ProductValue] = values.toList.map{p => makeProduct(p._1, p._2)}
+    private val output: List[Map[String, Any]] = values.toList.map{p => makeProduct(p._1, p._2)}
     printMyOutput(output)
     def value() = output
   }
@@ -463,8 +401,8 @@ object ReferenceExecutor extends Executor with LazyLogging {
 
   /** Scan Operator
     */
-  class ScanOperator(input: Iterable[Any]) extends ScalaOperator {
+  class ScanOperator(it: Iterable[Any], t: Type) extends ScalaOperator {
     override def toString() = "scan()"
-    def value() = input
+    def value() = it
   }
 }

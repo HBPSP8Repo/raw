@@ -4,7 +4,7 @@ package algebra
 object LogicalAlgebra {
 
   import org.kiama.relation.Tree
-  import Expressions.Exp
+  import Expressions.{Exp, RecordCons}
 
   /** Tree type for Calculus
     */
@@ -16,7 +16,7 @@ object LogicalAlgebra {
 
   /** Scan
     */
-  case class Scan(name: String) extends LogicalAlgebraNode
+  case class Scan(iter: Iterable[Any], t: Type) extends LogicalAlgebraNode
 
   /** Reduce
     */

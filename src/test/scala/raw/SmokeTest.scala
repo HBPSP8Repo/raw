@@ -3,6 +3,7 @@ package raw
 import org.scalatest._
 import executor.Executor
 import executor.reference.ReferenceExecutor
+import raw.util.{CSVParser, JSONParser}
 
 abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
   val world: World
@@ -24,25 +25,22 @@ abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
 
 abstract class FlatCSVTest extends SmokeTest {
 
-  val students = LocalFileLocation(
+  val students = CSVParser(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
-    "src/test/data/smokeTest/students.csv",
-    TextCsv(","))
+    "src/test/data/smokeTest/students.csv")
 
-  val profs = LocalFileLocation(
+  val profs = CSVParser(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
-    "src/test/data/smokeTest/profs.csv",
-    TextCsv(","))
+    "src/test/data/smokeTest/profs.csv")
 
-  val departments = LocalFileLocation(
+  val departments = CSVParser(
     ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
-    "src/test/data/smokeTest/departments.csv",
-    TextCsv(","))
+    "src/test/data/smokeTest/departments.csv")
 
-  val world: World = new World(Map(
-    "students" -> students,
-    "profs" -> profs,
-    "departments" -> departments))
+  val world = new World(dataSources=Map(
+    "students" -> ScalaDataSource(students),
+    "profs" -> ScalaDataSource(profs),
+    "departments" -> ScalaDataSource(departments)))
 
   // some sanity check on the file content basically
   check("number of professors", "for (d <- profs) yield sum 1", 3)
@@ -102,19 +100,17 @@ class FlatCSVSparkTest extends FlatCSVTest {
 */
 
 abstract class HierarchyJSONTest extends SmokeTest {
-  val movies = LocalFileLocation(
+  val movies = JSONParser(
     ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
-    "src/test/data/smokeTest/movies.json",
-    ApplicationJson)
+    "src/test/data/smokeTest/movies.json")
 
-  val actors = LocalFileLocation(
+  val actors = JSONParser(
     ListType(RecordType(List(AttrType("name", StringType()), AttrType("born", IntType())))),
-    "src/test/data/smokeTest/actors.json",
-    ApplicationJson)
+    "src/test/data/smokeTest/actors.json")
 
-  val world = new World(Map(
-    "movies" -> movies,
-    "actors" -> actors
+  val world = new World(dataSources=Map(
+    "movies" -> ScalaDataSource(movies),
+    "actors" -> ScalaDataSource(actors)
   ))
 
   // some sanity check
@@ -133,8 +129,6 @@ abstract class HierarchyJSONTest extends SmokeTest {
   check("Brad Pitt or Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"), "#29")
 
 }
-
-
 
 class HierarchyJSONReferenceTest extends HierarchyJSONTest {
   val executor = ReferenceExecutor

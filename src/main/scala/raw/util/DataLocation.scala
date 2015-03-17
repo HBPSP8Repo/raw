@@ -1,4 +1,6 @@
-package raw
+package raw.util
+
+import raw.CollectionType
 
 sealed abstract class DataLocation {
   def tipe: CollectionType
