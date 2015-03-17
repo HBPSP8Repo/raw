@@ -17,7 +17,7 @@ class MyTest extends FunSuite with LazyLogging {
     }
   }
 
-  test("simple") {
+  ignore("simple") {
     isOK( """for (a <- list(1)) yield sum a""", 1)
   }
 }

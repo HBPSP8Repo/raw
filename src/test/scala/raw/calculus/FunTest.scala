@@ -6,8 +6,7 @@ import com.typesafe.scalalogging.LazyLogging
 class FunTest extends FunSuite with LazyLogging {
 
   def parse(q: String): Calculus.Exp = {
-    val parser = new SyntaxAnalyzer()
-    parser.makeAST(q) match {
+    SyntaxAnalyzer(q) match {
       case Right(ast) => ast
       case Left(err) => fail(s"Parser error: $err")
     }
