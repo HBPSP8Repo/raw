@@ -52,5 +52,5 @@ libraryDependencies ++=
     "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests") changing(),
     "ch.qos.logback" % "logback-classic" % "1.1.2",
     "org.json4s" %% "json4s-native" % "3.2.10",
-    "org.apache.spark" %% "spark-core" % "1.2.0"
+    "org.apache.spark" %% "spark-core" % "1.2.0" exclude("org.slf4j", "slf4j-log4j12")
   )
