@@ -9,6 +9,7 @@ import raw.calculus.{Calculus, CalculusPrettyPrinter, SemanticAnalyzer, SyntaxAn
 import scala.collection.immutable.Seq
 
 abstract class RawReplConfig(args: Array[String]) extends REPLConfig(args) {
+  // configure how the help message is displayed
   version("RawRepl 0.0.1 (c) 2015 RAW Labs")
 
   banner( """Usage: rawRepl [options]...
@@ -18,26 +19,44 @@ abstract class RawReplConfig(args: Array[String]) extends REPLConfig(args) {
 
   footer("\nFooter placeholder, if needed!")
 
+  // Definition of options and command line arguments
   val world = opt[String](default = Some("world"), descr = "Path to directory containing catalog")
 }
+
 
 object RawRepl extends REPLBase[RawReplConfig] {
   override def banner: String = "Raw REPL"
 
-  override def createConfig(args: Array[String],
-                            out: Emitter = new OutputEmitter,
-                            err: Emitter = new ErrorEmitter): RawReplConfig = {
+  /* Override base class method to perform custom initialization of the REPL after the configuration is loaded but
+   * before entering interactive mode.
+   */
+  override def createAndInitConfig(args: Array[String], output: Emitter, error: Emitter): RawReplConfig = {
+    val config = super.createAndInitConfig(args, output, error)
+    initializeRawRepl(config)
+    config
+  }
+
+  override def createConfig(args: Array[String], out: Emitter, err: Emitter): RawReplConfig = {
     new RawReplConfig(args) {
       lazy val output = out
       lazy val error = err
     }
   }
 
-  // TODO: load world from disk
+  /*
+   * Loads the catalog and performs other initialization tasks before entering interactive mode
+   * Called after the configuration object from Scallop is loaded and initialized.
+   */
+  def initializeRawRepl(config: RawReplConfig) = {
+    println("Initializing world: " + config.world())
+    loadWorld(config.world())
+  }
+
+  def loadWorld(worldDirectory: String) = {
+    println("TODO: Catalog loading not yet implemented")
+  }
 
   override def processline(query: String, console: Console, config: RawReplConfig): Option[RawReplConfig] = {
-    println("Configuration summary: " + config.summary)
-
     val trimmedQuery = query.trim
     if (trimmedQuery.startsWith( """\""")) {
       executeCommand(trimmedQuery.tail, console, config)
@@ -50,7 +69,8 @@ object RawRepl extends REPLBase[RawReplConfig] {
     command match {
       case "quit" => None
       case "help" => config.printHelp(); Some(config)
-      case "showWorld" => printWorld(); Some(config)
+      case "printConfig" => println(config.summary); Some(config)
+      case "printWorld" => printWorld(); Some(config)
       case s => println(s"Unknown command: $s"); Some(config)
     }
   }
@@ -70,6 +90,8 @@ object RawRepl extends REPLBase[RawReplConfig] {
 
       val logicalAlgebra = unnest(calculusTree)
 
+      executeQuery(logicalAlgebra)
+
       println(s"Result: $logicalAlgebra")
     } catch {
       case e: Throwable => println("Error: " + e)
@@ -83,8 +105,8 @@ object RawRepl extends REPLBase[RawReplConfig] {
       case Right(ast) =>
         val calculus = new Calculus.Calculus(ast)
         println(s"  AST: $ast")
-        val pretty = CalculusPrettyPrinter(ast, 200)
-        println(s"  Expression: $pretty")
+        val pretty = CalculusPrettyPrinter(ast, 100)
+        println(s"  Parsed expression: $pretty")
         calculus
       case Left(error) => throw new Exception(s"Parsing error: $error")
     }
@@ -105,7 +127,10 @@ object RawRepl extends REPLBase[RawReplConfig] {
     logicalAlgebra
   }
 
-
+  def executeQuery(node: LogicalAlgebraNode) = {
+    println("Phase 4: Execution")
+    println("TODO: Query execution not yet implemented.")
+  }
 }
 
 
