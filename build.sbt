@@ -54,3 +54,7 @@ libraryDependencies ++=
     "org.json4s" %% "json4s-native" % "3.2.10",
     "org.apache.spark" %% "spark-core" % "1.2.0" exclude("org.slf4j", "slf4j-log4j12")
   )
+
+// Use cached resolution of dependencies (Experimental in SBT 0.13.7)
+// http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
+updateOptions := updateOptions.value.withCachedResolution(true)
