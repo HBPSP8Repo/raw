@@ -23,8 +23,7 @@ object Normalizer extends LazyLogging {
     val inTree = Uniquifier(tree, world)
     logger.debug(s"Normalizer input tree: ${CalculusPrettyPrinter(tree.root)}")
 
-    // TODO: It would be best for the Normalizer not to depend on the SemanticAnalyzer since the tree is being
-    // TODO: rewritten...
+    // TODO: Remove dependency on the SemanticAnalyzer since the tree is being rewritten!
     val analyzer = new SemanticAnalyzer(tree, world)
 
     /** Splits a list using a partial function.

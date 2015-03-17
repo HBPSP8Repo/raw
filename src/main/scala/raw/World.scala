@@ -1,6 +1,7 @@
 package raw
 
 import scala.reflect.runtime.{universe => ru}
+import scala.reflect.ClassTag
 import raw.reflect.Reflector
 
 /** Data Source.

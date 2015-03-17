@@ -25,17 +25,32 @@ abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
 
 abstract class FlatCSVTest extends SmokeTest {
 
+  case class Student(name: String, birthYear: Int, office: String, department: String)
+
   val students = CSVParser(
-    ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
-    "src/test/data/smokeTest/students.csv")
+    "src/test/data/smokeTest/students.csv",
+     l => Student(l(0), l(1).toInt, l(2), l(3)) )
+//
+//
+//    ListType(RecordType(List(AttrType("name",StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
+//    )
+
+  case class Prof(name: String, office: String)
 
   val profs = CSVParser(
-    ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
-    "src/test/data/smokeTest/profs.csv")
+    "src/test/data/smokeTest/profs.csv",
+    l => Prof(l(0), l(1)))
+//    ListType(RecordType(List(AttrType("name",StringType()), AttrType("office", StringType())))),
+//    )
+
+  case class Department(name: String, discipline: String, prof: String)
 
   val departments = CSVParser(
-    ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
-    "src/test/data/smokeTest/departments.csv")
+    "src/test/data/smokeTest/departments.csv",
+    l => Department(l(0), l(1), l(2)))
+
+//    ListType(RecordType(List(AttrType("name",StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
+//    "src/test/data/smokeTest/departments.csv")
 
   val world = new World(dataSources=Map(
     "students" -> ScalaDataSource(students),
@@ -101,7 +116,7 @@ class FlatCSVSparkTest extends FlatCSVTest {
 
 abstract class HierarchyJSONTest extends SmokeTest {
   val movies = JSONParser(
-    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", SetType(StringType()))))),
+    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", ListType(StringType()))))),
     "src/test/data/smokeTest/movies.json")
 
   val actors = JSONParser(

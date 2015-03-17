@@ -280,7 +280,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     false
   }
 
-  // TODO: Move it into a separate class!
+  // TODO: Move it into a separate class to isolate its behavior with an interface!
   private var variableMap = scala.collection.mutable.Map[Variable, Type]()
 
   private def getVariable(v: Variable) = {

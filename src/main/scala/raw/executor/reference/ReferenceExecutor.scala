@@ -94,7 +94,7 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case RecordCons(attributes)                       => attributes.map(att => (att.idn, expEval(att.e, env))).toMap
       case RecordProj(e, idn)                           => expEval(e, env) match {
         case v: Map[String, Any] => v(idn)
-        case _                   => throw RawExecutorRuntimeException(s"cannot do a record projection from $e")
+        case x                   => throw RawExecutorRuntimeException(s"cannot do a record projection from $e with $x")
       }
       case ZeroCollectionMonoid(m)                      => zeroEval(m)
       case ConsCollectionMonoid(m: CollectionMonoid, e) => consCollectionEval(m)(expEval(e, env))
@@ -198,6 +198,10 @@ object ReferenceExecutor extends Executor with LazyLogging {
       case (e1: Int, e2: Int) => e1 == e2
       case (e1: Boolean, e2: Boolean) => e1 == e2
       case (e1: String, e2: String) => e1 == e2
+        // TODO: Hack
+      case (e1: Map[String, Any], e2: Map[String, Any]) => e1.keys.toList == e2.keys.toList && e1.values.toList == e2.values.toList
+        // TODO: Hack
+      case (e1: Map[String, Any], null) => e1.values.toList.contains(null)
       case _ => throw RawExecutorRuntimeException(s"cannot compute eq($i1, $i2)")
     }
     case _: Neq => (i1: Any, i2: Any) => (i1, i2) match {
