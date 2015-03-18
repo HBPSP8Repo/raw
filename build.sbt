@@ -12,9 +12,9 @@ homepage := Some(url("http://dias.epfl.ch/"))
 
 // Scala compiler settings
 
-scalaVersion := "2.11.5"
+scalaVersion := "2.11.6"
 
-scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
+scalacOptions ++= Seq ("-target:jvm-1.7", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
 
 // Interactive settings
 
@@ -52,7 +52,7 @@ libraryDependencies ++=
     "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests") changing(),
     "ch.qos.logback" % "logback-classic" % "1.1.2",
     "org.json4s" %% "json4s-native" % "3.2.10",
-    "org.apache.spark" %% "spark-core" % "1.2.0" exclude("org.slf4j", "slf4j-log4j12")
+    "org.apache.spark" %% "spark-core" % "1.3.0" exclude("org.slf4j", "slf4j-log4j12")
   )
 
 // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
