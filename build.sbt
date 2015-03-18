@@ -14,6 +14,7 @@ homepage := Some(url("http://dias.epfl.ch/"))
 
 scalaVersion := "2.11.6"
 
+// Spark is not compatible with code compiled with jvm-1.8: https://issues.apache.org/jira/browse/SPARK-6152
 scalacOptions ++= Seq ("-target:jvm-1.7", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
 
 // Interactive settings
