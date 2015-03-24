@@ -4,9 +4,23 @@ import org.kiama.util._
 import raw._
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
 import raw.algebra.Unnester
+import raw.calculus.Calculus
+import raw.calculus.Calculus.Calculus
 import raw.calculus.{Calculus, CalculusPrettyPrinter, SemanticAnalyzer, SyntaxAnalyzer}
 
 import scala.collection.immutable.Seq
+
+/*
+TODO: Use Scala REPL as a basis.
+ 1. Load a RawContext object at startup
+
+    exp = rc.compile("")
+    showRaw(exp)
+    showPretty(exp)
+    rc.semanticAnalysys(exp)
+    rc.execute()
+    rc.loadWorld()
+  */
 
 abstract class RawReplConfig(args: Array[String]) extends REPLConfig(args) {
   // configure how the help message is displayed
@@ -84,11 +98,11 @@ object RawRepl extends REPLBase[RawReplConfig] {
 
   def executeExpression(query: String, console: Console, config: RawReplConfig): Option[RawReplConfig] = {
     try {
-      val calculusTree = syntaxAnalysis(query)
+      val calculusTree: Calculus = syntaxAnalysis(query)
 
       semanticAnalysis(calculusTree)
 
-      val logicalAlgebra = unnest(calculusTree)
+      val logicalAlgebra: LogicalAlgebraNode = unnest(calculusTree)
 
       executeQuery(logicalAlgebra)
 
@@ -133,22 +147,3 @@ object RawRepl extends REPLBase[RawReplConfig] {
   }
 }
 
-
-object Worlds {
-  val students = LocalFileLocation(
-    ListType(RecordType(List(AttrType("name", StringType()), AttrType("birthYear", IntType()), AttrType("office", StringType()), AttrType("department", StringType())))),
-    "src/test/data/smokeTest/students.csv",
-    TextCsv(","))
-  val profs = LocalFileLocation(
-    ListType(RecordType(List(AttrType("name", StringType()), AttrType("office", StringType())))),
-    "src/test/data/smokeTest/profs.csv",
-    TextCsv(","))
-  val departments = LocalFileLocation(
-    ListType(RecordType(List(AttrType("name", StringType()), AttrType("discipline", StringType()), AttrType("prof", StringType())))),
-    "src/test/data/smokeTest/departments.csv",
-    TextCsv(","))
-  val world: World = new World(Map(
-    "students" -> students,
-    "profs" -> profs,
-    "departments" -> departments))
-}

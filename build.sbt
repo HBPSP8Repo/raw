@@ -15,7 +15,7 @@ homepage := Some(url("http://dias.epfl.ch/"))
 scalaVersion := "2.11.6"
 
 // Spark is not compatible with code compiled with jvm-1.8: https://issues.apache.org/jira/browse/SPARK-6152
-scalacOptions ++= Seq ("-target:jvm-1.7", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
+scalacOptions ++= Seq("-target:jvm-1.7", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
 
 // Interactive settings
 
@@ -42,7 +42,7 @@ resolvers += Opts.resolver.sonatypeReleases
 resolvers += Opts.resolver.sonatypeSnapshots
 
 libraryDependencies ++=
-  Seq (
+  Seq(
     "org.scala-lang" % "scala-compiler" % scalaVersion.value,
     "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.3",
@@ -59,3 +59,9 @@ libraryDependencies ++=
 // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
 // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
 updateOptions := updateOptions.value.withCachedResolution(true)
+
+initialCommands in console := """
+                                |import raw.util._
+                                |import raw.util.RawContext._
+                                |val rc = new RawContext()
+                                | """.stripMargin
