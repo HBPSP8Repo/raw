@@ -1,56 +1,50 @@
-name := "raw"
+import Resolvers._
+import Dependencies._
 
-version := "0.0.0"
+lazy val buildSettings = Seq(
+  homepage := Some(url("http://dias.epfl.ch/")),
+  organization := "raw",
+  organizationName := "DIAS/EPFL",
+  organizationHomepage := Some(url("http://dias.epfl.ch/")),
+  version := "0.0.0",
+  scalaVersion := "2.11.6",
+  scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
+)
 
-organization := "raw"
+lazy val commonDeps = Seq(
+  scalaCompiler,
+  scalaReflect,
+  scalatest % Test,
+  scalacheck,
+  scalaLogging,
+  logbackClassic
+)
 
-organizationName := "DIAS/EPFL"
+lazy val coreDeps = 
+  commonDeps ++
+  Seq(
+    kiama
+  )
 
-organizationHomepage := Some(url("http://dias.epfl.ch/"))
+lazy val rawDeps = 
+  commonDeps ++
+  Seq(
+    shapeless,
+    spark,
+    json4s    
+  )
 
-homepage := Some(url("http://dias.epfl.ch/"))
+lazy val raw = (project in file(".")).
+  dependsOn(core).
+  settings(buildSettings: _*).
+  settings(
+    resolvers := sonatypeResolvers,
+    libraryDependencies ++= rawDeps
+  )
 
-// Scala compiler settings
-
-scalaVersion := "2.11.5"
-
-scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
-
-// Interactive settings
-
-logLevel := Level.Info
-
-shellPrompt <<= (name, version) { (n, v) => _ => n + " " + v + "> " }
-
-// Fork the runs and connect sbt's input and output to the forked process so
-// that we are immune to version clashes with the JLine library used by sbt
-//
-//fork in run := true
-//
-//connectInput in run := true
-//
-//outputStrategy in run := Some (StdoutOutput)
-//
-//// Execution
-//
-//parallelExecution in Test := false
-
-// Dependencies
-
-resolvers += Opts.resolver.sonatypeReleases
-resolvers += Opts.resolver.sonatypeSnapshots
-
-libraryDependencies ++=
-  Seq (
-    "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-    "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.3",
-    "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test",
-    "org.scalacheck" %% "scalacheck" % "1.11.6" % "test",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
-    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing(),
-    "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests") changing(),
-    "ch.qos.logback" % "logback-classic" % "1.1.2",
-    "org.json4s" %% "json4s-native" % "3.2.10",
-    "org.apache.spark" %% "spark-core" % "1.2.0"
+lazy val core = (project in file("core")).
+  settings(buildSettings: _*).
+  settings(
+    resolvers := sonatypeResolvers,
+    libraryDependencies ++= coreDeps
   )
