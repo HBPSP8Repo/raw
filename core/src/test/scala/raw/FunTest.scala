@@ -1,7 +1,8 @@
-package raw.calculus
+package raw
 
-import org.scalatest.FunSuite
 import com.typesafe.scalalogging.LazyLogging
+import org.scalatest.FunSuite
+import raw.calculus.{Calculus, SyntaxAnalyzer}
 
 class FunTest extends FunSuite with LazyLogging {
 

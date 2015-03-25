@@ -3,7 +3,7 @@ package algebra
 
 case class AlgebraDSLError(err: String) extends RawException(err)
 
-abstract class AlgebraLang {
+abstract class AlgebraDSL {
 
   import scala.language.implicitConversions
   import scala.language.dynamics
@@ -14,6 +14,8 @@ abstract class AlgebraLang {
   /** World
     */
   val world: World
+
+  private val typer = new Typer(world)
 
   /** Expression builders
     */
@@ -54,12 +56,6 @@ abstract class AlgebraLang {
     def &&(rhs: Builder) = MergeMonoidBuilder(AndMonoid(), this, rhs)
 
     def ||(rhs: Builder) = MergeMonoidBuilder(OrMonoid(), this, rhs)
-
-    def bag(rhs: Builder) = MergeMonoidBuilder(BagMonoid(), this, rhs)
-
-    def list(rhs: Builder) = MergeMonoidBuilder(ListMonoid(), this, rhs)
-
-    def set(rhs: Builder) = MergeMonoidBuilder(SetMonoid(), this, rhs)
   }
 
   case object NullBuilder extends Builder
@@ -78,7 +74,7 @@ abstract class AlgebraLang {
 
   case class BinaryExpBuilder(op: BinaryOperator, lhs: Builder, rhs: Builder) extends Builder
 
-  case class MergeMonoidBuilder(m: Monoid, lhs: Builder, rhs: Builder) extends Builder
+  case class MergeMonoidBuilder(m: PrimitiveMonoid, lhs: Builder, rhs: Builder) extends Builder
 
   case class UnaryExpBuilder(op: UnaryOperator, e: Builder) extends Builder
 
@@ -98,7 +94,6 @@ abstract class AlgebraLang {
 
   /** Variable
     */
-  //def arg(i: Int = -1) = if (i < 0) ArgBuilder else RecordProjBuilder(ArgBuilder, s"_${i + 1}")
   def arg = ArgBuilder
 
   /** Record Construction
@@ -115,17 +110,6 @@ abstract class AlgebraLang {
   def ?(e1: Exp, thenElse: ThenElse) = IfThenElse(e1, thenElse.e2, thenElse.e3)
 
   def unary_:(e2: Exp, e3: Exp) = ThenElse(e2, e3)
-
-  /** Zero Collection Monoids
-    */
-
-  /** Construction for Collection Monoids
-    */
-  def bag(e: Exp) = ???
-
-  def list(e: Exp) = ???
-
-  def set(e: Exp) = ???
 
   /** Unary Expressions
     */
@@ -159,49 +143,102 @@ abstract class AlgebraLang {
 
   def set = SetMonoid()
 
-  def build(b: Builder): Exp = b match {
-    case NullBuilder                     => Null
-    case ConstBuilder(c)                 => c
-    case ArgBuilder                      => Arg
-    case RecordProjBuilder(lhs, idn)     => RecordProj(build(lhs), idn)
-    case RecordConsBuilder(atts)         => RecordCons(atts.map { att => AttrCons(att.idn, build(att.b))})
-    case IfThenElseBuilder(i)            => i
-    case BinaryExpBuilder(op, lhs, rhs)  => BinaryExp(op, build(lhs), build(rhs))
-    case MergeMonoidBuilder(m, lhs, rhs) => MergeMonoid(m, build(lhs), build(rhs))
-    case UnaryExpBuilder(op, e)          => UnaryExp(op, build(e))
+  private def build(b: Builder, t: Type): Exp = {
+    def recurse(b: Builder): Exp = b match {
+      case NullBuilder                     => Null
+      case ConstBuilder(c)                 => c
+      case ArgBuilder                      => Arg(t)
+      case RecordProjBuilder(lhs, idn)     => RecordProj(recurse(lhs), idn)
+      case RecordConsBuilder(atts)         => RecordCons(atts.map { att => AttrCons(att.idn, recurse(att.b))})
+      case IfThenElseBuilder(i)            => i
+      case BinaryExpBuilder(op, lhs, rhs)  => BinaryExp(op, recurse(lhs), recurse(rhs))
+      case MergeMonoidBuilder(m, lhs, rhs) => MergeMonoid(m, recurse(lhs), recurse(rhs))
+      case UnaryExpBuilder(op, e)          => UnaryExp(op, recurse(e))
+    }
+    recurse(b)
   }
 
-  def argbuild(bs: List[Builder]): Exp =
-    RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b)) })
+  private def argbuild(bs: List[Builder], t: Type): Exp =
+    RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b, t)) })
 
+  private def tipe(a: LogicalAlgebraNode): Type =
+    typer.tipe(a) match { case c: CollectionType => c.innerType }
+
+  private def exptipe(e: Exp): Type =
+    typer.expressionType(e)
+
+  private def rectipe(t1: Type, t2: Type): Type =
+    RecordType(List(AttrType("_1", t1), AttrType("_2", t2)))
 
   /** Algebra operators
     */
-  def scan(name: String) = Scan(name, world.sources(name))
+  def scan(name: String) =
+    Scan(name, world.sources(name))
 
-  def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), build(p), child)
+  def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode): Reduce = {
+    val t = tipe(child)
+    val ne = build(e, t)
+    val np = build(p, rectipe(t, exptipe(ne)))
+    Reduce(m, ne, np, child)
+  }
 
-  def reduce(m: Monoid, e: Builder, child: LogicalAlgebraNode) = Reduce(m, build(e), BoolConst(true), child)
+  def reduce(m: Monoid, e: Builder, child: LogicalAlgebraNode): Reduce =
+    reduce(m, e, ConstBuilder(BoolConst(true)), child)
 
-  def select(p: Builder, child: LogicalAlgebraNode) = Select(build(p), child)
+  def select(p: Builder, child: LogicalAlgebraNode): Select = {
+    val np = build(p, tipe(child))
+    Select(np, child)
+  }
 
-  def select(child: LogicalAlgebraNode) = Select(BoolConst(true), child)
+  def select(child: LogicalAlgebraNode): Select =
+    select(ConstBuilder(BoolConst(true)), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[Builder], p: Builder, nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), build(p), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], p: Builder, nulls: List[Builder], child: LogicalAlgebraNode): Nest = {
+    val t = tipe(child)
+    val ne = build(e, t)
+    val ngroup_by = argbuild(group_by, t)
+    val np = build(p, t)
+    val nnulls = argbuild(nulls, t)
+    Nest(m, ne, ngroup_by, np, nnulls, child)
+  }
 
-  def nest(m: Monoid, e: Builder, group_by: List[Builder], nulls: List[Builder], child: LogicalAlgebraNode) = Nest(m, build(e), argbuild(group_by), BoolConst(true), argbuild(nulls), child)
+  def nest(m: Monoid, e: Builder, group_by: List[Builder], nulls: List[Builder], child: LogicalAlgebraNode): Nest =
+    nest(m, e, group_by, ConstBuilder(BoolConst(true)), nulls, child)
 
-  def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Join(build(p), left, right)
+  def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = {
+    val t1 = tipe(left)
+    val t2 = tipe(right)
+    val t = rectipe(t1, t2)
+    Join(build(p, t), left, right)
+  }
 
-  def unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = Unnest(build(path), build(pred), child)
+  def unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode): Unnest = {
+    val t = tipe(child)
+    val npath = build(path, t)
+    val npred = build(pred, rectipe(t, exptipe(npath)))
+    Unnest(npath, npred, child)
+  }
 
-  def unnest(path: Builder, child: LogicalAlgebraNode) = Unnest(build(path), BoolConst(true), child)
+  def unnest(path: Builder, child: LogicalAlgebraNode): Unnest =
+    unnest(path, ConstBuilder(BoolConst(true)), child)
 
-  def outer_join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = OuterJoin(build(p), left, right)
+  def outer_join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = {
+    val t1 = tipe(left)
+    val t2 = tipe(right)
+    val t = rectipe(t1, t2)
+    OuterJoin(build(p, t), left, right)
+  }
 
-  def outer_unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), build(pred), child)
+  def outer_unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode): OuterUnnest = {
+    val t = tipe(child)
+    val npath = build(path, t)
+    val npred = build(pred, rectipe(t, exptipe(npath)))
+    OuterUnnest(npath, npred, child)
+  }
 
-  def outer_unnest(path: Builder, child: LogicalAlgebraNode) = OuterUnnest(build(path), BoolConst(true), child)
+  def outer_unnest(path: Builder, child: LogicalAlgebraNode): OuterUnnest =
+    outer_unnest(path, ConstBuilder(BoolConst(true)), child)
 
-  def merge(m: Monoid, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = Merge(m, left, right)
+  def merge(m: Monoid, left: LogicalAlgebraNode, right: LogicalAlgebraNode) =
+    Merge(m, left, right)
 }

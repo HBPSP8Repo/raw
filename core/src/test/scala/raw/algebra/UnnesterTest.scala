@@ -1,14 +1,14 @@
 package raw
-package calculus
+package algebra
 
-import algebra._
+import calculus.{Calculus, Simplifier}
 
 class UnnesterTest extends FunTest {
 
   def process(w: World, q: String) = {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
-    val analyzer = new SemanticAnalyzer(t, w)
+    val analyzer = new calculus.SemanticAnalyzer(t, w)
     assert(analyzer.errors.length === 0)
     val nt = Simplifier(t, w)
     Unnester(nt, w)
@@ -18,7 +18,7 @@ class UnnesterTest extends FunTest {
     val query = "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)"
     val w = TestWorlds.departments
 
-    object Result extends AlgebraLang {
+    object Result extends AlgebraDSL {
       val world = w
 
       def apply() = {
@@ -39,7 +39,7 @@ class UnnesterTest extends FunTest {
     val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
     val w = TestWorlds.fines
 
-    object Result extends AlgebraLang {
+    object Result extends AlgebraDSL {
       val world = w
 
       def apply() = {
@@ -74,7 +74,7 @@ class UnnesterTest extends FunTest {
     val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
     val w = TestWorlds.employees
 
-    object Result extends AlgebraLang {
+    object Result extends AlgebraDSL {
       val world = w
 
       def apply() = {
@@ -108,7 +108,7 @@ class UnnesterTest extends FunTest {
     val query = "for (x <- things union things) yield set x"
     val w = TestWorlds.things
 
-    object Result extends AlgebraLang {
+    object Result extends AlgebraDSL {
       val world = w
 
       def apply() = {

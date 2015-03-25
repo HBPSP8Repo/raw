@@ -204,6 +204,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   private lazy val expectedType: Exp => Set[Type] = attr {
 
     case tree.parent.pair(e, p) => p match {
+      // Record projection must be over a record type that contains the identifier to project
       case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, AnyType()))))
 
       // If condition must be a boolean
@@ -224,7 +225,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case _              => Set(NothingType())
       }
 
+      // Merging number monoids requires a number type
       case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(IntType(), FloatType())
+
+      // Merging boolean monoids requires a bool type
       case MergeMonoid(_: BoolMonoid, e1, _)   if e eq e1 => Set(BoolType())
 
       // Merge of collections must be with same monoid collection types
@@ -242,6 +246,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       // Qualifiers that are expressions must be predicates
       case Comp(_, qs, _) if qs.contains(e) => Set(BoolType())
 
+      // Expected types of unary expressions
       case UnaryExp(_: Neg, _)      => Set(IntType(), FloatType())
       case UnaryExp(_: Not, _)      => Set(BoolType())
       case UnaryExp(_: ToBool, _)   => Set(IntType(), FloatType())

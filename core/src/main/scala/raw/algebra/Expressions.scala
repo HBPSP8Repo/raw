@@ -33,7 +33,7 @@ object Expressions {
 
   /** Argument
     */
-  case object Arg extends Exp
+  case class Arg(t: Type) extends Exp
 
   /** Record Projection
     */
@@ -53,17 +53,9 @@ object Expressions {
     */
   case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
-  /** Zero for Collection Monoid
-    */
-  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
-
-  /** Construction for Collection Monoid
-    */
-  case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
-
   /** Merge Monoid
     */
-  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
+  case class MergeMonoid(m: PrimitiveMonoid, e1: Exp, e2: Exp) extends Exp
 
   /** Unary Expression
     */

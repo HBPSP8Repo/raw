@@ -1,4 +1,5 @@
-package raw.calculus
+package raw
+package calculus
 
 class SyntaxAnalyzerTest extends FunTest {
 

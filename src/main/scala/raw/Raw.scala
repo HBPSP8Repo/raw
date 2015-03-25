@@ -1,12 +1,10 @@
 package raw
 
 import scala.language.experimental.macros
-//import shapeless.HMap
 import shapeless.HList
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
-  //def query(q: c.Expr[String], catalog: c.Expr[HMap[RawSources]]) = {
   def query(q: c.Expr[String], catalog: c.Expr[HList]) = {
 
     import c.universe._
@@ -48,13 +46,31 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
     /** Build code-generated query plan from logical algebra tree.
       */
-    def buildCode(root: algebra.LogicalAlgebra.LogicalAlgebraNode, accessPaths: Map[String, Tree]): Tree = {
+    def buildCode(root: algebra.LogicalAlgebra.LogicalAlgebraNode, world: World, accessPaths: Map[String, Tree]): Tree = {
       import algebra.Expressions._
       import algebra.LogicalAlgebra._
+
+      val typer = new algebra.Typer(world)
 
       def build(a: algebra.LogicalAlgebra.LogicalAlgebraNode): Tree = {
 
         def exp(e: Exp): Tree = {
+
+          def tipe(t: raw.Type): String = t match {
+            case _: BoolType         => "Boolean"
+            case _: StringType       => "String"
+            case _: IntType          => "Int"
+            case _: FloatType        => "Float"
+            case RecordType(atts)    => "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
+            case BagType(innerType)  => ???
+            case ListType(innerType) => s"List[${tipe(innerType)}]"
+            case SetType(innerType)  => s"Set[${tipe(innerType)}]"
+            case UserType(idn)       => tipe(world.userTypes(idn))
+            case FunType(t1, t2)     => ???
+            case TypeVariable(v)     => ???
+            case _: AnyType          => ???
+            case _: NothingType      => ???
+          }
 
           def binaryOp(op: BinaryOperator): String = op match {
             case _: Eq  => "=="
@@ -74,23 +90,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case IntConst(v)                 => v
             case FloatConst(v)               => v
             case StringConst(v)              => s""""$v""""
-            case Arg                         => "arg"
+            case _: Arg                      => "arg"
             case RecordProj(e1, idn)         => s"${recurse(e1)}.$idn"
-            case RecordCons(atts)            =>
-              val vals = atts.map(att => s"val ${att.idn} = ${recurse(att.e)}").mkString(";")
+            case r @ RecordCons(atts)            => {
+              val uniqueId = if (r.hashCode() < 0) s"_a${r.hashCode().toString}" else s"_b${r.hashCode().toString}"
+              val params = atts.map(att => s"${att.idn}: ${typer.expressionType(e)}").mkString(",")
+              val vals = atts.map(att => recurse(att.e)).mkString(",")
               val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
-              s"""new {
+              val x = s"""
+              case class $uniqueId($params) {
                 def toMap = Map($maps)
-                $vals
-              }"""
+              }
+              $uniqueId($vals)
+              """
+              println(x)
+              x }
             case IfThenElse(e1, e2, e3)      => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
             case BinaryExp(op, e1, e2)       => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
-            case ZeroCollectionMonoid(m)     => m match {
-              case _: ListMonoid => "List()"
-              case _: SetMonoid => "Set()"
-              case _: BagMonoid => ???
-            }
-            case ConsCollectionMonoid(m, e1) => ???
             case MergeMonoid(m, e1, e2)      => ???
             case UnaryExp(op, e1)            => op match {
               case _: Not      => s"!${recurse(e1)}"
@@ -133,16 +149,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
               }
               val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
               q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map(${exp(f1)}))).map(v => (v._1, v._2.foldLeft(${zero(m1)})(${fold(m1)})))"""
-            case m1: CollectionMonoid =>
-              val f1 = IfThenElse(BinaryExp(Eq(), g, Null), ZeroCollectionMonoid(m1), e)
-              m1 match {
-                case _: BagMonoid  =>
-                  ???
-                case _: ListMonoid =>
-                  ???
-                case _: SetMonoid  =>
-                q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map(${exp(f1)}))).map(v => (v._1, v._2.toSet))"""
-              }
+            case m1: BagMonoid =>
+              ???
+            case m1: ListMonoid =>
+              ???
+            case m1: SetMonoid =>
+              val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))"""  // TODO: Remove indirect function call
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
           }
           case OuterJoin(p, left, right) =>
             q"""
@@ -179,24 +192,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             q"""${accessPaths(name)}"""
         }
       }
-      q"""
 
-
-      ${build(root)}
-      """
+      build(root)
     }
 
     case class AccessPath(tipe: raw.Type, tree: Tree)
 
     /** Retrieve names, types and trees from the catalog passed by the user.
       */
-//    def hmapToAccessPath: Map[String, AccessPath] = catalog.tree match {
-//      case Apply(Apply(TypeApply(_, _), items), _) =>
-//        items.map {
-//          case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
-//            name.toString -> AccessPath(inferType(scalaType.tpe), tree)
-//        }.toMap
-//    }
     def hlistToAccessPath: Map[String, AccessPath] = catalog.tree match {
       case Apply(Apply(TypeApply(_, _), items), _) => {
         items.map {
@@ -220,7 +223,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         val world = new World(sources = accessPaths.map { case (name, AccessPath(tipe, _)) => name -> tipe })
         Query.apply(qry, world) match {
           case Right(tree) => {
-            val generatedCode = buildCode(tree, accessPaths.map { case (name, AccessPath(_, tree)) => name -> tree })
+            val generatedCode = buildCode(tree, world, accessPaths.map { case (name, AccessPath(_, tree)) => name -> tree })
             println("Generated code: " + generatedCode)
             c.Expr[Any](generatedCode)
           }
@@ -232,10 +235,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
   }
 }
 
-//class RawSources[String, Iterable]
-
 object Raw {
-  //def query(q: String, catalog: HMap[RawSources]): Any = macro RawImpl.query
   def query(q: String, catalog: HList): Any = macro RawImpl.query
 }
-

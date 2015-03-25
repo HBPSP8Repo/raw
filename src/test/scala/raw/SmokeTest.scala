@@ -1,27 +1,9 @@
 package raw
 
-//import org.scalatest._
 import org.scalatest.FunSuite
 import com.typesafe.scalalogging.LazyLogging
 import shapeless.HList
 import raw.util.{CSVParser, JSONParser}
-
-//abstract class SmokeTest extends FeatureSpec with GivenWhenThen with Matchers {
-//  val world: World
-//
-//  def check(description: String, query: String, expectedResult: Any, issue: String=""): Unit = {
-//    val run = (d: String) => if (issue != "") ignore(d + s" ($issue)") _ else scenario(d) _
-//    run(description) {
-//      When("evaluating '" + query +"'")
-//      val result = Query(query, world, executor=executor)
-//      Then("it should return " + expectedResult)
-//      result match {
-//        case Left(v) => println(v) ; assert(false)
-//        case Right(q) => assert(q.value === expectedResult)
-//      }
-//    }
-//  }
-//}
 
 class FlatCSVTest extends FunSuite with LazyLogging {
 
@@ -42,43 +24,43 @@ class FlatCSVTest extends FunSuite with LazyLogging {
     l => Department(l(0), l(1), l(2)))
 
   test("number of professors") {
-    assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) == 3)
+    assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)
   }
 
   test("number of students") {
-    assert(Raw.query("for (d <- students) yield sum 1", HList("students" -> students)) == 7)
+    assert(Raw.query("for (d <- students) yield sum 1", HList("students" -> students)) === 7)
   }
 
   test("number of departments") {
-    assert(Raw.query("for (d <- departments) yield sum 1", HList("departments" -> departments)) == 3)
+    assert(Raw.query("for (d <- departments) yield sum 1", HList("departments" -> departments)) === 3)
   }
 
   test("set of students born in 1990") {
-    assert(Raw.query("""for (d <- students; d.birthYear = 1990) yield set d.name""", HList("students" -> students)) == Set("Student1", "Student2"))
+    assert(Raw.query("""for (d <- students; d.birthYear = 1990) yield set d.name""", HList("students" -> students)) === Set("Student1", "Student2"))
   }
 
   test("number of students born in 1992") {
-    assert(Raw.query("""for (d <- students; d.birthYear = 1992) yield sum 1""", HList("students" -> students)) == 2)
+    assert(Raw.query("""for (d <- students; d.birthYear = 1992) yield sum 1""", HList("students" -> students)) === 2)
   }
 
   test("number of students born before 1991 (included)") {
-    assert(Raw.query("""for (d <- students; d.birthYear <= 1991) yield sum 1""", HList("students" -> students)) == 5)
+    assert(Raw.query("""for (d <- students; d.birthYear <= 1991) yield sum 1""", HList("students" -> students)) === 5)
   }
 
   test("set of students in BC123") {
-    assert(Raw.query("""for (d <- students; d.office = "BC123") yield set d.name""", HList("students" -> students)) == Set("Student1", "Student3", "Student5"))
+    assert(Raw.query("""for (d <- students; d.office = "BC123") yield set d.name""", HList("students" -> students)) === Set("Student1", "Student3", "Student5"))
   }
 
   test("set of students in dep2") {
-    assert(Raw.query("""for (d <- students; d.department = "dep2") yield set d.name""", HList("students" -> students)) == Set("Student2", "Student4"))
+    assert(Raw.query("""for (d <- students; d.department = "dep2") yield set d.name""", HList("students" -> students)) === Set("Student2", "Student4"))
   }
 
   test("number of students in dep1") {
-    assert(Raw.query("""for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) == 3)
+    assert(Raw.query("""for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
   }
 
   test("set of department (using only students table)") {
-    assert(Raw.query("""for (s <- students) yield set s.department""", HList("students" -> students)) == Set("dep1", "dep2", "dep3"))
+    assert(Raw.query("""for (s <- students) yield set s.department""", HList("students" -> students)) === Set("dep1", "dep2", "dep3"))
   }
 
   test("set of department and the headcount (using only students table)") {

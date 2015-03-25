@@ -1,6 +1,5 @@
-package raw.calculus
-
-import raw.World
+package raw
+package calculus
 
 class SimplifierTest extends FunTest {
 
