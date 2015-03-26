@@ -12,7 +12,7 @@ import org.kiama.attribution.Attribution
   * Class entities are the data sources available to the user.
   *   e.g., in expression `e <- Events` the class entity is `Events`.
   */
-class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution with LazyLogging {
+trait SemanticAnalyzer extends Attribution with LazyLogging {
 
   import org.kiama.==>
   import org.kiama.attribution.Decorators
@@ -21,6 +21,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import Calculus._
   import SymbolTable._
+
+  /** The tree being analyzed.
+    */
+  def tree: Calculus.Calculus
+
+  /** The world for the query
+    */
+  def world: World
 
   /** Decorators on the tree.
     */
@@ -294,9 +302,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     variableMap(v)
   }
 
-  /** Run once for its side-effect, which is to type the nodes and build the `variableMap`.
-    */
-  pass1(tree.root)
+  private var pass1Done = false
 
   def tipe(e: Exp): Type = {
     def walk(t: Type): Type = t match {
@@ -307,6 +313,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case BagType(innerType) => BagType(walk(innerType))
       case FunType(aType, eType) => FunType(walk(aType), walk(eType))
       case _ => t
+    }
+    // Run once `pass1` for its side-effect, which is to type the nodes and build the `variableMap`.
+    if (!pass1Done) {
+      pass1(tree.root)
+      pass1Done = true
     }
     walk(pass1(e))
   }
@@ -326,7 +337,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case Nil         => t
   }
 
-  private lazy val realEntityType: Entity => Type = attr {
+  private lazy val entityType: Entity => Type = attr {
     case BindEntity(t, e)              => unify(t, pass1(e))
     case PatternBindEntity(t, e, idxs) => unify(t, pass1(projectPattern(e, idxs)))
 
@@ -346,7 +357,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _: UnknownEntity => NothingType()
   }
 
-  private def entityType(e: Entity): Type = realEntityType(e) match {
+  private def idnType(idn: IdnNode): Type = entityType(entity(idn))
+
+  private def pass1(e: Exp): Type = realPass1(e) match {
     case UserType(name) => world.userTypes.get(name) match {
       case Some(t) => t
       case _       => NothingType()
@@ -354,9 +367,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case t => t
   }
 
-  private def idnType(idn: IdnNode): Type = entityType(entity(idn))
-
-  private lazy val pass1: Exp => Type = attr {
+  private lazy val realPass1: Exp => Type = attr {
 
     // Rule 1
     case _: BoolConst   => BoolType()
@@ -466,7 +477,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))})
   }
 
-  // Hindley-Milner unification
+  /** Hindley-Milner unification algorithm.
+    */
   private def unify(t1: Type, t2: Type): Type = (t1, t2) match {
     case (n: NothingType, _) => n
     case (_, n: NothingType) => n

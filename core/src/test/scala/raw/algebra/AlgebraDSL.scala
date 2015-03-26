@@ -15,7 +15,7 @@ abstract class AlgebraDSL {
     */
   val world: World
 
-  private val typer = new Typer(world)
+  private lazy val typer = new Typer(world)
 
   /** Expression builders
     */
@@ -159,13 +159,19 @@ abstract class AlgebraDSL {
   }
 
   private def argbuild(bs: List[Builder], t: Type): Exp =
-    RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b, t)) })
+     if (bs.length == 1)
+       build(bs.head, t)
+    else
+      RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b, t)) })
 
   private def tipe(a: LogicalAlgebraNode): Type =
     typer.tipe(a) match { case c: CollectionType => c.innerType }
 
   private def exptipe(e: Exp): Type =
     typer.expressionType(e)
+
+  private def innerexptipe(e: Exp): Type =
+    typer.expressionType(e) match { case c: CollectionType => c.innerType }
 
   private def rectipe(t1: Type, t2: Type): Type =
     RecordType(List(AttrType("_1", t1), AttrType("_2", t2)))
@@ -215,7 +221,7 @@ abstract class AlgebraDSL {
   def unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode): Unnest = {
     val t = tipe(child)
     val npath = build(path, t)
-    val npred = build(pred, rectipe(t, exptipe(npath)))
+    val npred = build(pred, rectipe(t, innerexptipe(npath)))
     Unnest(npath, npred, child)
   }
 
@@ -232,7 +238,7 @@ abstract class AlgebraDSL {
   def outer_unnest(path: Builder, pred: Builder, child: LogicalAlgebraNode): OuterUnnest = {
     val t = tipe(child)
     val npath = build(path, t)
-    val npred = build(pred, rectipe(t, exptipe(npath)))
+    val npred = build(pred, rectipe(t, innerexptipe(npath)))
     OuterUnnest(npath, npred, child)
   }
 

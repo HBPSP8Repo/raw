@@ -61,7 +61,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case _: StringType       => "String"
             case _: IntType          => "Int"
             case _: FloatType        => "Float"
-            case RecordType(atts)    => "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
+            //case RecordType(atts)    => "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
             case BagType(innerType)  => ???
             case ListType(innerType) => s"List[${tipe(innerType)}]"
             case SetType(innerType)  => s"Set[${tipe(innerType)}]"
@@ -92,19 +92,26 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case StringConst(v)              => s""""$v""""
             case _: Arg                      => "arg"
             case RecordProj(e1, idn)         => s"${recurse(e1)}.$idn"
-            case r @ RecordCons(atts)            => {
-              val uniqueId = if (r.hashCode() < 0) s"_a${r.hashCode().toString}" else s"_b${r.hashCode().toString}"
-              val params = atts.map(att => s"${att.idn}: ${typer.expressionType(e)}").mkString(",")
-              val vals = atts.map(att => recurse(att.e)).mkString(",")
+            case r @ RecordCons(atts)            =>
+              val vals = atts.map(att => s"val ${att.idn} = ${recurse(att.e)}").mkString(";")
               val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
-              val x = s"""
-              case class $uniqueId($params) {
+              s"""new {
                 def toMap = Map($maps)
-              }
-              $uniqueId($vals)
-              """
-              println(x)
-              x }
+                $vals
+              }"""
+//            {
+//              val uniqueId = if (r.hashCode() < 0) s"_a${r.hashCode().toString}" else s"_b${r.hashCode().toString}"
+//              val params = atts.map(att => s"${att.idn}: ${typer.expressionType(e)}").mkString(",")
+//              val vals = atts.map(att => recurse(att.e)).mkString(",")
+//              val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
+//              val x = s"""
+//              case class $uniqueId($params) {
+//                def toMap = Map($maps)
+//              }
+//              $uniqueId($vals)
+//              """
+//              println(x)
+//              x}
             case IfThenElse(e1, e2, e3)      => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
             case BinaryExp(op, e1, e2)       => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
             case MergeMonoid(m, e1, e2)      => ???

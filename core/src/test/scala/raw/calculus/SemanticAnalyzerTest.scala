@@ -20,8 +20,10 @@ class SemanticAnalyzerTest extends FunTest {
             "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType()))))))
 
       val ast = parse(query)
-      val analyzer = new SemanticAnalyzer(new Calculus.Calculus(ast), w)
-      analyzer.errors.map((err) => logger.error(err.toString))
+      val t = new Calculus.Calculus(ast)
+
+      val analyzer = new SemanticAnalyzer { val tree = t; val world = w }
+      analyzer.errors.foreach(err => logger.error(err.toString))
       assert(analyzer.errors.length === 0)
       analyzer.debugTreeTypes
 
@@ -29,11 +31,13 @@ class SemanticAnalyzerTest extends FunTest {
     }
   }
 
-  def assertFailure(query: String, error: String, world: World) = {
+  def assertFailure(query: String, error: String, w: World) = {
     test(query) {
       val ast = parse(query)
-      val analyzer = new SemanticAnalyzer(new Calculus.Calculus(ast), world)
-      analyzer.errors.map((err) => logger.error(err.toString))
+      val t = new Calculus.Calculus(ast)
+
+      val analyzer = new SemanticAnalyzer { val tree = t; val world = w }
+      analyzer.errors.foreach(err => logger.error(err.toString))
 
       assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
     }

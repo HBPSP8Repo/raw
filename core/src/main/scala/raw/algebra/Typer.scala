@@ -14,7 +14,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
       case t1            => t1
     }
 
-  /** Actual type of an expression (parameterized per operator node).
+  /** Actual type of an expression.
     */
   private lazy val realExpressionType: Exp => Type = attr {
     case Null                                    => AnyType()
@@ -57,7 +57,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
   }
 
   def tipe(n: LogicalAlgebraNode) = realType(n) match {
-    case UserType(idn) => world.userTypes(idn)
+    case UserType(idn) => { println(s"user Types are ${world.userTypes}"); world.userTypes(idn) }
     case t             => t
   }
 

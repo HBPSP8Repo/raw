@@ -8,10 +8,9 @@ class UnnesterTest extends FunTest {
   def process(w: World, q: String) = {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
-    val analyzer = new calculus.SemanticAnalyzer(t, w)
+    val analyzer = new calculus.SemanticAnalyzer { val tree = t; val world = w }
     assert(analyzer.errors.length === 0)
-    val nt = Simplifier(t, w)
-    Unnester(nt, w)
+    Unnester(t, w)
   }
 
   test("simple join") {
@@ -101,6 +100,8 @@ class UnnesterTest extends FunTest {
       }
     }
 
+    logger.error(LogicalAlgebraPrettyPrinter(Result()))
+    logger.error(LogicalAlgebraPrettyPrinter(process(w, query)))
     assert(process(w, query) === Result())
   }
 

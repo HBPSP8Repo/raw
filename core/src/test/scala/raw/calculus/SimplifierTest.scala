@@ -6,9 +6,10 @@ class SimplifierTest extends FunTest {
   def process(w: World, q: String) = {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
-    val analyzer = new SemanticAnalyzer(t, w)
-    assert(analyzer.errors.length === 0)
-    CalculusPrettyPrinter(Simplifier(t, w).root, 200)
+
+    val simplifier = new Simplifier { val tree = t; val world = w }
+    assert(simplifier.errors.length === 0)
+    CalculusPrettyPrinter(simplifier.transform.root, 200)
   }
 
   ignore("test1") {

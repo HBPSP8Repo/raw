@@ -3,7 +3,7 @@ package algebra
 
 import scala.collection.immutable.Seq
 import com.typesafe.scalalogging.LazyLogging
-import calculus.{Calculus, SymbolTable}
+import raw.calculus.{Simplifier, Calculus, SymbolTable}
 
 case class UnnesterError(err: String) extends RawException(err)
 
@@ -29,10 +29,16 @@ object Unnester extends LazyLogging {
   import org.kiama.rewriting.Strategy
 
   def apply(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = {
-    val inTree = calculus.Simplifier(tree, world)
+
+    val t = tree
+    val w = world
+    val s = new Simplifier { val tree = t; val world = w }
+
+    val inTree = s.transform
     logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(inTree.root)}")
 
-    val analyzer = new calculus.SemanticAnalyzer(inTree, world)
+    // TODO: val analyzer = s --> THIS FAILS WITH NODES NOT IN TREE...
+    val analyzer = new calculus.SemanticAnalyzer { val tree = inTree; val world = w }
 
     def unnest(e: Calculus.Exp): LogicalAlgebra.LogicalAlgebraNode = {
       unnesterRules(CalculusTerm(e, None, None, EmptyTerm)) match {
@@ -43,6 +49,12 @@ object Unnester extends LazyLogging {
 
     lazy val unnesterRules: Strategy =
       reduce(ruleC11 < unnesterRules + (ruleC12 < unnesterRules + (ruleC4 <+ ruleC5 <+ ruleC6 <+ ruleC7 <+ ruleC8 <+ ruleC9 <+ ruleC10 + ruleTopLevelMerge)))
+
+    def getInnerType(t: Type): Type = t match {
+      case c: CollectionType => c.innerType
+      case UserType(idn)     => getInnerType(world.userTypes(idn))
+      case _                 => throw UnnesterError(s"Expected collection type but got $t")
+    }
 
     def getIdns(p: Pattern): Seq[String] = p match {
       case PairPattern(p1, p2) => getIdns(p1) ++ getIdns(p2)
@@ -180,7 +192,7 @@ object Unnester extends LazyLogging {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, None, EmptyTerm) =>
         logger.debug(s"Applying unnester rule C4")
         val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
-        val pat_v = IdnPattern(v, x.t match { case c: CollectionType => c.innerType })
+        val pat_v = IdnPattern(v, getInnerType(x.t))
         CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))
     }
 
@@ -199,7 +211,7 @@ object Unnester extends LazyLogging {
     lazy val ruleC6 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
         logger.debug(s"Applying unnester rule C6")
-        val pat_v = IdnPattern(v, x.t match { case c: CollectionType => c.innerType })
+        val pat_v = IdnPattern(v, getInnerType(x.t))
         val pat_w_v = PairPattern(w, pat_v)
         val pred_v = p.filter(variables(_) == Set(v))
         val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(getIdns(pat_w_v).toSet))
@@ -212,8 +224,8 @@ object Unnester extends LazyLogging {
 
     lazy val ruleC7 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
-        logger.debug(s"Applying unnester rule C7")
-        val pat_v = IdnPattern(v, analyzer.tipe(path) match { case c: CollectionType => c.innerType })
+        logger.debug(s"Applying unnester rule C7 path is $path")
+        val pat_v = IdnPattern(v, getInnerType(analyzer.tipe(path)))
         val pat_w_v = PairPattern(w, pat_v)
         val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
         CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_w_v), AlgebraTerm(LogicalAlgebra.Unnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child)))
@@ -234,7 +246,7 @@ object Unnester extends LazyLogging {
     lazy val ruleC9 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
         logger.debug(s"Applying unnester rule C9")
-        val pat_v = IdnPattern(v, x.t match { case c: CollectionType => c.innerType })
+        val pat_v = IdnPattern(v, getInnerType(x.t))
         val pat_w_v = PairPattern(w, pat_v)
         val pred_v = p.filter(variables(_) == Set(v))
         val pred_w_v = p.filter(pred => getIdns(pat_w_v).toSet.subsetOf(variables(pred)))
@@ -248,7 +260,7 @@ object Unnester extends LazyLogging {
     lazy val ruleC10 = rule[Term] {
       case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
         logger.debug(s"Applying unnester rule C10")
-        val pat_v = IdnPattern(v, analyzer.tipe(path) match { case c: CollectionType => c.innerType })
+        val pat_v = IdnPattern(v, getInnerType(analyzer.tipe(path)))
         val pat_w_v = PairPattern(w, pat_v)
         val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
         CalculusTerm(CanonicalComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterUnnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child)))

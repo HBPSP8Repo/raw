@@ -26,11 +26,12 @@ object Query {
   }
 
   def analyze(tree: Calculus.Calculus, world: World): Option[QueryError] = {
-    val analyzer = new SemanticAnalyzer(tree, world)
-    if (analyzer.errors.length == 0)
-      None
-    else
-      Some(SemanticErrors(analyzer.errors))
+    None
+//    val analyzer = new SemanticAnalyzer(tree, world)
+//    if (analyzer.errors.length == 0)
+//      None
+//    else
+//      Some(SemanticErrors(analyzer.errors))
   }
 
   def apply(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {

@@ -23,10 +23,9 @@ class TyperTest extends FunTest {
 
       val ast = parse(query)
       val ct = new Calculus.Calculus(ast)
-      val calculusAnalyzer = new calculus.SemanticAnalyzer(ct, w)
-      calculusAnalyzer.errors.map((err) => logger.error(err.toString))
-      val nct = Simplifier(ct, w)
-      val ast1 = Unnester(nct, w)
+      val calculusAnalyzer = new calculus.SemanticAnalyzer { val tree = ct; val world = w }
+      calculusAnalyzer.errors.foreach(err => logger.error(err.toString))
+      val ast1 = Unnester(ct, w)
       val at = new LogicalAlgebra.Algebra(ast1)
 
       val algebraTyper = new Typer(w)

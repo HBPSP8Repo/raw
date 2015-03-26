@@ -6,10 +6,12 @@ class NormalizerTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty) = {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
-    val analyzer = new SemanticAnalyzer(t, w)
-    analyzer.errors.map((err) => logger.error(err.toString))
-    assert(analyzer.errors.length === 0)
-    CalculusPrettyPrinter(Normalizer(t, w).root, 200)
+
+    val normalizer = new Normalizer { val tree = t; val world = w }
+    normalizer.errors.foreach(err => logger.error(err.toString))
+    assert(normalizer.errors.length === 0)
+
+    CalculusPrettyPrinter(normalizer.transform.root, 200)
   }
 
   test("rule1") {
