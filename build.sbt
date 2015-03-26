@@ -48,3 +48,7 @@ lazy val core = (project in file("core")).
     resolvers := sonatypeResolvers,
     libraryDependencies ++= coreDeps
   )
+
+// Use cached resolution of dependencies (Experimental in SBT 0.13.7)
+// http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
+updateOptions := updateOptions.value.withCachedResolution(true)

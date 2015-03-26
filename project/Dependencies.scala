@@ -9,7 +9,7 @@ object Dependencies {
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.11.6"
   
   val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
-  val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.1.2"
+  val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.1.3"
 
   val kiama = "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing()
 
@@ -17,7 +17,5 @@ object Dependencies {
 
   val shapeless = "com.chuusai" %% "shapeless" % "2.1.0"
 
-  val scalaRecords = "ch.epfl.lamp" %% "scala-records" % "0.3"
-
-  val spark = "org.apache.spark" %% "spark-core" % "1.2.0"
+  val spark = "org.apache.spark" %% "spark-core" % "1.3.0"  exclude("org.slf4j", "slf4j-log4j12")
 }
