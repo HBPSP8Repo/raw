@@ -51,9 +51,10 @@ libraryDependencies ++=
     "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing(),
     "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" % "test" classifier ("tests") changing(),
-    "ch.qos.logback" % "logback-classic" % "1.1.2",
+    "ch.qos.logback" % "logback-classic" % "1.1.3",
     "org.json4s" %% "json4s-native" % "3.2.10",
-    "org.apache.spark" %% "spark-core" % "1.3.0" exclude("org.slf4j", "slf4j-log4j12")
+    "org.apache.spark" %% "spark-core" % "1.3.0" exclude("org.slf4j", "slf4j-log4j12"),
+    "org.apache.spark" %% "spark-sql" % "1.3.0" exclude("org.slf4j", "slf4j-log4j12")
   )
 
 // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
