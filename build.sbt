@@ -37,14 +37,14 @@ lazy val executorDeps =
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
-  settings(buildSettings: _*).
+  settings(buildSettings).
   settings(
     resolvers := sonatypeResolvers,
     libraryDependencies ++= executorDeps
   )
 
 lazy val core = (project in file("core")).
-  settings(buildSettings: _*).
+  settings(buildSettings).
   settings(
     resolvers := sonatypeResolvers,
     libraryDependencies ++= coreDeps
