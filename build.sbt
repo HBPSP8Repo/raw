@@ -17,7 +17,8 @@ lazy val commonDeps = Seq(
   scalatest % Test,
   scalacheck,
   scalaLogging,
-  logbackClassic
+  logbackClassic,
+  guava
 )
 
 lazy val coreDeps = 
@@ -26,7 +27,7 @@ lazy val coreDeps =
     kiama
   )
 
-lazy val rawDeps = 
+lazy val executorDeps =
   commonDeps ++
   Seq(
     shapeless,
@@ -34,12 +35,12 @@ lazy val rawDeps =
     json4s    
   )
 
-lazy val raw = (project in file(".")).
+lazy val executor = (project in file("executor")).
   dependsOn(core).
   settings(buildSettings: _*).
   settings(
     resolvers := sonatypeResolvers,
-    libraryDependencies ++= rawDeps
+    libraryDependencies ++= executorDeps
   )
 
 lazy val core = (project in file("core")).

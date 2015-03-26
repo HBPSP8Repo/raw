@@ -17,5 +17,9 @@ object Dependencies {
 
   val shapeless = "com.chuusai" %% "shapeless" % "2.1.0"
 
-  val spark = "org.apache.spark" %% "spark-core" % "1.3.0"  exclude("org.slf4j", "slf4j-log4j12")
+  // Some libraries imported by Apache Hadoop and Curator have dependencies on old versions of Guava.
+  // For the time being, we are not using them, so exclude to avoid compilation warnings.
+  val spark = "org.apache.spark" %% "spark-core" % "1.3.0" exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") excludeAll(ExclusionRule(organization = "org.apache.hadoop"))
+
+  val guava = "com.google.guava" % "guava" % "18.0"
 }
