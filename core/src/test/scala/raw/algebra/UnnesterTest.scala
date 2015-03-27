@@ -59,13 +59,10 @@ class UnnesterTest extends FunTest {
     val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
     val w = TestWorlds.fines
 
-    println(LogicalAlgebraPrettyPrinter(process(w, query)))
-
     object Result extends AlgebraDSL {
       val world = w
 
       def apply() = {
-
         reduce(
           list,
           record("name" -> arg._2.person, "location" -> arg._2.location),
@@ -74,6 +71,56 @@ class UnnesterTest extends FunTest {
             (arg._1.location == arg._2.location) && ((arg._2.speed < arg._1.min_speed) || arg._2.speed > arg._1.max_speed),
             select(true, scan("speed_limits")),
             select(true, scan("radar"))))
+      }
+    }
+
+    assert(process(w, query) === Result())
+  }
+
+  test("join 3 (split predicates)") {
+    val query = """for (s <- students; p <- profs; d <- departments; s.office = p.office; p.name = d.prof) yield list s"""
+    val w = TestWorlds.school
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+        reduce(
+          list,
+          arg._1._1,
+          true,
+          join(
+            arg._1._2.name == arg._2.prof,
+            join(
+              arg._1.office == arg._2.office,
+              select(true, scan("students")),
+              select(true, scan("profs"))),
+            select(true, scan("departments"))))
+      }
+    }
+
+    assert(process(w, query) === Result())
+  }
+
+  ignore("join 3 (ANDed predicates)") {
+    val query = """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s"""
+    val w = TestWorlds.school
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+        reduce(
+          list,
+          arg._1._1,
+          true,
+          join(
+            arg._1._2.name == arg._2.prof,
+            join(
+              arg._1.office == arg._2.office,
+              select(true, scan("students")),
+              select(true, scan("profs"))),
+            select(true, scan("departments"))))
       }
     }
 
