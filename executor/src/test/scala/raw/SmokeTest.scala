@@ -12,15 +12,15 @@ class FlatCSVTest extends FunSuite with LazyLogging {
   case class Department(name: String, discipline: String, prof: String)
 
   val students = CSVParser(
-    "test-data/students.csv",
+    "data/students.csv",
      l => Student(l(0), l(1).toInt, l(2), l(3)))
 
   val profs = CSVParser(
-    "test-data/profs.csv",
+    "data/profs.csv",
     l => Professor(l(0), l(1)))
 
   val departments = CSVParser(
-    "test-data/departments.csv",
+    "data/departments.csv",
     l => Department(l(0), l(1), l(2)))
 
   test("number of professors") {

@@ -1,12 +1,14 @@
 package raw
 package util
 
+import com.google.common.io.Resources
+
 case class CSVParserError(err: String) extends RawException(err)
 
 object CSVParser {
 
   def apply[T](path: String, parse: (List[String] => T), delim: String = ","): List[T] = {
-    val content = scala.io.Source.fromFile(path)
+    val content = scala.io.Source.fromURL(Resources.getResource(path))
     content.getLines().map{ case line => line.split(delim).toList }.map(parse).toList
   }
 
