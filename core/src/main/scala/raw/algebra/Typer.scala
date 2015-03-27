@@ -57,7 +57,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
   }
 
   def tipe(n: LogicalAlgebraNode) = realType(n) match {
-    case UserType(idn) => { println(s"user Types are ${world.userTypes}"); world.userTypes(idn) }
+    case UserType(idn) => world.userTypes(idn)
     case t             => t
   }
 

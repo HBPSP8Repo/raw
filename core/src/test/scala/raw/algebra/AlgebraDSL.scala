@@ -158,12 +158,6 @@ abstract class AlgebraDSL {
     recurse(b)
   }
 
-  private def argbuild(bs: List[Builder], t: Type): Exp =
-     if (bs.length == 1)
-       build(bs.head, t)
-    else
-      RecordCons(bs.zipWithIndex.map { case (b, idx) => AttrCons(s"_${idx + 1}", build(b, t)) })
-
   private def tipe(a: LogicalAlgebraNode): Type =
     typer.tipe(a) match { case c: CollectionType => c.innerType }
 
@@ -199,16 +193,16 @@ abstract class AlgebraDSL {
   def select(child: LogicalAlgebraNode): Select =
     select(ConstBuilder(BoolConst(true)), child)
 
-  def nest(m: Monoid, e: Builder, group_by: List[Builder], p: Builder, nulls: List[Builder], child: LogicalAlgebraNode): Nest = {
+  def nest(m: Monoid, e: Builder, group_by: Builder, p: Builder, nulls: Builder, child: LogicalAlgebraNode): Nest = {
     val t = tipe(child)
     val ne = build(e, t)
-    val ngroup_by = argbuild(group_by, t)
+    val ngroup_by = build(group_by, t)
     val np = build(p, t)
-    val nnulls = argbuild(nulls, t)
+    val nnulls = build(nulls, t)
     Nest(m, ne, ngroup_by, np, nnulls, child)
   }
 
-  def nest(m: Monoid, e: Builder, group_by: List[Builder], nulls: List[Builder], child: LogicalAlgebraNode): Nest =
+  def nest(m: Monoid, e: Builder, group_by: Builder, nulls: Builder, child: LogicalAlgebraNode): Nest =
     nest(m, e, group_by, ConstBuilder(BoolConst(true)), nulls, child)
 
   def join(p: Builder, left: LogicalAlgebraNode, right: LogicalAlgebraNode) = {

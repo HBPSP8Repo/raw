@@ -8,10 +8,10 @@ trait Simplifier extends Normalizer {
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  override def strategy = super.strategy <* simplify
+  override def strategy = attempt(super.strategy) <* simplify
 
   lazy val simplify = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
-    ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeateOrInAnd +
+    ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
     ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv)
   //ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
@@ -31,31 +31,31 @@ trait Simplifier extends Normalizer {
 
   /** true | A => true */
   lazy val ruleTrueOrA = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, t @ BoolConst(true), _) => t
-    case MergeMonoid(_: OrMonoid, _, t @ BoolConst(true)) => t
+    case MergeMonoid(_: OrMonoid, t @ BoolConst(true), _) => logger.debug("ruleTrueOrA"); t
+    case MergeMonoid(_: OrMonoid, _, t @ BoolConst(true)) => logger.debug("ruleTrueOrA"); t
   }
 
   /** false | A => A */
   lazy val ruleFalseOrA = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, BoolConst(false), a) => a
-    case MergeMonoid(_: OrMonoid, a, BoolConst(false)) => a
+    case MergeMonoid(_: OrMonoid, BoolConst(false), a) => logger.debug("ruleFalseOrA"); a
+    case MergeMonoid(_: OrMonoid, a, BoolConst(false)) => logger.debug("ruleFalseOrA"); a
   }
 
   /** true & A => A */
   lazy val ruleTrueAndA = rule[Exp] {
-    case MergeMonoid(_: AndMonoid, BoolConst(true), a) => a
-    case MergeMonoid(_: AndMonoid, a, BoolConst(true)) => a
+    case MergeMonoid(_: AndMonoid, BoolConst(true), a) => logger.debug("ruleTrueAndA"); a
+    case MergeMonoid(_: AndMonoid, a, BoolConst(true)) => logger.debug("ruleTrueAndA"); a
   }
 
   /** false & A => false */
   lazy val ruleFalseAndA = rule[Exp] {
-    case MergeMonoid(_: AndMonoid, f @ BoolConst(false), _) => f
-    case MergeMonoid(_: AndMonoid, _, f @ BoolConst(false)) => f
+    case MergeMonoid(_: AndMonoid, f @ BoolConst(false), _) => logger.debug("ruleFalseAndA"); f
+    case MergeMonoid(_: AndMonoid, _, f @ BoolConst(false)) => logger.debug("ruleFalseAndA"); f
   }
 
   /** !!A => A */
   lazy val ruleNotNotA = rule[Exp] {
-    case UnaryExp(_: Not, UnaryExp(_: Not, a)) => a
+    case UnaryExp(_: Not, UnaryExp(_: Not, a)) => logger.debug("ruleNotNotA"); a
   }
 
   /** DeMorgan's laws:
@@ -64,42 +64,66 @@ trait Simplifier extends Normalizer {
     * !(A | B) => !A & !B
     */
   lazy val ruleDeMorgan = rule[Exp] {
-    case UnaryExp(_: Not, MergeMonoid(_: AndMonoid, a, b)) => MergeMonoid(OrMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
-    case UnaryExp(_: Not, MergeMonoid(_: OrMonoid, a, b))  => MergeMonoid(AndMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
+    case UnaryExp(_: Not, MergeMonoid(_: AndMonoid, a, b)) =>
+      logger.debug("ruleDeMorgan")
+      MergeMonoid(OrMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
+    case UnaryExp(_: Not, MergeMonoid(_: OrMonoid, a, b))  =>
+      logger.debug("ruleDeMorgan")
+      MergeMonoid(AndMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
   }
 
   /** A | !A => true */
   lazy val ruleAorNotA = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains UnaryExp(Not(), a)  => BoolConst(true)
-    case MergeMonoid(_: OrMonoid, UnaryExp(_: Not, a), b) if ors(b) contains a => BoolConst(true)
+    case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains UnaryExp(Not(), a)  =>
+      logger.debug("ruleAorNotA")
+      BoolConst(true)
+    case MergeMonoid(_: OrMonoid, UnaryExp(_: Not, a), b) if ors(b) contains a =>
+      logger.debug("ruleAorNotA")
+      BoolConst(true)
   }
 
   /** A & !A => false */
   lazy val ruleAandNotA = rule[Exp] {
-    case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains UnaryExp(Not(), a)  => BoolConst(false)
-    case MergeMonoid(_: AndMonoid, UnaryExp(_: Not, a), b) if ands(b) contains a => BoolConst(false)
+    case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains UnaryExp(Not(), a)  =>
+      logger.debug("ruleAandNotA")
+      BoolConst(false)
+    case MergeMonoid(_: AndMonoid, UnaryExp(_: Not, a), b) if ands(b) contains a =>
+      logger.debug("ruleAandNotA")
+      BoolConst(false)
   }
 
   /** (A | (A | (B | C))) => (A | (B | C)) */
   lazy val ruleRepeatedOr = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains a => b
+    case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains a =>
+      logger.debug("ruleRepeatedOr")
+      b
   }
 
   /** (A & (A & (B & C))) => (A & (B & C)) */
   lazy val ruleRepeatedAnd = rule[Exp] {
-    case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains a => b
+    case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains a =>
+      logger.debug("ruleRepeatedAnd")
+      b
   }
 
   /** (A & B) | (A & B & C)) => (A & B) */
   lazy val ruleRepeatedAndInOr = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, a, b) if ands(a).nonEmpty && (ands(a) subsetOf ands(b)) => a
-    case MergeMonoid(_: OrMonoid, a, b) if ands(b).nonEmpty && (ands(b) subsetOf ands(a)) => b
+    case MergeMonoid(_: OrMonoid, a, b) if ands(a).nonEmpty && (ands(a) subsetOf ands(b)) =>
+      logger.debug("ruleRepeatedAndInOr")
+      a
+    case MergeMonoid(_: OrMonoid, a, b) if ands(b).nonEmpty && (ands(b) subsetOf ands(a)) =>
+      logger.debug("ruleRepeatedAndInOr")
+      b
   }
 
   /** (A | B) & (A | B | C) => (A | B) */
-  lazy val ruleRepeateOrInAnd = rule[Exp] {
-    case MergeMonoid(_: AndMonoid, a, b) if ors(a).nonEmpty && (ors(a) subsetOf ors(b)) => a
-    case MergeMonoid(_: AndMonoid, a, b) if ors(b).nonEmpty && (ors(b) subsetOf ors(a)) => b
+  lazy val ruleRepeatedOrInAnd = rule[Exp] {
+    case MergeMonoid(_: AndMonoid, a, b) if ors(a).nonEmpty && (ors(a) subsetOf ors(b)) =>
+      logger.debug("ruleRepeatedOrInAnd")
+      a
+    case MergeMonoid(_: AndMonoid, a, b) if ors(b).nonEmpty && (ors(b) subsetOf ors(a)) =>
+      logger.debug("ruleRepeatedOrInAnd")
+      b
   }
 
   /* (P1 & P2 & P3) | (Q1 & Q2 & Q3) =>
@@ -108,7 +132,8 @@ trait Simplifier extends Normalizer {
    *   (P3 | Q1) & (P3 | Q2) & (P3 | Q3) &
    */
   lazy val ruleDistributeAndOverOr = rule[Exp] {
-    case MergeMonoid(_: OrMonoid, a, b) if ands(a).nonEmpty && ands(b).nonEmpty =>
+    case MergeMonoid(_: OrMonoid, a, b) if ands(a).size > 2 && ands(b).size > 2 =>
+      logger.debug("ruleDistributeAndOverOr")
       val prod = for (x <- ands(a); y <- ands(b)) yield MergeMonoid(OrMonoid(), x, y)
       val head = prod.head
       val rest = prod.drop(1)
@@ -133,55 +158,81 @@ trait Simplifier extends Normalizer {
 
   /** x + 0 => x */
   lazy val ruleAddZero = rule[Exp] {
-    case MergeMonoid(_: SumMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 0 => lhs
-    case MergeMonoid(_: SumMonoid, ExtractNumberConst(v), rhs) if v.toFloat == 0 => rhs
+    case MergeMonoid(_: SumMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 0 =>
+      logger.debug("ruleAddZero")
+      lhs
+    case MergeMonoid(_: SumMonoid, ExtractNumberConst(v), rhs) if v.toFloat == 0 =>
+      logger.debug("ruleAddZero")
+      rhs
   }
 
   /** x - 0 => x */
   lazy val ruleSubZero = rule[Exp] {
-    case BinaryExp(_: Sub, lhs, ExtractNumberConst(v)) if v.toFloat == 0 => lhs
+    case BinaryExp(_: Sub, lhs, ExtractNumberConst(v)) if v.toFloat == 0 =>
+      logger.debug("ruleSubZero")
+      lhs
   }
 
   /** a - b => a + (-b) */
   lazy val ruleReplaceSubByNeg = rule[Exp] {
-    case BinaryExp(_: Sub, lhs, rhs) => MergeMonoid(SumMonoid(), lhs, UnaryExp(Neg(), rhs))
+    case BinaryExp(_: Sub, lhs, rhs) =>
+      logger.debug("ruleReplaceSubByNeg")
+      MergeMonoid(SumMonoid(), lhs, UnaryExp(Neg(), rhs))
   }
 
   /** x + (-x) => 0 */
   lazy val ruleSubSelf = rule[Exp] {
-    case MergeMonoid(_: SumMonoid, lhs, UnaryExp(_: Neg, rhs)) if lhs == rhs => getNumberConst(tipe(lhs), 0)
+    case MergeMonoid(_: SumMonoid, lhs, UnaryExp(_: Neg, rhs)) if lhs == rhs =>
+      logger.debug("ruleSubSelf")
+      getNumberConst(tipe(lhs), 0)
   }
 
   /** --x => x */
   lazy val ruleRemoveDoubleNeg = rule[Exp] {
-    case UnaryExp(_: Neg, UnaryExp(_: Neg, e)) => e
+    case UnaryExp(_: Neg, UnaryExp(_: Neg, e)) =>
+      logger.debug("ruleRemoveDoubleNeg")
+      e
   }
 
   /** x * 0 => 0 */
   lazy val ruleMultiplyByZero = rule[Exp] {
-    case MergeMonoid(_: MultiplyMonoid, lhs, c @ ExtractNumberConst(v)) if v.toFloat == 0 => c
-    case MergeMonoid(_: MultiplyMonoid, c @ ExtractNumberConst(v), rhs) if v.toFloat == 0 => c
+    case MergeMonoid(_: MultiplyMonoid, lhs, c @ ExtractNumberConst(v)) if v.toFloat == 0 =>
+      logger.debug("ruleMultiplyByZero")
+      c
+    case MergeMonoid(_: MultiplyMonoid, c @ ExtractNumberConst(v), rhs) if v.toFloat == 0 =>
+      logger.debug("ruleMultiplyByZero")
+      c
   }
 
   /** x * 1 => x */
   lazy val ruleMultiplyByOne = rule[Exp] {
-    case MergeMonoid(_: MultiplyMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 1 => lhs
-    case MergeMonoid(_: MultiplyMonoid, ExtractNumberConst(v), rhs) if v.toFloat == 1 => rhs
+    case MergeMonoid(_: MultiplyMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 1 =>
+      logger.debug("ruleMultiplyByOne")
+      lhs
+    case MergeMonoid(_: MultiplyMonoid, ExtractNumberConst(v), rhs) if v.toFloat == 1 =>
+      logger.debug("ruleMultiplyByOne")
+      rhs
   }
 
   /** x / 1 => x */
   lazy val ruleDivideByOne = rule[Exp] {
-    case BinaryExp(_: Div, lhs, ExtractNumberConst(v)) if v.toFloat == 1 => lhs
+    case BinaryExp(_: Div, lhs, ExtractNumberConst(v)) if v.toFloat == 1 =>
+      logger.debug("ruleDivideByOne")
+      lhs
   }
 
   /** x / x => 1 */
   lazy val ruleDivideBySelf = rule[Exp] {
-    case BinaryExp(_: Div, lhs, rhs) if lhs == rhs => IntConst("1")
+    case BinaryExp(_: Div, lhs, rhs) if lhs == rhs =>
+      logger.debug("ruleDivideBySelf")
+      IntConst("1")
   }
 
   /** x / (y / z) => x * z / y */
   lazy val ruleDivDivByMultDiv = rule[Exp] {
-    case BinaryExp(_: Div, x, BinaryExp(_: Div, y, z)) => BinaryExp(Div(), MergeMonoid(MultiplyMonoid(), x, z), y)
+    case BinaryExp(_: Div, x, BinaryExp(_: Div, y, z)) =>
+      logger.debug("ruleDivDivByMultDiv")
+      BinaryExp(Div(), MergeMonoid(MultiplyMonoid(), x, z), y)
   }
 
   //

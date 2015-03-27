@@ -34,7 +34,7 @@ class UnnesterTest extends FunTest {
     assert(process(w, query) === Result())
   }
 
-  test("complex join") {
+  test("join") {
     val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
     val w = TestWorlds.fines
 
@@ -55,18 +55,29 @@ class UnnesterTest extends FunTest {
     assert(process(w, query) === Result())
   }
 
-  ignore("complex join 2") {
+  test("join 2") {
     val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
-//
-//    object Result extends AlgebraLang {
-//      def apply() = {
-//
-//      }
-//    }
-//
-//    println(AlgebraPrettyPrinter.pretty(process(TestWorlds.fines, query)))
+    val w = TestWorlds.fines
 
-    assert(false)
+    println(LogicalAlgebraPrettyPrinter(process(w, query)))
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+
+        reduce(
+          list,
+          record("name" -> arg._2.person, "location" -> arg._2.location),
+          true,
+          join(
+            (arg._1.location == arg._2.location) && ((arg._2.speed < arg._1.min_speed) || arg._2.speed > arg._1.max_speed),
+            select(true, scan("speed_limits")),
+            select(true, scan("radar"))))
+      }
+    }
+
+    assert(process(w, query) === Result())
   }
 
   test("paper query") {
@@ -83,14 +94,14 @@ class UnnesterTest extends FunTest {
           nest(
             sum,
             e=1,
-            group_by=List(arg._1._1),
+            group_by=arg._1._1,
             p=arg._2,
-            nulls=List(arg._1._2, arg._2),
+            nulls=record("_1" -> arg._1._2, "_2" -> arg._2),
             nest(
               and,
               e=arg._1._2.age > arg._2.age,
-              group_by=List(arg._1._1, arg._1._2),
-              nulls=List(arg._2),
+              group_by=record("_1" -> arg._1._1, "_2" -> arg._1._2),
+              nulls=arg._2,
               outer_unnest(
                 path=arg._1.manager.children,
                 outer_unnest(

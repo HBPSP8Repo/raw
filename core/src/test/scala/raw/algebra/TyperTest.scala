@@ -51,6 +51,10 @@ class TyperTest extends FunTest {
     """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""",
     world=TestWorlds.departments)
 
+  assertRootType(
+    """for (d <- Departments; d.dno > for (i <- d.instructors; deg <- i.degrees ) yield sum 1) yield set d """,
+    world=TestWorlds.departments)
+
 // TODO: The following tests require the source types to be inferred and then to have those inferred types used in the algebra.
 //  assertRootType("for (r <- integers) yield set r + 1")
 //  assertRootType("for (r <- unknown) yield set r + 1")

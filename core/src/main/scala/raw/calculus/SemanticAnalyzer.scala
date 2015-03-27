@@ -302,24 +302,24 @@ trait SemanticAnalyzer extends Attribution with LazyLogging {
     variableMap(v)
   }
 
-  private var pass1Done = false
-
-  def tipe(e: Exp): Type = {
-    def walk(t: Type): Type = t match {
-      case TypeVariable(v) => walk(getVariable(v))
-      case RecordType(atts) => RecordType(atts.map{case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt))})
-      case ListType(innerType) => ListType(walk(innerType))
-      case SetType(innerType) => SetType(walk(innerType))
-      case BagType(innerType) => BagType(walk(innerType))
-      case FunType(aType, eType) => FunType(walk(aType), walk(eType))
-      case _ => t
-    }
-    // Run once `pass1` for its side-effect, which is to type the nodes and build the `variableMap`.
-    if (!pass1Done) {
+  lazy val tipe: Exp => Type = {
+    case e => {
+      // Run `pass1` from the root for its side-effect, which is to type the nodes and build the `variableMap`.
+      // Subsequent runs are harmless since they hit the cached value.
       pass1(tree.root)
-      pass1Done = true
+
+      def walk(t: Type): Type = t match {
+        case TypeVariable(v) => walk(getVariable(v))
+        case RecordType(atts) => RecordType(atts.map{case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt))})
+        case ListType(innerType) => ListType(walk(innerType))
+        case SetType(innerType) => SetType(walk(innerType))
+        case BagType(innerType) => BagType(walk(innerType))
+        case FunType(aType, eType) => FunType(walk(aType), walk(eType))
+        case _ => t
+      }
+
+      walk(pass1(e))
     }
-    walk(pass1(e))
   }
 
   // Build a new expression with the records projected.

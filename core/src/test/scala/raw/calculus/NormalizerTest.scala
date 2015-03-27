@@ -126,32 +126,25 @@ class NormalizerTest extends FunTest {
         """for ($0 <- Departments; $0.name = "CSE"; $1 <- $0.instructors; $2 <- $1.teaches; $2.name = "cse5331") yield set (Name := $1.name, Address := $1.address)""")
   }
 
-  test("desugar ExpBlock") {
+  test("join") {
     compare(
       process(
-        """for (d <- Departments) yield set { name := d.name; (deptName := name) }""", TestWorlds.departments),
-        """for ($0 <- Departments) yield set (deptName := $0.name)""")
+        """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)""", TestWorlds.fines),
+        """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name := $1.person, location := $1.location)"""
+    )
   }
 
-  test("desugar PatternFunAbs") {
-    compare(
-      process(
-        """\(a: int, b: int) -> a + b + 2"""),
-        """\ $0 -> $0._1 + $0._2 + 2""")
-  }
-
-  test("desugar PatternGen") {
+  test("desugar and normalize PatternGen") {
     compare(
       process(
         """for ((a, b, c, d) <- things) yield set (a, d)""", TestWorlds.things),
-        """for ($0 <- things) yield set (_1 := $0._1, _2 := $0._4)""")
+      """for ($0 <- things) yield set (_1 := $0._1, _2 := $0._4)""")
   }
 
-  test("desugar PatternBind") {
+  test("desugar and normalize PatternBind") {
     compare(
       process(
         """{ (a, b) := (1, 2); a + b }"""),
-        """1 + 2""")
+      """1 + 2""")
   }
-
 }
