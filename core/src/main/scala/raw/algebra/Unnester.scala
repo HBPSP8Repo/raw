@@ -1,13 +1,9 @@
 package raw
 package algebra
 
+import com.typesafe.scalalogging.LazyLogging
 import org.kiama.util.Entity
 import raw.calculus.Calculus
-import raw.calculus.Calculus.{Idn, Calculus}
-
-import scala.collection.immutable.Seq
-import com.typesafe.scalalogging.LazyLogging
-import raw.calculus.{SemanticAnalyzer, Simplifier, Calculus, SymbolTable}
 
 case class UnnesterError(err: String) extends RawException(err)
 
@@ -29,8 +25,10 @@ case class AlgebraTerm(t: LogicalAlgebra.LogicalAlgebraNode) extends Term
   */
 object Unnester extends LazyLogging {
 
+  import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
   import org.kiama.rewriting.Strategy
+  import raw.calculus.{SemanticAnalyzer, Simplifier, SymbolTable}
 
   def apply(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = {
 
@@ -212,6 +210,7 @@ object Unnester extends LazyLogging {
         variables(c).intersect(sVs).isEmpty
       }
 
+      // TODO: hasNestedComp followed by getNestedComp is *slow* code; replace by extractor
       def hasNestedComp(ps: List[Calculus.Exp]) =
         ps.collectFirst { case NestedComp(c) => c }.isDefined
 
@@ -314,7 +313,7 @@ object Unnester extends LazyLogging {
           val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
           apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterUnnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
 
-        /** Rule ...
+        /** Rule (missing from the paper) to handle merge of two comprehensions
           */
 
         case CalculusTerm(Calculus.MergeMonoid(m, e1, e2), None, None, EmptyTerm) =>
