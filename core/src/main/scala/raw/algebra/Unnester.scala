@@ -27,41 +27,6 @@ case class AlgebraTerm(t: LogicalAlgebra.LogicalAlgebraNode) extends Term
 /** Algorithm that converts a calculus expression (in canonical form) into the logical algebra.
   * The algorithm is described in Fig. 10 of [1], page 34.
   */
-
-
-//another design is:
-//
-//- the uniquifier, normalizer and simplifier apply rules to transform the tree.
-//  one gets a new tree out.
-//
-//- that new tree has, per comprehension node, a canonical version
-//
-//----====----
-// if this were a transformation rule, what rule would be it? for every comprehension apply this?
-// not quite right...
-// i think it is more like:
-// go from the root.
-// if i find an expression convert it to the algebra equivalent.
-// must handle the case where the algebra generates 2 merge operators, right?
-//
-//
-//1) split desugarer into a separate phase
-//
-//- the uniquifier, normalizer and simplifier apply rules to transform the tree.
-//
-//- the canonical comp is a new 'creation'/node that is also the result of applying a rule.
-//
-//- the problem is inferring the type of the tree for the small trees i am computing below. that wont work.
-//
-//
-//
-//
-//- we add a new phase that dumps a canonical comprehension
-//
-//
-//one gets a new tree out.
-
-
 object Unnester extends LazyLogging {
 
   import org.kiama.rewriting.Rewriter._
@@ -70,7 +35,7 @@ object Unnester extends LazyLogging {
   def apply(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = {
 
     /** Main execution:
-      *
+      * TODO: turn into an attribute?
       */
 
     val t = tree
