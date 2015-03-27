@@ -1,5 +1,5 @@
-import Resolvers._
 import Dependencies._
+import Resolvers._
 
 lazy val buildSettings = Seq(
   homepage := Some(url("http://dias.epfl.ch/")),
@@ -8,7 +8,8 @@ lazy val buildSettings = Seq(
   organizationHomepage := Some(url("http://dias.epfl.ch/")),
   version := "0.0.0",
   scalaVersion := "2.11.6",
-  scalacOptions ++= Seq ("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off")
+  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"),
+  resolvers := sonatypeResolvers
 )
 
 lazy val commonDeps = Seq(
@@ -21,35 +22,47 @@ lazy val commonDeps = Seq(
   guava
 )
 
-lazy val coreDeps = 
+lazy val coreDeps =
   commonDeps ++
-  Seq(
-    kiama
-  )
+    Seq(
+      kiama
+    )
 
 lazy val executorDeps =
   commonDeps ++
-  Seq(
-    shapeless,
-    spark,
-    json4s    
+    Seq(
+      shapeless,
+      spark,
+      json4s
+    )
+
+lazy val root = project.in(file("."))
+  .aggregate(executor, core)
+  .dependsOn(executor)
+  .settings(buildSettings)
+  .settings(
+    libraryDependencies ++= executorDeps
   )
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
   settings(buildSettings).
   settings(
-    resolvers := sonatypeResolvers,
     libraryDependencies ++= executorDeps
   )
 
 lazy val core = (project in file("core")).
   settings(buildSettings).
   settings(
-    resolvers := sonatypeResolvers,
     libraryDependencies ++= coreDeps
   )
 
 // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
 // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
 updateOptions := updateOptions.value.withCachedResolution(true)
+
+initialCommands in console := """
+                                |import raw.repl._
+                                |import raw.repl.RawContext._
+                                |val rc = new RawContext()
+                                | """.stripMargin

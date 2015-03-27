@@ -18,8 +18,7 @@ case class SemanticErrors(messages: Seq[Message]) extends QueryError {
 object Query {
 
   def parse(query: String): Either[QueryError, Calculus.Calculus] = {
-    val parser = new SyntaxAnalyzer()
-    parser.makeAST(query) match {
+    SyntaxAnalyzer(query) match {
       case Right(ast) => Right(new Calculus.Calculus(ast))
       case Left(error) => Left(ParserError(error))
     }
