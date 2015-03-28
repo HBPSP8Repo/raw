@@ -102,7 +102,7 @@ class UnnesterTest extends FunTest {
     assert(process(w, query) === Result())
   }
 
-  ignore("join 3 (ANDed predicates)") {
+  test("join 3 (ANDed predicates)") {
     val query = """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s"""
     val w = TestWorlds.school
 
@@ -158,8 +158,6 @@ class UnnesterTest extends FunTest {
       }
     }
 
-    logger.error(LogicalAlgebraPrettyPrinter(Result()))
-    logger.error(LogicalAlgebraPrettyPrinter(process(w, query)))
     assert(process(w, query) === Result())
   }
 

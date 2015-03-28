@@ -83,7 +83,13 @@ object Unnester extends LazyLogging {
 
         def unapply(c: Comp): Option[(Monoid, List[Gen], List[Exp], Exp)] = {
           val paths = c.qs.collect { case g: Gen => g }
-          val preds = c.qs.collect { case e: Exp => e }
+
+          def flattenPreds(p: Exp): Seq[Exp] = p match {
+            case MergeMonoid(_: AndMonoid, e1, e2) => flattenPreds(e1) ++ flattenPreds(e2)
+            case _                                 => Seq(p)
+          }
+          val preds = c.qs.collect { case p: Exp => p }.flatMap { case p: Exp => flattenPreds(p) }
+
           Some(c.m, paths.toList, preds.toList, c.e)
         }
       }
