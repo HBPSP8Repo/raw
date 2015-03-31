@@ -1,18 +1,48 @@
 package raw
 package util
 
+import java.net.URL
+
 import com.google.common.io.Resources
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, SparkContext}
+
+import scala.reflect.ClassTag
 
 case class CSVParserError(err: String) extends RawException(err)
 
 object CSVParser {
-
   def apply[T](path: String, parse: (List[String] => T), delim: String = ","): List[T] = {
     val content = scala.io.Source.fromURL(Resources.getResource(path))
-    content.getLines().map{ case line => line.split(delim).toList }.map(parse).toList
+    content.getLines()
+      .map(_.split(delim).toList)
+      .map(parse)
+      .toList
+  }
+}
+
+class CSVToRDDParser extends AutoCloseable with LazyLogging {
+  logger.info("Starting local Spark context")
+  val conf = new SparkConf().setAppName("RAW Unit Tests").setMaster("local")
+  val sc = new SparkContext(conf)
+
+  /** Concerning the T:ClassTag implicit parameter:
+   * http://apache-spark-user-list.1001560.n3.nabble.com/Generic-types-and-pair-RDDs-td3593.html
+   */
+  def parse[T: ClassTag](filePath: String, parse: (List[String] => T), delim: String = ","): RDD[T] = {
+    val url: URL = Resources.getResource(filePath)
+    sc.textFile(url.getPath())
+      .map(_.split(delim).toList)
+      .map(parse)
   }
 
+  override def close(){
+    logger.info("Stopping Spark context")
+    sc.stop()
+  }
 }
+
 //
 //object CSVParser {
 //
