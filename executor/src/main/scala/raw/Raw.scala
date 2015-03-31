@@ -2,6 +2,7 @@ package raw
 
 import raw.algebra.LogicalAlgebra
 import raw.algebra.LogicalAlgebra._
+import raw.psysicalalgebra.LogicalToPhysicalAlgebra
 import raw.psysicalalgebra.PhysicalAlgebra._
 import shapeless.HList
 
@@ -67,7 +68,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
       */
     def buildCode(root: PhysicalAlgebraNode, world: World, accessPaths: Map[String, Tree]): Tree = {
       import algebra.Expressions._
-      import algebra.LogicalAlgebra._
 
       val typer = new algebra.Typer(world)
 
@@ -163,6 +163,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
         }
 
+        println("Matching node: " + a)
         a match {
           case ScalaNest(m, e, f, p, g, child) => m match {
             case m1: PrimitiveMonoid =>
@@ -200,6 +201,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case r@ScalaReduce(m, e, p, child) =>
             val code = m match {
               case m1: PrimitiveMonoid =>
+                // TODO: Replace foldLeft with fold?
                 q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).foldLeft(${zero(m1)})(${fold(m1)})"""
               case _: BagMonoid =>
                 ???
@@ -216,6 +218,34 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             q"""${build(child)}.filter(${exp(p)})"""
           case ScalaScan(name, _) =>
             q"""${accessPaths(name)}"""
+
+          // Spark operators
+          case SparkScan(name, tipe) =>
+            q"""${accessPaths(name)}"""
+          case SparkSelect(p, child) =>
+            q"""${build(child)}.filter(${exp(p)})"""
+          case SparkReduce(m, e, p, child) =>
+            val childCode = build(child)
+            val code = m match {
+              case m1: PrimitiveMonoid =>
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).fold(${zero(m1)})(${fold(m1)})"""
+              case _: BagMonoid =>
+                ???
+              case _: ListMonoid =>
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
+              case _: SetMonoid =>
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toSet"""
+            }
+            code
+
+          case r@SparkJoin(p, left, right) => ???
+          case SparkMerge(m, left, right) => ???
+          case SparkNest(m, e, f, p, g, child) => ???
+          case SparkOuterJoin(p, left, right) => ???
+          case SparkOuterUnnest(path, pred, child) => ???
+          case SparkUnnest(path, pred, child) => ???
+
+//          case v => bail("Unknown node: " + v)
         }
       }
 
@@ -241,47 +271,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
       }
     }
 
-
-    def promoteToSpark(node: ScalaPhysicalAlgebraNode): SparkPhysicalAlgebraNode = {
-      ???
-    }
-
-    def buildPhysicalTree(root: LogicalAlgebraNode, isSpark: Map[String, Boolean]): PhysicalAlgebraNode = {
-      def helper1(node: LogicalAlgebraNode,
-                  scalaBuilder: ScalaPhysicalAlgebraNode => ScalaPhysicalAlgebraNode,
-                  sparkBuilder: SparkPhysicalAlgebraNode => SparkPhysicalAlgebraNode): PhysicalAlgebraNode = recurse(node) match {
-        case c: ScalaPhysicalAlgebraNode => scalaBuilder(c)
-        case c: SparkPhysicalAlgebraNode => sparkBuilder(c)
-      }
-
-      def helper2(left: LogicalAlgebraNode, right: LogicalAlgebraNode,
-                  scalaBuilder: (ScalaPhysicalAlgebraNode, ScalaPhysicalAlgebraNode) => ScalaPhysicalAlgebraNode,
-                  sparkBuilder: (SparkPhysicalAlgebraNode, SparkPhysicalAlgebraNode) => SparkPhysicalAlgebraNode): PhysicalAlgebraNode = (recurse(left), recurse(right)) match {
-        case (l: SparkPhysicalAlgebraNode, r: SparkPhysicalAlgebraNode) => sparkBuilder(l, r)
-        case (l: SparkPhysicalAlgebraNode, r: ScalaPhysicalAlgebraNode) => sparkBuilder(l, promoteToSpark(r))
-        case (l: ScalaPhysicalAlgebraNode, r: SparkPhysicalAlgebraNode) => sparkBuilder(promoteToSpark(l), r)
-        case (l: ScalaPhysicalAlgebraNode, r: ScalaPhysicalAlgebraNode) => scalaBuilder(l, r)
-      }
-
-
-      def recurse(l: LogicalAlgebraNode): PhysicalAlgebraNode = l match {
-        case LogicalAlgebra.Scan(name, t) => if (isSpark(name)) SparkScan(name, t) else ScalaScan(name, t)
-
-        case LogicalAlgebra.Select(p, child) => helper1(child, c => ScalaSelect(p, c), c => SparkSelect(p, c))
-        case Reduce(m, e, p, child) => helper1(child, c => ScalaReduce(m, e, p, c), c => SparkReduce(m, e, p, c))
-        case Nest(m, e, f, p, g, child) => helper1(child, c => ScalaNest(m, e, f, p, g, c), c => SparkNest(m, e, f, p, g, c))
-        case OuterUnnest(path, pred, child) => helper1(child, c => ScalaOuterUnnest(path, pred, c), c => SparkOuterUnnest(path, pred, c))
-        case Unnest(path, pred, child) => helper1(child, c => ScalaUnnest(path, pred, c), c => SparkUnnest(path, pred, c))
-
-        // Promotion rules: ...
-        case Merge(m, left, right) => helper2(left, right, (l, r) => ScalaMerge(m, l, r), (l, r) => SparkMerge(m, l, r))
-        case Join(p, left, right) => helper2(left, right, (l, r) => ScalaJoin(p, l, r), (l, r) => SparkJoin(p, l, r))
-        case OuterJoin(p, left, right) => helper2(left, right, (l, r) => ScalaOuterJoin(p, l, r), (l, r) => SparkOuterJoin(p, l, r))
-      }
-
-      recurse(root)
-    }
-
     /** Macro main code.
       *
       * Check if the query string is known at compile time.
@@ -302,7 +291,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         Query(qry, world) match {
           case Right(logicalTree) => {
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
-            val physicalTree = buildPhysicalTree(logicalTree, isSpark)
+            val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
             println("Physical tree: " + physicalTree)
             //            val generatedCode = buildCode(logicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
             val generatedCode = buildCode(physicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })

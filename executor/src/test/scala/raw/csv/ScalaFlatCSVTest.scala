@@ -3,14 +3,10 @@ package raw.csv
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
 import raw.Raw
-import raw.util.CSVParser
 import shapeless.HList
 
-class ScalaFlatCSVTest extends FunSuite with LazyLogging {
-
-  val students: List[Student] = CSVParser("data/students.csv", l => Student(l(0), l(1).toInt, l(2), l(3)))
-  val profs: List[Professor] = CSVParser("data/profs.csv", l => Professor(l(0), l(1)))
-  val departments: List[Department] = CSVParser("data/departments.csv", l => Department(l(0), l(1), l(2)))
+// TODO: Refactor to define the tests once and use them both with Spark and Java data sources.
+class ScalaFlatCSVTest extends FunSuite with LazyLogging with ReferenceTestData {
 
   test("number of professors") {
     assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)
