@@ -1,7 +1,5 @@
 package raw
 
-import raw.algebra.LogicalAlgebra
-import raw.algebra.LogicalAlgebra._
 import raw.psysicalalgebra.LogicalToPhysicalAlgebra
 import raw.psysicalalgebra.PhysicalAlgebra._
 import shapeless.HList
@@ -9,7 +7,6 @@ import shapeless.HList
 import scala.language.experimental.macros
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
-
   def query(q: c.Expr[String], catalog: c.Expr[HList]) = {
 
     import c.universe._
@@ -51,7 +48,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) })
 
         case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" => {
-          println(s"sym: $sym, t1: $t1")
           raw.ListType(inferType(t1)._1)
         }
 
@@ -163,7 +159,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
         }
 
-        println("Matching node: " + a)
+        println("Generating code for node: " + a)
         a match {
           case ScalaNest(m, e, f, p, g, child) => m match {
             case m1: PrimitiveMonoid =>
@@ -232,6 +228,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
               case _: BagMonoid =>
                 ???
               case _: ListMonoid =>
+                // toLocalIterator should be more efficient than collect?
                 q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
               case _: SetMonoid =>
                 q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toSet"""
@@ -244,8 +241,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case SparkOuterJoin(p, left, right) => ???
           case SparkOuterUnnest(path, pred, child) => ???
           case SparkUnnest(path, pred, child) => ???
-
-//          case v => bail("Unknown node: " + v)
         }
       }
 
@@ -261,9 +256,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         case Apply(Apply(TypeApply(_, _), items), _) => {
           items.map {
             case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) => {
-              println(s"Name: $name, scalaType: $scalaType, tree: $tree")
+              println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
               val (rawType, isSpark) = inferType(scalaType.tpe)
-              println(s"rawType: $rawType, isSpark: $isSpark")
               name.toString -> AccessPath(rawType, tree, isSpark)
             }
           }.toMap
@@ -292,10 +286,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case Right(logicalTree) => {
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
-            println("Physical tree: " + physicalTree)
-            //            val generatedCode = buildCode(logicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            val generatedCode = buildCode(physicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            println("Generated code: " + generatedCode)
+            val generatedCode: Tree = buildCode(physicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
+            QueryLogger.log(qry, generatedCode.toString())
             c.Expr[Any](generatedCode)
           }
           case Left(err) => bail(err.err)

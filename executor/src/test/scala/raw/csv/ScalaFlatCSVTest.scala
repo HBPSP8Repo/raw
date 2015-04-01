@@ -3,10 +3,13 @@ package raw.csv
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
 import raw.Raw
+import raw.util.CSVParser
 import shapeless.HList
 
-// TODO: Refactor to define the tests once and use them both with Spark and Java data sources.
-class ScalaFlatCSVTest extends FunSuite with LazyLogging with ReferenceTestData {
+class ScalaFlatCSVTest extends FunSuite with LazyLogging {
+  val students = ReferenceTestData.students
+  val profs = ReferenceTestData.profs
+  val departments = ReferenceTestData.departments
 
   test("number of professors") {
     assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)
@@ -39,6 +42,7 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging with ReferenceTestData 
   test("set of students in dep2") {
     assert(Raw.query( """for (d <- students; d.department = "dep2") yield set d.name""", HList("students" -> students)) === Set("Student2", "Student4"))
   }
+
 
   test("number of students in dep1") {
     assert(Raw.query( """for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
@@ -127,7 +131,7 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging with ReferenceTestData 
 //  check("set of actors in 'Seven'", "for (m <- movies; m.title = \"Seven\"; a <- m.actors) yield set a", Set("Brad Pitt", "Morgan Freeman", "Kevin Spacey"))
 //
 //  // harder
-//  check("Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
+//  check("Bruce Willis movies",s """for (m <- movies; a <- m.actors; a = "Bruce Willis") yield set m.title""", Set("Twelve Monkeys", "Die Hard"))
 //  check("Brad Pitt movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt") yield set m.title""", Set("Seven", "Twelve Monkeys"))
 //  check("movies with actors born after 1960 (only Brad Pitt)", "for (m <- movies; a <- actors; ma <- m.actors; a.name = ma; a.born > 1960) yield set m.title", Set("Seven", "Twelve Monkeys"))
 //  check("Brad Pitt or Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"), "#29")
