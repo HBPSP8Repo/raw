@@ -6,13 +6,13 @@ case class NormalizerError(err: String) extends RawException(err)
 /** Normalize a comprehension by transforming a tree into its normalized form.
   * The normalization rules are described in [1] (Fig. 4, page 17).
   */
-trait Normalizer extends Desugarer {
+trait Normalizer extends Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  override def strategy = super.strategy <* normalize
+  def strategy = normalize
 
   lazy val normalize =
     doloop(
@@ -68,23 +68,8 @@ trait Normalizer extends Desugarer {
     case Comp(m, Rule4(q, Gen(idn, IfThenElse(e1, e2, e3)), s), e) if m.commutative || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 4")
       val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(idn, e2)) ++ s, e)
-      val c2 = Comp(deepclone(m), q ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(idn), e3)) ++ s.map(deepclone), deepclone(e))
+      val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(idn), e3)) ++ s.map(deepclone), deepclone(e))
       MergeMonoid(m, c1, rewriteIdns(c2))
-  }
-
-  /** Rewrite all identifiers in the expression using new global identifiers.
-    * Takes care to only rewrite identifiers that are system generated, and not user-defined class extent names.
-    */
-  def rewriteIdns(e: Exp) = {
-    var ids = scala.collection.mutable.Map[String, String]()
-
-    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next()); ids(idn) }
-
-    rewrite(
-      everywhere(rule[IdnNode] {
-        case IdnDef(idn, _) if idn.startsWith("$") => IdnDef(newIdn(idn), None)
-        case IdnUse(idn)    if idn.startsWith("$") => IdnUse(newIdn(idn))
-      }))(e)
   }
 
   /** Rule 5
@@ -94,19 +79,13 @@ trait Normalizer extends Desugarer {
     def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, _: ZeroCollectionMonoid) => g})
   }
 
-  def getNumberConst(t: Type, v: Int): NumberConst = t match {
-    case _: IntType   => IntConst(v.toString)
-    case _: FloatType => FloatConst(v.toString)
-    case t1           => throw NormalizerError(s"Unexpected type $t1")
-  }
-
   lazy val rule5 = rule[Exp] {
     case Comp(m, Rule5(q, Gen(idn, ze: ZeroCollectionMonoid), s), e) =>
       logger.debug(s"Applying normalizer rule 5")
       m match {
-        case _: MaxMonoid        => getNumberConst(tipe(e), 0)
-        case _: MultiplyMonoid   => getNumberConst(tipe(e), 1)
-        case _: SumMonoid        => getNumberConst(tipe(e), 0)
+        case _: MaxMonoid        => IntConst("0")
+        case _: MultiplyMonoid   => IntConst("1")
+        case _: SumMonoid        => IntConst("0")
         case _: AndMonoid        => BoolConst(true)
         case _: OrMonoid         => BoolConst(false)
         case m: CollectionMonoid => ZeroCollectionMonoid(m)
@@ -176,4 +155,28 @@ trait Normalizer extends Desugarer {
       Comp(m, s ++ r, e)
   }
 
+}
+
+object Normalizer extends Normalizer {
+
+  import org.kiama.rewriting.Rewriter.rewriteTree
+  import Calculus.Calculus
+
+  def apply(tree: Calculus, world: World): Calculus = {
+
+    // Desugar tree
+    val tree1 = Desugarer(tree)
+
+    // Uniquify identifiers
+    val tree2 = Uniquifier(tree1, world)
+
+    // Desugar expresion blocks
+    val tree3 = DesugarExpBlocks(tree2)
+
+    // Uniquify identifiers
+    val tree4 = Uniquifier(tree3, world)
+
+    // Normalize
+    rewriteTree(strategy)(tree4)
+  }
 }

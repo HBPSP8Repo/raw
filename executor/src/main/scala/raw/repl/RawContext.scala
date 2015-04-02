@@ -49,7 +49,7 @@ object RawContext extends StrictLogging {
 
   def analyzeSemantics(ast: Exp): Unit = {
     val t = new Calculus.Calculus(ast)
-    val analyzer = new SemanticAnalyzer { val tree = t; val world = Worlds.world }
+    val analyzer = new SemanticAnalyzer(t, Worlds.world)
     if (analyzer.errors.nonEmpty) {
       val str = analyzer.errors
         .zipWithIndex

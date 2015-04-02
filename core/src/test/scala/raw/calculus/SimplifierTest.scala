@@ -4,12 +4,15 @@ package calculus
 class SimplifierTest extends FunTest {
 
   def process(q: String, w: World = TestWorlds.empty) = {
-    val ast = parse(q)
-    val t = new Calculus.Calculus(ast)
+    val t = new Calculus.Calculus(parse(q))
 
-    val simplifier = new Simplifier { val tree = t; val world = w }
-    assert(simplifier.errors.length === 0)
-    CalculusPrettyPrinter(simplifier.transform.root, 200)
+    val t1 = Simplifier(t, w)
+
+    val analyzer = new SemanticAnalyzer(t1, w)
+    analyzer.errors.foreach(err => logger.error(err.toString))
+    assert(analyzer.errors.length === 0)
+
+    CalculusPrettyPrinter(t1.root, 200)
   }
 
   ignore("test1") {

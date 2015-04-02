@@ -4,14 +4,15 @@ package calculus
 class NormalizerTest extends FunTest {
 
   def process(q: String, w: World = TestWorlds.empty) = {
-    val ast = parse(q)
-    val t = new Calculus.Calculus(ast)
+    val t = new Calculus.Calculus(parse(q))
 
-    val normalizer = new Normalizer { val tree = t; val world = w }
-    normalizer.errors.foreach(err => logger.error(err.toString))
-    assert(normalizer.errors.length === 0)
+    val t1 = Normalizer(t, w)
 
-    CalculusPrettyPrinter(normalizer.transform.root, 200)
+    val analyzer = new SemanticAnalyzer(t1, w)
+    analyzer.errors.foreach(err => logger.error(err.toString))
+    assert(analyzer.errors.length === 0)
+
+    CalculusPrettyPrinter(t1.root, 200)
   }
 
   test("rule1") {
@@ -137,8 +138,8 @@ class NormalizerTest extends FunTest {
   test("desugar and normalize PatternGen") {
     compare(
       process(
-        """for ((a, b, c, d) <- things) yield set (a, d)""", TestWorlds.things),
-      """for ($0 <- things) yield set (_1 := $0._1, _2 := $0._4)""")
+        """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""", TestWorlds.set_of_tuples),
+      """for ($0 <- set_of_tuples) yield set (_1 := $0._1, _2 := $0._4)""")
   }
 
   test("desugar and normalize PatternBind") {
@@ -147,4 +148,6 @@ class NormalizerTest extends FunTest {
         """{ (a, b) := (1, 2); a + b }"""),
       """1 + 2""")
   }
+
 }
+

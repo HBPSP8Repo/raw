@@ -31,32 +31,18 @@ object Unnester extends LazyLogging {
   import raw.calculus.{SemanticAnalyzer, Simplifier, SymbolTable}
 
   def apply(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = {
+    val tree1 = Simplifier(tree, world)
 
-    /** Main execution:
-      * TODO: turn into an attribute?
-      */
-
-    val t = tree
-    val w = world
-    val s = new Simplifier {
-      val tree = t;
-      val world = w
-    }
-
-    val inTree = s.transform
-
-    val analyzer = new SemanticAnalyzer {
-      val world = w;
-      val tree = inTree
-    }
+    val analyzer = new SemanticAnalyzer(tree1, world)
 
     val collectEntities = collect[List, Tuple2[String, Entity]]{ case Calculus.IdnExp(idn) => idn.idn -> analyzer.entity(idn) }
-    val entities = collectEntities(inTree.root).toMap
+    val entities = collectEntities(tree1.root).toMap
 
     val collectTypes = collect[List, Tuple2[Calculus.Exp, Type]]{ case e: Calculus.Exp => e -> analyzer.tipe(e) }
-    val tipes = collectTypes(inTree.root).toMap
+    val tipes = collectTypes(tree1.root).toMap
 
-    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(inTree.root)}")
+    logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(tree1.root)}")
+
 
     def unnest(e: Calculus.Exp): LogicalAlgebra.LogicalAlgebraNode = {
 
@@ -228,105 +214,105 @@ object Unnester extends LazyLogging {
       def apply(t: Term): Term =
         t match {
 
-        /** Rule C11.
-          */
-        case CalculusTerm(CanonicalComp(m, s, p, e1), u, Some(w), child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) =>
-          logger.debug(s"Applying unnester rule C11")
-          val c = getNestedComp(p)
-          val v = freshIdn
-          val pat_v = IdnPattern(v, tipes(c))
-          val pat_w_v = PairPattern(w, pat_v)
-          val npred = p.map(rewrite(attempt(oncetd(rule[Calculus.Exp] {
-            case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
-          })))(_))
-          apply(CalculusTerm(CanonicalComp(m, s, npred, e1), u, Some(pat_w_v), apply(CalculusTerm(c, Some(w), Some(w), child))))
+          /** Rule C11.
+            */
+          case CalculusTerm(CanonicalComp(m, s, p, e1), u, Some(w), child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) =>
+            logger.debug(s"Applying unnester rule C11")
+            val c = getNestedComp(p)
+            val v = freshIdn
+            val pat_v = IdnPattern(v, tipes(c))
+            val pat_w_v = PairPattern(w, pat_v)
+            val npred = p.map(rewrite(attempt(oncetd(rule[Calculus.Exp] {
+              case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
+            })))(_))
+            apply(CalculusTerm(CanonicalComp(m, s, npred, e1), u, Some(pat_w_v), apply(CalculusTerm(c, Some(w), Some(w), child))))
 
-        /** Rule C12.
-          */
-        case CalculusTerm(CanonicalComp(m, Nil, p, f@NestedComp(c)), u, Some(w), child) =>
-          logger.debug(s"Applying unnester rule C12")
-          val v = freshIdn
-          val pat_v = IdnPattern(v, tipes(c))
-          val pat_w_v = PairPattern(w, pat_v)
-          val nf = rewrite(oncetd(rule[Calculus.Exp] {
-            case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
-          }))(f)
-          apply(CalculusTerm(CanonicalComp(m, Nil, p, nf), u, Some(pat_w_v), apply(CalculusTerm(c, Some(w), Some(w), child))))
+          /** Rule C12.
+            */
+          case CalculusTerm(CanonicalComp(m, Nil, p, f@NestedComp(c)), u, Some(w), child) =>
+            logger.debug(s"Applying unnester rule C12")
+            val v = freshIdn
+            val pat_v = IdnPattern(v, tipes(c))
+            val pat_w_v = PairPattern(w, pat_v)
+            val nf = rewrite(oncetd(rule[Calculus.Exp] {
+              case `c` => Calculus.IdnExp(Calculus.IdnUse(v))
+            }))(f)
+            apply(CalculusTerm(CanonicalComp(m, Nil, p, nf), u, Some(pat_w_v), apply(CalculusTerm(c, Some(w), Some(w), child))))
 
-        /** Rule C4.
-          */
-        case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, None, EmptyTerm) =>
-          logger.debug(s"Applying unnester rule C4")
-          val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
-          val pat_v = IdnPattern(v, getInnerType(x.t))
-          apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x))))
+          /** Rule C4.
+            */
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, None, EmptyTerm) =>
+            logger.debug(s"Applying unnester rule C4")
+            val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
+            val pat_v = IdnPattern(v, getInnerType(x.t))
+            apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x))))
 
-        /** Rule C5
-          */
+          /** Rule C5
+            */
 
-        case CalculusTerm(CanonicalComp(m, Nil, p, e), None, Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C5")
-          AlgebraTerm(LogicalAlgebra.Reduce(m, createExp(e, w), createPredicate(p, w), child))
+          case CalculusTerm(CanonicalComp(m, Nil, p, e), None, Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C5")
+            AlgebraTerm(LogicalAlgebra.Reduce(m, createExp(e, w), createPredicate(p, w), child))
 
-        /** Rule C6
-          */
+          /** Rule C6
+            */
 
-        case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C6")
-          val pat_v = IdnPattern(v, getInnerType(x.t))
-          val pat_w_v = PairPattern(w, pat_v)
-          val pred_v = p.filter(variables(_) == Set(v))
-          val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(getIdns(pat_w_v).toSet))
-          val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
-          apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), None, Some(pat_w_v), AlgebraTerm(LogicalAlgebra.Join(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C6")
+            val pat_v = IdnPattern(v, getInnerType(x.t))
+            val pat_w_v = PairPattern(w, pat_v)
+            val pred_v = p.filter(variables(_) == Set(v))
+            val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(getIdns(pat_w_v).toSet))
+            val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
+            apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), None, Some(pat_w_v), AlgebraTerm(LogicalAlgebra.Join(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
 
-        /** Rule C7
-          */
+          /** Rule C7
+            */
 
-        case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C7")
-          val pat_v = IdnPattern(v, getInnerType(tipes(path)))
-          val pat_w_v = PairPattern(w, pat_v)
-          val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
-          apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_w_v), AlgebraTerm(LogicalAlgebra.Unnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C7")
+            val pat_v = IdnPattern(v, getInnerType(tipes(path)))
+            val pat_w_v = PairPattern(w, pat_v)
+            val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
+            apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), None, Some(pat_w_v), AlgebraTerm(LogicalAlgebra.Unnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
 
-        /** Rule C8
-          */
+          /** Rule C8
+            */
 
-        case CalculusTerm(CanonicalComp(m, Nil, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C8")
-          AlgebraTerm(LogicalAlgebra.Nest(m, createExp(e, w), createRecord(getIdns(u), w), createPredicate(p, w), createRecord(getIdns(w).filterNot(getIdns(u).contains), w), child))
+          case CalculusTerm(CanonicalComp(m, Nil, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C8")
+            AlgebraTerm(LogicalAlgebra.Nest(m, createExp(e, w), createRecord(getIdns(u), w), createPredicate(p, w), createRecord(getIdns(w).filterNot(getIdns(u).contains), w), child))
 
-        /** Rule C9
-          */
+          /** Rule C9
+            */
 
-        case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C9")
-          val pat_v = IdnPattern(v, getInnerType(x.t))
-          val pat_w_v = PairPattern(w, pat_v)
-          val pred_v = p.filter(variables(_) == Set(v))
-          val pred_w_v = p.filter(pred => getIdns(pat_w_v).toSet.subsetOf(variables(pred)))
-          val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
-          apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterJoin(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C9")
+            val pat_v = IdnPattern(v, getInnerType(x.t))
+            val pat_w_v = PairPattern(w, pat_v)
+            val pred_v = p.filter(variables(_) == Set(v))
+            val pred_w_v = p.filter(pred => getIdns(pat_w_v).toSet.subsetOf(variables(pred)))
+            val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
+            apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterJoin(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
 
-        /** Rule C10
-          */
+          /** Rule C10
+            */
 
-        case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
-          logger.debug(s"Applying unnester rule C10")
-          val pat_v = IdnPattern(v, getInnerType(tipes(path)))
-          val pat_w_v = PairPattern(w, pat_v)
-          val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
-          apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterUnnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+            logger.debug(s"Applying unnester rule C10")
+            val pat_v = IdnPattern(v, getInnerType(tipes(path)))
+            val pat_w_v = PairPattern(w, pat_v)
+            val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
+            apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterUnnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
 
-        /** Rule (missing from the paper) to handle merge of two comprehensions
-          */
+          /** Rule (missing from the paper) to handle merge of two comprehensions
+            */
 
-        case CalculusTerm(Calculus.MergeMonoid(m, e1, e2), None, None, EmptyTerm) =>
-          logger.debug(s"Applying unnester rule TopLevelMerge")
-          AlgebraTerm(LogicalAlgebra.Merge(m, unnest(e1), unnest(e2)))
+          case CalculusTerm(Calculus.MergeMonoid(m, e1, e2), None, None, EmptyTerm) =>
+            logger.debug(s"Applying unnester rule TopLevelMerge")
+            AlgebraTerm(LogicalAlgebra.Merge(m, unnest(e1), unnest(e2)))
 
-      }
+        }
 
       apply(CalculusTerm(e, None, None, EmptyTerm)) match {
         case AlgebraTerm(a) => a
@@ -334,6 +320,7 @@ object Unnester extends LazyLogging {
       }
     }
 
-    unnest(inTree.root)
+    unnest(tree1.root)
   }
+
 }

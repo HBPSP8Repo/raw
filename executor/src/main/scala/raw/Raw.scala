@@ -129,7 +129,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             //              x}
             case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
             case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
-            case MergeMonoid(m, e1, e2) => ???
+            case MergeMonoid(m, e1, e2) => m match {
+              case _: SumMonoid => ???
+              case _: MaxMonoid => ???
+              case _: MultiplyMonoid => ???
+              case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
+              case _: OrMonoid => ???
+            }
             case UnaryExp(op, e1) => op match {
               case _: Not => s"!${recurse(e1)}"
               case _: Neg => s"-${recurse(e1)}"
@@ -175,7 +181,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case m1: BagMonoid =>
               ???
             case m1: ListMonoid =>
-              ???
+              val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toList))"""
             case m1: SetMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
               q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
@@ -253,15 +260,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
       */
     def hlistToAccessPath: Map[String, AccessPath] = {
       catalog.tree match {
-        case Apply(Apply(TypeApply(_, _), items), _) => {
-          items.map {
-            case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) => {
+        case Apply(Apply(TypeApply(_, _), items), _) =>
+          items.flatMap {
+            case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
               println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
               val (rawType, isSpark) = inferType(scalaType.tpe)
-              name.toString -> AccessPath(rawType, tree, isSpark)
-            }
-          }.toMap
-        }
+              List(name.toString -> AccessPath(rawType, tree, isSpark))
+            case Apply(TypeApply(_, _), items1) =>
+              items1.map {
+                case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
+                  println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
+                  val (rawType, isSpark) = inferType(scalaType.tpe)
+                  name.toString -> AccessPath(rawType, tree, isSpark)
+              }
+            }.toMap
       }
     }
 

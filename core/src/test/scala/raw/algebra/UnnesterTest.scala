@@ -8,7 +8,9 @@ class UnnesterTest extends FunTest {
   def process(w: World, q: String) = {
     val ast = parse(q)
     val t = new Calculus.Calculus(ast)
-    val analyzer = new calculus.SemanticAnalyzer { val tree = t; val world = w }
+    val analyzer = new calculus.SemanticAnalyzer(t, w)
+    logger.debug(calculus.CalculusPrettyPrinter(ast))
+    analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
     Unnester(t, w)
   }
@@ -186,4 +188,94 @@ class UnnesterTest extends FunTest {
     assert(process(w, query) === Result())
   }
 
+  ignore("edge bundling chuv diagnossis") {
+        val query = """
+        for (c <- diagnosis_codes) yield list {
+          code := c.diagnostic_code;
+          desc := c.description;
+
+          patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
+
+          count := for (p <- patient_ids) yield sum 1;
+
+          others :=
+          for (p <- patient_ids;
+          d <- diagnosis;
+          c <- diagnosis_codes;
+          d.diagnostic_code = c.diagnostic_code;
+          d.diagnostic_code <> code;
+          d.patient_id = p)
+          yield list (c.description);
+
+          unique_others := for (o <- others) yield set o;
+
+          desc_count := for (o1 <- others) yield list (desc := o1, count := for (o2 <- others; o1 = o2) yield sum 1);
+
+          (desc := desc, others := desc_count)
+        }
+        """
+
+    //    val query = """
+//    for (c <- diagnosis_codes) yield list {
+//      code := c.diagnostic_code;
+//      desc := c.description;
+//
+//      // List of patients that have this disease
+//      patient_ids := for (d <- diagnosis, d.diagnostic_code = code) yield list d.patient_id
+//
+//      // Number of patients that have this disease
+//      count := for (p <- patients_ids) yield sum 1 // New syntactic sugar
+//      //count := count(patients_ids) // New syntactic sugar
+//
+//      // Other diseases that these patients have
+//      others :=
+//      for (p <- patient_ids,
+//      d <- diagnosis,
+//      c <- diagnostic_codes,
+//      d.diagnostic_code = c.diagnostic_code,
+//      d.diagnostic_code != code,
+//      d.patient_id := p)
+//      yield list (c.description)
+//
+//      unique_others := for (o <- others) yield set o
+//      //unique_others := unique(others) // New syntactic sugar equiv to above
+//
+//      desc_count := for (o1 <- others) yield list (desc := o1, count := for (o2 < others, o1 = o2) yield sum 1)
+//      //desc_count := for (o1 <- unique(others) yield list (desc := o1, count := count(o2 <- others, o1 = o2))
+//
+//      (desc := desc, others := desc_count)
+//    }
+//    """
+//    val query = """
+//    for (c <- diagnosis_codes) yield list {
+//      code := c.diagnostic_code;
+//      desc := c.description;
+//
+//      patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
+//      for (p <- patients_ids) yield sum 1
+//    }
+//    """
+    //for (p <- patients_ids) yield sum 1;
+//    val q = """
+//        for (c <- diagnosis_codes) yield list {
+//          code := c.diagnostic_code;
+//          desc := c.description;
+//          patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
+//          count := for (p <- patient_ids) yield sum 1;
+//          others := for (
+//            p <- patient_ids;
+//            d <- diagnosis;
+//            c <- diagnosis_codes;
+//            d.diagnostic_code = c.diagnostic_code;
+//            d.diagnostic_code <> code;
+//            d.patient_id = p) yield list c.description;
+//          unique_others := for (o <- others) yield set o;
+//          desc_count := for (o1 <- others) yield list (desc := o1, count := for (o2 < others; o1 = o2) yield sum 1);
+//          (desc := desc, others := desc_count) }
+//        """
+    val w = TestWorlds.chuv_diagnosis
+
+    logger.debug(LogicalAlgebraPrettyPrinter(process(w, query)))
+    assert(false)
+  }
 }

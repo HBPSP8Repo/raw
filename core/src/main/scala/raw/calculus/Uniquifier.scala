@@ -3,27 +3,29 @@ package calculus
 
 case class UniquifierError(err: String) extends RawException(err)
 
-/** Uniquify variable names by transform all identifiers in the AST into unique auto-generated identifiers.
+/** Uniquify names
   */
-trait Uniquifier extends Transformer {
+object Uniquifier {
 
-  import Calculus.{IdnNode, IdnDef, IdnUse}
-  import SymbolTable.{DataSourceEntity, RawEntity}
   import org.kiama.rewriting.Rewriter._
+  import Calculus._
+  import SymbolTable.{RawEntity, DataSourceEntity}
 
-  def strategy = uniquify
+  def apply(tree: Calculus, world: World): Calculus = {
+    val analyzer = new SemanticAnalyzer(tree, world)
 
-  private lazy val uniquify = everywhere(rule[IdnNode]{
-    case n @ IdnDef(idn, t) => IdnDef(rawEntity(n).id, t)
-    case n @ IdnUse(idn)    => rawEntity(n) match {
-      case _: DataSourceEntity => n              // For data sources, keep the original identifier use.
-      case e                   => IdnUse(e.id)   // Otherwise, replace by the internal, globally unique identifier.
+    def rawEntity(n: IdnNode): RawEntity = analyzer.entity(n) match {
+      case e: RawEntity => e
+      case e            => throw UniquifierError(s"Entity $e is not a RawEntity")
     }
-  })
 
-  private def rawEntity(n: IdnNode): RawEntity = entity(n) match {
-    case e: RawEntity => e
-    case e            => throw UniquifierError(s"Entity $e is not a RawEntity")
+    rewriteTree(everywhere(rule[IdnNode]{
+      case n @ IdnDef(idn, t) => IdnDef(rawEntity(n).id, t)
+      case n @ IdnUse(idn)    => rawEntity(n) match {
+        case _: DataSourceEntity => IdnUse(idn)    // For data sources, keep the original identifier use.
+        case e                   => IdnUse(e.id)   // Otherwise, replace by the internal, globally unique identifier.
+      }
+    }))(tree)
   }
 
 }

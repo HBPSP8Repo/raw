@@ -186,7 +186,7 @@ trait Simplifier extends Normalizer {
   lazy val ruleSubSelf = rule[Exp] {
     case MergeMonoid(_: SumMonoid, lhs, UnaryExp(_: Neg, rhs)) if lhs == rhs =>
       logger.debug("ruleSubSelf")
-      getNumberConst(tipe(lhs), 0)
+      IntConst("0")
   }
 
   /** --x => x */
@@ -347,4 +347,29 @@ trait Simplifier extends Normalizer {
   //   }
   //  }
 
+}
+
+
+object Simplifier extends Simplifier {
+
+  import org.kiama.rewriting.Rewriter.rewriteTree
+  import Calculus.Calculus
+
+  def apply(tree: Calculus, world: World): Calculus = {
+
+    // Desugar tree
+    val tree1 = Desugarer(tree)
+
+    // Uniquify identifiers
+    val tree2 = Uniquifier(tree1, world)
+
+    // Desugar expresion blocks
+    val tree3 = DesugarExpBlocks(tree2)
+
+    // Uniquify identifiers
+    val tree4 = Uniquifier(tree3, world)
+
+    // Simplify
+    rewriteTree(strategy)(tree4)
+  }
 }

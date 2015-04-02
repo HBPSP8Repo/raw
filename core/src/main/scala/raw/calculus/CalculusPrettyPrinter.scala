@@ -54,7 +54,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
       case PatternBind(p, e)          => apply(p) <+> ":=" <+> apply(e)
       case PatternGen(p, e)           => apply(p) <+> "<-" <+> apply(e)
-      case PatternFunAbs(p, e)        => "\\" <> apply(p) <+> "->" <+> apply(e)
+      case PatternFunAbs(p, e)        => "\\" <+> apply(p) <+> "->" <+> apply(e)
     })
 
     apply(n)

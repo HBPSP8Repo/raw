@@ -52,8 +52,6 @@ object SymbolTable extends Environments {
 
   /** Entity for a data source.
     */
-  //case class DataSourceEntity(s: DataSource) extends RawEntity
-  //case class ScalaDataSourceEntity[T](source: T) extends RawEntity
   case class DataSourceEntity(name: String) extends RawEntity
 
 }

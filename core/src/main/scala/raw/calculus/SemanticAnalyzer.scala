@@ -12,7 +12,7 @@ import org.kiama.attribution.Attribution
   * Class entities are the data sources available to the user.
   *   e.g., in expression `e <- Events` the class entity is `Events`.
   */
-trait SemanticAnalyzer extends Attribution with LazyLogging {
+class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution with LazyLogging {
 
   import org.kiama.==>
   import org.kiama.attribution.Decorators
@@ -21,14 +21,6 @@ trait SemanticAnalyzer extends Attribution with LazyLogging {
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import Calculus._
   import SymbolTable._
-
-  /** The tree being analyzed.
-    */
-  def tree: Calculus.Calculus
-
-  /** The world for the query
-    */
-  def world: World
 
   /** Decorators on the tree.
     */

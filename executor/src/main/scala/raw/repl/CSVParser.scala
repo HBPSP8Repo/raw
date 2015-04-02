@@ -13,9 +13,10 @@ import scala.reflect.ClassTag
 case class CSVParserError(err: String) extends RawException(err)
 
 object CSVParser {
-  def apply[T](path: String, parse: (List[String] => T), delim: String = ","): List[T] = {
+  def apply[T](path: String, parse: (List[String] => T), delim: String = ",", skipLines: Int = 0): List[T] = {
     val content = scala.io.Source.fromURL(Resources.getResource(path))
     content.getLines()
+      .drop(skipLines)
       .map(_.split(delim).toList)
       .map(parse)
       .toList

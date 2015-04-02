@@ -22,7 +22,7 @@ class SemanticAnalyzerTest extends FunTest {
       val ast = parse(query)
       val t = new Calculus.Calculus(ast)
 
-      val analyzer = new SemanticAnalyzer { val tree = t; val world = w }
+      val analyzer = new SemanticAnalyzer(t, w)
       analyzer.errors.foreach(err => logger.error(err.toString))
       assert(analyzer.errors.length === 0)
       analyzer.debugTreeTypes
@@ -36,7 +36,7 @@ class SemanticAnalyzerTest extends FunTest {
       val ast = parse(query)
       val t = new Calculus.Calculus(ast)
 
-      val analyzer = new SemanticAnalyzer { val tree = t; val world = w }
+      val analyzer = new SemanticAnalyzer(t, w)
       analyzer.errors.foreach(err => logger.error(err.toString))
 
       assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
@@ -92,6 +92,29 @@ class SemanticAnalyzerTest extends FunTest {
   assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); b }", FloatType())
   assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); c }", IntType())
   assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
+  assertRootType("{ x := for (i <- integers) yield set i; x }", SetType(IntType()))
+  assertRootType("{ x := for (i <- integers) yield set i; for (y <- x) yield set y }", SetType(IntType()))
+  assertRootType("{ z := 42; x := for (i <- integers) yield set i; for (y <- x) yield set y }", SetType(IntType()))
+  assertRootType("{ z := 42; x := for (i <- integers; i = z) yield set i; for (y <- x) yield set y }", SetType(IntType()))
+
+  // add here tests for failures of identifiers
+
+  assertRootType("""{
+    z := 42;
+    desc := "c.description";
+    x := for (i <- integers; i = z) yield set i;
+    for (y <- x) yield set 1
+    }
+    """, SetType(IntType()))
+
+//  {
+//    code := 42;
+//    desc := "c.description";
+//
+//    patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
+//    for (p <- patients_ids) yield sum 1
+//  }
+
 
   assertRootType("""\a: int -> a + 2""", FunType(IntType(), IntType()))
   assertRootType("""\a: int -> a""", FunType(IntType(), IntType()))

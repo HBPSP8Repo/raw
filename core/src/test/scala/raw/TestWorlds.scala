@@ -178,6 +178,48 @@ object TestWorlds {
     new World(sources)
   }
 
+  def chuv_diagnosis = {
+    val diagnosis =
+      ListType(
+        RecordType(List(
+          AttrType("diagnostic_id", IntType()),
+          AttrType("patient_id", IntType()),
+          AttrType("diagnostic_code", StringType()),
+          AttrType("diagnostic_type", StringType()),
+          AttrType("diagnostic_date", StringType()),
+          AttrType("hospital_id", StringType()))))
+
+    val diagnosis_codes =
+      ListType(
+        RecordType(List(
+          AttrType("diagnostic_code", StringType()),
+          AttrType("valid_for_coding", StringType()),
+          AttrType("description", StringType()))))
+
+    val sources = Map(
+      "diagnosis" -> diagnosis,
+      "diagnosis_codes" -> diagnosis_codes)
+
+    new World(sources)
+  }
+
+  def set_of_tuples = {
+    val tuples =
+      SetType(
+        RecordType(List(
+          AttrType("_1", IntType()),
+          AttrType("_2", IntType()),
+          AttrType("_3", IntType()),
+          AttrType("_4", IntType()))))
+
+    val sources = Map(
+      "set_of_tuples" -> tuples
+    )
+    new World(sources)
+  }
+
+
+
   def empty = new World()
 
 }
