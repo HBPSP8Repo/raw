@@ -25,7 +25,14 @@ object CSVParser {
 
 class CSVToRDDParser extends AutoCloseable with LazyLogging {
   logger.info("Starting local Spark context")
-  val conf = new SparkConf().setAppName("RAW Unit Tests").setMaster("local")
+  val conf = new SparkConf()
+    .setAppName("RAW Unit Tests")
+    .setMaster("local[2]")
+    // Disable compression to avoid polluting the tmp directory with dll files.
+    // By default, Spark compresses the broadcast variables using the JavaSnappy. This library uses a native DLL which
+    // gets copied as a new file to the TMP directory every time an instance of Spark is run.
+    // http://spark.apache.org/docs/1.3.0/configuration.html#compression-and-serialization
+    .set("spark.broadcast.compress", "false")
   val sc = new SparkContext(conf)
 
   /** Concerning the T:ClassTag implicit parameter:

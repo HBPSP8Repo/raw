@@ -7,6 +7,8 @@ import raw.Raw
 import raw.util.CSVToRDDParser
 import shapeless.HList
 
+import scala.language.reflectiveCalls
+
 class SparkFlatCSVTest extends FunSuite with LazyLogging with BeforeAndAfterAll {
   val csvReader = new CSVToRDDParser()
 
@@ -18,40 +20,73 @@ class SparkFlatCSVTest extends FunSuite with LazyLogging with BeforeAndAfterAll 
     csvReader.close()
   }
 
-  ignore("spark join") {
-    println("Students:\n" + students.collect().mkString("\n"))
-    println("Profs:\n" + profs.collect.mkString("\n"))
-    val res: RDD[(Student, Professor)] = students.cartesian(profs)
-    println(s"Students x Profs:\n${res.collect.mkString("\n")}")
-    val filtered = res.filter({ case (s, p) => s.name.last == p.name.last })
-    println(s"Students x Profs:\n${filtered.collect.mkString("\n")}")
-  }
-
-  ignore("number of professors") {
-    val q: Any = Raw.query(
-      "for (p <- profs; d <- departments) yield set (p.name, p.office, d.name, d.discipline, d.prof)",
-      HList("profs" -> profs, "departments" -> departments))
-    println(q)
-  }
-
-//  test("spark query") {
-//    profs
-//      .filter(((arg) => true))
-//      .cartesian(departments.filter(((arg) => true)))
-//      .filter(((arg) => true))
-//      .filter(((arg) => true))
-//      .map(((arg) => {
-//      final class $anon extends scala.AnyRef with Serializable {
-//        def toMap = Map("_1".$minus$greater(_1), "_2".$minus$greater(_2), "_3".$minus$greater(_3), "_4".$minus$greater(_4), "_5".$minus$greater(_5));
-//        val _1 = arg._1.name;
-//        val _2 = arg._1.office;
-//        val _3 = arg._2.name;
-//        val _4 = arg._2.discipline;
-//        val _5 = arg._2.prof
-//      };
-//      new $anon()
-//    })).toLocalIterator.toSet
+//  ignore("spark join") {
+//    println("Students:\n" + students.collect().mkString("\n"))
+//    println("Profs:\n" + profs.collect.mkString("\n"))
+//    val res: RDD[(Student, Professor)] = students.cartesian(profs)
+//    println(s"Students x Profs:\n${res.collect.mkString("\n")}")
+//    val filtered = res.filter({ case (s, p) => s.name.last == p.name.last })
+//    println(s"Students x Profs:\n${filtered.collect.mkString("\n")}")
 //  }
+
+  test("Spark: cross product professors x departments x departments") {
+    // How can we cast to a Set[X] where X is a class known by the client API?
+    val q: Set[Any] = Raw.query(
+      "for (p <- profs; d <- departments; s <- students) yield set (professor := p, dept := d, student := s)",
+      HList("profs" -> profs, "students" -> students, "departments" -> departments)).asInstanceOf[Set[Any]]
+    printQueryResult(q)
+    assert(q.size === 3*3*7)
+  }
+
+  test("Spark: cross product professors x departments") {
+    val q: Set[Any] = Raw.query(
+      "for (p <- profs; d <- departments) yield set (p.name, p.office, d.name, d.discipline, d.prof)",
+      HList("profs" -> profs, "departments" -> departments)).asInstanceOf[Set[Any]]
+    printQueryResult(q)
+    assert(q.size === 9)
+  }
+
+  test("Spark: inner join professors x departments") {
+    val q: Set[Any] = Raw.query(
+      "for (p <- profs; d <- departments; p.name = d.prof) " +
+        "yield set (name := p.name, officeName := p.office, deptName := d.name, discipline := d.discipline)",
+      HList("profs" -> profs, "departments" -> departments)).asInstanceOf[Set[Any]]
+    printQueryResult(q)
+    assert(q.size === 3)
+  }
+
+  def printQueryResult(res: Set[Any]) = {
+    val str = res.map(r => r.asInstanceOf[{def toMap(): Map[Any, Any]}].toMap()).mkString("\n")
+    println("Result:\n"+str)
+  }
+
+  //  test("Spark JOIN: professors and departments with filter") {
+  //    // How can we cast to a Set[X] where X is a class known by the client API?
+  //    val q: Set[Any] = Raw.query(
+  //      "for (p <- profs; d <- departments; d.name.last = p.name.last) yield set (p.name, p.office, d.name, d.discipline, d.prof)",
+  //      HList("profs" -> profs, "departments" -> departments)).asInstanceOf[Set[Any]]
+  //    println(q)
+  //    assert(q.size === 3)
+  //  }
+
+  //  test("spark query") {
+  //    profs
+  //      .filter(((arg) => true))
+  //      .cartesian(departments.filter(((arg) => true)))
+  //      .filter(((arg) => true))
+  //      .filter(((arg) => true))
+  //      .map(((arg) => {
+  //      final class $anon extends scala.AnyRef with Serializable {
+  //        def toMap = Map("_1".$minus$greater(_1), "_2".$minus$greater(_2), "_3".$minus$greater(_3), "_4".$minus$greater(_4), "_5".$minus$greater(_5));
+  //        val _1 = arg._1.name;
+  //        val _2 = arg._1.office;
+  //        val _3 = arg._2.name;
+  //        val _4 = arg._2.discipline;
+  //        val _5 = arg._2.prof
+  //      };
+  //      new $anon()
+  //    })).toLocalIterator.toSet
+  //  }
 
 
   //  test("Spark: number of professors") {

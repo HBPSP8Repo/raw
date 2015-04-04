@@ -1,6 +1,6 @@
 package raw
 
-import raw.psysicalalgebra.LogicalToPhysicalAlgebra
+import raw.psysicalalgebra.{PhysicalAlgebraPrettyPrinter, LogicalToPhysicalAlgebra}
 import raw.psysicalalgebra.PhysicalAlgebra._
 import shapeless.HList
 
@@ -110,7 +110,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case r@RecordCons(atts) =>
               val vals = atts.map(att => s"val ${att.idn} = ${recurse(att.e)}").mkString(";")
               val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
-              s"""new {
+              s"""new Serializable {
                 def toMap = Map($maps)
                 $vals
               }"""
@@ -355,7 +355,7 @@ Otherwise each qualified element w of Y is joined with v.
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
             val generatedCode: Tree = buildCode(physicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            QueryLogger.log(qry, generatedCode.toString())
+            QueryLogger.log(qry, PhysicalAlgebraPrettyPrinter(physicalTree), generatedCode.toString)
             c.Expr[Any](generatedCode)
           }
           case Left(err) => bail(err.err)

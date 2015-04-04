@@ -10,9 +10,11 @@ object QueryLogger {
     Files.newBufferedWriter(f)
   }
 
-  def log(query: String, code: String): Unit = {
+  def log(query: String, algebra:String, code: String): Unit = {
+    val formattedQuery = query.replace("yield", "\nyield")
+    val formattedAlgebra = algebra.replace("Spark", "\nSpark")
     println("Query: " + query + " -> Code: " + code)
-    queriesLogWriter.write(query + "\n" + code + "\n")
+    queriesLogWriter.write(formattedQuery + "\n" + formattedAlgebra + "\n" + code + "\n")
     queriesLogWriter.newLine()
     queriesLogWriter.flush
   }
