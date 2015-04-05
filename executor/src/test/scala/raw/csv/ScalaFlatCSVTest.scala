@@ -1,15 +1,22 @@
 package raw.csv
 
+import com.google.common.collect.ImmutableMultiset
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
 import raw.Raw
-import raw.util.CSVParser
 import shapeless.HList
 
 class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   val students = ReferenceTestData.students
   val profs = ReferenceTestData.profs
   val departments = ReferenceTestData.departments
+
+  test("bag of student birth years") {
+    // Returns an ImmutableMultiset from Guava.
+    val actual = Raw.query( """for (d <- students) yield bag d.birthYear""", HList("students" -> students))
+    val expected = ImmutableMultiset.of(1990, 1990, 1989, 1992, 1987, 1992, 1988)
+    assert(actual === expected)
+  }
 
   test("number of professors") {
     assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)

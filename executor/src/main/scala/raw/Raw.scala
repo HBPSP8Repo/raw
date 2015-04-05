@@ -207,7 +207,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 // TODO: Replace foldLeft with fold?
                 q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).foldLeft(${zero(m1)})(${fold(m1)})"""
               case _: BagMonoid =>
-                ???
+                /* TODO: There is no Bag implementation on the Scala or Java standard libs. Here we use Guava's Bag
+                 * implementation. Verify if this dependency on Guava could cause problems.
+                 * The code below does not import any of the dependencies, instead it uses the fully qualified package names.
+                 * The rationale is that if the client code does any manipulation of the result as an ImmutableMultiset,
+                 * then it must declare the imports to compile. If it does not downcast the result, then it does not need
+                 * the imports.
+                 */
+                q"""val e = ${build(child)}.filter(${exp(p)}).map(${exp(e)})
+                    com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(e))"""
               case _: ListMonoid =>
                 q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).toList"""
               case _: SetMonoid =>
