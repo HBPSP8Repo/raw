@@ -12,7 +12,7 @@
     </root>
 
     <logger name="raw" level="DEBUG"/>
-    <logger name="org.apache.spark" level="WARN"/>
+    <logger name="org.apache.spark" level="INFO"/>
     <logger name="org.apache.hadoop" level="WARN"/>
     <logger name="org.spark-project.jetty" level="WARN"/>
 </configuration>

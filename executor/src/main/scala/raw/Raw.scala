@@ -241,14 +241,32 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             val childCode = build(child)
             val code = m match {
               case m1: PrimitiveMonoid =>
+                /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
+                 * Compare the Spark implementations versus a generic code generator based on fold
+                 */
                 q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).fold(${zero(m1)})(${fold(m1)})"""
-              case _: BagMonoid =>
-                ???
+
               case _: ListMonoid =>
-                // toLocalIterator should be more efficient than collect?
+                // TODO Can this be made more efficient?
                 q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
+
+              case _: BagMonoid =>
+//                    m.foreach( {case (value, count)  => b.addCopies(value, count.toInt)} )
+                q"""val m = ${childCode}.filter(${exp(p)}).map(${exp(e)}).countByValue()
+                    val b = ImmutableMultiset.builder[Any]()
+                    m.foreach( p => b.addCopies(p._1, p._2.toInt) )
+                    b.build()
+                 """
               case _: SetMonoid =>
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toSet"""
+                /* - calling distinct in each partition reduces the size of the data that has to be sent to the driver,
+                 *   by eliminating the duplicates early.
+                 *
+                 * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
+                 * collect(), which first gets all results.
+                 *
+                 * - toSet is a Scala local operation.
+                 */
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.toSet"""
             }
             code
 
