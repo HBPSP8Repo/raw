@@ -1,7 +1,7 @@
 package raw
 
-import raw.psysicalalgebra.{PhysicalAlgebraPrettyPrinter, LogicalToPhysicalAlgebra}
 import raw.psysicalalgebra.PhysicalAlgebra._
+import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 import shapeless.HList
 
 import scala.language.experimental.macros
@@ -251,9 +251,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
 
               case _: BagMonoid =>
-//                    m.foreach( {case (value, count)  => b.addCopies(value, count.toInt)} )
-                q"""val m = ${childCode}.filter(${exp(p)}).map(${exp(e)}).countByValue()
-                    val b = ImmutableMultiset.builder[Any]()
+                // TODO: Can we improve the lower bound for the value?
+                q"""val m: scala.collection.Map[_, Long] = ${childCode}.filter(${exp(p)}).map(${exp(e)}).countByValue()
+                    val b = com.google.common.collect.ImmutableMultiset.builder[Any]()
                     m.foreach( p => b.addCopies(p._1, p._2.toInt) )
                     b.build()
                  """
@@ -355,7 +355,7 @@ Otherwise each qualified element w of Y is joined with v.
                   val (rawType, isSpark) = inferType(scalaType.tpe)
                   name.toString -> AccessPath(rawType, tree, isSpark)
               }
-            }.toMap
+          }.toMap
       }
     }
 

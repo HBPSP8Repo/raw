@@ -9,5 +9,5 @@
 
 # https://blog.codecentric.de/en/2014/01/useful-jvm-flags-part-8-gc-logging/ 
 #-J-verbose:gc
-#-J-XX:+PrintGCDetails
+-J-XX:+PrintGCDetails
 #-J-Xloggc:gc.log
