@@ -129,7 +129,7 @@ object Unnester extends LazyLogging {
       /** Build type from pattern.
         */
       def patternType(p: Pattern): Type = p match {
-        case PairPattern(p1, p2) => RecordType(List(AttrType("_1", patternType(p1)), AttrType("_2", patternType(p2))))
+        case PairPattern(p1, p2) => RecordType(List(AttrType("_1", patternType(p1)), AttrType("_2", patternType(p2))), None)
         case IdnPattern(p1, t)   => t
       }
 

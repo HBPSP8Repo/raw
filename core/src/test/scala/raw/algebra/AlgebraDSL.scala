@@ -168,7 +168,7 @@ abstract class AlgebraDSL {
     typer.expressionType(e) match { case c: CollectionType => c.innerType }
 
   private def rectipe(t1: Type, t2: Type): Type =
-    RecordType(List(AttrType("_1", t1), AttrType("_2", t2)))
+    RecordType(List(AttrType("_1", t1), AttrType("_2", t2)), None)
 
   /** Algebra operators
     */

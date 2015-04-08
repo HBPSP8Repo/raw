@@ -24,16 +24,7 @@ case class FloatType() extends NumberType
   */
 case class AttrType(idn: String, tipe: Type) extends RawNode
 
-case class RecordType(atts: Seq[AttrType]) extends Type {
-  def idns = atts.map(_.idn)
-
-    def typeOf(attribute: String): Type = {
-      val matches = atts.filter {
-        case c: AttrType => c.idn == attribute
-      }
-      matches.head.tipe
-    }
-}
+case class RecordType(atts: Seq[AttrType], name: Option[String]) extends Type
 
 /** Collection Types
   */

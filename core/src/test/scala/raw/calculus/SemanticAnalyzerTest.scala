@@ -16,8 +16,8 @@ class SemanticAnalyzerTest extends FunTest {
             "floats" -> SetType(FloatType()),
             "booleans" -> SetType(BoolType()),
             "strings" -> SetType(StringType()),
-            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))),
-            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType()))))))
+            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
+            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
       val ast = parse(query)
       val t = new Calculus.Calculus(ast)
@@ -45,22 +45,22 @@ class SemanticAnalyzerTest extends FunTest {
 
   assertRootType(
     "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)",
-    SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))))))),
+    SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)),
     world=TestWorlds.cern)
 
   assertRootType(
     """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""",
-    SetType(RecordType(List(AttrType("name", StringType()),AttrType("address", RecordType(List(AttrType("street", StringType()),AttrType("zipcode", StringType()))))))),
+    SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)),
     world=TestWorlds.departments)
 
   assertRootType(
     "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)",
-    SetType(RecordType(List(AttrType("E",RecordType(List(AttrType("children", ListType(RecordType(List(AttrType("age", IntType()))))),AttrType("manager", RecordType(List(AttrType("name", StringType()),AttrType("children", ListType(RecordType(List(AttrType("age", IntType()))))))))))),AttrType("M", IntType())))),
+    SetType(RecordType(List(AttrType("E",RecordType(List(AttrType("children", ListType(RecordType(List(AttrType("age", IntType())), None))), AttrType("manager", RecordType(List(AttrType("name", StringType()),AttrType("children", ListType(RecordType(List(AttrType("age", IntType())), None)))), None))), None)),AttrType("M", IntType())), None)),
     world=TestWorlds.employees)
 
   assertRootType(
     """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""",
-    SetType(RecordType(List(AttrType("deptName", StringType())))),
+    SetType(RecordType(List(AttrType("deptName", StringType())), None)),
     world=TestWorlds.departments)
 
   assertRootType("for (r <- integers) yield set r + 1", SetType(IntType()))
@@ -72,13 +72,13 @@ class SemanticAnalyzerTest extends FunTest {
   assertRootType("for (r <- unknown; x <- booleans; r and x) yield set r", SetType(BoolType()))
   assertRootType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
   assertRootType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
-  assertRootType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  assertRootType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
   assertRootType("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", SetType(IntType()))
-  assertRootType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "missing record type inference")
+  assertRootType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())), None)), "missing record type inference")
   assertRootType("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", SetType(IntType()))
   assertRootType("for (r <- unknown; v := r) yield set (r + 0)", SetType(IntType()))
   assertRootType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
+  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
   assertRootType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
 
   assertRootType("{ (a,b) := (1, 2); a+b }", IntType())
@@ -122,8 +122,8 @@ class SemanticAnalyzerTest extends FunTest {
   assertRootType("""\a -> a + a + 2""", FunType(IntType(), IntType()))
   assertRootType("""\a -> a""", FunType(AnyType(), AnyType()))
 
-  assertRootType("""\(a: int, b: int) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
-  assertRootType("""\(a, b) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
+  assertRootType("""\(a: int, b: int) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+  assertRootType("""\(a, b) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 
 //  assertRootType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
 //

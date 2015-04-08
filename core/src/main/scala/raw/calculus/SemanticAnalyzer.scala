@@ -77,7 +77,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // Return error messages if the pattern is not compatible with the type.
   // `e` is only used as a marker to position the error message
   private def patternCompatible(p: Pattern, t: Type, e: Exp): Messages = (p, t) match {
-    case (PatternProd(ps), RecordType(atts)) =>
+    case (PatternProd(ps), RecordType(atts, _)) =>
       if (ps.length != atts.length)
         message(e, s"expected record with ${ps.length} attributes but got record with ${atts.length} attributes")
       else
@@ -205,7 +205,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
     case tree.parent.pair(e, p) => p match {
       // Record projection must be over a record type that contains the identifier to project
-      case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, AnyType()))))
+      case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, AnyType())), None))
 
       // If condition must be a boolean
       case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
@@ -275,9 +275,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         return true
 
       (expected, actual) match {
-        case (RecordType(atts1), RecordType(atts2)) =>
+        case (RecordType(atts1, _), RecordType(atts2, _)) =>
           // Handle the special case of an expected type being a record type containing a given identifier.
-          val idn = atts1(0).idn
+          val idn = atts1.head.idn
           if (atts2.collect { case AttrType(`idn`, _) => true }.nonEmpty) return true
         case _ => if (unify(expected, actual) != NothingType()) return true
       }
@@ -301,13 +301,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       pass1(tree.root)
 
       def walk(t: Type): Type = t match {
-        case TypeVariable(v) => walk(getVariable(v))
-        case RecordType(atts) => RecordType(atts.map{case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt))})
-        case ListType(innerType) => ListType(walk(innerType))
-        case SetType(innerType) => SetType(walk(innerType))
-        case BagType(innerType) => BagType(walk(innerType))
-        case FunType(aType, eType) => FunType(walk(aType), walk(eType))
-        case _ => t
+        case TypeVariable(v)        => walk(getVariable(v))
+        case RecordType(atts, name) => RecordType(atts.map { case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt)) }, name)
+        case ListType(innerType)    => ListType(walk(innerType))
+        case SetType(innerType)     => SetType(walk(innerType))
+        case BagType(innerType)     => BagType(walk(innerType))
+        case FunType(aType, eType)  => FunType(walk(aType), walk(eType))
+        case _                      => t
       }
 
       walk(pass1(e))
@@ -323,8 +323,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // Return the type corresponding to a given list of pattern indexes.
   private def indexesType(t: Type, idxs: Seq[Int]): Type = idxs match {
     case idx :: rest => t match {
-      case RecordType(atts) if atts.length > idx => indexesType(atts(idx).tipe, rest)
-      case _                                     => NothingType()
+      case RecordType(atts, _) if atts.length > idx => indexesType(atts(idx).tipe, rest)
+      case _                                        => NothingType()
     }
     case Nil         => t
   }
@@ -375,15 +375,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
     // Rule 4
     case RecordProj(e, idn) => pass1(e) match {
-      case RecordType(atts) => atts.find(_.idn == idn) match {
+      case RecordType(atts, _) => atts.find(_.idn == idn) match {
         case Some(att: AttrType) => att.tipe
         case _                   => NothingType()
       }
-      case _                => AnyType()
+      case _                   => AnyType()
     }
 
     // Rule 5
-    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, pass1(att.e))))
+    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, pass1(att.e))), None)
 
     // Rule 6
     case IfThenElse(_, e2, e3) => unify(pass1(e2), pass1(e3))
@@ -466,7 +466,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // Return the type corresponding to a given pattern
   private def patternType(p: Pattern): Type = p match {
     case PatternIdn(idn) => idnType(idn)
-    case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))})
+    case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))}, None)
   }
 
   /** Hindley-Milner unification algorithm.
@@ -481,9 +481,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case (ListType(a), ListType(b)) => ListType(unify(a, b))
     case (SetType(a), SetType(b)) => SetType(unify(a, b))
     case (FunType(a1, a2), FunType(b1, b2)) => FunType(unify(a1, b1), unify(a2, b2))
-    case (RecordType(atts1), RecordType(atts2)) if atts1.collect { case AttrType(idn, _) => idn } == atts2.collect { case AttrType(idn, _) => idn } =>
-      RecordType(atts1.zip(atts2).map{ case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe))})
-    case (t1 @ TypeVariable(a), t2 @ TypeVariable(b)) =>
+    case (RecordType(atts1, Some(name1)), RecordType(atts2, Some(name2))) if atts1.map(_.idn) == atts2.map(_.idn) && name1 == name2 =>
+      // Create a record type with same name
+      RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, Some(name1))
+    case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.map(_.idn) == atts2.map(_.idn) =>
+      // Create an 'anonymous' record type
+      RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, None)
+    case (t1@TypeVariable(a), t2@TypeVariable(b)) =>
       if (t1 == t2)
         t1
       else {

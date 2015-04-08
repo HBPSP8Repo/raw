@@ -30,7 +30,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
       }
       case _             => NothingType()
     }
-    case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(att.e))))
+    case RecordCons(atts)                        => RecordType(atts.map(att => AttrType(att.idn, expressionType(att.e))), None)
     case IfThenElse(_, e2, _)                    => expressionType(e2)
     case BinaryExp(op, e1, _) => op match {
       case _: ComparisonOperator => BoolType()
@@ -48,7 +48,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
   }
 
   private def recordType(a: Type, b: Type): RecordType =
-    RecordType(List(AttrType("_1", a), AttrType("_2", b)))
+    RecordType(List(AttrType("_1", a), AttrType("_2", b)), None)
 
   private def maxCollectionType(c1: CollectionType, c2: CollectionType) = (c1, c2) match {
     case (_: SetType, _) | (_, _: SetType) => SetType(recordType(c1.innerType, c2.innerType))

@@ -84,10 +84,16 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   }
 
-  //  check("most studied discipline",
-  //    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
-  //      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
-  //    """, Set("Computer Architecture"))
+//  test("most studied discipline") {
+//    val r = Raw.query("""
+//        for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
+//        (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
+//      HList("departments" -> departments, "students" -> students))
+//
+//    assert(r.size === 1)
+//    assert(r === Set("Computer Architecture"))
+//  }
+
   //
   //  check("list of disciplines which have three students",
   //    """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number = 3) yield list t.name

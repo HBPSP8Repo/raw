@@ -41,7 +41,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
           val regex = """scala\.Tuple(\d+)""".r
           sym.fullName match {
-            case regex(n) => raw.RecordType(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i))._1) })
+            case regex(n) => raw.RecordType(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i))._1) }, None)
           }
         case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Function") =>
           val regex = """scala\.Function(\d+)""".r
@@ -51,7 +51,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
         case t@TypeRef(_, sym, Nil) =>
           val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-          raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) })
+          raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) }, None)
 
         case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" => {
           raw.ListType(inferType(t1)._1)
@@ -113,7 +113,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         val recordTypes = collectRecordTypes(logicalTree).toSet // Remove repeated record types leaving only the unique (i.e. structural) ones
 
         val code = recordTypes.map {
-          case r @ RecordType(atts) =>
+          // TODO: Fix!
+          case r @ RecordType(atts, _) =>
             val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
             s"""case class ${recordTypeSym(r)}($args)"""
         }
