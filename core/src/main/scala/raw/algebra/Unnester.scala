@@ -27,7 +27,6 @@ object Unnester extends LazyLogging {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
-  import org.kiama.rewriting.Strategy
   import raw.calculus.{SemanticAnalyzer, Simplifier, SymbolTable}
 
   def apply(tree: Calculus.Calculus, world: World): LogicalAlgebra.LogicalAlgebraNode = {
@@ -42,7 +41,6 @@ object Unnester extends LazyLogging {
     val tipes = collectTypes(tree1.root).toMap
 
     logger.debug(s"Unnester input tree: ${calculus.CalculusPrettyPrinter(tree1.root)}")
-
 
     def unnest(e: Calculus.Exp): LogicalAlgebra.LogicalAlgebraNode = {
 
