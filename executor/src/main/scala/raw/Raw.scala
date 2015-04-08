@@ -204,10 +204,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
               ???
             case m1: ListMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toList))"""
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.List]))"""
             case m1: SetMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           }
           case ScalaOuterJoin(p, left, right) =>
             q"""
@@ -219,7 +219,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 if (ok.isEmpty)
                   List((l, null))
                 else
-                  ok.map(r => (l, r))
+                  ok
               }
             )
             """
@@ -239,9 +239,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 q"""val e = ${build(child)}.filter(${exp(p)}).map(${exp(e)})
                     com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(e))"""
               case _: ListMonoid =>
-                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).toList"""
+                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.List]"""
               case _: SetMonoid =>
-                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).toSet"""
+                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.Set]"""
             }
             if (r eq physicalTree)
               code
@@ -270,7 +270,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
               case _: ListMonoid =>
                 // TODO Can this be made more efficient?
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.to[scala.collection.immutable.List]"""
 
               case _: BagMonoid =>
                 // TODO: Can we improve the lower bound for the value?
@@ -288,7 +288,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                  *
                  * - toSet is a Scala local operation.
                  */
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.toSet"""
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
             }
             code
 
@@ -316,7 +316,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           //                ???
           //              case m1: SetMonoid =>
           //                val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-          //                q"""${tree}.map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
+          //                q"""${tree}.map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           //            }
           case r@SparkJoin(p, left, right) => {
             val leftCode = build(left)
@@ -424,7 +424,7 @@ The code bellow does the following transformations:
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
             val generatedCode: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            QueryLogger.log(qry, generatedCode.toString())
+            QueryLogger.log(qry, physicalTree.toString(), generatedCode.toString())
             c.Expr[Any](generatedCode)
           }
           case Left(err) => bail(err.err)
