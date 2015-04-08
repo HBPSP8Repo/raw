@@ -15,6 +15,16 @@ class SyntaxAnalyzerTest extends FunTest {
     assert(actual == expected.getOrElse(q))
   }
 
+  def parseError(q: String, expected: Option[String] = None): Unit = {
+    assert(SyntaxAnalyzer(q).isLeft)
+    if (expected.isDefined)
+      SyntaxAnalyzer(q) match {
+        case Left(err) => assert(err.contains(expected.get))
+      }
+  }
+
+  def parseError(q: String, expected: String): Unit = parseError(q, Some(expected))
+
   test("cern events") {
     matches("for (e1 <- Events; e1.RunNumber > 100) yield set (muon := e1.muon)")
   }
@@ -167,5 +177,30 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("parentheses - lt and comparison - variables - redundant") {
     matches("(a < b) = c", "a < b = c")
+  }
+}
+
+  test("#71 (keywords issue)") {
+    matches("""{ v := nothing; v }""")
+    matches("""{ v := nottrue; v }""")
+    parseError("""for (v <- collection) yield unionv""", "illegal monoid")
+    parseError("""for (v <- collection) yield bag_unionv""", "illegal monoid")
+    parseError("""for (v <- collection) yield appendv""", "illegal monoid")
+    parseError("""for (v <- collection) yield setv""", "illegal monoid")
+    parseError("""for (v <- collection) yield listv""", "illegal monoid")
+    parseError("""for (v <- collection) yield bagv""", "illegal monoid")
+    parseError("""for (v <- booleans) yield andv""", "illegal monoid")
+    parseError("""for (v <- booleans) yield andfalse""", "illegal monoid")
+    parseError("""for (v <- booleans) yield orv""", "illegal monoid")
+    parseError("""for (v <- booleans) yield ortrue""", "illegal monoid")
+    parseError("""for (v <- numbers) yield maxv""", "illegal monoid")
+    parseError("""for (v <- numbers) yield max12""", "illegal monoid")
+    parseError("""for (v <- numbers) yield sumv""", "illegal monoid")
+    parseError("""for (v <- numbers) yield sum123""", "illegal monoid")
+    parseError("""for (v <- numbers) yield multiplyv""", "illegal monoid")
+    parseError("""for (v <- numbers) yield multiply123""", "illegal monoid")
+    matches("""for (r <- records; v := trueandfalse) yield set v""")
+    matches("""for (r <- records; v := falseortrue) yield set v""")
+    matches("""{ v := iftruethen1else2; v }""")
   }
 }
