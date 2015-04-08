@@ -7,22 +7,12 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   // Utility function. If `expected` is empty, the parsed string must be the same as the input string `q`.
-<<<<<<< HEAD:core/src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
   def matches(q: String, expected: Option[String] = None): Unit = {
     val ast = parse(q)
     val actual = CalculusPrettyPrinter(ast, 200)
     logger.debug("\n\tInput: {}\n\tParsed: {}\n\tAST: {}", q, actual, ast)
 
     assert(actual == expected.getOrElse(q))
-=======
-  def matches(q: String, expected: String = "") = {
-    logger.debug(pprintParseTree(q))
-    logger.debug(parse(q).toString)
-    if (expected.isEmpty)
-      assert(pprintParseTree(q) === q)
-    else
-      assert(pprintParseTree(q) === expected)
->>>>>>> master:src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
   }
 
   test("cern events") {
@@ -42,14 +32,8 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("record projections") {
-<<<<<<< HEAD:core/src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
     matches("""("Foo", "Bar")._1""", """(_1 := "Foo", _2 := "Bar")._1""")
     matches("""((`Employee Name` := "Ben", Age := 35).`Employee Name`, "Foo")._1""",
-=======
-    matches( """("Foo", "Bar")._1""",
-      """(_1 := "Foo", _2 := "Bar")._1""")
-    matches( """((`Employee Name` := "Ben", Age := 35).`Employee Name`, "Foo")._1""",
->>>>>>> master:src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
       """(_1 := (`Employee Name` := "Ben", Age := 35).`Employee Name`, _2 := "Foo")._1""")
   }
 
@@ -59,22 +43,12 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("patterns") {
-<<<<<<< HEAD:core/src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
     matches("""{ (a, b) := (1, 2); a + b }""",
       """{ (a, b) := (_1 := 1, _2 := 2); a + b }""")
     matches("""{ (a, (b, c)) := (_1 := 1, _2 := (_1 := 2, _2 := 3)); a + b + c }""")
     matches("""\(a, b) -> a + b + 1""")
     matches("""\(a, (b, c)) -> a + b + c + 1""")
     matches("""for ((a, b) <- list((1, 2), (3, 4))) yield set a + b""",
-      """for ((a, b) <- list((_1 := 1, _2 := 2)) append list((_1 := 3, _2 := 4))) yield set a + b""")
-  }
-=======
-    matches( """{ (a, b) := (1, 2); a + b }""",
-      """{ (a, b) := (_1 := 1, _2 := 2); a + b }""")
-    matches( """{ (a, (b, c)) := (_1 := 1, _2 := (_1 := 2, _2 := 3)); a + b + c }""")
-    matches( """\(a, b) -> a + b + 1""")
-    matches( """\(a, (b, c)) -> a + b + c + 1""")
-    matches( """for ((a, b) <- list((1, 2), (3, 4))) yield set a + b""",
       """for ((a, b) <- list((_1 := 1, _2 := 2)) append list((_1 := 3, _2 := 4))) yield set a + b""")
   }
 
@@ -194,5 +168,4 @@ class SyntaxAnalyzerTest extends FunTest {
   test("parentheses - lt and comparison - variables - redundant") {
     matches("(a < b) = c", "a < b = c")
   }
->>>>>>> master:src/test/scala/raw/calculus/SyntaxAnalyzerTest.scala
 }
