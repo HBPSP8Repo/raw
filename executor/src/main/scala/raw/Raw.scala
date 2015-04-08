@@ -424,7 +424,7 @@ The code bellow does the following transformations:
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
             val generatedCode: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            QueryLogger.log(qry, physicalTree.toString(), generatedCode.toString())
+            QueryLogger.log(qry, PhysicalAlgebraPrettyPrinter(physicalTree), generatedCode.toString)
             c.Expr[Any](generatedCode)
           }
           case Left(err) => bail(err.err)
