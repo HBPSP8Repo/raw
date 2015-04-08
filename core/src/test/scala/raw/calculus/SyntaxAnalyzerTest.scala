@@ -178,6 +178,17 @@ class SyntaxAnalyzerTest extends FunTest {
   test("parentheses - lt and comparison - variables - redundant") {
     matches("(a < b) = c", "a < b = c")
   }
+
+  test("source code comments") {
+    matches(
+      """
+        // compute the max of values
+        for (v <- values) // yield set v
+           yield max v
+           // check if type inference assumes v is a int/float
+      """, """for (v <- values) yield max v""")
+  }
+
 }
 
   test("#71 (keywords issue)") {
