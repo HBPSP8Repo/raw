@@ -7,7 +7,6 @@ import scala.collection.Map
 
 class SparkExperiments extends FunSuite {
 
-
   //  ignore("spark join") {
   //    println("Students:\n" + students.collect().mkString("\n"))
   //    println("Profs:\n" + profs.collect.mkString("\n"))
@@ -52,7 +51,7 @@ class SparkExperiments extends FunSuite {
   //    })).toLocalIterator.toSet
   //  }
 
-  test("spark") {
+  ignore("spark") {
     val conf = new SparkConf().setMaster("local[4]").setAppName("Spark Test")
     val spark = new SparkContext(conf)
 

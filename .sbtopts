@@ -3,11 +3,11 @@
 #-J-XX:+UseConcMarkSweepGC
 #-J-XX:+CMSClassUnloadingEnabled
 # Java 8
-#-J-XX:MaxMetaspaceSize=512m
+-J-XX:MaxMetaspaceSize=512m
 # Java 7
 #-J-XX:MaxPermSize=512m
 
 # https://blog.codecentric.de/en/2014/01/useful-jvm-flags-part-8-gc-logging/ 
 #-J-verbose:gc
--J-XX:+PrintGCDetails
+#-J-XX:+PrintGCDetails
 #-J-Xloggc:gc.log

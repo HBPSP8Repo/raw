@@ -1,7 +1,22 @@
 package raw.csv
 
+import org.apache.spark.rdd.RDD
 import raw.Raw
+import raw.util.CSVToRDDParser
 import shapeless.HList
+
+case class Employee(name:String, deptID:String)
+case class Dept(id:String, name:String)
+
+object SparkWIP {
+  def convertNulls(v:String): String= {
+    if (v.equalsIgnoreCase("null")) {
+      null.asInstanceOf[String]
+    } else {
+      v
+    }
+  }
+}
 
 class SparkWIP extends AbstractSparkFlatCSVTest {
 
@@ -70,6 +85,37 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     println(r)
     val mr = r.map(_.toMap)
 
+//    val f = (arg:Tuple2[String, String]) => arg._1 + arg._2
+//    f.apply(("aa", "bb"))
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   }
+
+//  def toString[R](rdd:RDD[R]): String = {
+//    rdd.collect().toList.mkString("\n");
+//  }
+//
+//  val employees = csvReader.parse("data/wikipedia/employee.csv", l => Employee(l(0), SparkWIP.convertNulls(l(1))))
+//  val depts = csvReader.parse("data/wikipedia/department.csv", l => Dept(SparkWIP.convertNulls(l(0)), l(1)))
+//
+//  test("left outer join") {
+//    println("Starting test")
+//    println("Employees:\n" + toString(employees))
+//    println("Departments:\n" + toString(depts))
+//
+//    val matching: RDD[(Employee, Dept)] = employees.cartesian(depts).filter({
+//      case (emp, dept) => if (emp.deptID == null) false else  emp.deptID.equals(dept.id) }
+//    )
+//    println("Matching:\n" + toString(matching))
+//
+//    val resWithOption: RDD[(Employee, (Employee, Option[Dept]))] =  employees.map(v => (v, v)).leftOuterJoin(matching)
+//    println("resWithOption:\n" + toString(resWithOption))
+//
+//    val res: RDD[(Employee, Dept)] = resWithOption.map( {
+//      case (v1, (v2, None)) => (v1, null)
+//      case (v1, (v2, Some(w))) => (v1, w)
+//    })
+//
+//    println("Result:\n" + toString(res))
+//  }
+
 }
