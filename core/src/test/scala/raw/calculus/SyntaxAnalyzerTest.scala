@@ -168,4 +168,8 @@ class SyntaxAnalyzerTest extends FunTest {
   test("parentheses - lt and comparison - variables - redundant") {
     matches("(a < b) = c", "a < b = c")
   }
+
+  test("#63 (support for !=)") {
+    matches("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
+  }
 }

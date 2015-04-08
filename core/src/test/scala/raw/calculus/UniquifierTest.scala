@@ -31,7 +31,7 @@ class UniquifierTest extends FunTest {
   }
 
   test("FunAbs with pattern") {
-    compare(process("""\(a, b) -> a + b"""), """\ $0 -> { $1 := $0._1; $2 := $0._2; $1 + $2 }""")
+    compare(process("""\(a, b) -> a + b"""), """\$0 -> { $1 := $0._1; $2 := $0._2; $1 + $2 }""")
   }
 
 }

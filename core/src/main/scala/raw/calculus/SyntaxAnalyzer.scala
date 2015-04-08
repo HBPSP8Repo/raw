@@ -64,6 +64,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     positioned(
       "=" ^^^ Eq() |
       "<>" ^^^ Neq() |
+      "!=" ^^^ Neq() |
       "<=" ^^^ Le() |
       "<" ^^^ Lt() |
       ">=" ^^^ Ge() |

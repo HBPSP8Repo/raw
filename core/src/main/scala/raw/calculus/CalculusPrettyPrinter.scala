@@ -46,7 +46,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case MergeMonoid(m, e1, e2)     => apply(e1) <+> merge(m) <+> apply(e2)
       case Comp(m, qs, e)             => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
       case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
-      case FunAbs(idn, e)             => "\\" <+> apply(idn) <+> "->" <+> apply(e)
+      case FunAbs(idn, e)             => "\\" <> apply(idn) <+> "->" <+> apply(e)
       case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)
       case Bind(idn, e)               => apply(idn) <+> ":=" <+> apply(e)
       case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
@@ -54,7 +54,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
       case PatternBind(p, e)          => apply(p) <+> ":=" <+> apply(e)
       case PatternGen(p, e)           => apply(p) <+> "<-" <+> apply(e)
-      case PatternFunAbs(p, e)        => "\\" <+> apply(p) <+> "->" <+> apply(e)
+      case PatternFunAbs(p, e)        => "\\" <> apply(p) <+> "->" <+> apply(e)
     })
 
     apply(n)

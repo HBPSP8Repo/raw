@@ -30,7 +30,7 @@ class DesugarExpBlocksTest extends FunTest {
     compare(
       process(
         """\(a: int, b: int) -> a + b + 2"""),
-        """\ $0 -> $0._1 + $0._2 + 2""")
+        """\$0 -> $0._1 + $0._2 + 2""")
   }
 
   test("desugar PatternGen") {
