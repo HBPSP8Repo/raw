@@ -305,28 +305,43 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           }
           case SparkMerge(m, left, right) => ???
 
-          /* outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
+          /*
+outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
 predicate p. The domain of the second generator (the generator of w) in
 Eq. (O5) is always nonempty. If Y is empty or there are no elements that
 can be joined with v (this condition is tested by universal quantification),
 then the domain is the singleton value [NULL], i.e., w becomes null.
 Otherwise each qualified element w of Y is joined with v.
+
+Delegates to PairRDDFunctions#leftOuterJoin. We cannot use this method directly, because
+it takes RDDs in the following form: (k, v), (k, w) => (k, (v, Option(w)), using k to make the
+matching. While we have (p, left, right) and want  (v, w) with p used to match the elements.
+The code bellow does the following transformations:
+1. Compute RDD(v, w) such that v!=null and p(v, w) is true.
+2. Apply PairRDDFunctions#leftOuterJoin.
+  RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
+3. Transform in the output format of this operator.
+   (v, (v, Some[w])) -> (v, w)
+   (v, (v, None)) -> (v, null)
            */
           case SparkOuterJoin(p, left, right) =>
             val code = q"""
-            ${build(left)}.flatMap(l =>
-              if (l == null)
-                List((null, (null, null)))
-              else {
-                val ok = ${build(right)}.map(r => (l, r)).filter(${exp(p)})
-                if (ok.isEmpty)
-                  List((l, (null, null)))
-                else
-                  ok.map(r => (l, r)).collect().toList
-              }
-            )
-            """
-            println("Outer join code: " + code)
+              val leftRDD = ${build(left)}
+              val rightRDD = ${build(right)}
+              val matching = leftRDD
+                .cartesian(rightRDD)
+                .filter(tuple => tuple._1 != null)
+                .filter(${exp(p)})
+
+              val resWithOption = leftRDD
+                .map(v => (v, v))
+                .leftOuterJoin(matching)
+
+              resWithOption.map( {
+                case (v1, (v2, None)) => (v1, null)
+                case (v1, (v2, Some(w))) => (v1, w)
+              })
+              """
             code
           case SparkOuterUnnest(path, pred, child) => ???
           case SparkUnnest(path, pred, child) => ???
