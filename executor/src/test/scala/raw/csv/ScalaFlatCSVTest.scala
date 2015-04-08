@@ -72,26 +72,18 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   }
 
-  //    println(r)
-  //    r.map(v => println(v.toMap))
-  //assert(r)
-  //    assert(
-  //      Raw.query("""
-  //        for (d <- (for (s <- students) yield set s.department))
-  //          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-  //      HList("students" -> students)) == Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+  test("set of department and the headcount (using both departments and students table)") {
+    val r = Raw.query("""
+        for (d <- (for (d <- departments) yield set d.name))
+            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
+      HList("departments" -> departments, "students" -> students))
 
-  //
-  //  // hard stuff
-  //  check(,
-  //  check("set of department and the headcount (using both departments and students table)",
-  //    """
-  //        for (d <- (for (d <- departments) yield set d.name))
-  //             yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1)
-  //            )""",
-  //    Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-  //
-  //
+    assert(r.size === 3)
+
+    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
+    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+  }
+
   //  check("most studied discipline",
   //    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
   //      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
