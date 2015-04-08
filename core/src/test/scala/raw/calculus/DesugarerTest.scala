@@ -19,7 +19,7 @@ class DesugarerTest extends FunTest {
     compare(
       process(
         """\(a: int, b: int) -> a + b + 2"""),
-      """\ $0 -> { a : int := $0._1; b : int := $0._2; a + b + 2 }""")
+      """\$0 -> { a : int := $0._1; b : int := $0._2; a + b + 2 }""")
   }
 
   test("desugar PatternGen") {

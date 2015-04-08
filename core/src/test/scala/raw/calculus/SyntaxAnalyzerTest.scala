@@ -179,6 +179,10 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("(a < b) = c", "a < b = c")
   }
 
+  test("#63 (support for !=)") {
+    matches("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
+  }
+
   test("source code comments") {
     matches(
       """
@@ -188,8 +192,6 @@ class SyntaxAnalyzerTest extends FunTest {
            // check if type inference assumes v is a int/float
       """, """for (v <- values) yield max v""")
   }
-
-}
 
   test("#71 (keywords issue)") {
     matches("""{ v := nothing; v }""")
