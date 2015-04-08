@@ -1,5 +1,6 @@
 package raw.csv
 
+import scala.language.existentials
 import com.google.common.collect.ImmutableMultiset
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
@@ -64,9 +65,10 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
         for (d <- (for (s <- students) yield set s.department))
           yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
       HList("students" -> students))
-    println(r)
-    val mr = r.map(_.toMap)
 
+    assert(r.size === 3)
+    
+    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   }
 

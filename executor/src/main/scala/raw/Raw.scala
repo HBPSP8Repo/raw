@@ -7,6 +7,12 @@ import shapeless.HList
 import scala.language.experimental.macros
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
+
+  import raw.algebra.Typer
+  import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
+  import raw.psysicalalgebra.LogicalToPhysicalAlgebra
+  import raw.psysicalalgebra.PhysicalAlgebra._
+
   def query(q: c.Expr[String], catalog: c.Expr[HList]) = {
 
     import c.universe._
@@ -60,40 +66,72 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
       (rawType, isSpark)
     }
 
+    def recordTypeSym(r: RecordType) = {
+      // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
+      val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
+      uniqueId
+    }
+
     /** Build code-generated query plan from logical algebra tree.
       */
-    def buildCode(root: PhysicalAlgebraNode, world: World, accessPaths: Map[String, Tree]): Tree = {
+    def buildCode(logicalTree: LogicalAlgebraNode, physicalTree: PhysicalAlgebraNode, world: World, typer: Typer, accessPaths: Map[String, Tree]): Tree = {
       import algebra.Expressions._
 
-      val typer = new algebra.Typer(world)
+      /** Build case classes that correspond to record types.
+        */
+      def buildCaseClasses: Set[Tree] = {
+
+        import org.kiama.rewriting.Rewriter.collect
+
+        object IsRecordType {
+          def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
+            case r: RecordType => Some(r)
+            case _             => None
+          }
+        }
+
+        def tipe(t: raw.Type): String = t match {
+          case _: BoolType         => "Boolean"
+          case FunType(t1, t2)     => ???
+          case _: StringType       => "String"
+          case _: IntType          => "Int"
+          case _: FloatType        => "Float"
+          case r: RecordType       => recordTypeSym(r)
+          case BagType(innerType)  => ???
+          case ListType(innerType) => s"List[${tipe(innerType)}]"
+          case SetType(innerType)  => s"Set[${tipe(innerType)}]"
+          case UserType(idn)       => tipe(world.userTypes(idn))
+          case TypeVariable(v)     => ???
+          case _: AnyType          => ???
+          case _: NothingType      => ???
+        }
+
+        val collectRecordTypes = collect[List, raw.RecordType] {
+          case IsRecordType(t) => t
+        }
+
+        val recordTypes = collectRecordTypes(logicalTree).toSet // Remove repeated record types leaving only the unique (i.e. structural) ones
+
+        val code = recordTypes.map {
+          case r @ RecordType(atts) =>
+            val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
+            s"""case class ${recordTypeSym(r)}($args)"""
+        }
+
+        code.map(c.parse)
+      }
 
       def build(a: PhysicalAlgebraNode): Tree = {
 
         def exp(e: Exp): Tree = {
 
-          def tipe(t: raw.Type): String = t match {
-            case _: BoolType => "Boolean"
-            case _: StringType => "String"
-            case _: IntType => "Int"
-            case _: FloatType => "Float"
-            //case RecordType(atts)    => "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-            case BagType(innerType) => ???
-            case ListType(innerType) => s"List[${tipe(innerType)}]"
-            case SetType(innerType) => s"Set[${tipe(innerType)}]"
-            case UserType(idn) => tipe(world.userTypes(idn))
-            case FunType(t1, t2) => ???
-            case TypeVariable(v) => ???
-            case _: AnyType => ???
-            case _: NothingType => ???
-          }
-
           def binaryOp(op: BinaryOperator): String = op match {
-            case _: Eq => "=="
+            case _: Eq  => "=="
             case _: Neq => "!="
-            case _: Ge => ">="
-            case _: Gt => ">"
-            case _: Le => "<="
-            case _: Lt => "<"
+            case _: Ge  => ">="
+            case _: Gt  => ">"
+            case _: Le  => "<="
+            case _: Lt  => "<"
             case _: Sub => "-"
             case _: Div => "/"
             case _: Mod => "%"
@@ -107,26 +145,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             case StringConst(v) => s""""$v""""
             case _: Arg => "arg"
             case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
-            case r@RecordCons(atts) =>
-              val vals = atts.map(att => s"val ${att.idn} = ${recurse(att.e)}").mkString(";")
-              val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
-              s"""new Serializable {
-                def toMap = Map($maps)
-                $vals
-              }"""
-            //            {
-            //              val uniqueId = if (r.hashCode() < 0) s"_a${r.hashCode().toString}" else s"_b${r.hashCode().toString}"
-            //              val params = atts.map(att => s"${att.idn}: ${typer.expressionType(e)}").mkString(",")
-            //              val vals = atts.map(att => recurse(att.e)).mkString(",")
-            //              val maps = atts.map(att => s""""${att.idn}" -> ${att.idn}""").mkString(",")
-            //              val x = s"""
-            //              case class $uniqueId($params) {
-            //                def toMap = Map($maps)
-            //              }
-            //              $uniqueId($vals)
-            //              """
-            //              println(x)
-            //              x}
+            case RecordCons(atts) =>
+              val sym = recordTypeSym(typer.expressionType(e) match { case r: RecordType => r })
+              val vals = atts.map(att => recurse(att.e)).mkString(",")
+              s"""$sym($vals)"""
             case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
             case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
             case MergeMonoid(m, e1, e2) => m match {
@@ -182,10 +204,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
               ???
             case m1: ListMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toList))"""
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.List]))"""
             case m1: SetMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
+              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           }
           case ScalaOuterJoin(p, left, right) =>
             q"""
@@ -197,7 +219,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 if (ok.isEmpty)
                   List((l, null))
                 else
-                  ok.map(r => (l, r))
+                  ok
               }
             )
             """
@@ -217,11 +239,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 q"""val e = ${build(child)}.filter(${exp(p)}).map(${exp(e)})
                     com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(e))"""
               case _: ListMonoid =>
-                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).toList"""
+                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.List]"""
               case _: SetMonoid =>
-                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).toSet"""
+                q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.Set]"""
             }
-            if (r eq root)
+            if (r eq physicalTree)
               code
             else
               q"""List($code)"""
@@ -248,7 +270,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
               case _: ListMonoid =>
                 // TODO Can this be made more efficient?
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.toList"""
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.to[scala.collection.immutable.List]"""
 
               case _: BagMonoid =>
                 // TODO: Can we improve the lower bound for the value?
@@ -266,7 +288,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                  *
                  * - toSet is a Scala local operation.
                  */
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.toSet"""
+                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
             }
             code
 
@@ -294,7 +316,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           //                ???
           //              case m1: SetMonoid =>
           //                val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-          //                q"""${tree}.map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.toSet))"""
+          //                q"""${tree}.map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           //            }
           case r@SparkJoin(p, left, right) => {
             val leftCode = build(left)
@@ -348,7 +370,12 @@ The code bellow does the following transformations:
         }
       }
 
-      build(root)
+      val caseClasses = buildCaseClasses
+      val code = build(physicalTree)
+
+      q"""
+      ..$caseClasses
+      $code"""
     }
 
     case class AccessPath(tipe: raw.Type, tree: Tree, isSpark: Boolean)
@@ -393,9 +420,10 @@ The code bellow does the following transformations:
         // Parse the query, using the catalog generated from what the user gave.
         Query(qry, world) match {
           case Right(logicalTree) => {
+            val typer = new algebra.Typer(world)
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
-            val generatedCode: Tree = buildCode(physicalTree, world, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
+            val generatedCode: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
             QueryLogger.log(qry, PhysicalAlgebraPrettyPrinter(physicalTree), generatedCode.toString)
             c.Expr[Any](generatedCode)
           }

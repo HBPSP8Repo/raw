@@ -23,13 +23,14 @@ class TyperTest extends FunTest {
 
       val ast = parse(query)
       val ct = new Calculus.Calculus(ast)
+
       val calculusAnalyzer = new calculus.SemanticAnalyzer(ct, w)
       calculusAnalyzer.errors.foreach(err => logger.error(err.toString))
+
       val ast1 = Unnester(ct, w)
       val at = new LogicalAlgebra.Algebra(ast1)
 
       val algebraTyper = new Typer(w)
-      println("Tree" + LogicalAlgebraPrettyPrinter(ast1))
 
       assert(calculusAnalyzer.tipe(ast) === algebraTyper.tipe(ast1))
     }
@@ -73,4 +74,32 @@ class TyperTest extends FunTest {
 //  assertRootType("for (r <- unknownrecords) yield set r.dead or r.alive")
 //  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", "data source record type is not inferred")
 //  assertRootType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)")
+
+  assertRootType(
+    """
+    for (c <- diagnosis_codes) yield list {
+      code := c.diagnostic_code;
+      desc := c.description;
+
+      patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
+
+      count := for (p <- patient_ids) yield sum 1;
+
+      others :=
+      for (p <- patient_ids;
+           d <- diagnosis;
+           c <- diagnosis_codes;
+           d.diagnostic_code = c.diagnostic_code;
+           d.diagnostic_code <> code;
+           d.patient_id = p)
+        yield list (c.description);
+
+      unique_others := for (o <- others) yield set o;
+
+      desc_count := for (o1 <- others) yield list (desc := o1, count := for (o2 <- others; o1 = o2) yield sum 1);
+
+      (desc := desc, others := desc_count)
+    }
+    """, world=TestWorlds.chuv_diagnosis
+  )
 }
