@@ -22,8 +22,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
   def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
 
     def displayMonoidExp(m: Monoid, e: Exp): Doc = m match {
-      case MinMonoid(Some(v)) => monoid(m) <+> apply(e) <+> "else" <+> apply(v)
-      case MaxMonoid(Some(v)) => monoid(m) <+> apply(e) <+> "else" <+> apply(v)
+      case s: Semigroup if s.z isDefined => monoid(m) <+> apply(e) <+> "else" <+> apply(s.z.get)
       case _ => monoid(m) <+> apply(e)
     }
 

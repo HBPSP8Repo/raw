@@ -1,6 +1,6 @@
 package raw
 
-import raw.calculus.Calculus.{Exp,IntConst}
+import raw.calculus.Calculus.Exp
 
 /** Monoid
   */
@@ -17,11 +17,13 @@ sealed abstract class PrimitiveMonoid extends Monoid {
 
 sealed abstract class NumberMonoid extends PrimitiveMonoid
 
-case class MaxMonoid(m: Option[Exp] = None) extends NumberMonoid {
+abstract class Semigroup(val z: Option[Exp]) extends NumberMonoid
+
+case class MaxMonoid(override val z: Option[Exp] = None) extends Semigroup(z) {
   def idempotent = true
 }
 
-case class MinMonoid(m: Option[Exp] = None) extends NumberMonoid {
+case class MinMonoid(override val z: Option[Exp] = None) extends Semigroup(z) {
   def idempotent = true
 }
 

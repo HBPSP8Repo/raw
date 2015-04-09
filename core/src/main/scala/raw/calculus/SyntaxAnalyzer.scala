@@ -41,8 +41,8 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       kw("union") ^^^ SetMonoid() |
       kw("bag_union") ^^^ BagMonoid() |
       kw("append") ^^^ ListMonoid() |
-      kw("max") ^^^ MaxMonoid() |
-      kw("min") ^^^ MinMonoid())
+      kw("min") ^^^ MinMonoid() |
+      kw("max") ^^^ MaxMonoid())
 
   lazy val orExp: PackratParser[Exp] =
     positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
@@ -194,8 +194,8 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val semigroupExp: PackratParser[MonoidExp] =
     (kw("min") ~> exp) ~ (kw("else") ~> exp) ^^ { case e ~ e2 => MonoidExp(MinMonoid(Some(e2)),e) } |
     (kw("max") ~> exp) ~ (kw("else") ~> exp) ^^ { case e ~ e2 => MonoidExp(MaxMonoid(Some(e2)),e) } |
-    (kw("min") ~> exp) ^^ { case e => MonoidExp(MinMonoid(),e) } |
-    (kw("max") ~> exp) ^^ { case e => MonoidExp(MaxMonoid(),e) }
+    (kw("min") ~> exp) ^^ { case e => MonoidExp(MinMonoid(None),e) } |
+    (kw("max") ~> exp) ^^ { case e => MonoidExp(MaxMonoid(None),e) }
 
   lazy val primitiveMonoid: PackratParser[PrimitiveMonoid] =
     positioned(
@@ -203,7 +203,6 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       kw("multiply") ^^^ MultiplyMonoid() |
       kw("or") ^^^ OrMonoid() |
       kw("and") ^^^ AndMonoid())
-
 
   lazy val collectionMonoid: PackratParser[CollectionMonoid] =
     positioned(
