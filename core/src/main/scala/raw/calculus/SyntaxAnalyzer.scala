@@ -290,7 +290,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       "string" ^^^ StringType())
 
   lazy val recordType: PackratParser[RecordType] =
-    positioned("record" ~ "(" ~> rep1sep(attr, ",") <~ ")" ^^ RecordType)
+    positioned("record" ~ "(" ~> rep1sep(attr, ",") <~ ")" ^^ { case atts => RecordType(atts, None) })
 
   lazy val attr: PackratParser[AttrType] =
     positioned((attrName <~ ":") ~ tipe ^^ AttrType)

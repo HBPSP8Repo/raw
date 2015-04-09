@@ -18,8 +18,8 @@ class TyperTest extends FunTest {
             "floats" -> SetType(FloatType()),
             "booleans" -> SetType(BoolType()),
             "strings" -> SetType(StringType()),
-            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))),
-            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType()))))))
+            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
+            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
       val ast = parse(query)
       val ct = new Calculus.Calculus(ast)

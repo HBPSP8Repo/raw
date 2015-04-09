@@ -56,7 +56,7 @@ object Unnester extends LazyLogging {
         }
       }
 
-      /** Extract object to pattern match comprehensions in the canonical form.
+      /** Extractor to pattern match comprehensions in the canonical form.
         */
       object CanonicalComp {
 
@@ -78,7 +78,7 @@ object Unnester extends LazyLogging {
         }
       }
 
-      /** Extractor object to pattern match nested comprehensions.
+      /** Extractor to pattern match nested comprehensions.
         */
       object NestedComp {
 
@@ -129,7 +129,7 @@ object Unnester extends LazyLogging {
       /** Build type from pattern.
         */
       def patternType(p: Pattern): Type = p match {
-        case PairPattern(p1, p2) => RecordType(List(AttrType("_1", patternType(p1)), AttrType("_2", patternType(p2))))
+        case PairPattern(p1, p2) => RecordType(List(AttrType("_1", patternType(p1)), AttrType("_2", patternType(p2))), None)
         case IdnPattern(p1, t)   => t
       }
 
@@ -175,7 +175,7 @@ object Unnester extends LazyLogging {
         recurse(e)
       }
 
-      /** Create predicate, which is an expression in conjunctive normal form.
+      /** Create a predicate, which is an expression in conjunctive normal form.
         */
       def createPredicate(ps: Seq[Calculus.Exp], pat: Pattern): Expressions.Exp = {
         ps match {
@@ -185,13 +185,25 @@ object Unnester extends LazyLogging {
         }
       }
 
-      /** Create a record projection (for Nest's group-by and nulls)
+      /** Create a record expression from a pattern (used by Nest).
         */
-      def createRecord(idns: Seq[String], pat: Pattern): Expressions.Exp =
-        if (idns.length == 1)
-          buildPatternExp(idns.head, pat)
-        else
-          Expressions.RecordCons(idns.zipWithIndex.map { case (idn, idx) => Expressions.AttrCons(s"_${idx + 1}", buildPatternExp(idn, pat)) })
+      def createRecord(u: Pattern, p: Pattern): Expressions.Exp = u match {
+        case PairPattern(fst, snd) =>
+          Expressions.RecordCons(List(
+            Expressions.AttrCons("_1", createRecord(fst, p)),
+            Expressions.AttrCons("_2", createRecord(snd, p))))
+        case IdnPattern(idn, _) =>
+          buildPatternExp(idn, p)
+      }
+
+      /** Return a new pattern which corresponds to w minus u (used by Nest).
+        */
+      def subtractPattern(w: Pattern, u: Pattern): Pattern = w match {
+        case PairPattern(`u`, snd) => snd
+        case PairPattern(fst, `u`) => fst
+        case PairPattern(fst, snd) => PairPattern(subtractPattern(fst, u), subtractPattern(snd, u))
+        case p1 : IdnPattern => p1
+      }
 
       /** Returns true if the comprehension `c` does not depend on `s` generators.
         */
@@ -279,7 +291,7 @@ object Unnester extends LazyLogging {
 
           case CalculusTerm(CanonicalComp(m, Nil, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
             logger.debug(s"Applying unnester rule C8")
-            AlgebraTerm(LogicalAlgebra.Nest(m, createExp(e, w), createRecord(getIdns(u), w), createPredicate(p, w), createRecord(getIdns(w).filterNot(getIdns(u).contains), w), child))
+            AlgebraTerm(LogicalAlgebra.Nest(m, createExp(e, w), createRecord(u, w), createPredicate(p, w), createRecord(subtractPattern(w, u), w), child))
 
           /** Rule C9
             */
@@ -289,7 +301,7 @@ object Unnester extends LazyLogging {
             val pat_v = IdnPattern(v, getInnerType(x.t))
             val pat_w_v = PairPattern(w, pat_v)
             val pred_v = p.filter(variables(_) == Set(v))
-            val pred_w_v = p.filter(pred => getIdns(pat_w_v).toSet.subsetOf(variables(pred)))
+            val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(getIdns(pat_w_v).toSet))
             val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
             apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterJoin(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
 

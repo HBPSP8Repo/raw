@@ -84,30 +84,43 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
   }
 
-  //  check("most studied discipline",
-  //    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
-  //      (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name
-  //    """, Set("Computer Architecture"))
-  //
-  //  check("list of disciplines which have three students",
-  //    """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number = 3) yield list t.name
-  //    """, List("Computer Architecture"))
-  //
-  //  //check("set of the number of students per department", """for (d <- students) yield set (name := d.department, number := for (s <- students, s.department = d.department) yield sum 1)""",
-  //  //      Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
-  //  //check("set of names departments which have the highest number of students", ???, Set("dep1"))
-  //  //check("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))
-  //  //check("set of profs which have the highest number of students in their department", ???, Set("Prof1"))
-  //  //check("set of profs which have the lowest number of students in their department", ???, Set("Prof2", "Prof3"))
-  //  //check("set of students who study 'Artificial Intelligence'", ???, Set("Student6", "Student7"))
+  test("most studied discipline") {
+    val r = Raw.query("""
+        for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
+        (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
+      HList("departments" -> departments, "students" -> students))
+
+    assert(r.size === 1)
+    assert(r === Set("Computer Architecture"))
+  }
+
+  test("list of disciplines which have three students") {
+    val r = Raw.query(
+      """for (t <- for (d <- departments) yield list (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number = 3) yield list t.name""",
+      HList("departments" -> departments, "students" -> students))
+
+    assert(r.size === 1)
+    assert(r === List("Computer Architecture"))
+  }
+
+  test("set of the number of students per department") {
+    val r = Raw.query(
+      """for (d <- students) yield set (name := d.department, number := for (s <- students; s.department = d.department) yield sum 1)""",
+      HList("students" -> students))
+
+    assert(r.size === 3)
+    val mr = r.map { case v => Map("name" -> v.name, "number" -> v.number) }
+    assert(mr === Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
+  }
+
+  //  test("set of names departments which have the highest number of students", ???, Set("dep1"))
+  //  test("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))
+  //  test("set of profs which have the highest number of students in their department", ???, Set("Prof1"))
+  //  test("set of profs which have the lowest number of students in their department", ???, Set("Prof2", "Prof3"))
+  //  test("set of students who study 'Artificial Intelligence'", ???, Set("Student6", "Student7"))
 }
 
-///*
-//class FlatCSVSparkTest extends FlatCSVTest {
-//  val executor = SparkExecutor
-//}
-//*/
-//
+
 //abstract class HierarchyJSONTest extends SmokeTest {
 //  val movies = JSONParser(
 //    ListType(RecordType(List(AttrType("title", StringType()), AttrType("year", IntType()), AttrType("actors", ListType(StringType()))))),
@@ -138,13 +151,3 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
 //  check("Brad Pitt or Bruce Willis movies", """for (m <- movies; a <- m.actors; a = "Brad Pitt" or a = "Bruce Willis") yield set m.title""", Set("Seven", "Twelve Monkeys", "Die Hard"), "#29")
 //
 //}
-//
-//class HierarchyJSONReferenceTest extends HierarchyJSONTest {
-//  val executor = ReferenceExecutor
-//}
-//
-///*
-//class HierarchyJSONSparkTest extends HierarchyJSONTest {
-//  val executor = SparkExecutor
-//}
-//*/
