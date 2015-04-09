@@ -135,4 +135,19 @@ class SemanticAnalyzerTest extends FunTest {
   test("errors") {
     failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
   }
+
+  test("propagate named records") {
+    val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
+    val students = ListType(student)
+    val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
+    val professors = ListType(professor)
+    val world = new World(sources = Map("students" -> students, "professors" -> professors))
+
+    success("for (s <- students) yield list s", world, students)
+    success("for (s <- students) yield list (a := 1, b := s)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student)), None)))
+    success("for (s <- students; p <- professors; s = p) yield list s", world, students)
+    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
+    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+  }
 }
