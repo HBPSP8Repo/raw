@@ -16,8 +16,8 @@ class SemanticAnalyzerTest extends FunTest {
             "floats" -> SetType(FloatType()),
             "booleans" -> SetType(BoolType()),
             "strings" -> SetType(StringType()),
-            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
-            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
+            "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
+            "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
       val ast = parse(query)
       val t = new Calculus.Calculus(ast)
@@ -72,13 +72,13 @@ class SemanticAnalyzerTest extends FunTest {
   assertRootType("for (r <- unknown; x <- booleans; r and x) yield set r", SetType(BoolType()))
   assertRootType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
   assertRootType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
-  assertRootType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
+  assertRootType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
   assertRootType("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", SetType(IntType()))
-  assertRootType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())), None)), "missing record type inference")
+  assertRootType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(List(AttrType("value", FloatType())), None)), "missing record type inference")
   assertRootType("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", SetType(IntType()))
   assertRootType("for (r <- unknown; v := r) yield set (r + 0)", SetType(IntType()))
   assertRootType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
+  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)), "data source record type is not inferred")
   assertRootType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
 
   assertRootType("{ (a,b) := (1, 2); a+b }", IntType())
