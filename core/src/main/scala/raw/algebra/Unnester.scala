@@ -301,7 +301,7 @@ object Unnester extends LazyLogging {
             val pat_v = IdnPattern(v, getInnerType(x.t))
             val pat_w_v = PairPattern(w, pat_v)
             val pred_v = p.filter(variables(_) == Set(v))
-            val pred_w_v = p.filter(pred => getIdns(pat_w_v).toSet.subsetOf(variables(pred)))
+            val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(getIdns(pat_w_v).toSet))
             val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
             apply(CalculusTerm(CanonicalComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterJoin(createPredicate(pred_w_v, pat_w_v), child, LogicalAlgebra.Select(createPredicate(pred_v, pat_v), x)))))
 
