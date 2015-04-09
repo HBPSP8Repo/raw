@@ -129,7 +129,63 @@ class UnnesterTest extends FunTest {
     assert(process(w, query) === Result())
   }
 
-  test("paper query") {
+  test("paper query A") {
+    val query = "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)"
+    val w = TestWorlds.employees
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+        reduce(
+          set,
+          record("D" -> arg._1, "E" -> arg._2),
+          true,
+          nest(
+            set,
+            arg._2,
+            arg._1,
+            true,
+            arg._2,
+            outer_join(
+              arg._2.dno == arg._1.dno,
+              select(true, scan("Departments")),
+              select(true, scan("Employees")))))
+      }
+    }
+
+    assert(process(w, query) === Result())
+  }
+
+  test("paper query B") {
+    val query = "for (a <- A) yield and (for (b <- B; a = b) yield or true)"
+    val w = TestWorlds.A_B
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+        reduce(
+          and,
+          arg._2,
+          true,
+          nest(
+            or,
+            true,
+            arg._1,
+            true,
+            arg._2,
+            outer_join(
+              arg._1 == arg._2,
+              select(true, scan("A")),
+              select(true, scan("B")))))
+      }
+    }
+
+    assert(process(w, query) === Result())
+  }
+
+  test("paper query C") {
     val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
     val w = TestWorlds.employees
 
@@ -157,6 +213,45 @@ class UnnesterTest extends FunTest {
                   path=arg.children,
                   select(
                     scan("Employees")))))))
+      }
+    }
+
+    assert(process(w, query) === Result())
+  }
+
+  test("paper query D") {
+    val query = """for (s <- Students; for (c <- Courses; c.title = "DB") yield and (for (t <- Transcripts; t.id = s.id; t.cno = c.cno) yield or true)) yield set s"""
+    val w = TestWorlds.transcripts
+
+    object Result extends AlgebraDSL {
+      val world = w
+
+      def apply() = {
+        reduce(
+          set,
+          arg._1,
+          arg._2,
+          nest(
+            and,
+            arg._2,
+            arg._1._1,
+            true,
+            record("_1" -> arg._1._2, "_2" -> arg._2),
+            nest(
+              or,
+              true,
+              record("_1" -> arg._1._1, "_2" -> arg._1._2),
+              true,
+              arg._2,
+              outer_join(
+                arg._2.id == arg._1._1.id && arg._2.cno == arg._1._2.cno,
+                outer_join(
+                  true,
+                  select(scan("Students")),
+                  select(
+                    arg.title == const("DB"),
+                    scan("Courses"))),
+                select(true, scan("Transcripts"))))))
       }
     }
 

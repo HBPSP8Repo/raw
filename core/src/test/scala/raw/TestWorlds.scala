@@ -7,7 +7,7 @@ object TestWorlds {
       RecordType(List(
         AttrType("street", StringType()),
         AttrType("zipcode", StringType())),
-      None)
+        None)
 
     val instructor =
       RecordType(List(
@@ -19,7 +19,7 @@ object TestWorlds {
         AttrType("degrees", SetType(StringType())),
         AttrType("dept", UserType("Department")),
         AttrType("teaches", SetType(UserType("Course")))),
-      None)
+        None)
     val instructors = SetType(instructor)
 
     val department =
@@ -29,7 +29,7 @@ object TestWorlds {
         AttrType("head", UserType("Instructor")),
         AttrType("instructors", UserType("Instructors")),
         AttrType("courses", UserType("Courses"))),
-      None)
+        None)
     val departments = BagType(department)
 
     val course =
@@ -40,7 +40,7 @@ object TestWorlds {
         AttrType("taught_by", UserType("Instructor")),
         AttrType("is_prerequisite_for", UserType("Courses")),
         AttrType("has_prerequisites", SetType(UserType("Course")))),
-      None)
+        None)
     val courses = SetType(course)
 
     val userTypes = Map(
@@ -64,21 +64,69 @@ object TestWorlds {
       ListType(
         RecordType(List(
           AttrType("age", IntType())),
-        None))
+          None))
     val manager =
       RecordType(List(
         AttrType("name", StringType()),
         AttrType("children", children)),
-      None)
+        None)
     val employees =
       SetType(
         RecordType(List(
+          AttrType("dno", IntType()),
           AttrType("children", children),
           AttrType("manager", manager)),
-        None))
+          None))
+    val departments =
+      SetType(
+        RecordType(List(AttrType("dno", IntType())), None))
 
     val sources = Map(
-      "Employees" -> employees
+      "Employees" -> employees,
+      "Departments" -> departments
+    )
+
+    new World(sources)
+  }
+
+  def A_B = {
+    val A = ListType(IntType())
+    val B = ListType(IntType())
+
+    val sources = Map(
+      "A" -> A,
+      "B" -> B
+    )
+
+    new World(sources)
+  }
+
+  def transcripts = {
+    val students =
+      SetType(
+        RecordType(List(
+          AttrType("id", IntType()),
+          AttrType("name", StringType())),
+          None))
+
+    val courses =
+      SetType(
+        RecordType(List(
+          AttrType("cno", IntType()),
+          AttrType("title", StringType())),
+          None))
+
+    val transcripts =
+      SetType(
+        RecordType(List(
+          AttrType("id", IntType()),
+          AttrType("cno", IntType())),
+          None))
+
+    val sources = Map(
+      "Students" -> students,
+      "Courses" -> courses,
+      "Transcripts" -> transcripts
     )
 
     new World(sources)
@@ -95,21 +143,21 @@ object TestWorlds {
               RecordType(List(
                 AttrType("pt", FloatType()),
                 AttrType("eta", FloatType())),
-              None))),
+                None))),
           AttrType("jets",
             ListType(
               RecordType(List(
                 AttrType("pt", FloatType()),
                 AttrType("eta", FloatType())),
-              None)))),
-        None))
+                None)))),
+          None))
 
     val goodRuns =
       ListType(
         RecordType(List(
           AttrType("Run", IntType()),
           AttrType("OK", BoolType())),
-        None))
+          None))
 
     val sources = Map(
       "Events" -> events,
@@ -131,9 +179,9 @@ object TestWorlds {
           AttrType("set_b",
             SetType(
               FloatType()))),
-        None))
+          None))
 
-    new World(sources=Map("things" -> things))
+    new World(sources = Map("things" -> things))
   }
 
   def fines = {
@@ -143,15 +191,15 @@ object TestWorlds {
           AttrType("location", StringType()),
           AttrType("min_speed", IntType()),
           AttrType("max_speed", IntType())),
-        None))
+          None))
 
     val radar =
       ListType(
         RecordType(List(
           AttrType("person", StringType()),
           AttrType("speed", IntType()),
-        AttrType("location", StringType())),
-        None))
+          AttrType("location", StringType())),
+          None))
 
     val sources = Map(
       "speed_limits" -> speed_limits,
@@ -165,18 +213,18 @@ object TestWorlds {
     val students =
       ListType(
         RecordType(List(
-        AttrType("name", StringType()),
-        AttrType("birthYear", IntType()),
-        AttrType("office", StringType()),
-        AttrType("department", StringType())),
-        None))
+          AttrType("name", StringType()),
+          AttrType("birthYear", IntType()),
+          AttrType("office", StringType()),
+          AttrType("department", StringType())),
+          None))
 
     val profs =
       ListType(
         RecordType(List(
           AttrType("name", StringType()),
           AttrType("office", StringType())),
-        None))
+          None))
 
     val departments =
       ListType(
@@ -184,7 +232,7 @@ object TestWorlds {
           AttrType("name", StringType()),
           AttrType("discipline", StringType()),
           AttrType("prof", StringType())),
-        None))
+          None))
 
     val sources = Map(
       "students" -> students,
@@ -205,7 +253,7 @@ object TestWorlds {
           AttrType("diagnostic_type", StringType()),
           AttrType("diagnostic_date", StringType()),
           AttrType("hospital_id", StringType())),
-        None))
+          None))
 
     val diagnosis_codes =
       ListType(
@@ -213,7 +261,7 @@ object TestWorlds {
           AttrType("diagnostic_code", StringType()),
           AttrType("valid_for_coding", StringType()),
           AttrType("description", StringType())),
-        None))
+          None))
 
     val sources = Map(
       "diagnosis" -> diagnosis,
@@ -230,7 +278,7 @@ object TestWorlds {
           AttrType("_2", IntType()),
           AttrType("_3", IntType()),
           AttrType("_4", IntType())),
-        None))
+          None))
 
     val sources = Map(
       "set_of_tuples" -> tuples
