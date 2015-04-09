@@ -50,26 +50,28 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           }
 
         case t@TypeRef(_, sym, Nil) =>
+          val symName = sym.fullName
           val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-          raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) }, None)
+          raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) }, Some(symName))
 
         case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" => {
           raw.ListType(inferType(t1)._1)
         }
 
-        case TypeRef(pre, sym, args) => {
+        case TypeRef(pre, sym, args) =>
           bail(s"Unsupported TypeRef($pre, $sym, $args)")
-        }
       }
 
       val isSpark = t.typeSymbol.fullName.equals("org.apache.spark.rdd.RDD")
       (rawType, isSpark)
     }
 
-    def recordTypeSym(r: RecordType) = {
-      // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
-      val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
-      uniqueId
+    def recordTypeSym(r: RecordType) = r match {
+      case RecordType(_, Some(symName)) => symName
+      case _ =>
+        // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
+        val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
+        uniqueId
     }
 
     /** Build code-generated query plan from logical algebra tree.
@@ -83,13 +85,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
         import org.kiama.rewriting.Rewriter.collect
 
-        object IsRecordType {
+        // Extractor for anonymous record types
+        object IsAnonRecordType {
           def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
-            case r: RecordType => Some(r)
-            case _             => None
+            case r @ RecordType(_, None) => Some(r)
+            case _                       => None
           }
         }
 
+        // Create Scala type from RAW type
         def tipe(t: raw.Type): String = t match {
           case _: BoolType         => "Boolean"
           case FunType(t1, t2)     => ???
@@ -106,18 +110,21 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case _: NothingType      => ???
         }
 
-        val collectRecordTypes = collect[List, raw.RecordType] {
-          case IsRecordType(t) => t
+        // Collect all record types from tree
+        val collectAnonRecordTypes = collect[List, raw.RecordType] {
+          case IsAnonRecordType (t) => t
         }
 
-        val recordTypes = collectRecordTypes(logicalTree).toSet // Remove repeated record types leaving only the unique (i.e. structural) ones
+        // Convert all collected record types to a set to remove repeated types, leaving only the structural types
+        val anonRecordTypes = collectAnonRecordTypes (logicalTree).toSet
 
-        val code = recordTypes.map {
-          // TODO: Fix!
-          case r @ RecordType(atts, _) =>
-            val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
-            s"""case class ${recordTypeSym(r)}($args)"""
-        }
+        // Create corresponding case class
+        val code = anonRecordTypes
+          .map {
+            case r @ RecordType(atts, None) =>
+              val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
+              s"""case class ${recordTypeSym(r)}($args)"""
+          }
 
         code.map(c.parse)
       }
@@ -200,15 +207,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 case _: MaxMonoid => IntConst("0") // TODO: Fix since it is not a monoid
               }
               val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map(${exp(f1)}))).map(v => (v._1, v._2.foldLeft(${zero(m1)})(${fold(m1)})))"""
+              q"""${build(child)}.groupBy(${exp(f)}).toList.map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map(${exp(f1)}))).map(v => (v._1, v._2.foldLeft(${zero(m1)})(${fold(m1)})))"""
             case m1: BagMonoid =>
               ???
             case m1: ListMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.List]))"""
+              q"""${build(child)}.groupBy(${exp(f)}).toList.map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.List]))"""
             case m1: SetMonoid =>
               val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-              q"""${build(child)}.groupBy(${exp(f)}).map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
+              q"""${build(child)}.groupBy(${exp(f)}).toSet.map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           }
           case ScalaOuterJoin(p, left, right) =>
             q"""
