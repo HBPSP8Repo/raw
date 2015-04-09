@@ -216,4 +216,13 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("""for (r <- records; v := falseortrue) yield set v""")
     matches("""{ v := iftruethen1else2; v }""")
   }
+
+  test("semigroups") {
+    matches("for (r <- records) yield min r.value else 10000")
+    matches("for (r <- records) yield max r.value else -1")
+    matches("for (r <- records) yield sum r.value")
+    matches("for (r <- records) yield max r.value") // should fail if on empty list
+    matches("for (r <- records) yield min r.value") // should fail if on empty list
+  }
+
 }

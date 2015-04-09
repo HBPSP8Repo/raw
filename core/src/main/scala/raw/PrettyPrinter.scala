@@ -37,6 +37,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
   }
 
   def monoid(m: Monoid): Doc = m match {
+    case _: MinMonoid      => "min"
     case _: MaxMonoid      => "max"
     case _: MultiplyMonoid => "multiply"
     case _: SumMonoid      => "sum"

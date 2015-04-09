@@ -20,6 +20,13 @@ object CalculusPrettyPrinter extends PrettyPrinter {
     if (isEscaped(idn)) s"`$idn`" else idn
 
   def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
+
+    def displayMonoidExp(m: Monoid, e: Exp): Doc = m match {
+      case MinMonoid(Some(v)) => monoid(m) <+> apply(e) <+> "else" <+> apply(v)
+      case MaxMonoid(Some(v)) => monoid(m) <+> apply(e) <+> "else" <+> apply(v)
+      case _ => monoid(m) <+> apply(e)
+    }
+
     def apply(n: CalculusNode): Doc =
       (debug match {
         case Some(f) => if (f.isDefinedAt(n)) f(n) else ""
@@ -44,7 +51,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case ZeroCollectionMonoid(m)    => collection(m, empty)
       case ConsCollectionMonoid(m, e) => collection(m, apply(e))
       case MergeMonoid(m, e1, e2)     => apply(e1) <+> merge(m) <+> apply(e2)
-      case Comp(m, qs, e)             => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
+      case Comp(m, qs, e)  => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> displayMonoidExp(m, e)
       case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
       case FunAbs(idn, e)             => "\\" <> apply(idn) <+> "->" <+> apply(e)
       case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)

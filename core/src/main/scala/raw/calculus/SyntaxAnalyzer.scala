@@ -16,7 +16,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
 
   val reservedWords = HashSet(
     "or", "and", "not",
-    "union", "bag_union", "append", "max", "sum",
+    "union", "bag_union", "append", "max", "sum", "min",
     "null", "true", "false",
     "for", "yield",
     "if", "then", "else",
@@ -41,7 +41,8 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       kw("union") ^^^ SetMonoid() |
       kw("bag_union") ^^^ BagMonoid() |
       kw("append") ^^^ ListMonoid() |
-      kw("max") ^^^ MaxMonoid())
+      kw("max") ^^^ MaxMonoid() |
+      kw("min") ^^^ MinMonoid())
 
   lazy val orExp: PackratParser[Exp] =
     positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
@@ -179,21 +180,30 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       case head ~ tail => RecordCons(AttrCons("_1", head) :: tail.zipWithIndex.map{ case (e, idx) => AttrCons(s"_${idx + 2}", e) })
     })
 
-  lazy val comp: PackratParser[Comp] =
-    positioned(("for" ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ ("yield" ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
+  case class MonoidExp(m: Monoid, e: Exp)
 
-  lazy val monoid: PackratParser[Monoid] =
-    primitiveMonoid |
-    collectionMonoid |
-    failure("illegal monoid")
+  lazy val comp: PackratParser[Comp] =
+    positioned(("for" ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ ("yield" ~> monoidExp) ^^ { case qs ~ me => Comp(me.m, qs, me.e) })
+
+  lazy val monoidExp: PackratParser[MonoidExp] =
+      primitiveMonoid ~ exp ^^ { case m ~ e => MonoidExp(m,e) } |
+      collectionMonoid ~ exp ^^ { case m ~ e => MonoidExp(m,e) } |
+      semigroupExp |
+      failure("illegal monoid")
+
+  lazy val semigroupExp: PackratParser[MonoidExp] =
+    (kw("min") ~> exp) ~ (kw("else") ~> exp) ^^ { case e ~ e2 => MonoidExp(MinMonoid(Some(e2)),e) } |
+    (kw("max") ~> exp) ~ (kw("else") ~> exp) ^^ { case e ~ e2 => MonoidExp(MaxMonoid(Some(e2)),e) } |
+    (kw("min") ~> exp) ^^ { case e => MonoidExp(MinMonoid(),e) } |
+    (kw("max") ~> exp) ^^ { case e => MonoidExp(MaxMonoid(),e) }
 
   lazy val primitiveMonoid: PackratParser[PrimitiveMonoid] =
     positioned(
       kw("sum") ^^^ SumMonoid() |
       kw("multiply") ^^^ MultiplyMonoid() |
-      kw("max") ^^^ MaxMonoid() |
       kw("or") ^^^ OrMonoid() |
       kw("and") ^^^ AndMonoid())
+
 
   lazy val collectionMonoid: PackratParser[CollectionMonoid] =
     positioned(

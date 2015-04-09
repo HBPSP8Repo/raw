@@ -8,81 +8,81 @@ import raw.Raw
 import shapeless.HList
 
 class ScalaFlatCSVTest extends FunSuite with LazyLogging {
-  val students = ReferenceTestData.students
-  val profs = ReferenceTestData.profs
-  val departments = ReferenceTestData.departments
-
-  test("bag of student birth years") {
-    // Returns an ImmutableMultiset from Guava.
-    val actual = Raw.query( """for (d <- students) yield bag d.birthYear""", HList("students" -> students))
-    val expected = ImmutableMultiset.of(1990, 1990, 1989, 1992, 1987, 1992, 1988)
-    assert(actual === expected)
-  }
-
-  test("number of professors") {
-    assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)
-  }
-
-  test("number of students") {
-    assert(Raw.query("for (d <- students) yield sum 1", HList("students" -> students)) === 7)
-  }
-
-  test("number of departments") {
-    assert(Raw.query("for (d <- departments) yield sum 1", HList("departments" -> departments)) === 3)
-  }
-
-  test("set of students born in 1990") {
-    assert(Raw.query( """for (d <- students; d.birthYear = 1990) yield set d.name""", HList("students" -> students)) === Set("Student1", "Student2"))
-  }
-
-  test("number of students born in 1992") {
-    assert(Raw.query( """for (d <- students; d.birthYear = 1992) yield sum 1""", HList("students" -> students)) === 2)
-  }
-
-  test("number of students born before 1991 (included)") {
-    assert(Raw.query( """for (d <- students; d.birthYear <= 1991) yield sum 1""", HList("students" -> students)) === 5)
-  }
-
-  test("set of students in BC123") {
-    assert(Raw.query( """for (d <- students; d.office = "BC123") yield set d.name""", HList("students" -> students)) === Set("Student1", "Student3", "Student5"))
-  }
-
-  test("set of students in dep2") {
-    assert(Raw.query( """for (d <- students; d.department = "dep2") yield set d.name""", HList("students" -> students)) === Set("Student2", "Student4"))
-  }
-
-
-  test("number of students in dep1") {
-    assert(Raw.query( """for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
-  }
-
-  test("set of department (using only students table)") {
-    assert(Raw.query( """for (s <- students) yield set s.department""", HList("students" -> students)) === Set("dep1", "dep2", "dep3"))
-  }
-
-  test("set of department and the headcount (using only students table)") {
-    val r = Raw.query( """
-        for (d <- (for (s <- students) yield set s.department))
-          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-      HList("students" -> students))
-
-    assert(r.size === 3)
-    
-    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
-    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-  }
-
-  test("set of department and the headcount (using both departments and students table)") {
-    val r = Raw.query("""
-        for (d <- (for (d <- departments) yield set d.name))
-            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-      HList("departments" -> departments, "students" -> students))
-
-    assert(r.size === 3)
-
-    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
-    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-  }
+//  val students = ReferenceTestData.students
+//  val profs = ReferenceTestData.profs
+//  val departments = ReferenceTestData.departments
+//
+//  test("bag of student birth years") {
+//    // Returns an ImmutableMultiset from Guava.
+//    val actual = Raw.query( """for (d <- students) yield bag d.birthYear""", HList("students" -> students))
+//    val expected = ImmutableMultiset.of(1990, 1990, 1989, 1992, 1987, 1992, 1988)
+//    assert(actual === expected)
+//  }
+//
+//  test("number of professors") {
+//    assert(Raw.query("for (d <- profs) yield sum 1", HList("profs" -> profs)) === 3)
+//  }
+//
+//  test("number of students") {
+//    assert(Raw.query("for (d <- students) yield sum 1", HList("students" -> students)) === 7)
+//  }
+//
+//  test("number of departments") {
+//    assert(Raw.query("for (d <- departments) yield sum 1", HList("departments" -> departments)) === 3)
+//  }
+//
+//  test("set of students born in 1990") {
+//    assert(Raw.query( """for (d <- students; d.birthYear = 1990) yield set d.name""", HList("students" -> students)) === Set("Student1", "Student2"))
+//  }
+//
+//  test("number of students born in 1992") {
+//    assert(Raw.query( """for (d <- students; d.birthYear = 1992) yield sum 1""", HList("students" -> students)) === 2)
+//  }
+//
+//  test("number of students born before 1991 (included)") {
+//    assert(Raw.query( """for (d <- students; d.birthYear <= 1991) yield sum 1""", HList("students" -> students)) === 5)
+//  }
+//
+//  test("set of students in BC123") {
+//    assert(Raw.query( """for (d <- students; d.office = "BC123") yield set d.name""", HList("students" -> students)) === Set("Student1", "Student3", "Student5"))
+//  }
+//
+//  test("set of students in dep2") {
+//    assert(Raw.query( """for (d <- students; d.department = "dep2") yield set d.name""", HList("students" -> students)) === Set("Student2", "Student4"))
+//  }
+//
+//
+//  test("number of students in dep1") {
+//    assert(Raw.query( """for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
+//  }
+//
+//  test("set of department (using only students table)") {
+//    assert(Raw.query( """for (s <- students) yield set s.department""", HList("students" -> students)) === Set("dep1", "dep2", "dep3"))
+//  }
+//
+//  test("set of department and the headcount (using only students table)") {
+//    val r = Raw.query( """
+//        for (d <- (for (s <- students) yield set s.department))
+//          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
+//      HList("students" -> students))
+//
+//    assert(r.size === 3)
+//
+//    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
+//    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+//  }
+//
+//  test("set of department and the headcount (using both departments and students table)") {
+//    val r = Raw.query("""
+//        for (d <- (for (d <- departments) yield set d.name))
+//            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
+//      HList("departments" -> departments, "students" -> students))
+//
+//    assert(r.size === 3)
+//
+//    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
+//    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+//  }
 
   //  check("most studied discipline",
   //    """for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =

@@ -1,5 +1,7 @@
 package raw
 
+import raw.calculus.Calculus.{Exp,IntConst}
+
 /** Monoid
   */
 sealed abstract class Monoid extends RawNode {
@@ -14,7 +16,12 @@ sealed abstract class PrimitiveMonoid extends Monoid {
 }
 
 sealed abstract class NumberMonoid extends PrimitiveMonoid
-case class MaxMonoid() extends NumberMonoid {
+
+case class MaxMonoid(m: Option[Exp] = None) extends NumberMonoid {
+  def idempotent = true
+}
+
+case class MinMonoid(m: Option[Exp] = None) extends NumberMonoid {
   def idempotent = true
 }
 
