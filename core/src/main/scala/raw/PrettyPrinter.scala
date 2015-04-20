@@ -50,19 +50,22 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
 
   def tipe(t: Type): Doc = t match {
-    case _: BoolType         => "bool"
-    case _: StringType       => "string"
-    case _: IntType          => "int"
-    case _: FloatType        => "float"
-    case RecordType(atts)    => "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case BagType(innerType)  => "bag" <> parens(tipe(innerType))
-    case ListType(innerType) => "list" <> parens(tipe(innerType))
-    case SetType(innerType)  => "set" <> parens(tipe(innerType))
-    case UserType(idn)       => idn
-    case FunType(t1, t2)     => tipe(t1) <+> "->" <+> tipe(t2)
-    case TypeVariable(v)     => s"type_var(${v.hashCode()})"
-    case _: AnyType          => "any"
-    case _: NothingType      => "nothing"
+    case _: BoolType   => "bool"
+    case _: StringType => "string"
+    case _: IntType    => "int"
+    case _: FloatType  => "float"
+    case RecordType(atts, Some(name)) =>
+      "record" <> parens(name) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
+    case RecordType(atts, None) =>
+      "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
+    case BagType(innerType)     => "bag" <> parens(tipe(innerType))
+    case ListType(innerType)    => "list" <> parens(tipe(innerType))
+    case SetType(innerType)     => "set" <> parens(tipe(innerType))
+    case UserType(idn)          => idn
+    case FunType(t1, t2)        => tipe(t1) <+> "->" <+> tipe(t2)
+    case TypeVariable(v)        => s"type_var(${v.hashCode()})"
+    case _: AnyType             => "any"
+    case _: NothingType         => "nothing"
   }
 
 }

@@ -3,129 +3,151 @@ package calculus
 
 class SemanticAnalyzerTest extends FunTest {
 
-  def assertRootType(query: String, tipe: Type, issue: String = "", world: World = null) = {
-    val run = (d: String) => if (issue != "") ignore(d + s" ($issue)") _ else test(d) _
-    run(query) {
-      val w: World =
-        if (world != null)
-          world
-        else
-          new World(sources=Map(
-            "unknown" -> SetType(AnyType()),
-            "integers" -> SetType(IntType()),
-            "floats" -> SetType(FloatType()),
-            "booleans" -> SetType(BoolType()),
-            "strings" -> SetType(StringType()),
-            "records" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("i", IntType()), AttrType("f", FloatType())))),
-            "unknownrecords" -> SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", AnyType()), AttrType("alive", AnyType()))))))
+  def success(query: String, world: World, tipe: Type) = {
+    val ast = parse(query)
+    val t = new Calculus.Calculus(ast)
 
-      val ast = parse(query)
-      val t = new Calculus.Calculus(ast)
+    val analyzer = new SemanticAnalyzer(t, world)
+    analyzer.errors.foreach(err => logger.error(err.toString))
+    assert(analyzer.errors.length === 0)
+    analyzer.debugTreeTypes
 
-      val analyzer = new SemanticAnalyzer(t, w)
-      analyzer.errors.foreach(err => logger.error(err.toString))
-      assert(analyzer.errors.length === 0)
-      analyzer.debugTreeTypes
-
-      assert(analyzer.tipe(ast) === tipe)
-    }
+    assert(analyzer.tipe(ast) === tipe)
   }
 
-  def assertFailure(query: String, error: String, w: World) = {
-    test(query) {
-      val ast = parse(query)
-      val t = new Calculus.Calculus(ast)
+  def failure(query: String, world: World, error: String) = {
+    val ast = parse(query)
+    val t = new Calculus.Calculus(ast)
 
-      val analyzer = new SemanticAnalyzer(t, w)
-      analyzer.errors.foreach(err => logger.error(err.toString))
+    val analyzer = new SemanticAnalyzer(t, world)
+    analyzer.errors.foreach(err => logger.error(err.toString))
 
-      assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
-    }
+    assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
   }
 
-  assertRootType(
-    "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)",
-    SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))))))),
-    world=TestWorlds.cern)
+  test("cern") {
+    success(
+      "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern,
+      SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
+  }
 
-  assertRootType(
-    """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""",
-    SetType(RecordType(List(AttrType("name", StringType()),AttrType("address", RecordType(List(AttrType("street", StringType()),AttrType("zipcode", StringType()))))))),
-    world=TestWorlds.departments)
+  test("departments") {
+    success(
+      """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
+      SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
 
-  assertRootType(
-    "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)",
-    SetType(RecordType(List(AttrType("E",RecordType(List(AttrType("children", ListType(RecordType(List(AttrType("age", IntType()))))),AttrType("manager", RecordType(List(AttrType("name", StringType()),AttrType("children", ListType(RecordType(List(AttrType("age", IntType()))))))))))),AttrType("M", IntType())))),
-    world=TestWorlds.employees)
+    success(
+      """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments,
+      SetType(RecordType(List(AttrType("deptName", StringType())), None)))
+  }
 
-  assertRootType(
-    """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""",
-    SetType(RecordType(List(AttrType("deptName", StringType())))),
-    world=TestWorlds.departments)
+  test("employees") {
+    success(
+      "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)", TestWorlds.employees,
+      SetType(RecordType(List(AttrType("E", RecordType(List(AttrType("dno", IntType()), AttrType("children", ListType(RecordType(List(AttrType("age", IntType())), None))), AttrType("manager", RecordType(List(AttrType("name", StringType()), AttrType("children", ListType(RecordType(List(AttrType("age", IntType())), None)))), None))), None)), AttrType("M", IntType())), None)))
+  }
 
-  assertRootType("for (r <- integers) yield set r + 1", SetType(IntType()))
-  assertRootType("for (r <- unknown) yield set r + 1", SetType(IntType()))
-  assertRootType("for (r <- unknown) yield set r + 1.0", SetType(FloatType()))
-  assertRootType("for (r <- unknown; x <- integers; r = x) yield set r", SetType(IntType()))
-  assertRootType("for (r <- unknown; x <- integers; r + x = 2*x) yield set r", SetType(IntType()))
-  assertRootType("for (r <- unknown; x <- floats; r + x = x) yield set r", SetType(FloatType()))
-  assertRootType("for (r <- unknown; x <- booleans; r and x) yield set r", SetType(BoolType()))
-  assertRootType("for (r <- unknown; x <- strings; r = x) yield set r", SetType(StringType()))
-  assertRootType("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", IntType())
-  assertRootType("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
-  assertRootType("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", SetType(IntType()))
-  assertRootType("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("value", FloatType())))), "missing record type inference")
-  assertRootType("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", SetType(IntType()))
-  assertRootType("for (r <- unknown; v := r) yield set (r + 0)", SetType(IntType()))
-  assertRootType("for (r <- unknownrecords) yield set r.dead or r.alive", SetType(BoolType()))
-  assertRootType("for (r <- unknownrecords; r.dead or r.alive) yield set r", SetType(RecordType(scala.collection.immutable.Seq(AttrType("dead", BoolType()), AttrType("alive", BoolType())))), "data source record type is not inferred")
-  assertRootType("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", SetType(IntType()))
+  test("simple type inference") {
+    val world = new World(sources=Map(
+      "unknown" -> SetType(AnyType()),
+      "integers" -> SetType(IntType()),
+      "floats" -> SetType(FloatType()),
+      "booleans" -> SetType(BoolType()),
+      "strings" -> SetType(StringType()),
+      "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
-  assertRootType("{ (a,b) := (1, 2); a+b }", IntType())
-  assertRootType("{ (a,b) := (1, 2.2); a }", IntType())
-  assertRootType("{ (a,b) := (1, 2.2); b }", FloatType())
-  assertRootType("{ ((a,b),c) := ((1, 2.2), 3); a }", IntType())
-  assertRootType("{ ((a,b),c) := ((1, 2.2), 3); b }", FloatType())
-  assertRootType("{ ((a,b),c) := ((1, 2.2), 3); c }", IntType())
-  assertRootType("{ ((a,b),c) := ((1, 2.2), 3); a+c }", IntType())
-  assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); a }", IntType())
-  assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); b }", FloatType())
-  assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); c }", IntType())
-  assertRootType("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", IntType())
-  assertRootType("{ x := for (i <- integers) yield set i; x }", SetType(IntType()))
-  assertRootType("{ x := for (i <- integers) yield set i; for (y <- x) yield set y }", SetType(IntType()))
-  assertRootType("{ z := 42; x := for (i <- integers) yield set i; for (y <- x) yield set y }", SetType(IntType()))
-  assertRootType("{ z := 42; x := for (i <- integers; i = z) yield set i; for (y <- x) yield set y }", SetType(IntType()))
+    success("for (r <- integers) yield set r + 1", world, SetType(IntType()))
+    success("for (r <- unknown) yield set r + 1", world, SetType(IntType()))
+    success("for (r <- unknown) yield set r + 1.0", world, SetType(FloatType()))
+    success("for (r <- unknown; x <- integers; r = x) yield set r", world, SetType(IntType()))
+    success("for (r <- unknown; x <- integers; r + x = 2*x) yield set r", world, SetType(IntType()))
+    success("for (r <- unknown; x <- floats; r + x = x) yield set r", world, SetType(FloatType()))
+    success("for (r <- unknown; x <- booleans; r and x) yield set r", world, SetType(BoolType()))
+    success("for (r <- unknown; x <- strings; r = x) yield set r", world, SetType(StringType()))
+    success("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", world, IntType())
+    success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
+    success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
+    success("for (r <- unknown; v := r) yield set (r + 0)", world, SetType(IntType()))
+    success("for (r <- unknownrecords) yield set r.dead or r.alive", world, SetType(BoolType()))
+    success("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", world, SetType(IntType()))
+    success("{ (a,b) := (1, 2); a+b }", world, IntType())
+    success("{ (a,b) := (1, 2.2); a }", world, IntType())
+    success("{ (a,b) := (1, 2.2); b }", world, FloatType())
+    success("{ ((a,b),c) := ((1, 2.2), 3); a }", world, IntType())
+    success("{ ((a,b),c) := ((1, 2.2), 3); b }", world, FloatType())
+    success("{ ((a,b),c) := ((1, 2.2), 3); c }", world, IntType())
+    success("{ ((a,b),c) := ((1, 2.2), 3); a+c }", world, IntType())
+    success("{ (a,(b,c)) := (1, (2.2, 3)); a }", world, IntType())
+    success("{ (a,(b,c)) := (1, (2.2, 3)); b }", world, FloatType())
+    success("{ (a,(b,c)) := (1, (2.2, 3)); c }", world, IntType())
+    success("{ (a,(b,c)) := (1, (2.2, 3)); a+c }", world, IntType())
+    success("{ x := for (i <- integers) yield set i; x }", world, SetType(IntType()))
+    success("{ x := for (i <- integers) yield set i; for (y <- x) yield set y }", world, SetType(IntType()))
+    success("{ z := 42; x := for (i <- integers) yield set i; for (y <- x) yield set y }", world, SetType(IntType()))
+    success("{ z := 42; x := for (i <- integers; i = z) yield set i; for (y <- x) yield set y }", world, SetType(IntType()))
+  }
 
-  // add here tests for failures of identifiers
+  ignore("complex type inference") {
+    val world = new World(sources=Map(
+      "unknown" -> SetType(AnyType()),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
-  assertRootType("""{
-    z := 42;
-    desc := "c.description";
-    x := for (i <- integers; i = z) yield set i;
-    for (y <- x) yield set 1
+    // TODO: Data source record type is not inferred
+    success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)))
+    // TODO: Missing record type inference
+    success("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", world, SetType(RecordType(List(AttrType("value", FloatType())), None)))
+    // TODO: Data source record type is not inferred
+    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", world, SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)))
+  }
+
+  test("expression block with multiple comprehensions") {
+    val world = new World(sources = Map("integers" -> SetType(IntType())))
+
+    success("""
+    {
+      z := 42;
+      desc := "c.description";
+      x := for (i <- integers; i = z) yield set i;
+      for (y <- x) yield set 1
     }
-    """, SetType(IntType()))
+    """, world, SetType(IntType()))
+  }
 
-//  {
-//    code := 42;
-//    desc := "c.description";
-//
-//    patient_ids := for (d <- diagnosis; d.diagnostic_code = code) yield list d.patient_id;
-//    for (p <- patients_ids) yield sum 1
-//  }
+  test("inference for function abstraction") {
+    val world = new World()
 
+    success("""\a: int -> a + 2""", world, FunType(IntType(), IntType()))
+    success("""\a: int -> a""", world, FunType(IntType(), IntType()))
+    success("""\a -> a + 2""", world, FunType(IntType(), IntType()))
+    success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
+    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
+    success("""\(a: int, b: int) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+  }
 
-  assertRootType("""\a: int -> a + 2""", FunType(IntType(), IntType()))
-  assertRootType("""\a: int -> a""", FunType(IntType(), IntType()))
-  assertRootType("""\a -> a + 2""", FunType(IntType(), IntType()))
-  assertRootType("""\a -> a + a + 2""", FunType(IntType(), IntType()))
-  assertRootType("""\a -> a""", FunType(AnyType(), AnyType()))
+  test("patterns") {
+    val world = new World()
 
-  assertRootType("""\(a: int, b: int) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
-  assertRootType("""\(a, b) -> a + b + 2""", FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), IntType()))
+    success("""for ((a, b) <- list((1, 2.2))) yield set (a, b)""", world, SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())), None)))
+  }
 
-//  assertRootType("for ((a, b) <- list((1, 2.2))) yield set (a, b)", SetType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", FloatType())))))
-//
-//  assertFailure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", "expected int got float", TestWorlds.things)
+  test("errors") {
+    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
+  }
+
+  test("propagate named records") {
+    val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
+    val students = ListType(student)
+    val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
+    val professors = ListType(professor)
+    val world = new World(sources = Map("students" -> students, "professors" -> professors))
+
+    success("for (s <- students) yield list s", world, students)
+    success("for (s <- students) yield list (a := 1, b := s)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student)), None)))
+    success("for (s <- students; p <- professors; s = p) yield list s", world, students)
+    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
+    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+  }
 }

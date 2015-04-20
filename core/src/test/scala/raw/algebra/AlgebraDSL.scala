@@ -92,6 +92,8 @@ abstract class AlgebraDSL {
 
   implicit def stringToExp(v: String): ConstBuilder = ConstBuilder(StringConst(v))
 
+  def const(v: String): ConstBuilder = ConstBuilder(StringConst(v))
+
   /** Variable
     */
   def arg = ArgBuilder
@@ -168,7 +170,7 @@ abstract class AlgebraDSL {
     typer.expressionType(e) match { case c: CollectionType => c.innerType }
 
   private def rectipe(t1: Type, t2: Type): Type =
-    RecordType(List(AttrType("_1", t1), AttrType("_2", t2)))
+    RecordType(List(AttrType("_1", t1), AttrType("_2", t2)), None)
 
   /** Algebra operators
     */
@@ -178,7 +180,7 @@ abstract class AlgebraDSL {
   def reduce(m: Monoid, e: Builder, p: Builder, child: LogicalAlgebraNode): Reduce = {
     val t = tipe(child)
     val ne = build(e, t)
-    val np = build(p, rectipe(t, exptipe(ne)))
+    val np = build(p, t)
     Reduce(m, ne, np, child)
   }
 
