@@ -330,7 +330,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
             val leftCode = build(left)
             val rightCode = build(right)
             q"""
-               ${leftCode}.cartesian(${rightCode}).filter(${exp(p)})
+               val rddLeft = ${leftCode}
+               val rddRight = ${rightCode}
+               rddLeft.cartesian(rddRight).filter(${exp(p)})
              """
           }
           case SparkMerge(m, left, right) => ???

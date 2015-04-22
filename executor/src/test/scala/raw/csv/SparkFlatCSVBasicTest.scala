@@ -62,7 +62,7 @@ class SparkFlatCSVBasicTest extends AbstractSparkFlatCSVTest {
   test("[list monoid] All student names") {
     val actual = Raw.query("for (s <- students) yield list s.birthYear", HList("students" -> students)).asInstanceOf[List[Int]]
     val expected = List(1990, 1990, 1989, 1992, 1987, 1992, 1988)
-    assert(actual.sorted === expected.sorted)
+    assert(actual === expected)
   }
 
   test("[set monoid] All student names") {
@@ -83,10 +83,10 @@ class SparkFlatCSVBasicTest extends AbstractSparkFlatCSVTest {
     assert(actual === ReferenceTestData.profs.toSet)
   }
 
-  test("[set monoid] professors as list") {
+  test("[list monoid] professors as list") {
     val actual = Raw.query("for (d <- profs) yield list d", HList("profs" -> profs)).asInstanceOf[List[Professor]]
     logger.info("Result: " + actual)
-    assert(actual.sorted === ReferenceTestData.profs.sorted)
+    assert(actual === ReferenceTestData.profs)
   }
 
   /* ======================================

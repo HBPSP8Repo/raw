@@ -29,14 +29,14 @@ lazy val commonDeps = Seq(
 lazy val coreDeps =
   commonDeps ++
     Seq(
-      kiama
-    )
+      kiama     )
 
 lazy val executorDeps =
   commonDeps ++
     Seq(
       shapeless,
       spark,
+      sparkSql,
       json4s
     )
 

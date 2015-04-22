@@ -1,8 +1,7 @@
 package raw.csv
 
 import org.apache.spark.rdd.RDD
-import raw.Raw
-import shapeless.HList
+import org.apache.spark.sql.SQLContext
 
 case class Employee(name: String, deptID: String)
 
@@ -65,13 +64,13 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   //}
 
   // Needs Nest
-//  test("set of department and the headcount (using only students table)") {
-//    val r = Raw.query(
-//      """for (d <- (for (s <- students) yield set s.department))
-//                    yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-//      HList("students" -> students))
-//    println(r)
-//  }
+  //  test("set of department and the headcount (using only students table)") {
+  //    val r = Raw.query(
+  //      """for (d <- (for (s <- students) yield set s.department))
+  //                    yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
+  //      HList("students" -> students))
+  //    println(r)
+  //  }
 
   //  // Needs Nest
   //  test("set of department and the headcount (using only students table)") {
@@ -122,7 +121,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   }
 
 
-  test("nest") {
+  ignore("nest") {
     //      spark_outer_join(
     //        arg._2.department = arg._1.department,
     //        spark_select(true, spark_scan("students")),
@@ -195,8 +194,6 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
 
     val res = r.mapValues(iter => iter.size)
     println("res:\n" + toString(res))
-
-
-    
   }
+
 }
