@@ -23,6 +23,8 @@ object CSVParser {
   }
 }
 
+
+
 class CSVToRDDParser extends AutoCloseable with LazyLogging {
   logger.info("Starting local Spark context")
   val conf = new SparkConf()
@@ -31,13 +33,16 @@ class CSVToRDDParser extends AutoCloseable with LazyLogging {
     // Disable compression to avoid polluting the tmp directory with dll files.
     // By default, Spark compresses the broadcast variables using the JavaSnappy. This library uses a native DLL which
     // gets copied as a new file to the TMP directory every time an instance of Spark is run.
-    // http://spark.apache.org/docs/1.3.0/configuration.html#compression-and-serialization
+    // http://spark.apache.org/docs/1.3.1/configuration.html#compression-and-serialization
     .set("spark.broadcast.compress", "false")
+    .set("spark.shuffle.compress", "false")
+    .set("spark.shuffle.spill.compress", "false")
+  //    .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
   val sc = new SparkContext(conf)
 
   /** Concerning the T:ClassTag implicit parameter:
-   * http://apache-spark-user-list.1001560.n3.nabble.com/Generic-types-and-pair-RDDs-td3593.html
-   */
+    * http://apache-spark-user-list.1001560.n3.nabble.com/Generic-types-and-pair-RDDs-td3593.html
+    */
   def parse[T: ClassTag](filePath: String, parse: (List[String] => T), delim: String = ","): RDD[T] = {
     val url: URL = Resources.getResource(filePath)
     sc.textFile(url.getPath())
@@ -45,7 +50,7 @@ class CSVToRDDParser extends AutoCloseable with LazyLogging {
       .map(parse)
   }
 
-  override def close(){
+  override def close() {
     logger.info("Stopping Spark context")
     sc.stop()
   }
