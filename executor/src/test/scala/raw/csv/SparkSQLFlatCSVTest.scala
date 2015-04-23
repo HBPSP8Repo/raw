@@ -3,12 +3,12 @@ package raw.csv
 import com.google.common.collect.ImmutableMultiset
 import org.apache.spark.sql.catalyst.expressions.Max
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import raw.repl.RawSparkContext
 
 import scala.language.existentials
 import scala.reflect.ClassTag
 
-class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
-  val sc = csvReader.sc
+class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest with RawSparkContext {
   val sqlContext = new SQLContext(sc)
 
   // this is used to implicitly convert an RDD to a DataFrame.

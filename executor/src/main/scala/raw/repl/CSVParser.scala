@@ -4,9 +4,10 @@ package util
 import java.net.URL
 
 import com.google.common.io.Resources
-import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.scalalogging.{StrictLogging, LazyLogging}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
+import raw.repl.RawSparkContext
 
 import scala.reflect.ClassTag
 
@@ -23,22 +24,14 @@ object CSVParser {
   }
 }
 
-
-
-class CSVToRDDParser extends AutoCloseable with LazyLogging {
-  logger.info("Starting local Spark context")
-  val conf = new SparkConf()
-    .setAppName("RAW Unit Tests")
-    .setMaster("local[2]")
-    // Disable compression to avoid polluting the tmp directory with dll files.
-    // By default, Spark compresses the broadcast variables using the JavaSnappy. This library uses a native DLL which
-    // gets copied as a new file to the TMP directory every time an instance of Spark is run.
-    // http://spark.apache.org/docs/1.3.1/configuration.html#compression-and-serialization
-    .set("spark.broadcast.compress", "false")
-    .set("spark.shuffle.compress", "false")
-    .set("spark.shuffle.spill.compress", "false")
-  //    .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
-  val sc = new SparkContext(conf)
+class CSVToRDDParser extends StrictLogging {
+  /* A simple form of dependency injection, inspired in the Cake Pattern
+   * In this case, it would be simpler to mixin this trait directly in this class, since there is
+   * a single implementation of RawSparkContext. This would be more useful if there were several
+   * implementations, because then the clients using this class could choose which to use
+   * (eg., production versus testing)
+   */
+  this : RawSparkContext =>
 
   /** Concerning the T:ClassTag implicit parameter:
     * http://apache-spark-user-list.1001560.n3.nabble.com/Generic-types-and-pair-RDDs-td3593.html
@@ -49,37 +42,4 @@ class CSVToRDDParser extends AutoCloseable with LazyLogging {
       .map(_.split(delim).toList)
       .map(parse)
   }
-
-  override def close() {
-    logger.info("Stopping Spark context")
-    sc.stop()
-  }
 }
-
-//
-//object CSVParser {
-//
-//  def apply(path: String, tipe: Type, delim: String = ","): List[Any] = {
-//    val content = scala.io.Source.fromFile(path)
-//
-//    //    def parse(t: Type, item: String): Any = t match {
-//    //      case IntType()    => item.toInt
-//    //      case FloatType()  => item.toFloat
-//    //      case BoolType()   => item.toBoolean
-//    //      case StringType() => item
-//    //      case _            => throw CSVParserError(s"Unexpected type: $t")
-//    //    }
-//
-//    content.getLines().map{ case line => line.split(delim).toList }.map(parse)
-//    //
-//    //    t match {
-//    //      case ListType(RecordType(atts)) => {
-//    //        val f = (l: String) => atts.zip(l.split(delim)).map { case (a, item) => (a.idn, parse(a.tipe, item))}.toMap
-//    //        // TODO: This is materializing the whole file in memory!
-//    //        content.getLines().toList.map(f)
-//    //      }
-//    //      case _                => throw CSVParserError(s"Unexpected return type: $t")
-//    //    }
-//  }
-//
-//}

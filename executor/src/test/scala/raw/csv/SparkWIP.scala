@@ -90,8 +90,8 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     rdd.collect().toList.mkString("\n");
   }
 
-  val employees = csvReader.parse("data/wikipedia/employee.csv", l => Employee(l(0), SparkWIP.convertNulls(l(1))))
-  val depts = csvReader.parse("data/wikipedia/department.csv", l => Dept(SparkWIP.convertNulls(l(0)), l(1)))
+  val employees = csvParser.parse("data/wikipedia/employee.csv", l => Employee(l(0), SparkWIP.convertNulls(l(1))))
+  val depts = csvParser.parse("data/wikipedia/department.csv", l => Dept(SparkWIP.convertNulls(l(0)), l(1)))
 
 
   // Number of students per department
