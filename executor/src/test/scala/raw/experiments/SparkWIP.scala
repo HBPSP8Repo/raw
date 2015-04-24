@@ -1,7 +1,7 @@
-package raw.csv
+package raw.experiments
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SQLContext
+import raw.csv.{AbstractSparkFlatCSVTest, Student}
 
 case class Employee(name: String, deptID: String)
 

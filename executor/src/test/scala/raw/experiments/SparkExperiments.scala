@@ -1,4 +1,4 @@
-package raw.csv
+package raw.experiments
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.FunSuite
