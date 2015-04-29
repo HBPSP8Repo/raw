@@ -66,6 +66,7 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
           yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
       HList("students" -> students))
 
+    println("Result: " + r)
     assert(r.size === 3)
     
     val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }

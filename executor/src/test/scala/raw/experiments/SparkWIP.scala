@@ -1,7 +1,8 @@
 package raw.experiments
 
 import org.apache.spark.rdd.RDD
-import raw.csv.{AbstractSparkFlatCSVTest, Student}
+import raw.csv.Student
+import raw.csv.spark.AbstractSparkFlatCSVTest
 
 case class Employee(name: String, deptID: String)
 
@@ -87,7 +88,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   //  }
 
   def toString[R](rdd: RDD[R]): String = {
-    rdd.collect().toList.mkString("\n");
+    rdd.collect().toList.mkString("\n")
   }
 
   val employees = csvParser.parse("data/wikipedia/employee.csv", l => Employee(l(0), SparkWIP.convertNulls(l(1))))
@@ -120,7 +121,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   }
 
 
-  ignore("nest") {
+  test("nest") {
     //      spark_outer_join(
     //        arg._2.department = arg._1.department,
     //        spark_select(true, spark_scan("students")),
@@ -173,7 +174,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     val r1: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
     println("groupBy(f(a)):\n" + toString(r1))
 
-    val pif: RDD[Student] = r1.keys.distinct
+    val pif: RDD[Student] = r1.keys.distinct()
     println("pif:\n" + toString(pif))
 
     val afterP: RDD[(Student, Student)] = nestInput.filter(p)

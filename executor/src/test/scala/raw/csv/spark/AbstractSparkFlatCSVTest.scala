@@ -1,7 +1,8 @@
-package raw.csv
+package raw.csv.spark
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.csv.{Department, Student, Professor}
 import raw.repl.RawSparkContext
 import raw.util.CSVToRDDParser
 

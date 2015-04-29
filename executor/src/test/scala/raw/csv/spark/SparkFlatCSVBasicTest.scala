@@ -1,7 +1,8 @@
-package raw.csv
+package raw.csv.spark
 
 import com.google.common.collect.ImmutableMultiset
 import raw.Raw
+import raw.csv.{Professor, ReferenceTestData}
 import shapeless.HList
 
 class SparkFlatCSVBasicTest extends AbstractSparkFlatCSVTest {

@@ -1,7 +1,8 @@
-package raw.csv
+package raw.csv.spark
 
 import org.apache.spark.rdd.RDD
 import raw.Raw
+import raw.csv._
 import shapeless.HList
 
 /*
@@ -64,6 +65,13 @@ object SparkFlatCSVJoinTest {
         "yield set (p.name, d.name, s.name)",
       HList("profs" -> profs, "departments" -> departments, "students" -> students)).asInstanceOf[Set[Any]]
   }
+
+//  def set_of_department_and_the_headcount_using_only_students_table() = {
+//    Raw.query( """
+//        for (d <- (for (s <- students) yield set s.department))
+//          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
+//      HList("students" -> students)).asInstanceOf[Set[Any]]
+//  }
 }
 
 
@@ -99,6 +107,14 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
     val q: Set[Any] = SparkFlatCSVJoinTest.professors_departments_students_predicate_with_triple_condition
     printQueryResult(q)
   }
+
+//  test("set of department and the headcount (using only students table)") {
+//    val r = SparkFlatCSVJoinTest.set_of_department_and_the_headcount_using_only_students_table()
+
+//    assert(r.size === 3)
+//    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
+//    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+//  }
 
   def printQueryResult(res: Set[Any]) = {
     val str = res.mkString("\n")

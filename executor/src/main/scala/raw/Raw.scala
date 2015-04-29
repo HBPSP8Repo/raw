@@ -1,11 +1,12 @@
 package raw
 
+import com.typesafe.scalalogging.StrictLogging
 import raw.psysicalalgebra.PhysicalAlgebraPrettyPrinter
 import shapeless.HList
 
 import scala.language.experimental.macros
 
-class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
+class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
 
   import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
   import raw.algebra.Typer
@@ -23,7 +24,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
     /** Check whether the query is known at compile time.
       */
     def queryKnown: Option[String] = q.tree match {
-      case Literal(Constant(s: String)) => Some(s)
+      case Literal(Constant(s: String)) => Some(s.trim)
       case _ => None
     }
 
@@ -53,9 +54,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
           raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature)._1) }, Some(symName))
 
-        case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" => {
+        case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" =>
           raw.ListType(inferType(t1)._1)
-        }
 
         case TypeRef(pre, sym, args) =>
           bail(s"Unsupported TypeRef($pre, $sym, $args)")
@@ -123,7 +123,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case r@RecordType(atts, None) =>
             val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
             val cl = s"""case class ${recordTypeSym(r)}($args)"""
-            println("Defined case class: " + cl)
+//            logger.info("Defined case class: {}", cl)
             cl
         }
 
@@ -274,15 +274,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                 /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
                  * Compare the Spark implementations versus a generic code generator based on fold
                  */
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).fold(${zero(m1)})(${fold(m1)})"""
+                q"""$childCode.filter(${exp(p)}).map(${exp(e)}).fold(${zero(m1)})(${fold(m1)})"""
 
               case _: ListMonoid =>
                 // TODO Can this be made more efficient?
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.to[scala.collection.immutable.List]"""
+                q"""$childCode.filter(${exp(p)}).map(${exp(e)}).toLocalIterator.to[scala.collection.immutable.List]"""
 
               case _: BagMonoid =>
                 // TODO: Can we improve the lower bound for the value?
-                q"""val m: scala.collection.Map[_, Long] = ${childCode}.filter(${exp(p)}).map(${exp(e)}).countByValue()
+                q"""val m: scala.collection.Map[_, Long] = $childCode.filter(${exp(p)}).map(${exp(e)}).countByValue()
                     val b = com.google.common.collect.ImmutableMultiset.builder[Any]()
                     m.foreach( p => b.addCopies(p._1, p._2.toInt) )
                     b.build()
@@ -298,7 +298,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                  */
                 val filterPredicate = exp(p)
                 val mapFunction = exp(e)
-                q"""${childCode}.filter($filterPredicate).map($mapFunction).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
+                q"""$childCode.filter($filterPredicate).map($mapFunction).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
             }
             code
 
@@ -328,15 +328,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           //                val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
           //                q"""${tree}.map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
           //            }
-          case r@SparkJoin(p, left, right) => {
+          case r@SparkJoin(p, left, right) =>
             val leftCode = build(left)
             val rightCode = build(right)
             q"""
-               val rddLeft = ${leftCode}
-               val rddRight = ${rightCode}
+               val rddLeft = $leftCode
+               val rddRight = $rightCode
                rddLeft.cartesian(rddRight).filter(${exp(p)})
              """
-          }
+
           case SparkMerge(m, left, right) => ???
 
           /*
@@ -399,13 +399,13 @@ The code bellow does the following transformations:
         case Apply(Apply(TypeApply(_, _), items), _) =>
           items.flatMap {
             case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
-              println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
+//              println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
               val (rawType, isSpark) = inferType(scalaType.tpe)
               List(name.toString -> AccessPath(rawType, tree, isSpark))
             case Apply(TypeApply(_, _), items1) =>
               items1.map {
                 case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
-                  println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
+//                  println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
                   val (rawType, isSpark) = inferType(scalaType.tpe)
                   name.toString -> AccessPath(rawType, tree, isSpark)
               }
@@ -422,23 +422,27 @@ The code bellow does the following transformations:
 
     queryKnown match {
       case Some(qry) =>
+        logger.info("Compiling query:\n{}", qry)
         //val accessPaths = hmapToAccessPath
         // Extract from the HList given by the user in the query to a description of the access type, scan operators.
         val accessPaths: Map[String, AccessPath] = hlistToAccessPath
-        println(s"Access paths: $accessPaths")
         // Create the catalog
         val sources = accessPaths.map({ case (name, AccessPath(rawType, _, _)) => name -> rawType })
         val world = new World(sources)
         // Parse the query, using the catalog generated from what the user gave.
         Query(qry, world) match {
-          case Right(logicalTree) => {
+          case Right(logicalTree) =>
             val typer = new algebra.Typer(world)
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
-            val generatedCode: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            QueryLogger.log(qry, PhysicalAlgebraPrettyPrinter(physicalTree), showCode(generatedCode))
-            c.Expr[Any](generatedCode)
-          }
+            val algebraStr = PhysicalAlgebraPrettyPrinter(physicalTree)
+            logger.info("Algebra:\n{}", algebraStr)
+            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
+            val scalaCode = showCode(generatedTree)
+            logger.info("Generated code:\n{}", scalaCode)
+            QueryLogger.log(qry, algebraStr, scalaCode)
+            c.Expr[Any](generatedTree)
+
           case Left(err) => bail(err.err)
         }
       case None =>

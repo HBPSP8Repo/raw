@@ -1,9 +1,8 @@
-package raw.csv
+package raw.csv.spark
 
 import com.google.common.collect.ImmutableMultiset
-import org.apache.spark.sql.catalyst.expressions.Max
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
-import raw.repl.RawSparkContext
+import raw.csv.spark.AbstractSparkFlatCSVTest
 
 import scala.language.existentials
 import scala.reflect.ClassTag
@@ -38,7 +37,6 @@ class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
 
     println("Students birthyear plus 1")
     studentsDF.select(studentsDF("name"), studentsDF("birthYear") + 1).show()
-
   }
 
   test("number of professors") {
