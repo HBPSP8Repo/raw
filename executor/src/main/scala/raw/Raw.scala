@@ -1,15 +1,14 @@
 package raw
 
-import raw.psysicalalgebra.PhysicalAlgebra._
-import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
+import raw.psysicalalgebra.PhysicalAlgebraPrettyPrinter
 import shapeless.HList
 
 import scala.language.experimental.macros
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
 
-  import raw.algebra.Typer
   import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
+  import raw.algebra.Typer
   import raw.psysicalalgebra.LogicalToPhysicalAlgebra
   import raw.psysicalalgebra.PhysicalAlgebra._
 
@@ -121,10 +120,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
         // Create corresponding case class
         val code = anonRecordTypes
           .map {
-            case r @ RecordType(atts, None) =>
-              val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
-              s"""case class ${recordTypeSym(r)}($args)"""
-          }
+          case r@RecordType(atts, None) =>
+            val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
+            val cl = s"""case class ${recordTypeSym(r)}($args)"""
+            println("Defined case class: " + cl)
+            cl
+        }
 
         code.map(c.parse)
       }
@@ -195,7 +196,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
           case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
         }
 
-        println("Generating code for node: " + a)
         a match {
           case ScalaNest(m, e, f, p, g, child) => m match {
             case m1: PrimitiveMonoid =>
@@ -296,7 +296,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) {
                  *
                  * - toSet is a Scala local operation.
                  */
-                q"""${childCode}.filter(${exp(p)}).map(${exp(e)}).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
+                val filterPredicate = exp(p)
+                val mapFunction = exp(e)
+                q"""${childCode}.filter($filterPredicate).map($mapFunction).distinct.toLocalIterator.to[scala.collection.immutable.Set]"""
             }
             code
 
@@ -380,8 +382,8 @@ The code bellow does the following transformations:
         }
       }
 
-      val caseClasses = buildCaseClasses
-      val code = build(physicalTree)
+      val caseClasses: Set[Tree] = buildCaseClasses
+      val code: Tree = build(physicalTree)
 
       q"""
       ..$caseClasses

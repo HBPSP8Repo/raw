@@ -24,15 +24,7 @@ object CSVParser {
   }
 }
 
-class CSVToRDDParser extends StrictLogging {
-  /* A simple form of dependency injection, inspired in the Cake Pattern
-   * In this case, it would be simpler to mixin this trait directly in this class, since there is
-   * a single implementation of RawSparkContext. This would be more useful if there were several
-   * implementations, because then the clients using this class could choose which to use
-   * (eg., production versus testing)
-   */
-  this : RawSparkContext =>
-
+class CSVToRDDParser(sc: SparkContext) extends StrictLogging {
   /** Concerning the T:ClassTag implicit parameter:
     * http://apache-spark-user-list.1001560.n3.nabble.com/Generic-types-and-pair-RDDs-td3593.html
     */

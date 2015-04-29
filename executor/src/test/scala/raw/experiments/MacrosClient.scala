@@ -6,8 +6,6 @@ import scala.tools.reflect.ToolBox
 object BFS extends Traverser {
   override def traverse(tree: Tree): Unit = {
     println("At node: " + tree.getClass + ", tpe: " + tree.tpe + ", symbol: " + tree.symbol + ", Pos: " + tree.pos)
-
-
     tree match {
       case Apply(fn, e) => println("Apply: " + fn + ", " + e)
       case _ =>

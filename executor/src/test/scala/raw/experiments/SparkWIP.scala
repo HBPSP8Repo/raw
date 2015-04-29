@@ -93,7 +93,6 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   val employees = csvParser.parse("data/wikipedia/employee.csv", l => Employee(l(0), SparkWIP.convertNulls(l(1))))
   val depts = csvParser.parse("data/wikipedia/department.csv", l => Dept(SparkWIP.convertNulls(l(0)), l(1)))
 
-
   // Number of students per department
   //  for (d <- (for (s <- students) yield set s.department))
   //  yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))
@@ -127,14 +126,14 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     //        spark_select(true, spark_scan("students")),
     //        spark_select(true, spark_scan("students")))))
 
-    println("Students:\n" + toString(students))
-    val matching: RDD[(Student, Student)] = students.cartesian(students).filter({
+    println("Students:\n" + toString(testData.students))
+    val matching: RDD[(Student, Student)] = testData.students.cartesian(testData.students).filter({
       case (s1, s2) => if (s1.department == null) false else s1.department.equals(s2.department)
     }
     )
     //    println("Matching:\n" + toString(matching))
 
-    val resWithOption: RDD[(Student, (Student, Option[Student]))] = students.map(v => (v, v)).leftOuterJoin(matching)
+    val resWithOption: RDD[(Student, (Student, Option[Student]))] = testData.students.map(v => (v, v)).leftOuterJoin(matching)
     //    println("resWithOption:\n" + toString(resWithOption))
 
     val nestInput: RDD[(Student, Student)] = resWithOption.map({
@@ -195,5 +194,4 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     val res = r.mapValues(iter => iter.size)
     println("res:\n" + toString(res))
   }
-
 }

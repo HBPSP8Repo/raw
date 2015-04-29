@@ -8,17 +8,17 @@ import raw.repl.RawSparkContext
 import scala.language.existentials
 import scala.reflect.ClassTag
 
-class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest with RawSparkContext {
-  val sqlContext = new SQLContext(sc)
+class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
+  val sqlContext = new SQLContext(rawSparkContext.sc)
 
   // this is used to implicitly convert an RDD to a DataFrame.
   import sqlContext.implicits._
 
-  val profsDF: DataFrame = profs.toDF()
+  val profsDF: DataFrame = testData.profs.toDF()
   profsDF.show()
-  val studentsDF: DataFrame = students.toDF()
+  val studentsDF: DataFrame = testData.students.toDF()
   studentsDF.show()
-  val departmentsDF: DataFrame = departments.toDF()
+  val departmentsDF: DataFrame = testData.departments.toDF()
   departmentsDF.show()
 
   // Register tables with sql context to use with the SQL queries
@@ -150,26 +150,26 @@ class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest with RawSparkContext 
     assertResult(expected)(actual)
   }
 
-    test("[SQL] most studied discipline") {
-//      val r = Raw.query("""
-//          for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
-//          (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
-//        HList("departments" -> departments, "students" -> students))
-
-      val rows = sqlContext.sql(
-      """
-        |SELECT discipline, MAX(*)
-        |FROM (SELECT d.discipline, COUNT(*)
-        | FROM departments AS d, students AS s
-        | WHERE d.name = s.department
-        | GROUP BY d.discipline) AS t
-        |GROUP BY discipline
-      """.stripMargin
-      )
-      rows.show()
-//      assert(r.size === 1)
-//      assert(r === Set("Computer Architecture"))
-    }
+//    test("[SQL] most studied discipline") {
+////      val r = Raw.query("""
+////          for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
+////          (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
+////        HList("departments" -> departments, "students" -> students))
+//
+//      val rows = sqlContext.sql(
+//      """
+//        |SELECT discipline, MAX(*)
+//        |FROM (SELECT d.discipline, COUNT(*)
+//        | FROM departments AS d, students AS s
+//        | WHERE d.name = s.department
+//        | GROUP BY d.discipline) AS t
+//        |GROUP BY discipline
+//      """.stripMargin
+//      )
+//      rows.show()
+////      assert(r.size === 1)
+////      assert(r === Set("Computer Architecture"))
+//    }
 
   import org.apache.spark.sql.functions._
 

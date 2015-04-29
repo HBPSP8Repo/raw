@@ -1,10 +1,9 @@
 package raw.repl
 
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{SparkConf, SparkContext}
 
-object RawSparkContext extends StrictLogging {
-  logger.info("Starting local Spark context")
+class RawSparkContext extends StrictLogging with AutoCloseable {
   lazy val conf = new SparkConf()
     .setAppName("RAW Unit Tests")
     .setMaster("local[2]")
@@ -16,12 +15,11 @@ object RawSparkContext extends StrictLogging {
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
   //    .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
-  lazy val sc = new SparkContext(conf)
-}
 
-trait RawSparkContext extends AutoCloseable with StrictLogging {
-  def conf = RawSparkContext.conf
-  def sc = RawSparkContext.sc
+  lazy val sc = {
+    logger.info("Starting local Spark context")
+    new SparkContext(conf)
+  }
 
   override def close() {
     logger.info("Stopping Spark context")
