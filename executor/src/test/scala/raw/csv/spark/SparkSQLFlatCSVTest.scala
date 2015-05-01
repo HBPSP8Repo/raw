@@ -2,7 +2,6 @@ package raw.csv.spark
 
 import com.google.common.collect.ImmutableMultiset
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
-import raw.csv.spark.AbstractSparkFlatCSVTest
 
 import scala.language.existentials
 import scala.reflect.ClassTag

@@ -358,6 +358,7 @@ The code bellow does the following transformations:
    (v, (v, Some[w])) -> (v, w)
    (v, (v, None)) -> (v, null)
            */
+            // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
           case SparkOuterJoin(p, left, right) =>
             val code = q"""
               val leftRDD = ${build(left)}

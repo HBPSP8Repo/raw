@@ -108,13 +108,14 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
     printQueryResult(q)
   }
 
-//  test("set of department and the headcount (using only students table)") {
+  // TODO: Needs nest.
+  test("set of department and the headcount (using only students table)") {
 //    val r = SparkFlatCSVJoinTest.set_of_department_and_the_headcount_using_only_students_table()
 
 //    assert(r.size === 3)
 //    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
 //    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-//  }
+  }
 
   def printQueryResult(res: Set[Any]) = {
     val str = res.mkString("\n")

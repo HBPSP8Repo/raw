@@ -4,6 +4,8 @@ import org.apache.spark.rdd.RDD
 import raw.csv.Student
 import raw.csv.spark.AbstractSparkFlatCSVTest
 
+import scala.reflect.ClassTag
+
 case class Employee(name: String, deptID: String)
 
 case class Dept(id: String, name: String)
@@ -120,22 +122,53 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
 
   }
 
+  //  for (d <- (for (s <- students) yield set s.department))
+  //  yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1)
+
+  //    spark_reduce(
+  //      set,
+  //      record("name" -> arg._1.department, "count" -> arg._2),
+  //      true,
+  //      spark_nest(
+  //        sum,
+  //        1,
+  //        arg._1,
+  //        true,
+  //        arg._2,
+  //        spark_outer_join(
+  //          arg._2.department = arg._1.department,
+  //          spark_select(true, spark_scan("students")),
+  //          spark_select(true, spark_scan("students")))))
+
+  def outerJoin[T  >: Null <: AnyRef : ClassTag](left: RDD[T], right: RDD[T], p: (((T, T)) => Boolean)): RDD[(T, T)] = {
+    val matching = left
+      .cartesian(right)
+      .filter(tuple => tuple._1 != null)
+      .filter(p)
+
+    val resWithOption = left
+      .map(v => (v, v))
+      .leftOuterJoin(matching)
+
+    val r: RDD[(T, T)] = resWithOption.map({
+      case (v1, (v2, None)) => (v1, null)
+      case (v1, (v2, Some(w))) => (v1, w)
+    })
+
+    r
+  }
 
   test("nest") {
-    //      spark_outer_join(
-    //        arg._2.department = arg._1.department,
-    //        spark_select(true, spark_scan("students")),
-    //        spark_select(true, spark_scan("students")))))
-
     println("Students:\n" + toString(testData.students))
+    // spark_outer_join
     val matching: RDD[(Student, Student)] = testData.students.cartesian(testData.students).filter({
       case (s1, s2) => if (s1.department == null) false else s1.department.equals(s2.department)
     }
     )
-    //    println("Matching:\n" + toString(matching))
+    println("Matching:\n" + toString(matching))
 
     val resWithOption: RDD[(Student, (Student, Option[Student]))] = testData.students.map(v => (v, v)).leftOuterJoin(matching)
-    //    println("resWithOption:\n" + toString(resWithOption))
+    println("resWithOption:\n" + toString(resWithOption))
 
     val nestInput: RDD[(Student, Student)] = resWithOption.map({
       case (v1, (v2, None)) => (v1, null)
