@@ -25,7 +25,7 @@ object MacrosClient {
 
   def toolbox() = {
     val tb = runtimeMirror(getClass.getClassLoader).mkToolBox()
-    val tree = tb.parse(""" { class C(s:String) { def name = "a" } } """)
+    val tree = tb.parse( """ { class C(s:String) { def name = "a" } } """)
     showTree(tree)
 
     // fills in the symbol and tpe fields in the tree node.
@@ -54,15 +54,17 @@ object MacrosClient {
     showTree(expr.tree)
 
     println("Actual type: " + expr.actualType + ", Static type: " + expr.staticType)
-    val ex = reify( { val x = 1 } )
+    val ex = reify({
+      val x = 1
+    })
     showTree(ex.tree)
     println("Actual type: " + ex.actualType + ", Static type: " + ex.staticType)
   }
 
   def main(args: Array[String]) {
     //    print(Macros.test("Joe", 12))
-//    reifi()
-//    quasiquotes()
+    reifi()
+    quasiquotes()
     toolbox()
   }
 }
