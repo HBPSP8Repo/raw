@@ -9,12 +9,16 @@ lazy val buildSettings = Seq(
   organizationHomepage := Some(url("http://dias.epfl.ch/")),
   version := "0.0.0",
   scalaVersion := "2.11.6",
-  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off","-Ymacro-debug-verbose"), //, "-Ymacro-debug-verbose"
+  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   resolvers := sonatypeResolvers,
 // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
 // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
-  updateOptions := updateOptions.value.withCachedResolution(true)
+  updateOptions := updateOptions.value.withCachedResolution(true),
+  addCompilerPlugin(paradiseDependency)
 )
+
+lazy val paradiseDependency =
+  "org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full
 
 lazy val commonDeps = Seq(
   scalaCompiler,

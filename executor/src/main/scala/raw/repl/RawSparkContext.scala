@@ -14,7 +14,7 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.broadcast.compress", "false")
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
-  //    .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
+//      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
   lazy val sc = {
     logger.info("Starting local Spark context")

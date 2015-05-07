@@ -1,35 +1,42 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
-import raw.psysicalalgebra.PhysicalAlgebraPrettyPrinter
-import shapeless.HList
+import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
+import raw.algebra.Typer
+import raw.psysicalalgebra.PhysicalAlgebra._
+import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
+import scala.annotation.StaticAnnotation
+import scala.collection.mutable
 import scala.language.experimental.macros
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
 
-  import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-  import raw.algebra.Typer
-  import raw.psysicalalgebra.LogicalToPhysicalAlgebra
-  import raw.psysicalalgebra.PhysicalAlgebra._
+  import c.universe._
 
-  def query(q: c.Expr[String], catalog: c.Expr[HList]) = {
+  case class AccessPath(tipe: raw.Type, tree: Tree, isSpark: Boolean)
 
-    import c.universe._
+  def extractParams(tree: Tree): (Tree, Tree) = tree match {
+    case q"new $name( ..$params )" =>
+      println("Extracted params: " + params)
+      params match {
+        case List(queryTree, catalogTree) =>
+          println("query: " + queryTree + ", catalog: " + catalogTree)
+          (queryTree.asInstanceOf[Tree], catalogTree.asInstanceOf[Tree])
+        //        case List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
+        //        case q"($query:String, $catalog:HList)"  List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
+      }
+  }
 
-    /** Bail out during compilation with error message.
-      */
+  def extractLiteral(tree: Tree): String = tree match {
+    case Literal(Constant(value: String)) => value
+  }
+
+  def query_impl(annottees: c.Expr[Any]*): c.Expr[Any] = {
+    /** Bail out during compilation with error message. */
     def bail(message: String) = c.abort(c.enclosingPosition, message)
 
-    /** Check whether the query is known at compile time.
-      */
-    def queryKnown: Option[String] = q.tree match {
-      case Literal(Constant(s: String)) => Some(s.trim)
-      case _ => None
-    }
-
-    /** Infer RAW's type from the Scala type.
-      */
+    /** Infer RAW's type from the Scala type. */
     def inferType(t: c.Type): (raw.Type, Boolean) = {
       val rawType = t match {
         case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
@@ -73,74 +80,74 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         uniqueId
     }
 
-    /** Build code-generated query plan from logical algebra tree.
+
+    /** Build case classes that correspond to record types.
       */
-    def buildCode(logicalTree: LogicalAlgebraNode, physicalTree: PhysicalAlgebraNode, world: World, typer: Typer, accessPaths: Map[String, Tree]): Tree = {
-      import algebra.Expressions._
+    def buildCaseClasses(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[Tree] = {
+      import org.kiama.rewriting.Rewriter.collect
 
-      /** Build case classes that correspond to record types.
-        */
-      def buildCaseClasses: Set[Tree] = {
-
-        import org.kiama.rewriting.Rewriter.collect
-
-        // Extractor for anonymous record types
-        object IsAnonRecordType {
-          def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
-            case r @ RecordType(_, None) => Some(r)
-            case _                       => None
-          }
+      // Extractor for anonymous record types
+      object IsAnonRecordType {
+        def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
+          case r@RecordType(_, None) => Some(r)
+          case _ => None
         }
-
-        // Create Scala type from RAW type
-        def tipe(t: raw.Type): String = t match {
-          case _: BoolType         => "Boolean"
-          case FunType(t1, t2)     => ???
-          case _: StringType       => "String"
-          case _: IntType          => "Int"
-          case _: FloatType        => "Float"
-          case r: RecordType       => recordTypeSym(r)
-          case BagType(innerType)  => ???
-          case ListType(innerType) => s"List[${tipe(innerType)}]"
-          case SetType(innerType)  => s"Set[${tipe(innerType)}]"
-          case UserType(idn)       => tipe(world.userTypes(idn))
-          case TypeVariable(v)     => ???
-          case _: AnyType          => ???
-          case _: NothingType      => ???
-        }
-
-        // Collect all record types from tree
-        val collectAnonRecordTypes = collect[List, raw.RecordType] {
-          case IsAnonRecordType (t) => t
-        }
-
-        // Convert all collected record types to a set to remove repeated types, leaving only the structural types
-        val anonRecordTypes = collectAnonRecordTypes (logicalTree).toSet
-
-        // Create corresponding case class
-        val code = anonRecordTypes
-          .map {
-          case r@RecordType(atts, None) =>
-            val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
-            val cl = s"""case class ${recordTypeSym(r)}($args)"""
-//            logger.info("Defined case class: {}", cl)
-            cl
-        }
-
-        code.map(c.parse)
       }
 
-      def build(a: PhysicalAlgebraNode): Tree = {
+      // Create Scala type from RAW type
+      def tipe(t: raw.Type): String = t match {
+        case _: BoolType => "Boolean"
+        case FunType(t1, t2) => ???
+        case _: StringType => "String"
+        case _: IntType => "Int"
+        case _: FloatType => "Float"
+        case r: RecordType => recordTypeSym(r)
+        case BagType(innerType) => ???
+        case ListType(innerType) => s"List[${tipe(innerType)}]"
+        case SetType(innerType) => s"Set[${tipe(innerType)}]"
+        case UserType(idn) => tipe(world.userTypes(idn))
+        case TypeVariable(v) => ???
+        case _: AnyType => ???
+        case _: NothingType => ???
+      }
 
+      // Collect all record types from tree
+      val collectAnonRecordTypes = collect[List, raw.RecordType] {
+        case IsAnonRecordType(t) => t
+      }
+
+      // Convert all collected record types to a set to remove repeated types, leaving only the structural types
+      val anonRecordTypes = collectAnonRecordTypes(logicalTree).toSet
+
+      // Create corresponding case class
+      val code = anonRecordTypes
+        .map {
+        case r@RecordType(atts, None) =>
+          val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
+          val cl = s"""case class ${recordTypeSym(r)}($args)"""
+          //            logger.info("Defined case class: {}", cl)
+          cl
+      }
+
+      code.map(c.parse)
+    }
+
+    /** Build code-generated query plan from logical algebra tree.
+      */
+    //    def buildCode(logicalTree: LogicalAlgebraNode, physicalTree: PhysicalAlgebraNode, world: World, typer: Typer, accessPaths: Map[String, Tree]): Tree = {
+    def buildCode(logicalTree: LogicalAlgebraNode, physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
+      import algebra.Expressions._
+
+      def build(a: PhysicalAlgebraNode): Tree = {
         def exp(e: Exp): Tree = {
 
           def binaryOp(op: BinaryOperator): String = op match {
-            case _: Eq  => "=="
+            case _: Eq => "=="
             case _: Neq => "!="
-            case _: Ge  => ">="
-            case _: Gt  => ">"
-            case _: Le  => "<="
-            case _: Lt  => "<"
+            case _: Ge => ">="
+            case _: Gt => ">"
+            case _: Le => "<="
+            case _: Lt => "<"
             case _: Sub => "-"
             case _: Div => "/"
             case _: Mod => "%"
@@ -258,11 +265,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case ScalaSelect(p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
             q"""${build(child)}.filter(${exp(p)})"""
           case ScalaScan(name, _) =>
-            q"""${accessPaths(name)}"""
+            Ident(TermName(name))
 
           // Spark operators
           case SparkScan(name, tipe) =>
-            q"""${accessPaths(name)}"""
+            Ident(TermName(name))
+          //            q"""${accessPaths(name)}"""
 
           case SparkSelect(p, child) =>
             q"""${build(child)}.filter(${exp(p)})"""
@@ -358,7 +366,7 @@ The code bellow does the following transformations:
    (v, (v, Some[w])) -> (v, w)
    (v, (v, None)) -> (v, null)
            */
-            // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
+          // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
           case SparkOuterJoin(p, left, right) =>
             val code = q"""
               val leftRDD = ${build(left)}
@@ -383,36 +391,9 @@ The code bellow does the following transformations:
         }
       }
 
-      val caseClasses: Set[Tree] = buildCaseClasses
-      val code: Tree = build(physicalTree)
-
-      q"""
-      ..$caseClasses
-      $code"""
+      build(physicalTree)
     }
 
-    case class AccessPath(tipe: raw.Type, tree: Tree, isSpark: Boolean)
-
-    /** Retrieve names, types and trees from the catalog passed by the user.
-      */
-    def hlistToAccessPath: Map[String, AccessPath] = {
-      catalog.tree match {
-        case Apply(Apply(TypeApply(_, _), items), _) =>
-          items.flatMap {
-            case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
-//              println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
-              val (rawType, isSpark) = inferType(scalaType.tpe)
-              List(name.toString -> AccessPath(rawType, tree, isSpark))
-            case Apply(TypeApply(_, _), items1) =>
-              items1.map {
-                case Apply(TypeApply(Select(Apply(_, List(Literal(Constant(name)))), _), List(scalaType)), List(tree)) =>
-//                  println(s"Access path found: $name, scalaType: $scalaType, tree: $tree")
-                  val (rawType, isSpark) = inferType(scalaType.tpe)
-                  name.toString -> AccessPath(rawType, tree, isSpark)
-              }
-          }.toMap
-      }
-    }
 
     /** Macro main code.
       *
@@ -420,38 +401,116 @@ The code bellow does the following transformations:
       * If so, build the algebra tree, then build the executable code, and return that to the user.
       * If not, build code that calls the interpreted executor and return that to the user.
       */
+    println("Annotation: " + c.prefix.tree)
+    println("Annottated target:\n" + showCode(annottees.head.tree) + "\nTree:\n" + showRaw(annottees.head.tree))
+    val typ = c.typecheck(annottees.head.tree)
+    println("Typed tree: " + typ + "\nTree:\n" + showRaw(typ))
+    typ match {
+      case ClassDef(_, className, _, Template(List(Select(Ident(pckName), parentName)), valDef, trees2)) =>
+        println("classname: " + className)
+//        println("trees1: " + trees1 + " " + showRaw(trees1))
+        println("trees1: " + showRaw(pckName) + " " + showRaw(parentName))
+        println("valDef: " + valDef)
+        println("trees2: " + trees2)
 
-    queryKnown match {
-      case Some(qry) =>
-        logger.info("Compiling query:\n{}", qry)
-        //val accessPaths = hmapToAccessPath
-        // Extract from the HList given by the user in the query to a description of the access type, scan operators.
-        val accessPaths: Map[String, AccessPath] = hlistToAccessPath
-        // Create the catalog
+        trees2.foreach(v => {
+          println("+++" + v + " " + showRaw(v))
+        })
+
+        c.Expr(q"a")
+      case q"class $name extends raw.RawQuery { ..$body }" =>
+        println(s"Matched top level Query object. Name: $name, Body: $body")
+        //        println(s"Matched top level Query object. Name: $name, Params: $params, Body: $body")
+        var query: Option[String] = None
+        val accessPathsBuilder = mutable.HashMap[String, AccessPath]()
+
+        //        params.foreach(v => {
+        //          println("Matching v: " + v + " " + showRaw(v))
+        //          //          val typed: Tree = c.typecheck(v.duplicate)
+        //          //          println("Typed: " + typed)
+        //          v match {
+        //            case ValDef(_, term, typeTree, accessPathTree) =>
+        //              val t: Tree = q""" $term : $typeTree"""
+        //              println(" " + t + " " + showRaw(t))
+        //              val typed = c.typecheck(t)
+        //              println(" " + typed)
+        //            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
+        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", raw: " + showRaw(typeTree) + ", expression: " + accessPathTree)
+        //              println("Type checking: " + typeTree)
+        //              val typed = c.typecheck(typeTree)
+        //              println("Typed: " + typed)
+        //              val (rawTpe, isSpark) = inferType(typeTree.tpe)
+        //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
+        //          }
+        //        })
+
+        body.foreach(v => {
+          println("Matching v: " + v + " " + showRaw(v))
+          val vTyped = c.typecheck(v)
+          println("Matching field: " + v + ".\nTree: " + showRaw(vTyped))
+          vTyped match {
+            case ValDef(_, TermName("query"), _, Literal(Constant(queryString: String))) =>
+              query = Some(queryString)
+
+            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
+              println("Found access path. name: " + termName + ", type: " + typeTree + ", expression: " + accessPathTree)
+              val (rawTpe, isSpark) = inferType(typeTree.tpe)
+              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
+          }
+        })
+
+
+        val accessPaths = accessPathsBuilder.toMap
+        println("Access paths: " + accessPaths)
+        println(s"Query: $query")
+
         val sources = accessPaths.map({ case (name, AccessPath(rawType, _, _)) => name -> rawType })
         val world = new World(sources)
         // Parse the query, using the catalog generated from what the user gave.
-        Query(qry, world) match {
+        Query(query.get, world) match {
           case Right(logicalTree) =>
             val typer = new algebra.Typer(world)
             val isSpark: Map[String, Boolean] = accessPaths.map({ case (name, ap) => (name, ap.isSpark) })
             val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
             val algebraStr = PhysicalAlgebraPrettyPrinter(physicalTree)
             logger.info("Algebra:\n{}", algebraStr)
-            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
-            val scalaCode = showCode(generatedTree)
-            logger.info("Generated code:\n{}", scalaCode)
-            QueryLogger.log(qry, algebraStr, scalaCode)
-            c.Expr[Any](generatedTree)
 
+            val caseClasses: Set[Tree] = buildCaseClasses(logicalTree, world, typer)
+            println("case classes:\n" + caseClasses)
+            //            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
+            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer)
+            val scalaCode = showCode(generatedTree)
+            println("Query execution code:\n" + scalaCode)
+            QueryLogger.log(query.get, algebraStr, scalaCode)
+
+            val code = q"""
+            class $name extends RawQuery {
+              ..$body
+              ..$caseClasses
+              def computeResult = {
+                 $generatedTree
+              }
+            }
+          """
+            println("Complete code:\n" + showCode(code))
+            c.Expr[Any](code)
           case Left(err) => bail(err.err)
         }
-      case None =>
-        ???
     }
   }
 }
 
-object Raw {
-  def query(q: String, catalog: HList): Any = macro RawImpl.query
+//object Raw {
+//  def query(q: String, catalog: HList): Any = macro RawImpl.query
+//}
+
+abstract class RawQuery {
+  val query: String
+
+  def computeResult: Any
+}
+
+//class queryAnnotation(query: String, catalog: HList) extends StaticAnnotation {
+class rawQueryAnnotation extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
 }
