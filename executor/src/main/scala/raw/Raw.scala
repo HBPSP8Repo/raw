@@ -403,68 +403,86 @@ The code bellow does the following transformations:
       */
     println("Annotation: " + c.prefix.tree)
     println("Annottated target:\n" + showCode(annottees.head.tree) + "\nTree:\n" + showRaw(annottees.head.tree))
+
     val typ = c.typecheck(annottees.head.tree)
     println("Typed tree: " + typ + "\nTree:\n" + showRaw(typ))
     typ match {
       case ClassDef(_, className, _, Template(List(Select(Ident(pckName), parentName)), valDef, trees2)) =>
         println("classname: " + className)
-//        println("trees1: " + trees1 + " " + showRaw(trees1))
+        //        println("trees1: " + trees1 + " " + showRaw(trees1))
         println("trees1: " + showRaw(pckName) + " " + showRaw(parentName))
         println("valDef: " + valDef)
         println("trees2: " + trees2)
 
-        trees2.foreach(v => {
-          println("+++" + v + " " + showRaw(v))
-        })
-
-        c.Expr(q"a")
-      case q"class $name extends raw.RawQuery { ..$body }" =>
-        println(s"Matched top level Query object. Name: $name, Body: $body")
+        //        println(s"Matched top level Query object. Name: $name, Body: $body")
         //        println(s"Matched top level Query object. Name: $name, Params: $params, Body: $body")
         var query: Option[String] = None
         val accessPathsBuilder = mutable.HashMap[String, AccessPath]()
+        trees2.foreach(v => {
+          println("+++" + v + " " + showRaw(v))
+          v match {
+            case ValDef(_, TermName("query "), _, Literal(Constant(queryString: String))) =>
+              query = Some(queryString)
 
-        //        params.foreach(v => {
+            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
+              println("Matched: " + termName + " typeTree: " + typeTree + " -> " + showRaw(typeTree))
+              //              println("Found access path. name: " + termName + ", type: " + typeTree + ", expression: " + accessPathTree)
+              val (rawTpe, isSpark) = inferType(typeTree.tpe)
+              println("Infered type: " + rawTpe)
+              accessPathsBuilder.put(termName.trim, AccessPath(rawTpe, accessPathTree, isSpark))
+
+            case _ =>
+              println("Ignoring element: " + v)
+          }
+        })
+
+        //      case q"class $name extends raw.RawQuery { ..$body }" =>
+        //        println(s"Matched top level Query object. Name: $name, Body: $body")
+        //        //        println(s"Matched top level Query object. Name: $name, Params: $params, Body: $body")
+        //        var query: Option[String] = None
+        //        val accessPathsBuilder = mutable.HashMap[String, AccessPath]()
+        //
+        //        //        params.foreach(v => {
+        //        //          println("Matching v: " + v + " " + showRaw(v))
+        //        //          //          val typed: Tree = c.typecheck(v.duplicate)
+        //        //          //          println("Typed: " + typed)
+        //        //          v match {
+        //        //            case ValDef(_, term, typeTree, accessPathTree) =>
+        //        //              val t: Tree = q""" $term : $typeTree"""
+        //        //              println(" " + t + " " + showRaw(t))
+        //        //              val typed = c.typecheck(t)
+        //        //              println(" " + typed)
+        //        //            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
+        //        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", raw: " + showRaw(typeTree) + ", expression: " + accessPathTree)
+        //        //              println("Type checking: " + typeTree)
+        //        //              val typed = c.typecheck(typeTree)
+        //        //              println("Typed: " + typed)
+        //        //              val (rawTpe, isSpark) = inferType(typeTree.tpe)
+        //        //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
+        //        //          }
+        //        //        })
+        //
+        //        body.foreach(v => {
         //          println("Matching v: " + v + " " + showRaw(v))
-        //          //          val typed: Tree = c.typecheck(v.duplicate)
-        //          //          println("Typed: " + typed)
-        //          v match {
-        //            case ValDef(_, term, typeTree, accessPathTree) =>
-        //              val t: Tree = q""" $term : $typeTree"""
-        //              println(" " + t + " " + showRaw(t))
-        //              val typed = c.typecheck(t)
-        //              println(" " + typed)
+        //          val vTyped = c.typecheck(v)
+        //          println("Matching field: " + v + ".\nTree: " + showRaw(vTyped))
+        //          vTyped match {
+        //            case ValDef(_, TermName("query"), _, Literal(Constant(queryString: String))) =>
+        //              query = Some(queryString)
+        //
         //            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
-        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", raw: " + showRaw(typeTree) + ", expression: " + accessPathTree)
-        //              println("Type checking: " + typeTree)
-        //              val typed = c.typecheck(typeTree)
-        //              println("Typed: " + typed)
+        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", expression: " + accessPathTree)
         //              val (rawTpe, isSpark) = inferType(typeTree.tpe)
         //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
         //          }
         //        })
-
-        body.foreach(v => {
-          println("Matching v: " + v + " " + showRaw(v))
-          val vTyped = c.typecheck(v)
-          println("Matching field: " + v + ".\nTree: " + showRaw(vTyped))
-          vTyped match {
-            case ValDef(_, TermName("query"), _, Literal(Constant(queryString: String))) =>
-              query = Some(queryString)
-
-            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
-              println("Found access path. name: " + termName + ", type: " + typeTree + ", expression: " + accessPathTree)
-              val (rawTpe, isSpark) = inferType(typeTree.tpe)
-              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
-          }
-        })
-
 
         val accessPaths = accessPathsBuilder.toMap
         println("Access paths: " + accessPaths)
         println(s"Query: $query")
 
         val sources = accessPaths.map({ case (name, AccessPath(rawType, _, _)) => name -> rawType })
+        println("Sources: " + sources)
         val world = new World(sources)
         // Parse the query, using the catalog generated from what the user gave.
         Query(query.get, world) match {
@@ -475,6 +493,7 @@ The code bellow does the following transformations:
             val algebraStr = PhysicalAlgebraPrettyPrinter(physicalTree)
             logger.info("Algebra:\n{}", algebraStr)
 
+            println("trees2: " + trees2)
             val caseClasses: Set[Tree] = buildCaseClasses(logicalTree, world, typer)
             println("case classes:\n" + caseClasses)
             //            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
@@ -483,8 +502,12 @@ The code bellow does the following transformations:
             println("Query execution code:\n" + scalaCode)
             QueryLogger.log(query.get, algebraStr, scalaCode)
 
+            val q"class $name($params) extends RawQuery { ..$body }" = annottees.head.tree
+            println("body: " + body)
+            println("params: " + params)
+
             val code = q"""
-            class $name extends RawQuery {
+            class $className($params) extends RawQuery {
               ..$body
               ..$caseClasses
               def computeResult = {

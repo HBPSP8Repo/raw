@@ -15,20 +15,17 @@ import scala.language.existentials
 @rawQueryAnnotation
 class Test1(val profs:List[Professor]) extends RawQuery {
   val query = "for (d <- profs) yield sum 1"
-//  val profs = ReferenceTestData.profs
 }
 
-//@rawQueryAnnotation
-//object SetOfDepartmentUsingOnlyStudentsTable extends RawQuery{
-//  val query = """for (s <- students) yield set s.department"""
-//  val students = ReferenceTestData.students
-//}
-//
-//@rawQueryAnnotation
-//object CompositeResult extends RawQuery {
-//  val query = """for (d <- students) yield set (name := d.department, number := for (s <- students; s.department = d.department) yield sum 1)"""
-//  val students = ReferenceTestData.students
-//}
+@rawQueryAnnotation
+class SetOfDepartmentUsingOnlyStudentsTable(val students:List[Student]) extends RawQuery{
+  val query = """for (s <- students) yield set s.department"""
+}
+
+@rawQueryAnnotation
+class CompositeResult(val students:List[Student]) extends RawQuery {
+  val query = """for (d <- students) yield set (name := d.department, number := for (s <- students; s.department = d.department) yield sum 1)"""
+}
 
 class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //  val students = ReferenceTestData.students
@@ -80,9 +77,9 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //  }
   //
 
-//  test("set of department (using only students table)") {
-//    assert(SetOfDepartmentUsingOnlyStudentsTable.computeResult === Set("dep1", "dep2", "dep3"))
-//  }
+  test("set of department (using only students table)") {
+    assert(new SetOfDepartmentUsingOnlyStudentsTable(ReferenceTestData.students).computeResult === Set("dep1", "dep2", "dep3"))
+  }
   //
   //  test("set of department and the headcount (using only students table)") {
   //    val r = Raw.query( """
@@ -128,13 +125,13 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //    assert(r === List("Computer Architecture"))
   //  }
   //
-//  test("set of the number of students per department") {
-//    val r = CompositeResult.computeResult
-//
-//    assert(r.size === 3)
-//    val mr = r.map { case v => Map("name" -> v.name, "number" -> v.number) }
-//    assert(mr === Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
-//  }
+  test("set of the number of students per department") {
+    val r = new CompositeResult(ReferenceTestData.students).computeResult
+
+    assert(r.size === 3)
+    val mr = r.map { case v => Map("name" -> v.name, "number" -> v.number) }
+    assert(mr === Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
+  }
 
   //  test("set of names departments which have the highest number of students", ???, Set("dep1"))
   //  test("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))
