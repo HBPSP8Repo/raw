@@ -6,6 +6,16 @@ import raw.{RawQuery, rawQueryAnnotation}
 
 import scala.language.existentials
 
+
+//case class P(name:String)
+//
+//class T1 {
+//  def go = {
+//    val p = P("joe")
+//  }
+//}
+
+
 /* Cannot define the object with the query nested inside a class, the macro expansion will fail to typecheck.
  * The typechecker will try to resolve the parent field, which is a reference to the outer class. But this cannot
  * be typechecked until the macro finishes expanding, which causes an exception:
@@ -13,7 +23,7 @@ import scala.language.existentials
  * Probably related to this error: http://grokbase.com/t/gg/scala-user/1511yec3h3/macros-scala-2-10-cannot-typecheck-base-classs-type-params-from-macro-annotation
  */
 @rawQueryAnnotation
-class Test1(val profs:List[Professor]) extends RawQuery {
+class Test1(val profs:List[Professor], val students:List[Student]) extends RawQuery {
   val query = "for (d <- profs) yield sum 1"
 }
 
@@ -40,7 +50,7 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //  }
 
   test("number of professors") {
-    assert(new Test1(ReferenceTestData.profs).computeResult === 3)
+    assert(new Test1(ReferenceTestData.profs, ReferenceTestData.students).computeResult === 3)
   }
 
   //  test("number of students") {
@@ -76,10 +86,14 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //    assert(Raw.query( """for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
   //  }
   //
-
+//
   test("set of department (using only students table)") {
     assert(new SetOfDepartmentUsingOnlyStudentsTable(ReferenceTestData.students).computeResult === Set("dep1", "dep2", "dep3"))
   }
+
+
+
+
   //
   //  test("set of department and the headcount (using only students table)") {
   //    val r = Raw.query( """
@@ -132,6 +146,9 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
     val mr = r.map { case v => Map("name" -> v.name, "number" -> v.number) }
     assert(mr === Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
   }
+
+
+
 
   //  test("set of names departments which have the highest number of students", ???, Set("dep1"))
   //  test("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))

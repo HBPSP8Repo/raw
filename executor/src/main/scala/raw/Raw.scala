@@ -436,31 +436,31 @@ The code bellow does the following transformations:
           }
         })
 
-        //      case q"class $name extends raw.RawQuery { ..$body }" =>
-        //        println(s"Matched top level Query object. Name: $name, Body: $body")
-        //        //        println(s"Matched top level Query object. Name: $name, Params: $params, Body: $body")
+        //    annottees.head.tree match {
+        //      case q"class $className(..$params) extends RawQuery { ..$body }" =>
+        //        println(s"Matched top level Query object. Name: $className, Params: $params, Body: $body")
         //        var query: Option[String] = None
         //        val accessPathsBuilder = mutable.HashMap[String, AccessPath]()
         //
-        //        //        params.foreach(v => {
-        //        //          println("Matching v: " + v + " " + showRaw(v))
-        //        //          //          val typed: Tree = c.typecheck(v.duplicate)
-        //        //          //          println("Typed: " + typed)
-        //        //          v match {
-        //        //            case ValDef(_, term, typeTree, accessPathTree) =>
-        //        //              val t: Tree = q""" $term : $typeTree"""
-        //        //              println(" " + t + " " + showRaw(t))
-        //        //              val typed = c.typecheck(t)
-        //        //              println(" " + typed)
-        //        //            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
-        //        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", raw: " + showRaw(typeTree) + ", expression: " + accessPathTree)
-        //        //              println("Type checking: " + typeTree)
-        //        //              val typed = c.typecheck(typeTree)
-        //        //              println("Typed: " + typed)
-        //        //              val (rawTpe, isSpark) = inferType(typeTree.tpe)
-        //        //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
-        //        //          }
-        //        //        })
+        //        params.foreach(v => {
+        //          println("Matching v: " + v + " " + showRaw(v))
+        //          val typed: Tree = c.typecheck(v.duplicate)
+        //          println("Typed: " + typed)
+        //          v match {
+        //            case ValDef(_, term, typeTree, accessPathTree) =>
+        //              val t: Tree = q""" $term : $typeTree"""
+        //              println(" " + t + " " + showRaw(t))
+        //              val typed = c.typecheck(t)
+        //              println(" " + typed)
+        //            case ValDef(_, TermName(termName), typeTree, accessPathTree) =>
+        //              println("Found access path. name: " + termName + ", type: " + typeTree + ", raw: " + showRaw(typeTree) + ", expression: " + accessPathTree)
+        //              println("Type checking: " + typeTree)
+        //              val typed = c.typecheck(typeTree)
+        //              println("Typed: " + typed)
+        //              val (rawTpe, isSpark) = inferType(typeTree.tpe)
+        //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
+        //          }
+        //        })
         //
         //        body.foreach(v => {
         //          println("Matching v: " + v + " " + showRaw(v))
@@ -493,34 +493,49 @@ The code bellow does the following transformations:
             val algebraStr = PhysicalAlgebraPrettyPrinter(physicalTree)
             logger.info("Algebra:\n{}", algebraStr)
 
-            println("trees2: " + trees2)
             val caseClasses: Set[Tree] = buildCaseClasses(logicalTree, world, typer)
-            println("case classes:\n" + caseClasses)
-            //            val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer, accessPaths.map { case (name, AccessPath(_, tree, _)) => name -> tree })
+            println("case classes:\n" + caseClasses.map(showCode(_)).mkString("\n") )
+
             val generatedTree: Tree = buildCode(logicalTree, physicalTree, world, typer)
-            val scalaCode = showCode(generatedTree)
-            println("Query execution code:\n" + scalaCode)
-            QueryLogger.log(query.get, algebraStr, scalaCode)
+            println("Query execution code:\n" + showCode(generatedTree))
 
-            val q"class $name($params) extends RawQuery { ..$body }" = annottees.head.tree
-            println("body: " + body)
-            println("params: " + params)
+            val q"class $name(..$paramsAsAny) extends RawQuery { ..$body }" = annottees.head.tree
+            val params:List[ValDef] = paramsAsAny.asInstanceOf[List[ValDef]]
+            println("params: " + showRaw(params))
 
-            val code = q"""
-            class $className($params) extends RawQuery {
-              ..$body
+            val parameters: List[Ident] = params.map(valDef => Ident(valDef.name))
+            println("Parameters: " + showRaw(parameters))
+
+            /* Generating the expanded class plus the companion:
+            http://stackoverflow.com/questions/21032869/create-or-extend-a-companion-object-using-a-macro-annotation-on-the-class
+             */
+            val moduleName = TermName(className.decodedName.toString)
+            val companion = q"""
+            object $moduleName {
               ..$caseClasses
-              def computeResult = {
+              def computeResult(..$params) = {
                  $generatedTree
               }
+            }"""
+
+            val code = q"""
+            class $className(..$params) extends RawQuery {
+              ..$body
+              def computeResult = $moduleName.computeResult(..$parameters)
             }
           """
-            println("Complete code:\n" + showCode(code))
-            c.Expr[Any](code)
+            val block = Block(List(companion, code), Literal(Constant(())))
+
+            val scalaCode = showCode(block)
+            println("Block: " + scalaCode)
+            QueryLogger.log(query.get, algebraStr, scalaCode)
+
+            c.Expr[Any](block)
           case Left(err) => bail(err.err)
         }
     }
   }
+
 }
 
 //object Raw {
