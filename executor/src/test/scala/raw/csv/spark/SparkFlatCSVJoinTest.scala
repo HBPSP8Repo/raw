@@ -6,7 +6,7 @@ import raw.{RawQuery, rawQueryAnnotation}
 
 @rawQueryAnnotation
 class cross_product_professors_x_departments_x_students(students: RDD[Student], departments: RDD[Department], profs: RDD[Professor]) extends RawQuery {
-  val query: String = """for (p <- profs; d <- departments; s <- students; s.name = "Peter"; s.birthYear < 2000) yield set (professor := p, dept := d, student := s)"""
+  val query: String = """for (p <- profs; d <- departments; s <- students) yield set (professor := p, dept := d, student := s)"""
 }
 
 /*
@@ -84,7 +84,8 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
 
   test("cross product professors x departments x students") {
     val res = new cross_product_professors_x_departments_x_students(testData.students, testData.departments, testData.profs)
-    assert(res.computeResult.size === 3 * 3 * 7)
+      .computeResult.asInstanceOf[Set[Any]]
+    assert(res.size ===   3 * 3 * 7)
   }
 
   //  test("cross product professors x departments") {
