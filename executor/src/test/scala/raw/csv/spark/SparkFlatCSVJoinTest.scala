@@ -25,74 +25,74 @@ class Cross_product_professors_x_departments(departments: RDD[Department], profs
   val query: String = """for (p <- profs; d <- departments) yield set (p.name, p.office, d.name, d.discipline, d.prof)"""
 }
 
+@rawQueryAnnotation
+class Inner_join_professors_x_departments(departments: RDD[Department], profs: RDD[Professor]) extends RawQuery {
+  val query = """ for (p <- profs; d <- departments; p.name = d.prof)  yield set (name := p.name, officeName := p.office, deptName := d.name, discipline := d.discipline) """
+}
+
+@rawQueryAnnotation
+class Professors_x_departments_with_predicate(departments: RDD[Department], profs: RDD[Professor]) extends RawQuery {
+  val query = """ for (p <- profs; d <- departments; d.name.last = p.name.last) yield set (p.name, p.office, d.name, d.discipline, d.prof) """
+}
+
+@rawQueryAnnotation
+class Professors_departments_students_with_one_predicate_per_datasource(students: RDD[Student], departments: RDD[Department], profs: RDD[Professor]) extends RawQuery {
+  val query = """ for (p <- profs; d <- departments; s <- students;
+                  p.name <> "Dr, Who"; d.name <> "Magic University"; s.name <> "Batman")
+            yield set (p.name, p.office, d.name, d.discipline, d.prof, s.name)"""
+}
+
+@rawQueryAnnotation
+class Professors_departments_students_predicate_with_triple_condition(students: RDD[Student], departments: RDD[Department], profs: RDD[Professor]) extends RawQuery {
+  val query = """ for (p <- profs; d <- departments; s <- students;
+        d.name <> p.name and p.name <> s.name and s.name <> d.name)
+        yield set (p.name, d.name, s.name) """
+}
+
+//@rawQueryAnnotation
+//class Set_of_department_and_the_headcount_using_only_students_table(students: RDD[Student]) extends RawQuery {
+//  val query = """for (d <- (for (s <- students) yield set s.department))
+//            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))"""
+//}
+
+
 class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
   test("cross product professors x departments x students") {
-    val res = new Cross_product_professors_x_departments_x_students(testData.students, testData.departments, testData.profs)
-      .computeResult.asInstanceOf[Set[Any]]
+    val res = Cross_product_professors_x_departments_x_students(testData.students, testData.departments, testData.profs)
     assert(res.size === 3 * 3 * 7)
   }
 
   test("cross product professors x departments") {
-    val res = new Cross_product_professors_x_departments(testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    val res = Cross_product_professors_x_departments(testData.departments, testData.profs).asInstanceOf[Set[Any]]
     assert(res.size === 9)
   }
 
-  //  def inner_join_professors_x_departments(): Set[Any] = {
-  //    Raw.query("for (p <- profs; d <- departments; p.name = d.prof) " +
-  //      "yield set (name := p.name, officeName := p.office, deptName := d.name, discipline := d.discipline)",
-  //      HList("profs" -> profs, "departments" -> departments)).asInstanceOf[Set[Any]]
-  //  }
-  //
-  //  def professors_x_departments_with_predicate(): Set[Any] = {
-  //    Raw.query("for (p <- profs; d <- departments; d.name.last = p.name.last) " +
-  //      "yield set (p.name, p.office, d.name, d.discipline, d.prof)",
-  //      HList("profs" -> profs, "departments" -> departments)).asInstanceOf[Set[Any]]
-  //  }
-  //
-  //  def professors_departments_students_with_one_predicate_per_datasource = {
-  //    Raw.query( """for (p <- profs; d <- departments; s <- students;
-  //                  p.name <> "Dr, Who"; d.name <> "Magic University"; s.name <> "Batman")
-  //            yield set (p.name, p.office, d.name, d.discipline, d.prof, s.name)""",
-  //      HList("profs" -> profs, "departments" -> departments, "students" -> students)).asInstanceOf[Set[Any]]
-  //  }
-  //
-  //  def professors_departments_students_predicate_with_triple_condition = {
-  //    Raw.query(
-  //      "for (p <- profs; d <- departments; s <- students; " +
-  //        "d.name <> p.name and p.name <> s.name and s.name <> d.name) " +
-  //        "yield set (p.name, d.name, s.name)",
-  //      HList("profs" -> profs, "departments" -> departments, "students" -> students)).asInstanceOf[Set[Any]]
-  //  }
-  //
-  ////  def set_of_department_and_the_headcount_using_only_students_table() = {
-  ////    Raw.query( """
-  ////        for (d <- (for (s <- students) yield set s.department))
-  ////          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-  ////      HList("students" -> students)).asInstanceOf[Set[Any]]
-  ////  }
-  //}
-  //
-  //
-  //  test("inner join professors x departments") {
-  //    val res = SparkFlatCSVJoinTest.inner_join_professors_x_departments()
-  //    assert(res.size === 3)
-  //  }
-  //
-  //  test("(professors, departments) with predicate") {
-  //    val res = SparkFlatCSVJoinTest.professors_x_departments_with_predicate()
-  //    assert(res.size === 3)
-  //  }
-  //
-  //  test("Spark JOIN: (professors, departments, students) with one predicate per datasource") {
-  //    val q: Set[Any] = SparkFlatCSVJoinTest.professors_departments_students_with_one_predicate_per_datasource
-  //    printQueryResult(q)
-  //  }
-  //
-  //  test("Spark JOIN: (professors, departments, students) predicate with triple condition") {
-  //    val q: Set[Any] = SparkFlatCSVJoinTest.professors_departments_students_predicate_with_triple_condition
-  //    printQueryResult(q)
-  //  }
-  //
+  test("inner join professors x departments") {
+    val res = new Inner_join_professors_x_departments(testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    assert(res.size === 3)
+  }
+
+  test("(professors, departments) with predicate") {
+    val res = new Professors_x_departments_with_predicate(testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    assert(res.size === 3)
+  }
+
+
+  test("Spark JOIN: (professors, departments, students) with one predicate per datasource") {
+    val q = new Professors_departments_students_with_one_predicate_per_datasource(testData.students, testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    printQueryResult(q)
+  }
+
+  test("Spark JOIN: (professors, departments, students) predicate with triple condition") {
+    val q: Set[Any] = new Professors_departments_students_predicate_with_triple_condition(testData.students, testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    printQueryResult(q)
+  }
+
+//  test("Set Of Department and headcount using only students table") {
+//    val res = new Set_of_department_and_the_headcount_using_only_students_table(testData.students).computeResult.asInstanceOf[Set[Any]]
+//    printQueryResult(res)
+//  }
+
   //  // TODO: Needs nest.
   //  test("set of department and the headcount (using only students table)") {
   //    //    val r = SparkFlatCSVJoinTest.set_of_department_and_the_headcount_using_only_students_table()

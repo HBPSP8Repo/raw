@@ -516,7 +516,7 @@ RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
         val companion = q"""
             object $moduleName {
               ..$caseClasses
-              def computeResult(..$methodDefParameters) = {
+              def apply(..$methodDefParameters) = {
                  $generatedTree
               }
             }"""
@@ -524,7 +524,7 @@ RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
         val clazz = q"""
             class $className(..$methodDefParameters) extends RawQuery {
               ..$body
-              def computeResult = $moduleName.computeResult(..$methodCallParameters)
+              def computeResult = $moduleName.apply(..$methodCallParameters)
             }
           """
         val block = Block(List(companion, clazz), Literal(Constant(())))
@@ -547,7 +547,7 @@ RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
     val annottation = c.prefix.tree
     val makro = annottee.tree
 //    logger.debug("Annotation: " + annottation)
-    logger.info("Expanding annotated target:\n{}")
+    logger.info("Expanding annotated target:\n{}", showCode(makro))
 //    logger.debug("Tree:\n" + showRaw(makro))
 
     val (query: String, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
