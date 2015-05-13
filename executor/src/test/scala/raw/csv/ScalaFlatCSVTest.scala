@@ -6,16 +6,6 @@ import raw.{RawQuery, rawQueryAnnotation}
 
 import scala.language.existentials
 
-
-//case class P(name:String)
-//
-//class T1 {
-//  def go = {
-//    val p = P("joe")
-//  }
-//}
-
-
 /* Cannot define the object with the query nested inside a class, the macro expansion will fail to typecheck.
  * The typechecker will try to resolve the parent field, which is a reference to the outer class. But this cannot
  * be typechecked until the macro finishes expanding, which causes an exception:
@@ -23,19 +13,32 @@ import scala.language.existentials
  * Probably related to this error: http://grokbase.com/t/gg/scala-user/1511yec3h3/macros-scala-2-10-cannot-typecheck-base-classs-type-params-from-macro-annotation
  */
 @rawQueryAnnotation
-class Test1(val profs:List[Professor], val students:List[Student]) extends RawQuery {
+class Test1(val profs: List[Professor], val students: List[Student]) extends RawQuery {
   val query = "for (d <- profs) yield sum 1"
 }
 
 @rawQueryAnnotation
-class SetOfDepartmentUsingOnlyStudentsTable(val students:List[Student]) extends RawQuery{
+class SetOfDepartmentUsingOnlyStudentsTable(val students: List[Student]) extends RawQuery {
   val query = """for (s <- students) yield set s.department"""
 }
 
 @rawQueryAnnotation
-class CompositeResult(val students:List[Student]) extends RawQuery {
+class CompositeResult(val students: List[Student]) extends RawQuery {
   val query = """for (d <- students) yield set (name := d.department, number := for (s <- students; s.department = d.department) yield sum 1)"""
 }
+
+@rawQueryAnnotation
+class HeadcountUsingStudentsTable(val students: List[Student]) extends RawQuery {
+  val query = """for (d <- (for (s <- students) yield set s.department))
+            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))"""
+}
+
+// TODO: Implement nest with collection monoids.
+//@rawQueryAnnotation
+//class DepartmentToStudents(val students: List[Student]) extends RawQuery {
+//  val query = """for (d <- (for (s <- students) yield set s.department))
+//            yield set (name := d, students := (for (s <- students; s.department = d) yield list s))"""
+//}
 
 class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //  val students = ReferenceTestData.students
@@ -86,27 +89,27 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
   //    assert(Raw.query( """for (d <- students; d.department = "dep1") yield sum 1""", HList("students" -> students)) === 3)
   //  }
   //
-//
+  //
   test("set of department (using only students table)") {
     assert(new SetOfDepartmentUsingOnlyStudentsTable(ReferenceTestData.students).computeResult === Set("dep1", "dep2", "dep3"))
   }
 
+  test("set of department and the headcount (using only students table)") {
+    val res = new HeadcountUsingStudentsTable(ReferenceTestData.students).computeResult
+    println("Result: " + res)
+    assert(res.size === 3)
+
+    val mr = res.map { case v => Map("name" -> v.name, "count" -> v.count) }
+    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+  }
 
 
+//  test("department to student list") {
+//    val res = new DepartmentToStudents(ReferenceTestData.students).computeResult
+//    println("Result: " + res)
+//    assert(res.size === 3)
+//  }
 
-  //
-  //  test("set of department and the headcount (using only students table)") {
-  //    val r = Raw.query( """
-  //        for (d <- (for (s <- students) yield set s.department))
-  //          yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))""",
-  //      HList("students" -> students))
-  //
-  //    println("Result: " + r)
-  //    assert(r.size === 3)
-  //
-  //    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
-  //    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-  //  }
   //
   //  test("set of department and the headcount (using both departments and students table)") {
   //    val r = Raw.query("""
@@ -146,9 +149,6 @@ class ScalaFlatCSVTest extends FunSuite with LazyLogging {
     val mr = r.map { case v => Map("name" -> v.name, "number" -> v.number) }
     assert(mr === Set(Map("name" -> "dep1", "number" -> 3), Map("name" -> "dep2", "number" -> 2), Map("name" -> "dep3", "number" -> 2)))
   }
-
-
-
 
   //  test("set of names departments which have the highest number of students", ???, Set("dep1"))
   //  test("set of names departments which have the lowest number of students", ???, Set("dep2", "dep3"))

@@ -49,11 +49,11 @@ class Professors_departments_students_predicate_with_triple_condition(students: 
         yield set (p.name, d.name, s.name) """
 }
 
-//@rawQueryAnnotation
-//class Set_of_department_and_the_headcount_using_only_students_table(students: RDD[Student]) extends RawQuery {
-//  val query = """for (d <- (for (s <- students) yield set s.department))
-//            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))"""
-//}
+@rawQueryAnnotation
+class Set_of_department_and_the_headcount_using_only_students_table(students: RDD[Student]) extends RawQuery {
+  val query = """for (d <- (for (s <- students) yield set s.department))
+            yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))"""
+}
 
 
 class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
@@ -88,21 +88,16 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
     printQueryResult(q)
   }
 
-//  test("Set Of Department and headcount using only students table") {
-//    val res = new Set_of_department_and_the_headcount_using_only_students_table(testData.students).computeResult.asInstanceOf[Set[Any]]
-//    printQueryResult(res)
-//  }
+  test("Set Of Department and headcount using only students table") {
+    val r = new Set_of_department_and_the_headcount_using_only_students_table(testData.students).computeResult
+    printQueryResult(r)
+    assert(r.size === 3)
+    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
+    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+  }
 
-  //  // TODO: Needs nest.
-  //  test("set of department and the headcount (using only students table)") {
-  //    //    val r = SparkFlatCSVJoinTest.set_of_department_and_the_headcount_using_only_students_table()
-  //
-  //    //    assert(r.size === 3)
-  //    //    val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
-  //    //    assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
-  //  }
 
-  def printQueryResult(res: Set[Any]) = {
+  def printQueryResult(res: Set[_]) = {
     val str = res.mkString("\n")
     println("Result:\n" + str)
   }

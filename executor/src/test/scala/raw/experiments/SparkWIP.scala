@@ -1,6 +1,8 @@
 package raw.experiments
 
 import org.apache.spark.rdd.RDD
+import raw._
+import raw.algebra.Expressions._
 import raw.csv.Student
 import raw.csv.spark.AbstractSparkFlatCSVTest
 
@@ -125,6 +127,10 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   //  for (d <- (for (s <- students) yield set s.department))
   //  yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1)
 
+  // Result:
+  //    Set(_n303007585(dep1,3), _n303007585(dep3,2), _n303007585(dep2,2))
+
+
   //    spark_reduce(
   //      set,
   //      record("name" -> arg._1.department, "count" -> arg._2),
@@ -140,7 +146,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
   //          spark_select(true, spark_scan("students")),
   //          spark_select(true, spark_scan("students")))))
 
-  def outerJoin[T  >: Null <: AnyRef : ClassTag](left: RDD[T], right: RDD[T], p: (((T, T)) => Boolean)): RDD[(T, T)] = {
+  def outerJoin[T >: Null <: AnyRef : ClassTag](left: RDD[T], right: RDD[T], p: (((T, T)) => Boolean)): RDD[(T, T)] = {
     val matching = left
       .cartesian(right)
       .filter(tuple => tuple._1 != null)
@@ -158,6 +164,14 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     r
   }
 
+  def zeroOf(m: Monoid) = m match {
+    case _: AndMonoid => BoolConst(true)
+    case _: OrMonoid => BoolConst(false)
+    case _: SumMonoid => IntConst("0")
+    case _: MultiplyMonoid => IntConst("1")
+    case _: MaxMonoid => IntConst("0") // TODO: Fix since it is not a monoid
+  }
+
   test("nest") {
     println("Students:\n" + toString(testData.students))
     // spark_outer_join
@@ -165,17 +179,17 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
       case (s1, s2) => if (s1.department == null) false else s1.department.equals(s2.department)
     }
     )
-    println("Matching:\n" + toString(matching))
+    //    println("Matching:\n" + toString(matching))
 
     val resWithOption: RDD[(Student, (Student, Option[Student]))] = testData.students.map(v => (v, v)).leftOuterJoin(matching)
-    println("resWithOption:\n" + toString(resWithOption))
+    //    println("resWithOption:\n" + toString(resWithOption))
 
     val nestInput: RDD[(Student, Student)] = resWithOption.map({
       case (v1, (v2, None)) => (v1, null)
       case (v1, (v2, Some(w))) => (v1, w)
     })
-
-    println("Left outer join:\n" + toString(nestInput))
+    // Pairs of students having the same department
+    //    println("Left outer join:\n" + toString(nestInput))
 
     /* Nest.
     Input: RDD[(Employee, Dept)]
@@ -196,36 +210,73 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
      g: null checking
       */
 
+
+    //    val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
+    //    q"""${build(child)}.groupBy(${exp(f)}).toSet.map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
+
+    // ([Employee, Dept]) => Employee
+    // TODO: Is this equivalent to obtain a set of the keys?
+    //    val r1: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
+    //    println("groupBy(f(a)):\n" + toString(r1))
+    //    val pif: RDD[Student] = r1.keys.distinct()
+
+    // If the underlying collection is not a set (not idempotent), do not call distinct.
+    // pif are the elements distinct under dot-equality.
+    //    val pif: RDD[Student] = nestInput.map(f).distinct()
+    //    println("Keys:\n" + toString(pif))
+    //
+    //    val afterP: RDD[(Student, Student)] = nestInput.filter(p)
+    //    println("Filtered by p:\n" + toString(afterP))
+    //
+    //    val afterG: RDD[(Student, Student)] = afterP.filter(w => g(w) != null)
+    //    println("afterP:\n" + toString(afterG))
+    //
+    //    val cross: RDD[(Student, (Student, Student))] = pif.cartesian(afterG)
+    //    println("cross:\n" + toString(cross))
+    //
+    //    val dotEquality: RDD[(Student, (Student, Student))] = cross.filter(arg => arg._1 == f(arg._2))
+    //    println("dotEquality:\n" + toString(dotEquality))
+    //
+    //    val r: RDD[(Student, Iterable[Student])] = dotEquality.keys.groupBy(f => f)
+    //    println("Group by:\n" + toString(r))
+    //
+    //    val res = r.mapValues(iter => iter.size)
+    //    println("res:\n" + toString(res))
+
+    // Start of nest
     //    val f = (emp: Employee, dept: Dept) => emp
+    val m = SumMonoid()
     val e = (arg: Tuple2[Student, Student]) => 1
     val f = (arg: Tuple2[Student, Student]) => arg._1
     val p = (arg: Tuple2[Student, Student]) => true
     val g = (arg: Tuple2[Student, Student]) => arg._2
 
-    // ([Employee, Dept]) => Employee
-    // TODO: Is this equivalent to obtain a set of the keys?
-    val r1: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
-    println("groupBy(f(a)):\n" + toString(r1))
+//    val zero: Const with Serializable = zeroOf(m)
+    val zero = 0
 
-    val pif: RDD[Student] = r1.keys.distinct()
-    println("pif:\n" + toString(pif))
+    // we can do group by directly when the collection resulting from applying f is idempotent (set), but it will not work on lists.
+    val grouped: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
+    println("groupBy:\n" + toString(grouped))
 
-    val afterP: RDD[(Student, Student)] = nestInput.filter(p)
-    println("afterP:\n" + toString(afterP))
+    val filteredP: RDD[(Student, Iterable[(Student, Student)])] = grouped.map(arg => (arg._1, arg._2.filter(p)))
+    println("filteredP:\n" + toString(filteredP))
 
-    val afterG: RDD[(Student, Student)] = afterP.filter(w => g(w) != null)
-    println("afterP:\n" + toString(afterG))
+    //    val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
+    //    val map2 = map1.map(v => (v._1, v._2.map(${exp(f1)})))
+    //    println("map2:\n" + map2.mkString("\n"))
+    // nulls are transformed into the monoid zero. Non-null values are mapped by e.
+    val f1 = (x: (Student, Student)) => if (g(x) == null) zero else e(x)
+    val mapped: RDD[(Student, Iterable[Int])] = grouped.map(v => (v._1, v._2.map(x => f1(x))))
+    println("mapped:\n" + toString(mapped))
 
-    val cross: RDD[(Student, (Student, Student))] = pif.cartesian(afterG)
-    println("cross:\n" + toString(cross))
+    val folded = mapped.map(v => (v._1, v._2.fold(zero)((a, b) => a + b)))
+    println("folded:\n" + toString(folded))
+    // End of nest
 
-    val dotEquality: RDD[(Student, (Student, Student))] = cross.filter(arg => arg._1 == f(arg._2))
-    println("dotEquality:\n" + toString(dotEquality))
+    val ff = folded.map(arg => Tuple2(arg._1.department, arg._2))
+    println("ff:\n" + toString(ff))
 
-    val r: RDD[(Student, Iterable[Student])] = dotEquality.keys.groupBy(f => f)
-    println("r:\n" + toString(r))
-
-    val res = r.mapValues(iter => iter.size)
-    println("res:\n" + toString(res))
+    val setResult = ff.toLocalIterator.toSet
+    println("setResult:\n" + setResult)
   }
 }
