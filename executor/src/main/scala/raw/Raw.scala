@@ -405,13 +405,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   val grouped = $childTree.groupBy(${exp(f)})
   logger.debug("groupBy:\n{}", toString(grouped))
 
-  val filteredP = grouped.map(arg => (arg._1, arg._2.filter(${exp(p)})))
+  val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
   logger.debug("filteredP:\n{}", toString(filteredP))
 
-  val mapped = grouped.map(v => (v._1, v._2.map(${exp(f1)})))
+  val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
   logger.debug("mapped:\n{}", toString(mapped))
 
-  val folded = mapped.map(v => (v._1, v._2.fold(${zero(m1)})((a, b) => a + b)))
+  val folded = mapped.mapValues(v => v.fold(${zero(m1)})((a, b) => a + b))
   logger.debug("folded:\n{}", toString(folded))
   folded
   """
