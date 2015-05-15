@@ -411,10 +411,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
   logger.debug("mapped:\n{}", toString(mapped))
 
-  val folded = mapped.mapValues(v => v.fold(${zero(m1)})((a, b) => a + b))
+  val folded = mapped.mapValues(v => v.fold(${zero(m1)})(${fold(m1)}))
   logger.debug("folded:\n{}", toString(folded))
   folded
   """
+          // See ScalaNest case for the reason why these cases are not implemented.
           case m1: BagMonoid => ???
           case m1: ListMonoid => ???
           case m1: SetMonoid => ???
