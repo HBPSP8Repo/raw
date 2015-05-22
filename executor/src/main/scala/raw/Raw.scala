@@ -636,7 +636,6 @@ res
     }
   }
 
-
   def query_impl(annottees: c.Expr[Any]*): c.Expr[Any] = {
     if (annottees.size > 1) {
       bail(s"Expected a single annottated element. Found: ${annottees.size}\n" + annottees.map(expr => showCode(expr.tree)).mkString("\n"))

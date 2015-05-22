@@ -14,7 +14,8 @@ class TestData(csvParser: CSVToRDDParser) {
   val departments = csvParser.parse("data/departments.csv", l => Department(l(0), l(1), l(2)))
 }
 
-abstract class AbstractSparkFlatCSVTest extends FunSuite with StrictLogging with BeforeAndAfterAll {
+// TODO: See SharedSparkContext in Spark project for an alternative refactoring of this base class.
+abstract class AbstractSparkFlatCSVTest extends FunSuite with StrictLogging with BeforeAndAfterAll  {
   /* Create a new Spark context for every test suite.
   This allows us to use the afterAll() callback to close Spark at the end of the test suit.
   An alternative design would be to use a single Spark context for all the test run, by creating it inside an object.

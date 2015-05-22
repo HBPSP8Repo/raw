@@ -209,42 +209,6 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
      p: filtering predicate
      g: null checking
       */
-
-
-    //    val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-    //    q"""${build(child)}.groupBy(${exp(f)}).toSet.map(v => (v._1, v._2.filter(${exp(p)}))).map(v => (v._1, v._2.map($f1))).map(v => (v._1, v._2.to[scala.collection.immutable.Set]))"""
-
-    // ([Employee, Dept]) => Employee
-    // TODO: Is this equivalent to obtain a set of the keys?
-    //    val r1: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
-    //    println("groupBy(f(a)):\n" + toString(r1))
-    //    val pif: RDD[Student] = r1.keys.distinct()
-
-    // If the underlying collection is not a set (not idempotent), do not call distinct.
-    // pif are the elements distinct under dot-equality.
-    //    val pif: RDD[Student] = nestInput.map(f).distinct()
-    //    println("Keys:\n" + toString(pif))
-    //
-    //    val afterP: RDD[(Student, Student)] = nestInput.filter(p)
-    //    println("Filtered by p:\n" + toString(afterP))
-    //
-    //    val afterG: RDD[(Student, Student)] = afterP.filter(w => g(w) != null)
-    //    println("afterP:\n" + toString(afterG))
-    //
-    //    val cross: RDD[(Student, (Student, Student))] = pif.cartesian(afterG)
-    //    println("cross:\n" + toString(cross))
-    //
-    //    val dotEquality: RDD[(Student, (Student, Student))] = cross.filter(arg => arg._1 == f(arg._2))
-    //    println("dotEquality:\n" + toString(dotEquality))
-    //
-    //    val r: RDD[(Student, Iterable[Student])] = dotEquality.keys.groupBy(f => f)
-    //    println("Group by:\n" + toString(r))
-    //
-    //    val res = r.mapValues(iter => iter.size)
-    //    println("res:\n" + toString(res))
-
-    // Start of nest
-    //    val f = (emp: Employee, dept: Dept) => emp
     val m = SumMonoid()
     val e = (arg: Tuple2[Student, Student]) => 1
     val f = (arg: Tuple2[Student, Student]) => arg._1
@@ -254,6 +218,8 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
 //    val zero: Const with Serializable = zeroOf(m)
     val zero = 0
 
+    // If the underlying collection is not a set (not idempotent), do not call distinct.
+    // pif are the elements distinct under dot-equality.
     // we can do group by directly when the collection resulting from applying f is idempotent (set), but it will not work on lists.
     val grouped: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
     println("groupBy:\n" + toString(grouped))

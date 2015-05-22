@@ -11,8 +11,8 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.6",
   scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   resolvers := sonatypeResolvers,
-// Use cached resolution of dependencies (Experimental in SBT 0.13.7)
-// http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
+  // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
+  // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
   updateOptions := updateOptions.value.withCachedResolution(true),
   addCompilerPlugin(paradiseDependency)
 )
@@ -33,7 +33,7 @@ lazy val commonDeps = Seq(
 lazy val coreDeps =
   commonDeps ++
     Seq(
-      kiama     )
+      kiama)
 
 lazy val executorDeps =
   commonDeps ++
@@ -41,7 +41,11 @@ lazy val executorDeps =
       shapeless,
       spark,
       sparkSql,
-      json4s
+      json4s,
+      jackson,
+      jacksonScala,
+      sparkTesting,
+      commonMath
     )
 
 lazy val root = project.in(file("."))

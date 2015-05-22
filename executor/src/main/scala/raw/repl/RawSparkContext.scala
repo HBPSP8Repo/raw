@@ -6,7 +6,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 class RawSparkContext extends StrictLogging with AutoCloseable {
   lazy val conf = new SparkConf()
     .setAppName("RAW Unit Tests")
-    .setMaster("local[2]")
+    .setMaster("local[4]")
     // Disable compression to avoid polluting the tmp directory with dll files.
     // By default, Spark compresses the broadcast variables using the JavaSnappy. This library uses a native DLL which
     // gets copied as a new file to the TMP directory every time an instance of Spark is run.
