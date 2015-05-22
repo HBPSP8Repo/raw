@@ -180,10 +180,10 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     }
     )
     //    println("Matching:\n" + toString(matching))
-
     val resWithOption: RDD[(Student, (Student, Option[Student]))] = testData.students.map(v => (v, v)).leftOuterJoin(matching)
     //    println("resWithOption:\n" + toString(resWithOption))
 
+    // TODO: Must use Optional instead of null in all operators.
     val nestInput: RDD[(Student, Student)] = resWithOption.map({
       case (v1, (v2, None)) => (v1, null)
       case (v1, (v2, Some(w))) => (v1, w)
@@ -224,7 +224,7 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     val grouped: RDD[(Student, Iterable[(Student, Student)])] = nestInput.groupBy(f)
     println("groupBy:\n" + toString(grouped))
 
-    val filteredP: RDD[(Student, Iterable[(Student, Student)])] = grouped.map(arg => (arg._1, arg._2.filter(p)))
+    val filteredP: RDD[(Student, Iterable[(Student, Student)])] = grouped.mapValues(arg => arg.filter(p))
     println("filteredP:\n" + toString(filteredP))
 
     //    val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
@@ -232,10 +232,10 @@ class SparkWIP extends AbstractSparkFlatCSVTest {
     //    println("map2:\n" + map2.mkString("\n"))
     // nulls are transformed into the monoid zero. Non-null values are mapped by e.
     val f1 = (x: (Student, Student)) => if (g(x) == null) zero else e(x)
-    val mapped: RDD[(Student, Iterable[Int])] = grouped.map(v => (v._1, v._2.map(x => f1(x))))
+    val mapped: RDD[(Student, Iterable[Int])] = grouped.mapValues(v => v.map(x => f1(x)))
     println("mapped:\n" + toString(mapped))
 
-    val folded = mapped.map(v => (v._1, v._2.fold(zero)((a, b) => a + b)))
+    val folded = mapped.mapValues(v => v.fold(zero)((a, b) => a + b))
     println("folded:\n" + toString(folded))
     // End of nest
 

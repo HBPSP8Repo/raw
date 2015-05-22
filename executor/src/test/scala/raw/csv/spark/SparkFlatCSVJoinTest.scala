@@ -55,6 +55,11 @@ class Set_of_department_and_the_headcount_using_only_students_table(students: RD
             yield set (name := d, count := (for (s <- students; s.department = d) yield sum 1))"""
 }
 
+@rawQueryAnnotation
+class DepartmentToBirthYearOfYoungestStudent(students: RDD[Student]) extends RawQuery {
+  val query = """for (d <- (for (s <- students) yield set s.department))
+            yield set (name := d, maxBirthYear := (for (s <- students; s.department = d) yield max s.birthYear))"""
+}
 
 class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
   test("cross product professors x departments x students") {
@@ -77,7 +82,6 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
     assert(res.size === 3)
   }
 
-
   test("Spark JOIN: (professors, departments, students) with one predicate per datasource") {
     val q = new Professors_departments_students_with_one_predicate_per_datasource(testData.students, testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
     printQueryResult(q)
@@ -94,6 +98,13 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
     assert(r.size === 3)
     val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
     assert(mr === Set(Map("name" -> "dep1", "count" -> 3), Map("name" -> "dep2", "count" -> 2), Map("name" -> "dep3", "count" -> 2)))
+  }
+
+  test("Department with max headcount") {
+    val r = new DepartmentToBirthYearOfYoungestStudent(testData.students).computeResult
+    printQueryResult(r)
+    val mr = r.map { case v => Map("name" -> v.name, "maxBirthYear" -> v.maxBirthYear) }
+    assert(mr === Set(Map("name" -> "dep1", "maxBirthYear" -> 1990), Map("name" -> "dep2", "maxBirthYear" -> 1992), Map("name" -> "dep3", "maxBirthYear" -> 1992)))
   }
 
 
