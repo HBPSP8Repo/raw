@@ -24,9 +24,10 @@ lazy val commonDeps = Seq(
   scalaCompiler,
   scalaReflect,
   scalatest % Test,
-  scalacheck,
+  scalacheck % Test,
   scalaLogging,
   logbackClassic,
+  log4jOverSlf4j,
   guava
 )
 
@@ -38,13 +39,11 @@ lazy val coreDeps =
 lazy val executorDeps =
   commonDeps ++
     Seq(
-      shapeless,
       spark,
       sparkSql,
       json4s,
       jackson,
       jacksonScala,
-      sparkTesting,
       commonMath
     )
 
@@ -52,16 +51,35 @@ lazy val root = project.in(file("."))
   .aggregate(executor, core)
   .dependsOn(executor)
   .settings(buildSettings)
-  .settings(
-    libraryDependencies ++= executorDeps
-  )
+  .settings(libraryDependencies ++= executorDeps)
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
   settings(buildSettings).
   settings(
+    // Must use the local spark installation instead of the spark library downloaded by sbt.
+    // TODO: must package the local app in a jar and distribute it to the worker nodes using the driver's http server.
+    //    unmanagedClasspath in Runtime ++= Seq(file( """c:\Tools\spark-1.3.1-bin-hadoop2.6\lib\spark-assembly-1.3.1-hadoop2.6.0.jar""")).classpath,
+    run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
+
     fork := true, // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
-    libraryDependencies ++= executorDeps
+    libraryDependencies ++= executorDeps,
+
+//    javaOptions in run += """-Dspark.master=spark://192.168.1.32:7077""",
+    javaOptions in run += """-Dspark.master=local[2]""",
+    // build a JAR with the Spark application plus transitive dependencies.
+    // https://github.com/sbt/sbt-assembly
+    test in assembly := {}, // Do not run tests when building the assembly
+    // Do not include the scala libraries.
+    //assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false)
+
+    // Do not include the Spark unmanaged libraries
+    assemblyExcludedJars in assembly := {
+      val cp = (fullClasspath in assembly).value
+      cp filter {
+        _.data.getName == "spark-assembly-1.3.1-hadoop2.6.0.jar"
+      }
+    }
   )
 
 lazy val core = (project in file("core")).

@@ -1,14 +1,10 @@
 package raw.experiments
 
 import java.io.PrintStream
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import com.fasterxml.jackson.core.`type`.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.base.Stopwatch
-import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.apache.spark.SparkContext
@@ -17,8 +13,6 @@ import org.apache.spark.sql.DataFrame
 import raw.repl.RawSparkContext
 
 import scala.collection.mutable
-
-case class Publication(title: String, authors: Seq[String], affiliations: Seq[String], controlledterms: Seq[String])
 
 object PublicationsRDD extends StrictLogging {
 
@@ -33,27 +27,9 @@ object PublicationsRDD extends StrictLogging {
     new PrintStream(Files.newOutputStream(f))
   }
 
-  val sparkContext: SparkContext = {
-    val rawSparkContext = new RawSparkContext
-    rawSparkContext.sc
-  }
+  val sparkContext: SparkContext = new RawSparkContext().sc
 
-  val pubs = {
-    val start = Stopwatch.createStarted()
-    val path: Path = Paths.get(Resources.getResource("data/publicationsConverted.json").toURI)
-    val pubs = sparkContext
-      .textFile(path.toString)
-      .mapPartitions(iter => {
-      val mapper = new ObjectMapper()
-      mapper.registerModule(DefaultScalaModule)
-      iter.map(line => mapper.readValue[Publication](line, new TypeReference[Publication]() {}))
-    }
-      )
-    pubs.persist()
-    pubs.count() // Force the RDD to be cached into memory, as persist is lazy
-    logger.info("Loaded RDD in " + start.elapsed(TimeUnit.MILLISECONDS))
-    pubs
-  }
+  val pubs = Common.newRDDFromJSON[Publication]("data/publicationsConverted.json", sparkContext)
 
   def outAndFile(str: String): Unit = {
     println(str)
