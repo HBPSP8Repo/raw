@@ -81,15 +81,19 @@ object Common extends StrictLogging {
   }
 
 
-  def newDataframeFromJSON(resource: String, hiveContext: HiveContext): DataFrame = {
+  def newDataframeFromJSON(hiveContext: HiveContext, resource: String, tableName: String = null): DataFrame = {
     logger.info(s"Loading resource: $resource")
     val path: Path = Paths.get(Resources.getResource(resource).toURI)
-    val filename = path.getFileName.toString.takeWhile(c => c != '.')
     val pubs: DataFrame = hiveContext.jsonFile(path.toString)
-    pubs.registerTempTable(filename)
+    val tName = if (tableName == null) {
+      path.getFileName.toString.takeWhile(c => c != '.')
+    } else {
+      tableName
+    }
+    pubs.registerTempTable(tName)
     pubs.persist()
     val count = pubs.count() // Force the RDD to be cached into memory, as persist is lazy
-    logger.info(s"Registered table $filename with $count rows")
+    logger.info(s"Registered table $tName with $count rows")
     pubs
   }
 
@@ -152,9 +156,10 @@ object Common extends StrictLogging {
     // Warm up by printing the query plan and a sample of 20 results
     Console.withOut(outFile) {
       df.explain(true)
-      val rowsToShow = 100
+      outAndFile(df.rdd.toDebugString)
+      val rowsToShow = 1000
       println(s"Showing first $rowsToShow rows out of a total of ${df.count()} rows")
-      df.show(100)
+      df.show(rowsToShow)
     }
 
     outAndFile(f"prepareTime=${prepareTime}%5.2f, ExecutionTime=${stats.getMean}%5.2f, " +

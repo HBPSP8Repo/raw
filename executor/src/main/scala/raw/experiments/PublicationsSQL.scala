@@ -27,7 +27,7 @@ object PublicationsSQL extends StrictLogging {
     new HiveContext(rawSparkContext.sc)
   }
 
-  val pubs: DataFrame = Common.newDataframeFromJSON("data/publications.json", hiveContext)
+  val pubs: DataFrame = Common.newDataframeFromJSON(hiveContext, "data/publications.json")
 
   def main(args: Array[String]) {
     //    createDataFrame[Publication](data).persist()

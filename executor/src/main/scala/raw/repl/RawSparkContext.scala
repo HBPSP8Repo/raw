@@ -1,9 +1,16 @@
 package raw.repl
 
+import java.net.URL
+import java.nio.file.Paths
+import java.nio.file.Files
+
+import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.{SparkConf, SparkContext}
 
 class RawSparkContext extends StrictLogging with AutoCloseable {
+
+  private[this] val metricsConf = Paths.get(Resources.getResource("""metrics.properties""").toURI)
   lazy val conf = new SparkConf()
     .setAppName("RAW Unit Tests")
     .setMaster("local[4]")
@@ -14,10 +21,12 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.broadcast.compress", "false")
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
-//      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
+    .set("spark.metrics.conf", metricsConf.toString)
+  //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
+
 
   lazy val sc = {
-    logger.info("Starting local Spark context")
+    logger.info("Starting local Spark context with configuration:\n" + conf.toDebugString)
     new SparkContext(conf)
   }
 
