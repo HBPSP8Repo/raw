@@ -7,10 +7,10 @@ import java.util.concurrent.TimeUnit
 import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
-import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.{RangePartitioner, SparkContext}
 import raw.repl.RawSparkContext
 
 import scala.collection.Map
@@ -102,6 +102,9 @@ object PubsAndAuthorsRDD extends StrictLogging {
   }
 
   case class QueryResult(article: String, phd: String, phdYear: Int, prof: String, profYear: Int)
+  implicit object PublicationOrdering extends Ordering[Publication] {
+    def compare(a:Publication, b:Publication) = a.title compare b.title
+  }
 
   def extractMatchingAuthorPairs(p: Publication, authors: Map[String, Author]): ArrayBuffer[QueryResult] = {
     // Extract list of PhDs and of professor authors
@@ -177,7 +180,13 @@ object PubsAndAuthorsRDD extends StrictLogging {
       .flatMap(p => p.authors.map(authorName => (authorName, p)))
 
     val authorNameToPubAuthorTuple: RDD[(String, (Publication, Author))] = pubsKeyed.join(authorsKeyed)
-    val pubsToAuthors: RDD[(Publication, Iterable[Author])] = authorNameToPubAuthorTuple.values.groupByKey()
+
+    //    val c1 =
+    //    createCombiner: V => C,
+    //    mergeValue: (C, V) => C,
+    //    mergeCombiners: (C, C) => C,
+    val pubsToAuthors: RDD[(Publication, Iterable[Author])] = authorNameToPubAuthorTuple.values
+      .groupByKey()
 
     pubsToAuthors.flatMap({ case (pub, authors) => {
       val l: Iterable[QueryResult] = for {
@@ -197,11 +206,12 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //     val res = articlesAllAuthorsSameAgeNoBcast()
     //    val res = oneProfOneStudentProfYoungerThanStudent()
 
-    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed())
-    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed2())
-    doTest(oneProfOneStudentProfYoungerThanStudentWithBcastVar())
+    //    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed())
+    //    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed2())
+    //    doTest(oneProfOneStudentProfYoungerThanStudentWithBcastVar())
 
-    val res = oneProfOneStudentProfYoungerThanStudentFullDistributed()
+
+    val res = oneProfOneStudentProfYoungerThanStudentFullDistributed2()
     Common.outAndFile(res.toDebugString)
     Common.outAndFile("Result size: " + res.count())
     val localResults = res.collect()
@@ -219,5 +229,7 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //        .map(q => f"${q.article}%20s ${q.phd}%10s ${q.phdYear}%5d ${q.prof}%10s ${q.profYear}%5d})")
     //        .mkString("\n"))
     outFile.close()
+
+//    Thread.sleep(10000000)
   }
 }
