@@ -20,7 +20,12 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
     .set("spark.metrics.conf", metricsConf.toString)
-    .set("spark.driver.extraJavaOptions", "-Dsun.io.serialization.extendedDebugInfo=true")
+
+    // Spark SQL configuration
+    //  https://spark.apache.org/docs/latest/sql-programming-guide.html
+    //  spark.sql.codegen
+    //  spark.sql.autoBroadcastJoinThreshold
+    .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
   //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
 

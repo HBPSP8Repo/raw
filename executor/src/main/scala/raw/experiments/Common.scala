@@ -54,9 +54,11 @@ object Common extends StrictLogging {
 
     val start = Stopwatch.createStarted()
     val rdd: RDD[T] = sparkContext.parallelize(lines)
-    rdd.persist()
-    val inputSize = rdd.count() // Force the RDD to be cached into memory, as persist is lazy
-    logger.info(s"Loaded $inputSize elements from $resource in ${start.elapsed(TimeUnit.MILLISECONDS)}")
+    logger.info("Parallelized. Partitions: " + rdd.partitions.map(p => p.index).mkString(", ") + ", partitioner: " + rdd.partitioner )
+//    val persisted = rdd.persist()
+//    logger.info("Persisted.")
+//    val inputSize = rdd.count() // Force the RDD to be cached into memory, as persist is lazy
+//    logger.info(s"Loaded $inputSize elements from $resource in ${start.elapsed(TimeUnit.MILLISECONDS)}")
     rdd
 
 
@@ -146,25 +148,30 @@ object Common extends StrictLogging {
     val prepareTime = clock.elapsed(TimeUnit.MILLISECONDS) / 1000.0
 
     // Do the test
-    val stats = new DescriptiveStatistics()
-    for (a <- 1 to repetitions) {
-      val c = Stopwatch.createStarted()
-      df.count()
-      stats.addValue(c.elapsed(TimeUnit.MILLISECONDS) / 1000.0)
-    }
+//    val stats = new DescriptiveStatistics()
+//    for (a <- 1 to repetitions) {
+//      val c = Stopwatch.createStarted()
+//      df.collect()
+//      stats.addValue(c.elapsed(TimeUnit.MILLISECONDS) / 1000.0)
+//    }
 
-    // Warm up by printing the query plan and a sample of 20 results
-    Console.withOut(outFile) {
-      df.explain(true)
-      outAndFile(df.rdd.toDebugString)
-      val rowsToShow = 1000
-      println(s"Showing first $rowsToShow rows out of a total of ${df.count()} rows")
-      df.show(rowsToShow)
-    }
+    val uniqueTitles = df
+      .map(r => r.getAs[String](0))
+      .collect()
+    uniqueTitles.distinct
+//    outAndFile(s"Total tuples: ${df.count()}, Distinct: ${uniqueTitles.count()}")
+//    outAndFile(s"Total tuples: ${df.count()}, Distinct: ${uniqueTitles.count()},\n${uniqueTitles.collect().mkString("\n")}")
+//    // Warm up by printing the query plan and a sample of 20 results
+//    Console.withOut(outFile) {
+//      df.explain(true)
+//      outAndFile(df.rdd.toDebugString)
+//      val rowsToShow = 1000
+//      println(s"Showing first $rowsToShow rows out of a total of ${df.count()} rows")
+//      df.show(rowsToShow)
+//    }
 
-    outAndFile(f"prepareTime=${prepareTime}%5.2f, ExecutionTime=${stats.getMean}%5.2f, " +
-      f"stddev=${stats.getStandardDeviation}%5.2f, repeats=$repetitions%d")
-    outAndFile(s"Times: ${stats.getValues.mkString(", ")}")
+//    outAndFile(f"prepareTime=${prepareTime}%5.2f, ExecutionTime=${stats.getMean}%5.2f, " +
+//      f"stddev=${stats.getStandardDeviation}%5.2f, repeats=$repetitions%d")
+//    outAndFile(s"Times: ${stats.getValues.mkString(", ")}")
   }
-
 }

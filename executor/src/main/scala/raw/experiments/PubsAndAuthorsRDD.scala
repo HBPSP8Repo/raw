@@ -181,10 +181,6 @@ object PubsAndAuthorsRDD extends StrictLogging {
 
     val authorNameToPubAuthorTuple: RDD[(String, (Publication, Author))] = pubsKeyed.join(authorsKeyed)
 
-    //    val c1 =
-    //    createCombiner: V => C,
-    //    mergeValue: (C, V) => C,
-    //    mergeCombiners: (C, C) => C,
     val pubsToAuthors: RDD[(Publication, Iterable[Author])] = authorNameToPubAuthorTuple.values
       .groupByKey()
 
@@ -210,13 +206,13 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed2())
     //    doTest(oneProfOneStudentProfYoungerThanStudentWithBcastVar())
 
-
     val res = oneProfOneStudentProfYoungerThanStudentFullDistributed2()
     Common.outAndFile(res.toDebugString)
     Common.outAndFile("Result size: " + res.count())
     val localResults = res.collect()
+    outFile.append(s"Articles: ${localResults.length}\n" + localResults.mkString("\n"))
     val uniqueNames = localResults.map(q => q.article).distinct
-    outFile.append(s"Articles: ${uniqueNames.length}\n" + uniqueNames.mkString("\n"))
+    outFile.append(s"Unique names: ${uniqueNames.length}\n" + uniqueNames.mkString("\n"))
     //    Common.outAndFile("result: " +
     //      localResults
     //        .map(q => f"${q.article}%20s ${q.phd}%10s ${q.phdYear}%5d ${q.prof}%10s ${q.profYear}%5d})")
@@ -230,6 +226,6 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //        .mkString("\n"))
     outFile.close()
 
-//    Thread.sleep(10000000)
+    Thread.sleep(10000000)
   }
 }
