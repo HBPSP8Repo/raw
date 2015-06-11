@@ -6,13 +6,11 @@ import org.apache.spark.sql.hive.HiveContext
 import raw.repl.RawSparkContext
 
 object PubsAndAuthorsSQL extends StrictLogging {
+  val sparkContext = new RawSparkContext().sc
+  val hiveContext: HiveContext = new HiveContext(sparkContext)
 
-  val hiveContext: HiveContext = {
-    val rawSparkContext = new RawSparkContext
-    new HiveContext(rawSparkContext.sc)
-  }
-
-  val pubs: DataFrame = Common.newDataframeFromJSON(hiveContext, "data/pubs-authors/publications.json", "publications")
+  //  val pubs: DataFrame = Common.newDataframeFromJSON(hiveContext, "data/pubs-authors/publications.json", "publications")
+  val pubs: DataFrame = Common.newDataframeFromJSON(hiveContext, "data/pubs-authors/publicationsLarge.json", "publications")
   val authors: DataFrame = Common.newDataframeFromJSON(hiveContext, "data/pubs-authors/authors.json", "authors")
 
   def main(args: Array[String]) {
@@ -50,7 +48,7 @@ object PubsAndAuthorsSQL extends StrictLogging {
      * before doing the LATERAL VIEW explode(). This way, if two articles have the same title, they can still be disinguished
      * in the outermost join by their id.
      */
-        Common.runQuery("""
+    Common.runQuery( """
     SELECT phds.title, phds.name as phdName, phds.year as phdYear, profs.name as profName, profs.year as profYear
        FROM
           (SELECT t1.id, t1.title, authors.name, authors.year
@@ -63,28 +61,27 @@ object PubsAndAuthorsSQL extends StrictLogging {
        ON (phds.id = profs.id)
        WHERE (phds.year < profs.year)
        ORDER BY phds.title
-          """, repetitions = 0)
+                     """, repetitions = 0)
 
-    Thread.sleep(1000000)
     /**
      * Same as above, except that instead of generating an id = hash(title, authors), it also preserves the authors of
      * the article (title, authors, phd or professor author, author year) and then joins on title and author.
      *
      * No difference in time from previous approach with 1000 publications.
      */
-//    Common.runQuery( """
-//SELECT phds.title, phds.name as phdName, phds.year as phdYear, profs.name as profName, profs.year as profYear
-//   FROM
-//      (SELECT publications.title, publications.authors, authors.name, authors.year
-//        FROM publications LATERAL VIEW explode(authors) newTable AS authorsExp
-//        JOIN authors ON (authors.name = authorsExp and (authors.title = "PhD"))) phds
-//   JOIN
-//      (SELECT publications.title, publications.authors, authors.name, authors.year
-//        FROM publications LATERAL VIEW explode(authors) newTable AS authorsExp
-//        JOIN authors ON (authors.name = authorsExp and (authors.title = "professor"))) profs
-//   ON (phds.title = profs.title and phds.authors = profs.authors)
-//   WHERE (phds.year < profs.year)
-//                     """, repetitions = 10)
+    //    Common.runQuery( """
+    //SELECT phds.title, phds.name as phdName, phds.year as phdYear, profs.name as profName, profs.year as profYear
+    //   FROM
+    //      (SELECT publications.title, publications.authors, authors.name, authors.year
+    //        FROM publications LATERAL VIEW explode(authors) newTable AS authorsExp
+    //        JOIN authors ON (authors.name = authorsExp and (authors.title = "PhD"))) phds
+    //   JOIN
+    //      (SELECT publications.title, publications.authors, authors.name, authors.year
+    //        FROM publications LATERAL VIEW explode(authors) newTable AS authorsExp
+    //        JOIN authors ON (authors.name = authorsExp and (authors.title = "professor"))) profs
+    //   ON (phds.title = profs.title and phds.authors = profs.authors)
+    //   WHERE (phds.year < profs.year)
+    //                     """, repetitions = 10)
 
 
     //  Thread.sleep(1000000)
@@ -121,6 +118,6 @@ object PubsAndAuthorsSQL extends StrictLogging {
     //	    WHERE array_contains(controlledterms, "particle detectors")""")
     //    	    (SELECT title, size(authors) AS authCount FROM publications) t2
 
-    Thread.sleep(1000000)
+    sparkContext.stop()
   }
 }

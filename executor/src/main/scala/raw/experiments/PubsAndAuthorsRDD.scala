@@ -7,14 +7,15 @@ import java.util.concurrent.TimeUnit
 import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
+import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.{RangePartitioner, SparkContext}
 import raw.repl.RawSparkContext
 
 import scala.collection.Map
 import scala.collection.mutable.ArrayBuffer
+import scala.util.hashing.MurmurHash3.ArrayHashing
 
 
 object PubsAndAuthorsRDD extends StrictLogging {
@@ -102,8 +103,9 @@ object PubsAndAuthorsRDD extends StrictLogging {
   }
 
   case class QueryResult(article: String, phd: String, phdYear: Int, prof: String, profYear: Int)
+
   implicit object PublicationOrdering extends Ordering[Publication] {
-    def compare(a:Publication, b:Publication) = a.title compare b.title
+    def compare(a: Publication, b: Publication) = a.title compare b.title
   }
 
   def extractMatchingAuthorPairs(p: Publication, authors: Map[String, Author]): ArrayBuffer[QueryResult] = {
@@ -171,32 +173,166 @@ object PubsAndAuthorsRDD extends StrictLogging {
     }).sortBy(_.article)
   }
 
+  //  def oneProfOneStudentProfYoungerThanStudentFullDistributed2(): RDD[QueryResult] = {
+  //    val authorsKeyed: RDD[(String, Author)] = authors
+  //      .filter(a => a.title == "PhD" || a.title == "professor")
+  //      .map(a => a.name -> a)
+  //
+  //    val pubsKeyed: RDD[(String, Publication)] = pubs
+  //      .flatMap(p => p.authors.map(authorName => authorName -> p))
+  //
+  //    val authorNameToPubAuthorTuple: RDD[(String, (Publication, Author))] = pubsKeyed.join(authorsKeyed)
+  //
+  //    val pubsToAuthors = authorNameToPubAuthorTuple.values
+  //      .groupByKey()
+  //
+  //    pubsToAuthors.flatMap({ case (pub, authors) => {
+  //      val l: Iterable[QueryResult] = for {
+  //        phd <- authors.filter(_.title == "PhD")
+  //        prof <- authors.filter(_.title == "professor")
+  //        if (prof.year > phd.year)
+  //      } yield new QueryResult(pub.title, phd.name, phd.year, prof.name, prof.year)
+  //      l.toSeq
+  //    }
+  //    })
+  //    //      .sortBy(_.article)
+  //  }
+
   def oneProfOneStudentProfYoungerThanStudentFullDistributed2(): RDD[QueryResult] = {
     val authorsKeyed: RDD[(String, Author)] = authors
       .filter(a => a.title == "PhD" || a.title == "professor")
       .map(a => a.name -> a)
 
-    val pubsKeyed: RDD[(String, Publication)] = pubs
-      .flatMap(p => p.authors.map(authorName => (authorName, p)))
+    val pubsKeyed: RDD[(String, (String, Int))] = pubs
+      .mapPartitions((iter: Iterator[Publication]) => {
+      val hasher = new ArrayHashing[String]()
+      iter.flatMap(p => {
+        val authorsArrayHash = hasher.hash(p.authors.toArray)
+        p.authors.map(authorName => authorName ->(p.title, authorsArrayHash))
+      })
+    })
 
-    val authorNameToPubAuthorTuple: RDD[(String, (Publication, Author))] = pubsKeyed.join(authorsKeyed)
+    val authorNameToPubAuthorTuple: RDD[(String, ((String, Int), Author))] = pubsKeyed
+      .join(authorsKeyed)
 
-    val pubsToAuthors: RDD[(Publication, Iterable[Author])] = authorNameToPubAuthorTuple.values
+    val pubsToAuthors: RDD[((String, Int), Iterable[Author])] = authorNameToPubAuthorTuple
+      .values
       .groupByKey()
 
-    pubsToAuthors.flatMap({ case (pub, authors) => {
+    pubsToAuthors.flatMap({ case ((pub, _), authors) => {
       val l: Iterable[QueryResult] = for {
         phd <- authors.filter(_.title == "PhD")
         prof <- authors.filter(_.title == "professor")
         if (prof.year > phd.year)
-      } yield new QueryResult(pub.title, phd.name, phd.year, prof.name, prof.year)
+      } yield new QueryResult(pub, phd.name, phd.year, prof.name, prof.year)
       l.toSeq
     }
     }).sortBy(_.article)
   }
 
-  // Reimplement queries above without using a broadcast variable, just joins. Compare time.
+  def query1(): RDD[(String, Int)] = {
+    authors
+      .map(a => (a.title, 1))
+      .reduceByKey((c1, c2) => c1 + c2)
+  }
 
+  def query2(): RDD[(String, Iterable[Author])] = {
+    authors
+      .map(a => (a.title, a))
+      .groupByKey()
+  }
+
+  //  List of birth years per category. We extract the year only.
+  def query3() = {
+    val r: RDD[(String, Iterable[Int])] = authors
+      .map(a => (a.title, a.year))
+      .groupByKey()
+  }
+
+  //  Statistics per category. One can build an histogram over the age of
+  //  authors after they are grouped by category.
+  //  def query4(): RDD[(String, Iterable[Int])] = {
+  //    authors
+  //      .map(a => (a.title, a.year))
+  //      .groupByKey()
+  //  }
+
+  // Publications
+  //  Whole article entries grouped by number of authors.
+  def query5() = {
+    pubs
+      .map(p => (p.authors.size, p))
+      .groupByKey()
+  }
+
+  //List of articles published per author.
+  def query6() = {
+    pubs
+      .flatMap(p => p.authors.map(a => (a, p)))
+      .groupByKey()
+      .map(f => (f._1, f._2.size))
+  }
+
+  //  List of articles published per keyword.
+  def query7() = {
+    pubs
+      .flatMap(p => p.controlledterms.map(term => (term, p)))
+      .groupByKey()
+      .map(f => (f._1, f._2.size))
+  }
+
+  //  Find all articles (full entry) on a certain topic.
+  def query8() = {
+    pubs
+      .filter(_.controlledterms.contains("particle detectors"))
+  }
+
+  //  Select authors having worked on a certain topic.
+  def query9() = {
+    pubs
+      .filter(_.controlledterms.contains("particle detectors"))
+      .flatMap(p => p.authors.seq)
+      .distinct()
+  }
+
+  //Proficiency of authors on a certain topic.
+  def query10() = {
+    pubs
+      .filter(_.controlledterms.contains("particle detectors"))
+      .flatMap(p => p.authors.map(a => (a, 1)))
+      .reduceByKey((a, b) => a + b)
+      .sortByKey()
+  }
+
+  //  Articles written by a certain student, with a professor.
+  def query11_bcast() = {
+    val profNames = authors.filter(_.title == "professor").map(_.name).collect()
+    val profsBcastVar = sparkContext.broadcast(profNames)
+
+    pubs.filter(p => {
+      p.controlledterms.contains("particle detectors") &&
+        p.authors.contains("Stricker, D.A.") &&
+        p.authors.intersect(profsBcastVar.value).nonEmpty
+    }
+    )
+  }
+
+  def query11_join() = {
+    val profNames = authors
+      .filter(_.title == "professor")
+      .map(a => (a.name, a.name))
+
+    val pubsFiltered: RDD[(String, Publication)] = pubs
+      .filter(p => p.controlledterms.contains("particle detectors") && p.authors.contains("Stricker, D.A."))
+      .flatMap(p => p.authors.map(a => (a, p)))
+
+    val joined: RDD[(String, (String, Publication))] = profNames.join(pubsFiltered)
+    joined
+      .map({ case (_, (_, pub)) => pub })
+      .distinct()
+  }
+
+  // Reimplement queries above without using a broadcast variable, just joins. Compare time.
   def main(args: Array[String]) {
     // val res = queryArticlesWithMoreThanOnePhDStudent()
     //     val res = articlesAllAuthorsSameAgeNoBcast()
@@ -205,14 +341,19 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed())
     //    doTest(oneProfOneStudentProfYoungerThanStudentFullDistributed2())
     //    doTest(oneProfOneStudentProfYoungerThanStudentWithBcastVar())
+    //    val res = oneProfOneStudentProfYoungerThanStudentWithBcastVar()
+    //    val res = oneProfOneStudentProfYoungerThanStudentFullDistributed2()
 
-    val res = oneProfOneStudentProfYoungerThanStudentFullDistributed2()
+    val res = query11_join()
     Common.outAndFile(res.toDebugString)
-    Common.outAndFile("Result size: " + res.count())
     val localResults = res.collect()
+    Common.outAndFile("Result size: " + localResults.size)
+    logger.info("res: " + localResults.mkString("\n"))
     outFile.append(s"Articles: ${localResults.length}\n" + localResults.mkString("\n"))
-    val uniqueNames = localResults.map(q => q.article).distinct
-    outFile.append(s"Unique names: ${uniqueNames.length}\n" + uniqueNames.mkString("\n"))
+    //    val uniqueNames = localResults.map(q => q.article).distinct
+    //    outFile.append(s"Unique names: ${uniqueNames.length}\n" + uniqueNames.mkString("\n"))
+    //
+
     //    Common.outAndFile("result: " +
     //      localResults
     //        .map(q => f"${q.article}%20s ${q.phd}%10s ${q.phdYear}%5d ${q.prof}%10s ${q.profYear}%5d})")
@@ -225,7 +366,6 @@ object PubsAndAuthorsRDD extends StrictLogging {
     //        .map(q => f"${q.article}%20s ${q.phd}%10s ${q.phdYear}%5d ${q.prof}%10s ${q.profYear}%5d})")
     //        .mkString("\n"))
     outFile.close()
-
-    Thread.sleep(10000000)
+    sparkContext.stop()
   }
 }
