@@ -41,7 +41,6 @@ lazy val executorDeps =
     Seq(
       spark,
       sparkSql,
-      json4s,
       jackson,
       jacksonScala,
       commonMath

@@ -15,8 +15,6 @@ object Dependencies {
 
   val kiama = "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing()
 
-  val json4s = "org.json4s" %% "json4s-native" % "3.2.10"
-
 //  val shapeless = "com.chuusai" %% "shapeless" % "2.1.0"
 
   // Some libraries imported by Apache Hadoop and Curator have dependencies on old versions of Guava.
