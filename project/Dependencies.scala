@@ -1,7 +1,7 @@
 import sbt._
 
 object Dependencies {
-  val sparkVersion = "1.3.1"
+  val sparkVersion = "1.4.0"
 
   val scalaCompiler = "org.scala-lang" % "scala-compiler" % "2.11.6"
   val scalaReflect = "org.scala-lang" % "scala-reflect" % "2.11.6"
