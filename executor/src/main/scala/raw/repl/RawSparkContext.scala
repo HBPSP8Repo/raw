@@ -5,6 +5,8 @@ import java.nio.file.Paths
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.{SparkConf, SparkContext}
+import raw.experiments.PubsAndAuthorsRDD.QueryResult
+import raw.experiments.{Author, Publication}
 
 class RawSparkContext extends StrictLogging with AutoCloseable {
 
@@ -19,6 +21,14 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.broadcast.compress", "false")
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
+
+    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    .registerKryoClasses(Array(classOf[Publication], classOf[Author], classOf[QueryResult]))
+
+    // https://spark.apache.org/docs/1.3.1/monitoring.html
+    .set("spark.eventLog.enabled", "true")
+    //    .set("spark.eventLog.dir", "file:///")
+
     .set("spark.metrics.conf", metricsConf.toString)
 
     // Spark SQL configuration

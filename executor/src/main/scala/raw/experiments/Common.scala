@@ -59,8 +59,8 @@ object Common extends StrictLogging {
 //    logger.info("Persisted.")
 //    val inputSize = rdd.count() // Force the RDD to be cached into memory, as persist is lazy
 //    logger.info(s"Loaded $inputSize elements from $resource in ${start.elapsed(TimeUnit.MILLISECONDS)}")
+//    rdd.persist()
     rdd
-
 
     //    logger.info(s"URI: $uri")
     //    val start = Stopwatch.createStarted()
@@ -93,9 +93,9 @@ object Common extends StrictLogging {
       tableName
     }
     pubs.registerTempTable(tName)
-    pubs.persist()
-    val count = pubs.count() // Force the RDD to be cached into memory, as persist is lazy
-    logger.info(s"Registered table $tName with $count rows")
+//    pubs.persist()
+//    logger.info(s"Registered table $tName with $count rows")
+    logger.info(s"Registered table $tName")
     pubs
   }
 
@@ -155,11 +155,13 @@ object Common extends StrictLogging {
 //      stats.addValue(c.elapsed(TimeUnit.MILLISECONDS) / 1000.0)
 //    }
 
-    val uniqueTitles = df
-      .map(r => r.getAs[String](0))
-      .collect()
+    logger.info("Query plan:");
+    df.explain()
+    val localResults = df.collect()
+
+    val uniqueTitles = localResults.map(r => r.getAs[String](0))
     uniqueTitles.distinct
-//    outAndFile(s"Total tuples: ${df.count()}, Distinct: ${uniqueTitles.count()}")
+    outAndFile(s"Total tuples: ${localResults.size}, Distinct: ${uniqueTitles.size}")
 //    outAndFile(s"Total tuples: ${df.count()}, Distinct: ${uniqueTitles.count()},\n${uniqueTitles.collect().mkString("\n")}")
 //    // Warm up by printing the query plan and a sample of 20 results
 //    Console.withOut(outFile) {
