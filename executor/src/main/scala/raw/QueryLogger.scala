@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import com.typesafe.scalalogging.StrictLogging
 
-// TODO: File is not being closed. Re
+// TODO: File is not being closed.
 object QueryLogger extends StrictLogging {
   private val queriesLogWriter = {
     val f = Files.createTempFile("raw-queries", ".txt")
