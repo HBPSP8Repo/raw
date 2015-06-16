@@ -13,16 +13,10 @@ lazy val buildSettings = Seq(
   resolvers := sonatypeResolvers,
   // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
   // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
-  updateOptions := updateOptions.value.withCachedResolution(true),
-  addCompilerPlugin(paradiseDependency)
+  updateOptions := updateOptions.value.withCachedResolution(true)
 )
 
-lazy val paradiseDependency =
-  "org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full
-
 lazy val commonDeps = Seq(
-  scalaCompiler,
-  scalaReflect,
   scalatest % Test,
   scalacheck % Test,
   scalaLogging,
@@ -31,30 +25,17 @@ lazy val commonDeps = Seq(
   guava
 )
 
-lazy val coreDeps =
-  commonDeps ++
-    Seq(
-      kiama)
-
-lazy val executorDeps =
-  commonDeps ++
-    Seq(
-      spark,
-      sparkSql,
-      jackson,
-      jacksonScala,
-      commonMath
-    )
-
 lazy val root = project.in(file("."))
   .aggregate(executor, core)
   .dependsOn(executor)
   .settings(buildSettings)
-  .settings(libraryDependencies ++= executorDeps)
+  .settings(libraryDependencies ++= commonDeps)
+
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
-  settings(buildSettings).
+  settings(buildSettings ++
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
   settings(
     // Must use the local spark installation instead of the spark library downloaded by sbt.
     // TODO: must package the local app in a jar and distribute it to the worker nodes using the driver's http server.
@@ -65,7 +46,18 @@ lazy val executor = (project in file("executor")).
     // UPDATE: Seems to be working now.
     //    fork in Test := true,
 
-    libraryDependencies ++= executorDeps,
+    libraryDependencies ++=
+      commonDeps ++
+        Seq(
+          scalaCompiler,
+          scalaReflect,
+          spark,
+          sparkSql,
+          jackson,
+          jacksonScala,
+          commonMath
+        ),
+
     testOptions in Test += Tests.Setup(() => println("Setup")),
     testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
 
@@ -89,9 +81,10 @@ lazy val executor = (project in file("executor")).
 lazy val core = (project in file("core")).
   settings(buildSettings).
   settings(
-    libraryDependencies ++= coreDeps
-  )
+    libraryDependencies ++= commonDeps ++ Seq(
+      kiama)
 
+  )
 
 initialCommands in console := """
                                 |import raw.repl._
