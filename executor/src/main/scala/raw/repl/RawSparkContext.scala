@@ -19,6 +19,14 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.broadcast.compress", "false")
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
+
+//    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    //    .registerKryoClasses(Array(classOf[Publication], classOf[Author], classOf[QueryResult]))
+
+    // https://spark.apache.org/docs/1.3.1/monitoring.html
+    .set("spark.eventLog.enabled", "true")
+    //    .set("spark.eventLog.dir", "file:///")
+
     .set("spark.metrics.conf", metricsConf.toString)
 
     // Spark SQL configuration
