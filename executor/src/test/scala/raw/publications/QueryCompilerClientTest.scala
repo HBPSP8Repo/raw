@@ -14,7 +14,8 @@ class CountAuthors(val authors: List[Author]) extends RawQuery {
 @rawQueryAnnotation
 class Query1(val authors: RDD[Author]) extends RawQuery {
   //  val oql = """select title, count(partition) as n from authors A group by title: A.title"""
-  val oql = """select a from authors a where a.title = "PhD""""
+  //  val oql = """select P from publications P where "particle detectors" in P.controlledterms"""
+  val oql = """select a.title from authors a where a.title = "PhD""""
 }
 
 class QueryCompilerClientTest extends AbstractSparkPublicationsTest {

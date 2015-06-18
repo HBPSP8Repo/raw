@@ -4,10 +4,9 @@ package util
 import java.net.URL
 
 import com.google.common.io.Resources
-import com.typesafe.scalalogging.{StrictLogging, LazyLogging}
+import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
-import raw.repl.RawSparkContext
 
 import scala.reflect.ClassTag
 

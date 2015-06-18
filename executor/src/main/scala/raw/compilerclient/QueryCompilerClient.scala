@@ -12,39 +12,29 @@ import raw.algebra.{LogicalAlgebraPrettyPrinter, LogicalAlgebraParser}
 
 import scala.io.Source
 
-class QueryCompilerClient extends StrictLogging {
+object QueryCompilerClient extends StrictLogging {
   val compileServerUrlProperty = "raw.compile.server.host"
   val serverUrl: String = System.getProperty(compileServerUrlProperty, "http://192.168.1.32:5000/raw-plan")
 
-  def compile(oql: String): Either[String, LogicalAlgebraNode] = {
-    val logicalPlan = doQuery(oql)
-    logger.info("Parsing logical algebra")
+  def apply(oql: String): Either[String, LogicalAlgebraNode] = {
+    val logicalPlan = getRestContent(serverUrl, oql)
+    logger.info(s"Raw logical algebra:\n$logicalPlan" )
     LogicalAlgebraParser(logicalPlan)
   }
 
-  private def doQuery(oql: String): String = {
-    val content = getRestContent(serverUrl, oql)
-    logger.info("Plan: {}", content)
-    content
-  }
-
-  /**
-   * Returns the text content from a REST URL. Returns a blank String if there
-   * is a problem.
-   */
   def getRestContent(url: String, oql:String): String = {
     val httpClient = HttpClients.createDefault()
     val post = new HttpPost(url)
     val nameValuePairs = new util.ArrayList[BasicNameValuePair](1)
     nameValuePairs.add(new BasicNameValuePair("oql", oql));
     post.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-    logger.info(s"Request: $post, Query: $oql")
+    logger.info(s"Query $oql, Compilation service: ${post.getURI}")
     val httpResponse = httpClient.execute(post)
     val entity = httpResponse.getEntity()
     var content = ""
     if (entity != null) {
       val inputStream = entity.getContent()
-      content = Source.fromInputStream(inputStream).getLines.mkString
+      content = Source.fromInputStream(inputStream).mkString
       inputStream.close
     }
     httpClient.close()
