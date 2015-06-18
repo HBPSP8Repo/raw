@@ -5,7 +5,7 @@ import raw.csv.Professor
 import raw.{RawQuery, rawQueryAnnotation}
 
 @rawQueryAnnotation
-class NumberOfProfessors(val profs:RDD[Professor]) extends RawQuery {
+class NumberOfProfessors(val profs: RDD[Professor]) extends RawQuery {
   val query = "for (d <- profs) yield sum 1"
 }
 
@@ -14,7 +14,7 @@ class SparkFlatCSVBasicTest extends AbstractSparkFlatCSVTest {
    Primitive monoids
     ====================================== */
   test("number of professors") {
-    assert(new NumberOfProfessors(testData.profs).computeResult === 3)
+    assert(new NumberOfProfessors(profs).computeResult === 3)
   }
 
   //  test("number of students") {

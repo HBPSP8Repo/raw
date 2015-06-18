@@ -19,8 +19,8 @@ object Dependencies {
 
   // Some libraries imported by Apache Hadoop and Curator have dependencies on old versions of Guava.
   // For the time being, we are not using them, so exclude to avoid compilation warnings.
-  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % "provided" exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
-  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % "provided" exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
+  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
+  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
 //    val spark = "org.apache.spark" %% "spark-core" % sparkVersion exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes")
 //    val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion exclude("org.slf4j", "slf4j-log4j12")
 //  val hadoopClient = "org.apache.hadoop" % "hadoop-client" % "2.6.0" exclude("org.slf4j", "slf4j-log4j12") exclude("org.slf4j", "log4j-over-slf4j")
@@ -33,4 +33,6 @@ object Dependencies {
 
   val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.5.2"
   val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.5.2"
+
+  val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
 }

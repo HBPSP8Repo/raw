@@ -6,10 +6,9 @@ import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.{SparkConf, SparkContext}
 
-class RawSparkContext extends StrictLogging with AutoCloseable {
-
+object RawSparkContext {
   private[this] val metricsConf = Paths.get(Resources.getResource( """metrics.properties""").toURI)
-  lazy val conf = new SparkConf()
+  val conf = new SparkConf()
     .setAppName("RAW Unit Tests")
     .setMaster("local[4]")
     // Disable compression to avoid polluting the tmp directory with dll files.
@@ -36,10 +35,12 @@ class RawSparkContext extends StrictLogging with AutoCloseable {
     .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
   //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
+}
 
+class RawSparkContext extends StrictLogging with AutoCloseable {
   lazy val sc = {
-    logger.info("Starting local Spark context with configuration:\n" + conf.toDebugString)
-    new SparkContext(conf)
+    logger.info("Starting local Spark context with configuration:\n" + RawSparkContext.conf.toDebugString)
+    new SparkContext(RawSparkContext.conf)
   }
 
   override def close() {

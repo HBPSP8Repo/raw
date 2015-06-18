@@ -52,6 +52,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   lazy val monoid: PackratParser[Monoid] = {
     "SetMonoid()" ^^^ SetMonoid() |
     "SumMonoid()" ^^^ SumMonoid() |
+    "BagMonoid()" ^^^ BagMonoid() |
     prim_monoid
   }
 

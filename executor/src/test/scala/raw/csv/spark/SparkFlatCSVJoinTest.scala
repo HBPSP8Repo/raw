@@ -63,37 +63,37 @@ class DepartmentToBirthYearOfYoungestStudent(students: RDD[Student]) extends Raw
 
 class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
   test("cross product professors x departments x students") {
-    val res = Cross_product_professors_x_departments_x_students(testData.students, testData.departments, testData.profs)
+    val res = Cross_product_professors_x_departments_x_students(students, departments, profs)
     assert(res.size === 3 * 3 * 7)
   }
 
   test("cross product professors x departments") {
-    val res = Cross_product_professors_x_departments(testData.departments, testData.profs).asInstanceOf[Set[Any]]
+    val res = Cross_product_professors_x_departments(departments, profs).asInstanceOf[Set[Any]]
     assert(res.size === 9)
   }
 
   test("inner join professors x departments") {
-    val res = new Inner_join_professors_x_departments(testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    val res = new Inner_join_professors_x_departments(departments, profs).computeResult.asInstanceOf[Set[Any]]
     assert(res.size === 3)
   }
 
   test("(professors, departments) with predicate") {
-    val res = new Professors_x_departments_with_predicate(testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    val res = new Professors_x_departments_with_predicate(departments, profs).computeResult.asInstanceOf[Set[Any]]
     assert(res.size === 3)
   }
 
   test("Spark JOIN: (professors, departments, students) with one predicate per datasource") {
-    val q = new Professors_departments_students_with_one_predicate_per_datasource(testData.students, testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    val q = new Professors_departments_students_with_one_predicate_per_datasource(students, departments, profs).computeResult.asInstanceOf[Set[Any]]
     printQueryResult(q)
   }
 
   test("Spark JOIN: (professors, departments, students) predicate with triple condition") {
-    val q: Set[Any] = new Professors_departments_students_predicate_with_triple_condition(testData.students, testData.departments, testData.profs).computeResult.asInstanceOf[Set[Any]]
+    val q: Set[Any] = new Professors_departments_students_predicate_with_triple_condition(students, departments, profs).computeResult.asInstanceOf[Set[Any]]
     printQueryResult(q)
   }
 
   test("Set Of Department and headcount using only students table") {
-    val r = new Set_of_department_and_the_headcount_using_only_students_table(testData.students).computeResult
+    val r = new Set_of_department_and_the_headcount_using_only_students_table(students).computeResult
     printQueryResult(r)
     assert(r.size === 3)
     val mr = r.map { case v => Map("name" -> v.name, "count" -> v.count) }
@@ -101,7 +101,7 @@ class SparkFlatCSVJoinTest extends AbstractSparkFlatCSVTest {
   }
 
   test("Department with max headcount") {
-    val r = new DepartmentToBirthYearOfYoungestStudent(testData.students).computeResult
+    val r = new DepartmentToBirthYearOfYoungestStudent(students).computeResult
     printQueryResult(r)
     val mr = r.map { case v => Map("name" -> v.name, "maxBirthYear" -> v.maxBirthYear) }
     assert(mr === Set(Map("name" -> "dep1", "maxBirthYear" -> 1990), Map("name" -> "dep2", "maxBirthYear" -> 1992), Map("name" -> "dep3", "maxBirthYear" -> 1992)))

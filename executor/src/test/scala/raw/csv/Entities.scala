@@ -2,6 +2,8 @@ package raw.csv
 
 import raw.util.CSVParser
 
+case class Publication(title: String, authors: List[String])
+
 case class Student(name: String, birthYear: Int, office: String, department: String)
 
 case class Professor(name: String, office: String)

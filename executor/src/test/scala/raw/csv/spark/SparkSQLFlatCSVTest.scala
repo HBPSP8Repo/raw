@@ -7,22 +7,26 @@ import scala.language.existentials
 import scala.reflect.ClassTag
 
 class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
-  val sqlContext = new SQLContext(rawSparkContext.sc)
+  var sqlContext: SQLContext = _
+  var profsDF: DataFrame = _
+  var studentsDF: DataFrame = _
+  var departmentsDF: DataFrame = _
 
-  // this is used to implicitly convert an RDD to a DataFrame.
-  import sqlContext.implicits._
+  override def beforeAll() {
+    super.beforeAll()
+    sqlContext = new SQLContext(sc)
+    val localSqlContext = new SQLContext(sc)
+    sqlContext = localSqlContext
+    import localSqlContext.implicits._
+    profsDF = profs.toDF()
+    studentsDF = students.toDF()
+    departmentsDF = departments.toDF()
 
-  val profsDF: DataFrame = testData.profs.toDF()
-  profsDF.show()
-  val studentsDF: DataFrame = testData.students.toDF()
-  studentsDF.show()
-  val departmentsDF: DataFrame = testData.departments.toDF()
-  departmentsDF.show()
-
-  // Register tables with sql context to use with the SQL queries
-  profsDF.registerTempTable("profs")
-  studentsDF.registerTempTable("students")
-  departmentsDF.registerTempTable("departments")
+    // Register tables with sql context to use with the SQL queries
+    profsDF.registerTempTable("profs")
+    studentsDF.registerTempTable("students")
+    departmentsDF.registerTempTable("departments")
+  }
 
   test("Spark SQL") {
     println("Professors:")
@@ -147,26 +151,26 @@ class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
     assertResult(expected)(actual)
   }
 
-//    test("[SQL] most studied discipline") {
-////      val r = Raw.query("""
-////          for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
-////          (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
-////        HList("departments" -> departments, "students" -> students))
-//
-//      val rows = sqlContext.sql(
-//      """
-//        |SELECT discipline, MAX(*)
-//        |FROM (SELECT d.discipline, COUNT(*)
-//        | FROM departments AS d, students AS s
-//        | WHERE d.name = s.department
-//        | GROUP BY d.discipline) AS t
-//        |GROUP BY discipline
-//      """.stripMargin
-//      )
-//      rows.show()
-////      assert(r.size === 1)
-////      assert(r === Set("Computer Architecture"))
-//    }
+  //    test("[SQL] most studied discipline") {
+  ////      val r = Raw.query("""
+  ////          for (t <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1)); t.number =
+  ////          (for (x <- for (d <- departments) yield set (name := d.discipline, number := (for (s <- students; s.department = d.name) yield sum 1))) yield max x.number)) yield set t.name""",
+  ////        HList("departments" -> departments, "students" -> students))
+  //
+  //      val rows = sqlContext.sql(
+  //      """
+  //        |SELECT discipline, MAX(*)
+  //        |FROM (SELECT d.discipline, COUNT(*)
+  //        | FROM departments AS d, students AS s
+  //        | WHERE d.name = s.department
+  //        | GROUP BY d.discipline) AS t
+  //        |GROUP BY discipline
+  //      """.stripMargin
+  //      )
+  //      rows.show()
+  ////      assert(r.size === 1)
+  ////      assert(r === Set("Computer Architecture"))
+  //    }
 
   import org.apache.spark.sql.functions._
 
@@ -178,10 +182,10 @@ class SparkSQLFlatCSVTest extends AbstractSparkFlatCSVTest {
     rows.show()
 
     // Self joins are broken in Spark 1.3.X https://issues.apache.org/jira/browse/SPARK-6247
-//    val r2 = rows.as("r2")
-//    val r1 = rows.as("r1")
-//    val r = r1.join(r2)
-//    rows.join(rows.as("rows2"), rows("count") === $"max(rows2.count)").show()
+    //    val r2 = rows.as("r2")
+    //    val r1 = rows.as("r1")
+    //    val r = r1.join(r2)
+    //    rows.join(rows.as("rows2"), rows("count") === $"max(rows2.count)").show()
 
     // select max
     val maxCount = rows.select(max("count")).collect().head.getLong(0)
