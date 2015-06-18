@@ -55,11 +55,14 @@ lazy val executor = (project in file("executor")).
           sparkSql,
           jackson,
           jacksonScala,
+          httpClient,
           commonMath
         ),
-
-    testOptions in Test += Tests.Setup(() => println("Setup")),
-    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
+//
+//    testOptions in Test += Tests.Setup(() => println("Setup")),
+//    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
+    // only use a single thread for building
+    parallelExecution := false,
 
     //    javaOptions in run += """-Dspark.master=spark://192.168.1.32:7077""",
     javaOptions in run += """-Dspark.master=local[2]""",

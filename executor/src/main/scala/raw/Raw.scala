@@ -2,7 +2,8 @@ package raw
 
 import com.typesafe.scalalogging.StrictLogging
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-import raw.algebra.Typer
+import raw.algebra.{LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
+import raw.compilerclient.QueryCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
@@ -19,8 +20,7 @@ class rawQueryAnnotation extends StaticAnnotation {
 /*
  */
 abstract class RawQuery {
-  val query: String
-
+  //  val query: String
   def computeResult: Any
 }
 
@@ -106,6 +106,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeVariable(v) => ???
       case _: AnyType => ???
       case _: NothingType => ???
+      case _: CollectionType => ???
     }
 
     // Collect all record types from tree
@@ -155,7 +156,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Arg => "arg"
         case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
         case RecordCons(atts) =>
-          val sym = recordTypeSym(typer.expressionType(e) match { case r: RecordType => r })
+          val sym = recordTypeSym(typer.expressionType(e) match {
+            case r: RecordType => r
+            case _ => ???
+          })
           val vals = atts.map(att => recurse(att.e)).mkString(",")
           s"""$sym($vals)"""
         case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
@@ -301,13 +305,19 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case ScalaScan(name, _) =>
         Ident(TermName(name))
 
-      // Spark operators
-      case SparkScan(name, tipe) => Ident(TermName(name))
-      //            q"""${accessPaths(name)}"""
+      case ScalaJoin(p, left, right) => ???
+      case ScalaMerge(m, left, right) => ???
+      case ScalaOuterUnnest(path, pred, child) => ???
+      case ScalaToSparkNode(node) => ???
+      case ScalaUnnest(path, pref, child) => ???
+
 
       /////////////////////////////////////////////////////
       // Spark
       /////////////////////////////////////////////////////
+      // Spark operators
+      case SparkScan(name, _) => Ident(TermName(name))
+      //            q"""${accessPaths(name)}"""
       /*
       * Fegaras: Ch 6. Basic Algebra O1
       * Join(X, Y, p), joins the collections X and Y using the join predicate p.
@@ -336,6 +346,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       * that satisfy the predicate p(x, y).
       */
       case SparkUnnest(path, pred, child) => ???
+      /*
+      Something along the lines:
+      child.flatMap(x => for { y <- x.path; if pred(x, y)} yield (x, y))
+
+       No shuffling involved, all local computation.
+       */
 
       /* Fegaras: Ch 6. Basic Algebra O4
       Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
@@ -496,7 +512,13 @@ res
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
 
-  def extractQueryAndAccessPath(makro: Tree): (String, List[AccessPath]) = {
+  sealed abstract class QueryLanguage
+
+  case object Krawl extends QueryLanguage
+
+  case object OQL extends QueryLanguage
+
+  def extractQueryAndAccessPath(makro: Tree): (String, QueryLanguage, List[AccessPath]) = {
     /**
      * Check if the query string is known at compile time.
      * If so, build the algebra tree, then build the executable code, and return that to the user.
@@ -509,17 +531,27 @@ res
       case ClassDef(_, className: TypeName, _, Template(_, _, body: List[Tree])) =>
         logger.info("Analysing class: " + className)
         var query: Option[String] = None
+        var queryLanguage: Option[QueryLanguage] = None
         val accessPaths = new ArrayBuffer[AccessPath]()
         body.foreach(v => {
           logger.info("Checking element: " + showCode(v))
           //          logger.debug("Tree: " + showRaw(v))
           v match {
             case ValDef(_, TermName("query "), _, Literal(Constant(queryString: String))) =>
-              logger.info("Found query: " + queryString)
+              logger.info("Found monoid comprehension query: " + queryString)
               if (query.isDefined) {
                 bail(s"Multiple queries found. Previous: ${query.get}, Current: $queryString")
               }
               query = Some(queryString)
+              queryLanguage = Some(Krawl)
+
+            case ValDef(_, TermName("oql "), _, Literal(Constant(queryString: String))) =>
+              logger.info("Found oql query: " + queryString)
+              if (query.isDefined) {
+                bail(s"Multiple queries found. Previous: ${query.get}, Current: $queryString")
+              }
+              query = Some(queryString)
+              queryLanguage = Some(OQL)
 
             case ValDef(_, TermName(termName), typeTree, _) =>
               val inferredType = inferType(typeTree.tpe)
@@ -531,7 +563,7 @@ res
           }
         })
 
-        (query.get, accessPaths.toList)
+        (query.get, queryLanguage.get, accessPaths.toList)
     }
 
     //    annottees.head.tree match {
@@ -574,21 +606,35 @@ res
     //              accessPathsBuilder.put(termName, AccessPath(rawTpe, accessPathTree, isSpark))
     //          }
     //        })
-
   }
 
-  def generateCode(makro: Tree, query: String, accessPaths: List[AccessPath]): c.Expr[Any] = {
+  def parseOqlQuery(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
+    // world is not used for the time being. Eventually, send it to the compilation server.
+    QueryCompilerClient(query) match {
+      case Right(logicalAlgebra) => Right(logicalAlgebra)
+      case Left(error) => Left(new ParserError(error))
+    }
+  }
+
+  def generateCode(makro: Tree, query: String, queryLanguage: QueryLanguage, accessPaths: List[AccessPath]): c.Expr[Any] = {
     val sources = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
     val world = new World(sources)
+
     // Parse the query, using the catalog generated from what the user gave.
-    Query(query, world) match {
+    val parseResult: Either[QueryError, LogicalAlgebraNode] = queryLanguage match {
+      case OQL => parseOqlQuery(query, world)
+      case Krawl => Query(query, world)
+    }
+
+    parseResult match {
       case Right(logicalTree) =>
-        val typer = new algebra.Typer(world)
+        var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
+        logger.info("Logical algebra: {}", algebraStr)
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
-        val algebraStr = PhysicalAlgebraPrettyPrinter(physicalTree)
-        logger.info("Algebra:\n{}", algebraStr)
+        logger.info("Physical algebra: {}", PhysicalAlgebraPrettyPrinter(physicalTree))
 
+        val typer = new algebra.Typer(world)
         val caseClasses: Set[Tree] = buildCaseClasses(logicalTree, world, typer)
         logger.info("case classes:\n{}", caseClasses.map(showCode(_)).mkString("\n"))
 
@@ -648,9 +694,9 @@ res
     logger.info("Expanding annotated target:\n{}", showCode(makro))
     //    logger.debug("Tree:\n" + showRaw(makro))
 
-    val (query: String, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
+    val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
     logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
 
-    generateCode(makro, query, accessPaths)
+    generateCode(makro, query, language, accessPaths)
   }
 }
