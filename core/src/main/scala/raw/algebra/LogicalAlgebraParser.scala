@@ -67,7 +67,15 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "BoolConst(" ~> ("true"|"false") <~ ")" ^^ { case e => BoolConst(e.toBoolean) } |
     "BinaryExp(" ~> binop ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case op ~ e1 ~ e2 => BinaryExp(op, e1, e2)} |
     "RecordProj(" ~> exp ~ ("," ~> idn) <~ ")" ^^ { case e ~ f => RecordProj(e, f) } |
+    "RecordCons(" ~> attrconss <~ ")" ^^ RecordCons |
     "MergeMonoid(" ~> prim_monoid ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case m ~ e1 ~ e2 => MergeMonoid(m, e1, e2)}
+  }
+
+  lazy val attrconss: PackratParser[scala.collection.immutable.Seq[AttrCons]] = repsep(attrcons, ",")
+
+  lazy val attrcons: PackratParser[AttrCons] = {
+    "AttrCons(" ~> idn ~ ("," ~> exp) <~ ")" ^^ AttrCons |
+    "AttrCons(" ~> number ~ ("," ~> exp) <~ ")" ^^ { case n ~ t => AttrCons("_" + n.toString, t) }
   }
 
   lazy val binop: PackratParser[BinaryOperator] = {
