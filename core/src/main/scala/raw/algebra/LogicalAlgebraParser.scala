@@ -16,7 +16,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val tree: PackratParser[LogicalAlgebraNode] = {
-    reduce | scan | select | nest
+    reduce | scan | select | nest | unnest
   }
 
   lazy val scan: PackratParser[LogicalAlgebra.Scan] = {
@@ -51,6 +51,10 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
 
   lazy val reduce: PackratParser[LogicalAlgebra.Reduce] = {
     "Reduce(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Reduce
+  }
+
+  lazy val unnest: PackratParser[LogicalAlgebra.Unnest] = {
+    "Unnest(" ~> exp ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Unnest
   }
 
   lazy val nest: PackratParser[LogicalAlgebra.Nest] = {
@@ -93,7 +97,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val number: PackratParser[String] = "[0-9]+".r ^^ { case e => e.toString }
-  lazy val idn: PackratParser[Idn] = "[a-zA-Z][a-zA-Z0-9]*".r ^^ { case e => e.toString }
+  lazy val idn: PackratParser[Idn] = "[a-zA-Z_][a-zA-Z0-9]*".r ^^ { case e => e.toString }
   lazy val string =
     regex ("\"[^\"]*\"".r) ^^ {
       case s => s.substring (1, s.length - 1)
