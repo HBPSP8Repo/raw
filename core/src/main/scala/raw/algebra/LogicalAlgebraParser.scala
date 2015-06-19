@@ -16,7 +16,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val tree: PackratParser[LogicalAlgebraNode] = {
-    reduce | scan | select | nest | unnest
+    reduce | scan | select | nest | unnest | join
   }
 
   lazy val scan: PackratParser[LogicalAlgebra.Scan] = {
@@ -51,6 +51,10 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
 
   lazy val reduce: PackratParser[LogicalAlgebra.Reduce] = {
     "Reduce(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Reduce
+  }
+
+  lazy val join: PackratParser[LogicalAlgebra.Join] = {
+    "Join(" ~> exp ~ ("," ~> tree) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Join
   }
 
   lazy val unnest: PackratParser[LogicalAlgebra.Unnest] = {
