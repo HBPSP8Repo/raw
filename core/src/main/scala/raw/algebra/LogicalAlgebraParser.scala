@@ -16,7 +16,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val tree: PackratParser[LogicalAlgebraNode] = {
-    reduce | scan | select
+    reduce | scan | select | nest
   }
 
   lazy val scan: PackratParser[LogicalAlgebra.Scan] = {
@@ -32,13 +32,17 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
       case attrs ~ name => {
         if (name != "None") RecordType(attrs, Some(name)) else RecordType(attrs, None)
       }
-    }
+    } |
+    "BagType(" ~> tipe <~ ")" ^^ BagType |
+    "SetType(" ~> tipe <~ ")" ^^ SetType |
+    "ListType(" ~> tipe <~ ")" ^^ ListType
   }
 
   lazy val attributes: PackratParser[scala.collection.immutable.Seq[AttrType]] = repsep(attribute, ",")
 
   lazy val attribute: PackratParser[AttrType] = {
-    "AttrType(" ~> idn ~ ("," ~> tipe) <~ ")" ^^ { case i ~ t => AttrType(i, t)}
+    "AttrType(" ~> idn ~ ("," ~> tipe) <~ ")" ^^ { case i ~ t => AttrType(i, t)} |
+    "AttrType(" ~> number ~ ("," ~> tipe) <~ ")" ^^ { case n ~ t => AttrType("_" + n.toString, t)}
   }
 
   lazy val select: PackratParser[LogicalAlgebra.Select] = {
@@ -47,6 +51,10 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
 
   lazy val reduce: PackratParser[LogicalAlgebra.Reduce] = {
     "Reduce(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Reduce
+  }
+
+  lazy val nest: PackratParser[LogicalAlgebra.Nest] = {
+    "Nest(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Nest
   }
 
   lazy val monoid: PackratParser[Monoid] = {
@@ -68,7 +76,8 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "BoolConst(" ~> ("true"|"false") <~ ")" ^^ { case e => BoolConst(e.toBoolean) } |
     "BinaryExp(" ~> binop ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case op ~ e1 ~ e2 => BinaryExp(op, e1, e2)} |
     "RecordProj(" ~> exp ~ ("," ~> idn) <~ ")" ^^ { case e ~ f => RecordProj(e, f) } |
-    "RecordCons(" ~> attrconss <~ ")" ^^ RecordCons |
+    "RecordProj(" ~> exp ~ ("," ~> number) <~ ")" ^^ { case e ~ f => RecordProj(e, "_" + f.toString) } |
+    "RecordCons(Seq(" ~> attrconss <~ "))" ^^ RecordCons |
     "MergeMonoid(" ~> prim_monoid ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case m ~ e1 ~ e2 => MergeMonoid(m, e1, e2)}
   }
 
