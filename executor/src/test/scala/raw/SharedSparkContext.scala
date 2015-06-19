@@ -1,13 +1,26 @@
 package raw
 
-import java.nio.file.Paths
+import java.nio.file.{FileAlreadyExistsException, Files, Paths}
 
 import com.google.common.io.Resources
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
 object SharedSparkContext {
   private[this] val metricsConf = Paths.get(Resources.getResource( """metrics.properties""").toURI)
+  private[this] val eventDirectory = {
+    val dir = Paths.get(System.getProperty("java.io.tmpdir"), "spark-events")
+
+    try {
+      Files.createDirectory(dir)
+    } catch {
+      //Ignore, already exists
+      case ex: FileAlreadyExistsException => //ignore, normal
+    }
+    dir
+  }
+
   val conf = new SparkConf()
     .setAppName("RAW Unit Tests")
     .setMaster("local[4]")
@@ -24,8 +37,7 @@ object SharedSparkContext {
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")
-    //    .set("spark.eventLog.dir", "file:///")
-
+    .set("spark.eventLog.dir", eventDirectory.toString)
     .set("spark.metrics.conf", metricsConf.toString)
 
     // Spark SQL configuration
@@ -46,7 +58,7 @@ independence between test suites.
 The first problem can be mitigated by ensuring that the JVM is always closed at the end of the tests (fork := true)
 in SBT.
 */
-trait SharedSparkContext extends BeforeAndAfterAll {
+trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
   self: Suite =>
 
   @transient private var _sc: SparkContext = _
@@ -57,6 +69,7 @@ trait SharedSparkContext extends BeforeAndAfterAll {
   var conf = SharedSparkContext.conf
 
   override def beforeAll() {
+    logger.info("Starting SparkContext with configuration:\n{}", conf.toDebugString)
     _sc = new SparkContext("local[4]", "test", conf)
     super.beforeAll()
   }

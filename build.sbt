@@ -42,9 +42,6 @@ lazy val executor = (project in file("executor")).
     //    unmanagedClasspath in Runtime ++= Seq(file( """c:\Tools\spark-1.3.1-bin-hadoop2.6\lib\spark-assembly-1.3.1-hadoop2.6.0.jar""")).classpath,
     run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
 
-    // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
-    // UPDATE: Seems to be working now.
-    //    fork in Test := true,
 
     libraryDependencies ++=
       commonDeps ++
@@ -58,12 +55,22 @@ lazy val executor = (project in file("executor")).
           httpClient,
           commonMath
         ),
+
+    // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
+    // UPDATE: Seems to be working now.
+    //    fork in Test := true,
+
+    // Alternative to start SBT with -D...=...
+    initialize ~= { _ =>
+      System.setProperty( "raw.compile.server.host", "http://192.168.0.109:5000/raw-plan" )
+    },
 //
 //    testOptions in Test += Tests.Setup(() => println("Setup")),
 //    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
 
+    // javaOptions is used for forked VMs (fork := true) not when running in process.
     //    javaOptions in run += """-Dspark.master=spark://192.168.1.32:7077""",
     javaOptions in run += """-Dspark.master=local[2]""",
     // build a JAR with the Spark application plus transitive dependencies.

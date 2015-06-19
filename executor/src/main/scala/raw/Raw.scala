@@ -70,7 +70,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     InferredType(rawType, isSpark)
   }
 
-  def recordTypeSym(r: RecordType) = r match {
+  def recordTypeSym(r: RecordType): String = r match {
     case RecordType(_, Some(symName)) => symName
     case _ =>
       // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
@@ -99,7 +99,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: IntType => "Int"
       case _: FloatType => "Float"
       case r: RecordType => recordTypeSym(r)
-      case BagType(innerType) => ???
+      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType)}]"
       case ListType(innerType) => s"List[${tipe(innerType)}]"
       case SetType(innerType) => s"Set[${tipe(innerType)}]"
       case UserType(idn) => tipe(world.userTypes(idn))
@@ -413,6 +413,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case SparkNest(m, e, f, p, g, child) =>
         val childTree: Tree = build(child)
+        logger.info(s"m: $m, e: ${exp(e)}, f: ${exp(f)}, p: ${exp(p)}, g: ${exp(g)}")
+
         val code = m match {
           case m1: PrimitiveMonoid =>
             val z1 = zeroExp(m1)
@@ -431,10 +433,54 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   logger.debug("folded:\n{}", toString(folded))
   folded
   """
-          // See ScalaNest case for the reason why these cases are not implemented.
-          case m1: BagMonoid => ???
-          case m1: ListMonoid => ???
-          case m1: SetMonoid => ???
+          case m1: CollectionMonoid =>
+            // TODO: Does not handle dotequality.
+            /* TODO: The filter by p probably can be applied at the start of this operator implementation,
+             * in a common code path before branching to handle the different monoids.
+             */
+            // Since the zero element of a collection monoid is an empty collection,
+            // instead of using fold we can just filter any elements such that g(w) == null
+            val filterGNulls = IfThenElse(BinaryExp(Eq(), g, Null), BoolConst(false), BoolConst(true))
+            val commonCode =
+              q"""
+            val grouped = $childTree.groupBy(${exp(f)})
+            logger.debug("groupBy:\n{}", toString(grouped))
+
+            val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
+            logger.debug("filteredP:\n{}", toString(filteredP))
+
+            val filteredG = filteredP.mapValues(v => v.filter(${exp(filterGNulls)}))
+            logger.debug("filteredG:\n{}", toString(filteredG))
+
+            val mapped = filteredG.mapValues(v => v.map(${exp(e)}))
+            logger.debug("mapped:\n{}", toString(mapped))
+            """
+
+            val reduceCode = m1 match {
+              case m2: SetMonoid =>
+                q"""
+            val reduced = mapped.mapValues(v => v.toSet)
+            logger.debug("reduced:\n{}", toString(reduced))
+            reduced
+              """
+
+              case m1: BagMonoid =>
+                q"""
+            val reduced = mapped.mapValues(v => com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(v)))
+            logger.debug("reduced:\n{}", toString(reduced))
+            reduced
+          """
+              case m1: ListMonoid =>
+                q"""
+            val reduced = mapped.mapValues(v => v.toList)
+            logger.debug("reduced:\n{}", toString(reduced))
+            reduced
+            """
+            }
+
+            q"""..$commonCode
+                ..$reduceCode
+              """
         }
 
         q"""
@@ -442,9 +488,9 @@ val start = "************ SparkNest ************"
 def toString[R](rdd: RDD[R]): String = {
   rdd.collect().toList.mkString("\n")
 }
-val res = $code
+val sparkNest = $code
 val end = "************ SparkNest ************"
-res
+sparkNest
 """
 
       case SparkMerge(m, left, right) => ???
