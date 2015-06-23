@@ -97,7 +97,15 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val binop: PackratParser[BinaryOperator] = {
-    "Eq()" ^^^ Eq()
+    "Lt()" ^^^ Lt() |
+    "Le()" ^^^ Le() |
+    "Gt()" ^^^ Gt() |
+    "Ge()" ^^^ Ge() |
+    "Eq()" ^^^ Eq() |
+    "Neq()" ^^^ Neq() |
+    "Sub()" ^^^ Sub() |
+    "Div()" ^^^ Div() |
+    "Mod()" ^^^ Mod()
   }
 
   lazy val number: PackratParser[String] = "[0-9]+".r ^^ { case e => e.toString }
