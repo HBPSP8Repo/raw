@@ -93,21 +93,24 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     // Create Scala type from RAW type
-    def tipe(t: raw.Type): String = t match {
-      case _: BoolType => "Boolean"
-      case FunType(t1, t2) => ???
-      case _: StringType => "String"
-      case _: IntType => "Int"
-      case _: FloatType => "Float"
-      case r: RecordType => recordTypeSym(r)
-      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType)}]"
-      case ListType(innerType) => s"List[${tipe(innerType)}]"
-      case SetType(innerType) => s"Set[${tipe(innerType)}]"
-      case UserType(idn) => tipe(world.userTypes(idn))
-      case TypeVariable(v) => ???
-      case _: AnyType => ???
-      case _: NothingType => ???
-      case _: CollectionType => ???
+    def tipe(t: raw.Type): String = {
+      //      logger.info(s"Typing: $t")
+      t match {
+        case _: BoolType => "Boolean"
+        case FunType(t1, t2) => ???
+        case _: StringType => "String"
+        case _: IntType => "Int"
+        case _: FloatType => "Float"
+        case r: RecordType => recordTypeSym(r)
+        case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType)}]"
+        case ListType(innerType) => s"List[${tipe(innerType)}]"
+        case SetType(innerType) => s"Set[${tipe(innerType)}]"
+        case UserType(idn) => tipe(world.userTypes(idn))
+        case TypeVariable(v) => ???
+        case _: AnyType => ???
+        case _: NothingType => ???
+        case _: CollectionType => ???
+      }
     }
 
     // Collect all record types from tree
@@ -136,6 +139,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import algebra.Expressions._
 
     def exp(e: Exp): Tree = {
+      // If the expression contains an element of type Arg(RecordType(atts, T)) with a non-null T, then
+      // store it in this variable to generate code of the form "arg:T => ...". Otherwise it will generate an expression
+      // of type "arg => ..."
+      var argType: Option[String] = None
       def binaryOp(op: BinaryOperator): String = op match {
         case _: Eq => "=="
         case _: Neq => "!="
@@ -148,40 +155,58 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Mod => "%"
       }
 
-      def recurse(e: Exp): String = e match {
-        case Null => "null"
-        case BoolConst(v) => v.toString
-        case IntConst(v) => v
-        case FloatConst(v) => v
-        case StringConst(v) => s""""$v""""
-        case _: Arg => "arg"
-        case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
-        case RecordCons(atts) =>
-          val sym = recordTypeSym(typer.expressionType(e) match {
-            case r: RecordType => r
-            case _ => ???
-          })
-          val vals = atts.map(att => recurse(att.e)).mkString(",")
-          s"""$sym($vals)"""
-        case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
-        case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
-        case MergeMonoid(m, e1, e2) => m match {
-          case _: SumMonoid => ???
-          case _: MaxMonoid => ???
-          case _: MultiplyMonoid => ???
-          case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
-          case _: OrMonoid => ???
-        }
-        case UnaryExp(op, e1) => op match {
-          case _: Not => s"!${recurse(e1)}"
-          case _: Neg => s"-${recurse(e1)}"
-          case _: ToBool => s"${recurse(e1)}.toBoolean"
-          case _: ToInt => s"${recurse(e1)}.toInt"
-          case _: ToFloat => s"${recurse(e1)}.toFloat"
-          case _: ToString => s"${recurse(e1)}.toString"
+
+      def recurse(e: Exp): String = {
+        //        logger.info("Compiling expression: {}", e)
+        e match {
+          case Null => "null"
+          case BoolConst(v) => v.toString
+          case IntConst(v) => v
+          case FloatConst(v) => v
+          case StringConst(v) => s""""$v""""
+          case a@Arg(rec: RecordType) => {
+            rec.name match {
+              case Some(argName) =>
+                argType = Some(argName)
+              case None => //
+            }
+            "arg"
+          }
+          case _: Arg => "arg"
+          case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
+          case RecordCons(atts) =>
+            val sym = recordTypeSym(typer.expressionType(e) match {
+              case r: RecordType => r
+              case _ => ???
+            })
+            val vals = atts.map(att => recurse(att.e)).mkString(",")
+            s"""$sym($vals)"""
+          case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
+          case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
+          case MergeMonoid(m, e1, e2) => m match {
+            case _: SumMonoid => ???
+            case _: MaxMonoid => ???
+            case _: MultiplyMonoid => ???
+            case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
+            case _: OrMonoid => ???
+          }
+          case UnaryExp(op, e1) => op match {
+            case _: Not => s"!${recurse(e1)}"
+            case _: Neg => s"-${recurse(e1)}"
+            case _: ToBool => s"${recurse(e1)}.toBoolean"
+            case _: ToInt => s"${recurse(e1)}.toInt"
+            case _: ToFloat => s"${recurse(e1)}.toFloat"
+            case _: ToString => s"${recurse(e1)}.toString"
+          }
         }
       }
-      c.parse(s"(arg => ${recurse(e)})")
+      val expression = recurse(e)
+      val code = argType match {
+        case Some(argName) => s"((arg:$argName) => ${expression})"
+        case None => s"(arg => ${expression})"
+      }
+      //      logger.info("Result: {}", code)
+      c.parse(code)
     }
 
     def zero(m: PrimitiveMonoid): Tree = m match {
@@ -212,21 +237,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case ScalaNest(m, e, f, p, g, child) => m match {
         case m1: PrimitiveMonoid =>
           val z1 = zeroExp(m1)
+          //              logger.debug("grouped:\n{}", grouped.mkString("\n"))
+          //              logger.debug("map1:\n{}", map1.mkString("\n"))
+          //              logger.debug("map2:\n{}", map2.mkString("\n"))
+          //              logger.debug("map3:\n{}", map3.mkString("\n"))
           val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
           q"""val child = ${build(child)}
               logger.debug("Child:\n{}", child.mkString("\n"))
-
               val grouped = child.groupBy(${exp(f)})
-              logger.debug("grouped:\n{}", grouped.mkString("\n"))
-
               val map1 = grouped.toList.map(v => (v._1, v._2.filter(${exp(p)})))
-              logger.debug("map1:\n{}", map1.mkString("\n"))
-
               val map2 = map1.map(v => (v._1, v._2.map(${exp(f1)})))
-              logger.debug("map2:\n{}", map2.mkString("\n"))
-
               val map3 = map2.map(v => (v._1, v._2.foldLeft(${zero(m1)})(${fold(m1)})))
-              logger.debug("map3:\n{}", map3.mkString("\n"))
               map3"""
         case m1: BagMonoid => ???
         case m1: ListMonoid => ???
@@ -346,14 +367,26 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
       * that satisfy the predicate p(x, y).
       */
-      case SparkUnnest(path, pred, child) => ???
-      /*
-      Something along the lines:
-      child.flatMap(x => for { y <- x.path; if pred(x, y)} yield (x, y))
+      case SparkUnnest(path, pred, child) =>
+        val pathCode = exp(path)
+        val filterPredicate = exp(pred)
+        val childCode = build(child)
+        logger.info(s"Path: $path > $pathCode, pred: $pred")
+        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+        val code = q"""
+          $childCode.flatMap(x => {
+            val pathValues = $pathCode(x)
+            pathValues.map(y => (x,y)).filter($filterPredicate)
+            }
+          )
+        """
 
-       No shuffling involved, all local computation.
-       */
-
+        q"""
+        val start = "************ SparkUnnest ************"
+        val res = $code
+        val end= "************ SparkUnnest ************"
+        res
+        """
       /* Fegaras: Ch 6. Basic Algebra O4
       Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
       The reduce operator can be thought of as a generalized version of the relational projection operator.
@@ -362,6 +395,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childCode = build(child)
         val filterPredicate = exp(p)
         val mapFunction = exp(e)
+        logger.info(s"filter: $filterPredicate, map: $mapFunction")
         val filterMapCode = q"""
      val childRDD = $childCode
      childRDD
@@ -373,24 +407,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
              * Compare the Spark implementations versus a generic code generator based on fold
              */
-            q"""$filterMapCode
-           .fold(${zero(m1)})(${fold(m1)})"""
+            q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
 
           case _: ListMonoid =>
-            // TODO Can this be made more efficient?
             q"""$filterMapCode
           .toLocalIterator
           .to[scala.collection.immutable.List]"""
 
           case _: BagMonoid =>
-            // TODO: Can we improve the lower bound for the value?
+            /* RDD.countByValue() should reduce the amount of data sent to the server by sending a single (v, count)
+             * tuple for all values v in the RDD.
+             */
             q"""
-                val m: scala.collection.Map[_, Long] = $filterMapCode
-             .countByValue()
+          val m = $filterMapCode.countByValue()
           val b = com.google.common.collect.ImmutableMultiset.builder[Any]()
           m.foreach( p => b.addCopies(p._1, p._2.toInt) )
-          b.build()
-       """
+          b.build()"""
+
           case _: SetMonoid =>
             /* - calling distinct in each partition reduces the size of the data that has to be sent to the driver,
              *   by eliminating the duplicates early.
@@ -420,20 +453,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case m1: PrimitiveMonoid =>
             val z1 = zeroExp(m1)
             val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
+            //  logger.debug("groupBy:\n{}", toString(grouped))
+            //  logger.debug("filteredP:\n{}", toString(filteredP))
+            //  logger.debug("mapped:\n{}", toString(mapped))
+            //  logger.debug("folded:\n{}", toString(folded))
             q"""
-  val grouped = $childTree.groupBy(${exp(f)})
-  logger.debug("groupBy:\n{}", toString(grouped))
+            val grouped = $childTree.groupBy(${exp(f)})
+            val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
+            val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
+            val folded = mapped.mapValues(v => v.fold(${zero(m1)})(${fold(m1)}))
+            folded"""
 
-  val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
-  logger.debug("filteredP:\n{}", toString(filteredP))
-
-  val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
-  logger.debug("mapped:\n{}", toString(mapped))
-
-  val folded = mapped.mapValues(v => v.fold(${zero(m1)})(${fold(m1)}))
-  logger.debug("folded:\n{}", toString(folded))
-  folded
-  """
           case m1: CollectionMonoid =>
             // TODO: Does not handle dotequality.
             /* TODO: The filter by p probably can be applied at the start of this operator implementation,
@@ -443,38 +473,35 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             // instead of using fold we can just filter any elements such that g(w) == null
             val filterGNulls = IfThenElse(BinaryExp(Eq(), g, Null), BoolConst(false), BoolConst(true))
             val commonCode =
+            //            logger.debug("groupBy:\n{}", toString(grouped))
+            //            logger.debug("filteredP:\n{}", toString(filteredP))
+            //            logger.debug("filteredG:\n{}", toString(filteredG))
+            //            logger.debug("mapped:\n{}", toString(mapped))
               q"""
             val grouped = $childTree.groupBy(${exp(f)})
-            logger.debug("groupBy:\n{}", toString(grouped))
-
             val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
-            logger.debug("filteredP:\n{}", toString(filteredP))
-
             val filteredG = filteredP.mapValues(v => v.filter(${exp(filterGNulls)}))
-            logger.debug("filteredG:\n{}", toString(filteredG))
-
             val mapped = filteredG.mapValues(v => v.map(${exp(e)}))
-            logger.debug("mapped:\n{}", toString(mapped))
             """
 
+            //            logger.debug("reduced:\n{}", toString(reduced))
+            //            logger.debug("reduced:\n{}", toString(reduced))
+            //            logger.debug("reduced:\n{}", toString(reduced))
             val reduceCode = m1 match {
               case m2: SetMonoid =>
                 q"""
             val reduced = mapped.mapValues(v => v.toSet)
-            logger.debug("reduced:\n{}", toString(reduced))
             reduced
               """
 
               case m1: BagMonoid =>
                 q"""
             val reduced = mapped.mapValues(v => com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(v)))
-            logger.debug("reduced:\n{}", toString(reduced))
             reduced
           """
               case m1: ListMonoid =>
                 q"""
             val reduced = mapped.mapValues(v => v.toList)
-            logger.debug("reduced:\n{}", toString(reduced))
             reduced
             """
             }
@@ -485,14 +512,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         }
 
         q"""
-val start = "************ SparkNest ************"
-def toString[R](rdd: RDD[R]): String = {
-  rdd.collect().toList.mkString("\n")
-}
-val sparkNest = $code
-val end = "************ SparkNest ************"
-sparkNest
-"""
+          val start = "************ SparkNest ************"
+          def toString[R](rdd: RDD[R]): String = {
+            rdd.collect().toList.mkString("\n")
+          }
+          val sparkNest = $code
+          val end = "************ SparkNest ************"
+          sparkNest"""
 
       case SparkMerge(m, left, right) => ???
       /*
@@ -518,25 +544,25 @@ sparkNest
       // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
       case SparkOuterJoin(p, left, right) =>
         val code = q"""
-    val start = "************ SparkOuterJoin ************"
-    val leftRDD = ${build(left)}
-    val rightRDD = ${build(right)}
-    val matching = leftRDD
-      .cartesian(rightRDD)
-      .filter(tuple => tuple._1 != null)
-      .filter(${exp(p)})
+            val start = "************ SparkOuterJoin ************"
+            val leftRDD = ${build(left)}
+            val rightRDD = ${build(right)}
+            val matching = leftRDD
+              .cartesian(rightRDD)
+              .filter(tuple => tuple._1 != null)
+              .filter(${exp(p)})
 
-    val resWithOption = leftRDD
-      .map(v => (v, v))
-      .leftOuterJoin(matching)
+            val resWithOption = leftRDD
+              .map(v => (v, v))
+              .leftOuterJoin(matching)
 
-    val res = resWithOption.map( {
-      case (v1, (v2, None)) => (v1, null)
-      case (v1, (v2, Some(w))) => (v1, w)
-    })
-    val end = "************ SparkOuterJoin ************"
-    res
-    """
+            val res = resWithOption.map( {
+              case (v1, (v2, None)) => (v1, null)
+              case (v1, (v2, Some(w))) => (v1, w)
+            })
+            val end = "************ SparkOuterJoin ************"
+            res
+            """
         code
       case SparkOuterUnnest(path, pred, child) => ???
     }

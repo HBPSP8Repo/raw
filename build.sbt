@@ -62,7 +62,7 @@ lazy val executor = (project in file("executor")).
 
     // Alternative to start SBT with -D...=...
     initialize ~= { _ =>
-      System.setProperty( "raw.compile.server.host", "http://192.168.0.109:5000/raw-plan" )
+      System.setProperty( "raw.compile.server.host", "http://localhost:5000/raw-plan" )
     },
 //
 //    testOptions in Test += Tests.Setup(() => println("Setup")),
