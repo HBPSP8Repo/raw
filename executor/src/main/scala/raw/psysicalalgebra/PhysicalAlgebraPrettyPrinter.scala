@@ -39,31 +39,31 @@ object PhysicalAlgebraPrettyPrinter extends PrettyPrinter {
 
 
   def show(a: PhysicalAlgebraNode): Doc = a match {
-    case SparkScan(name, _) => scan("spark", name)
-    case ScalaScan(name, _) => scan("scala", name)
+    case SparkScan(lNode, name, _) => scan("spark", name)
+    case ScalaScan(lNode, name, _) => scan("scala", name)
 
-    case SparkReduce(m, e, p, child) => reduce("spark", m, e, p, child)
-    case ScalaReduce(m, e, p, child) => reduce("scala", m, e, p, child)
+    case SparkReduce(lNode, m, e, p, child) => reduce("spark", m, e, p, child)
+    case ScalaReduce(lNode, m, e, p, child) => reduce("scala", m, e, p, child)
 
-    case SparkNest(m, e, f, p, g, child) => nest("spark", m, e, f, p, g, child)
-    case ScalaNest(m, e, f, p, g, child) => nest("scala", m, e, f, p, g, child)
+    case SparkNest(lNode, m, e, f, p, g, child) => nest("spark", m, e, f, p, g, child)
+    case ScalaNest(lNode, m, e, f, p, g, child) => nest("scala", m, e, f, p, g, child)
 
-    case SparkSelect(p, child) => select("spark", p, child)
-    case ScalaSelect(p, child) => select("scala", p, child)
+    case SparkSelect(lNode, p, child) => select("spark", p, child)
+    case ScalaSelect(lNode, p, child) => select("scala", p, child)
 
-    case SparkJoin(p, left, right) => join("spark", p, left, right)
-    case ScalaJoin(p, left, right) => join("scala", p, left, right)
+    case SparkJoin(lNode, p, left, right) => join("spark", p, left, right)
+    case ScalaJoin(lNode, p, left, right) => join("scala", p, left, right)
 
-    case SparkUnnest(path, pred, child) => unnest("spark", path, pred, child)
-    case ScalaUnnest(path, pred, child) => unnest("scala", path, pred, child)
+    case SparkUnnest(lNode, path, pred, child) => unnest("spark", path, pred, child)
+    case ScalaUnnest(lNode, path, pred, child) => unnest("scala", path, pred, child)
 
-    case SparkOuterJoin(p, left, right) => outerJoin("spark", p, left, right)
-    case ScalaOuterJoin(p, left, right) => outerJoin("scala", p, left, right)
+    case SparkOuterJoin(lNode, p, left, right) => outerJoin("spark", p, left, right)
+    case ScalaOuterJoin(lNode, p, left, right) => outerJoin("scala", p, left, right)
 
-    case SparkOuterUnnest(path, pred, child) => outerUnnest("spark", path, pred, child)
-    case ScalaOuterUnnest(path, pred, child) => outerUnnest("scala", path, pred, child)
+    case SparkOuterUnnest(lNode, path, pred, child) => outerUnnest("spark", path, pred, child)
+    case ScalaOuterUnnest(lNode, path, pred, child) => outerUnnest("scala", path, pred, child)
 
-    case SparkMerge(m, left, right) => merge("spark", m, left, right)
-    case ScalaMerge(m, left, right) => merge("scala", m, left, right)
+    case SparkMerge(lNode, m, left, right) => merge("spark", m, left, right)
+    case ScalaMerge(lNode, m, left, right) => merge("scala", m, left, right)
   }
 }

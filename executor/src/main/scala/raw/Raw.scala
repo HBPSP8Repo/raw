@@ -8,6 +8,7 @@ import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
 import scala.annotation.StaticAnnotation
+import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 
@@ -79,6 +80,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       uniqueId
   }
 
+  // Create Scala type from RAW type
+  def tipe(t: raw.Type, world: World): String = {
+    //      logger.info(s"Typing: $t")
+    t match {
+      case _: BoolType => "Boolean"
+      case FunType(t1, t2) => ???
+      case _: StringType => "String"
+      case _: IntType => "Int"
+      case _: FloatType => "Float"
+      case r: RecordType => recordTypeSym(r)
+      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType, world)}]"
+      case ListType(innerType) => s"List[${tipe(innerType, world)}]"
+      case SetType(innerType) => s"Set[${tipe(innerType, world)}]"
+      case UserType(idn) => tipe(world.userTypes(idn), world)
+      case TypeVariable(v) => ???
+      case _: AnyType => ???
+      case _: NothingType => ???
+      case _: CollectionType => ???
+    }
+  }
+
   /** Build case classes that correspond to record types.
     */
   def buildCaseClasses(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[Tree] = {
@@ -89,27 +111,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
         case r@RecordType(_, None) => Some(r)
         case _ => None
-      }
-    }
-
-    // Create Scala type from RAW type
-    def tipe(t: raw.Type): String = {
-      //      logger.info(s"Typing: $t")
-      t match {
-        case _: BoolType => "Boolean"
-        case FunType(t1, t2) => ???
-        case _: StringType => "String"
-        case _: IntType => "Int"
-        case _: FloatType => "Float"
-        case r: RecordType => recordTypeSym(r)
-        case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType)}]"
-        case ListType(innerType) => s"List[${tipe(innerType)}]"
-        case SetType(innerType) => s"Set[${tipe(innerType)}]"
-        case UserType(idn) => tipe(world.userTypes(idn))
-        case TypeVariable(v) => ???
-        case _: AnyType => ???
-        case _: NothingType => ???
-        case _: CollectionType => ???
       }
     }
 
@@ -124,8 +125,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     // Create corresponding case class
     val code = anonRecordTypes
       .map {
-      case r@RecordType(atts, None) =>
-        val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe)}").mkString(",")
+      case r@RecordType(atts: Seq[AttrType], None) =>
+        val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe, world)}").mkString(",")
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
@@ -138,11 +139,28 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
     import algebra.Expressions._
 
-    def exp(e: Exp): Tree = {
-      // If the expression contains an element of type Arg(RecordType(atts, T)) with a non-null T, then
-      // store it in this variable to generate code of the form "arg:T => ...". Otherwise it will generate an expression
-      // of type "arg => ..."
-      var argType: Option[String] = None
+    def rawToScalaType(t:raw.Type): c.universe.Tree = {
+      val typeName: String = tipe(t, world)
+      val parsed: c.Tree = c.parse(typeName)
+//      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+      parsed match {
+        case TypeApply(container, List(targ)) =>
+//          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
+          targ
+      }
+    }
+
+    def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
+      logger.info(s"Algebra: ${logicalNode}")
+      rawToScalaType(typer.tipe(logicalNode))
+    }
+
+    def expScalaType(expression: Exp): c.universe.Tree = {
+      logger.info(s"Expression: ${expression}")
+      rawToScalaType(typer.expressionType(expression))
+    }
+
+    def exp(e: Exp, argType: Option[c.universe.Tree] = None): Tree = {
       def binaryOp(op: BinaryOperator): String = op match {
         case _: Eq => "=="
         case _: Neq => "!="
@@ -155,23 +173,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Mod => "%"
       }
 
-
       def recurse(e: Exp): String = {
-        //        logger.info("Compiling expression: {}", e)
         e match {
           case Null => "null"
           case BoolConst(v) => v.toString
           case IntConst(v) => v
           case FloatConst(v) => v
           case StringConst(v) => s""""$v""""
-          case a@Arg(rec: RecordType) => {
-            rec.name match {
-              case Some(argName) =>
-                argType = Some(argName)
-              case None => //
-            }
-            "arg"
-          }
           case _: Arg => "arg"
           case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
           case RecordCons(atts) =>
@@ -202,11 +210,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
       val expression = recurse(e)
       val code = argType match {
-        case Some(argName) => s"((arg:$argName) => ${expression})"
-        case None => s"(arg => ${expression})"
+        case Some(argName) => q"((arg:$argName) => ${c.parse(expression)})"
+        case None => c.parse(s"(arg => ${expression})")
       }
-      //      logger.info("Result: {}", code)
-      c.parse(code)
+      code
     }
 
     def zero(m: PrimitiveMonoid): Tree = m match {
@@ -234,7 +241,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def build(a: PhysicalAlgebraNode): Tree = a match {
-      case ScalaNest(m, e, f, p, g, child) => m match {
+      case ScalaNest(logicalNode, m, e, f, p, g, child) => m match {
         case m1: PrimitiveMonoid =>
           val z1 = zeroExp(m1)
           //              logger.debug("grouped:\n{}", grouped.mkString("\n"))
@@ -284,7 +291,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         //    mapped3
         //  """
       }
-      case ScalaOuterJoin(p, left, right) =>
+      case ScalaOuterJoin(logicalNode, p, left, right) =>
         q"""
   ${build(left)}.flatMap(l =>
     if (l == null)
@@ -298,7 +305,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
   )
   """
-      case r@ScalaReduce(m, e, p, child) =>
+      case r@ScalaReduce(logicalNode, m, e, p, child) =>
         val code = m match {
           case m1: PrimitiveMonoid =>
             // TODO: Replace foldLeft with fold?
@@ -322,23 +329,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           code
         else
           q"""List($code)"""
-      case ScalaSelect(p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
+      case ScalaSelect(logicalNode, p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
         q"""${build(child)}.filter(${exp(p)})"""
-      case ScalaScan(name, _) =>
+      case ScalaScan(logicalNode, name, _) =>
         Ident(TermName(name))
 
-      case ScalaJoin(p, left, right) => ???
-      case ScalaMerge(m, left, right) => ???
-      case ScalaOuterUnnest(path, pred, child) => ???
+      case ScalaJoin(logicalNode, p, left, right) => ???
+      case ScalaMerge(logicalNode, m, left, right) => ???
+      case ScalaOuterUnnest(logicalNode, path, pred, child) => ???
       case ScalaToSparkNode(node) => ???
-      case ScalaUnnest(path, pref, child) => ???
+      case ScalaUnnest(logicalNode, path, pref, child) => ???
 
 
       /////////////////////////////////////////////////////
       // Spark
       /////////////////////////////////////////////////////
       // Spark operators
-      case SparkScan(name, _) => Ident(TermName(name))
+      case SparkScan(logicalNode, name, tipe) => Ident(TermName(name))
       //            q"""${accessPaths(name)}"""
       /*
       * Fegaras: Ch 6. Basic Algebra O1
@@ -346,7 +353,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       * This join is not necessarily between two sets; if, for example, X is a list
       * and Y is a bag, then, according to Eq. (D4), the output is a bag.
       */
-      case r@SparkJoin(p, left, right) =>
+      case r@SparkJoin(logicalNode, p, left, right) =>
         val leftCode = build(left)
         val rightCode = build(right)
         q"""
@@ -359,24 +366,28 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       /* Fegaras: Ch 6. Basic Algebra O2
       * Select(X, p), selects all elements of X that satisfy the predicate p.
       */
-      case SparkSelect(p, child) =>
-        q"""${build(child)}.filter(${exp(p)})"""
+      case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
+        val childTypeName = nodeScalaType(child.logicalNode)
+        q"""${build(child)}.filter(${exp(p, Some(childTypeName))})"""
 
       /*
       * Fegaras: Ch 6. Basic Algebra O3
       * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
       * that satisfy the predicate p(x, y).
       */
-      case SparkUnnest(path, pred, child) =>
-        val pathCode = exp(path)
+      case SparkUnnest(logicalNode, path, pred, child) =>
+        val childTypeName = nodeScalaType(child.logicalNode)
+        val pathCode = exp(path, Some(childTypeName))
+        val pathType = expScalaType(path)
         val filterPredicate = exp(pred)
+
         val childCode = build(child)
         logger.info(s"Path: $path > $pathCode, pred: $pred")
         //            logger.debug("{}.path = {} \n{}", x, pathValues)
         val code = q"""
           $childCode.flatMap(x => {
             val pathValues = $pathCode(x)
-            pathValues.map(y => (x,y)).filter($filterPredicate)
+            pathValues.map((y:$pathType) => (x,y)).filter($filterPredicate)
             }
           )
         """
@@ -391,11 +402,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
       The reduce operator can be thought of as a generalized version of the relational projection operator.
       */
-      case SparkReduce(m, e, p, child) =>
+      case SparkReduce(logicalNode, m, e, p, child) =>
         val childCode = build(child)
         val filterPredicate = exp(p)
         val mapFunction = exp(e)
-        logger.info(s"filter: $filterPredicate, map: $mapFunction")
+//        logger.info(s"filter: $filterPredicate, map: $mapFunction")
         val filterMapCode = q"""
      val childRDD = $childCode
      childRDD
@@ -445,9 +456,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
-      case SparkNest(m, e, f, p, g, child) =>
+      case SparkNest(logicalNode, m, e, f, p, g, child) =>
         val childTree: Tree = build(child)
         logger.info(s"m: $m, e: ${exp(e)}, f: ${exp(f)}, p: ${exp(p)}, g: ${exp(g)}")
+        val t = typer.expressionType(e)
+        val st: String = tipe(t, world)
+        logger.info("Type of e: {}", st)
+
+        val tp = c.parse(st)
 
         val code = m match {
           case m1: PrimitiveMonoid =>
@@ -483,6 +499,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             val filteredG = filteredP.mapValues(v => v.filter(${exp(filterGNulls)}))
             val mapped = filteredG.mapValues(v => v.map(${exp(e)}))
             """
+            //            val mapped = filteredG.mapValues((v:$tp)=> v.map(${exp(e)}))
 
             //            logger.debug("reduced:\n{}", toString(reduced))
             //            logger.debug("reduced:\n{}", toString(reduced))
@@ -520,7 +537,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           val end = "************ SparkNest ************"
           sparkNest"""
 
-      case SparkMerge(m, left, right) => ???
+      case SparkMerge(logicalNode, m, left, right) => ???
       /*
       outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
       predicate p. The domain of the second generator (the generator of w) in
@@ -542,21 +559,24 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       */
 
       // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
-      case SparkOuterJoin(p, left, right) =>
+      case SparkOuterJoin(logicalNode, p, left, right) =>
+        val leftNodeType = nodeScalaType(left.logicalNode)
+        val rightNodeType = nodeScalaType(right.logicalNode)
+
         val code = q"""
             val start = "************ SparkOuterJoin ************"
-            val leftRDD = ${build(left)}
-            val rightRDD = ${build(right)}
-            val matching = leftRDD
+            val leftRDD:RDD[$leftNodeType] = ${build(left)}
+            val rightRDD:RDD[$rightNodeType] = ${build(right)}
+            val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
               .cartesian(rightRDD)
               .filter(tuple => tuple._1 != null)
               .filter(${exp(p)})
 
-            val resWithOption = leftRDD
+            val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
               .map(v => (v, v))
               .leftOuterJoin(matching)
 
-            val res = resWithOption.map( {
+            val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
               case (v1, (v2, None)) => (v1, null)
               case (v1, (v2, Some(w))) => (v1, w)
             })
@@ -564,7 +584,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             res
             """
         code
-      case SparkOuterUnnest(path, pred, child) => ???
+      case SparkOuterUnnest(logicalNode, path, pred, child) => ???
     }
 
     build(physicalTree)
@@ -573,10 +593,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   def extractParams(tree: Tree): (Tree, Tree) = tree match {
     case q"new $name( ..$params )" =>
-      println("Extracted params: " + params)
+      logger.info(s"Extracted params: $params")
       params match {
         case List(queryTree, catalogTree) =>
-          println("query: " + queryTree + ", catalog: " + catalogTree)
+          logger.info(s"query: $queryTree, catalog: $catalogTree")
           (queryTree.asInstanceOf[Tree], catalogTree.asInstanceOf[Tree])
         //        case List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
         //        case q"($query:String, $catalog:HList)"  List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
@@ -607,7 +627,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         var queryLanguage: Option[QueryLanguage] = None
         val accessPaths = new ArrayBuffer[AccessPath]()
         body.foreach(v => {
-          logger.info("Checking element: " + showCode(v))
+          logger.debug("Checking element: " + showCode(v))
           //          logger.debug("Tree: " + showRaw(v))
           v match {
             case ValDef(_, TermName("query "), _, Literal(Constant(queryString: String))) =>
@@ -619,11 +639,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               queryLanguage = Some(Krawl)
 
             case ValDef(_, TermName("oql "), _, Literal(Constant(queryString: String))) =>
-              logger.info("Found oql query: " + queryString)
+              val trimmedString = queryString.trim
+              logger.info("Found oql query: " + trimmedString)
               if (query.isDefined) {
-                bail(s"Multiple queries found. Previous: ${query.get}, Current: $queryString")
+                bail(s"Multiple queries found. Previous: ${query.get}, Current: $trimmedString")
               }
-              query = Some(queryString)
+              query = Some(trimmedString)
               queryLanguage = Some(OQL)
 
             case ValDef(_, TermName(termName), typeTree, _) =>
@@ -632,7 +653,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               accessPaths += AccessPath(termName.trim, inferredType.rawType, inferredType.isSpark)
 
             case _ =>
-              logger.info("Ignoring element")
+//              logger.info("Ignoring element")
           }
         })
 
@@ -750,8 +771,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val scalaCode = showCode(block)
         logger.info("Generated code:\n{}", scalaCode)
         QueryLogger.log(query, algebraStr, scalaCode)
-
         c.Expr[Any](block)
+
       case Left(err) => bail(err.err)
     }
   }

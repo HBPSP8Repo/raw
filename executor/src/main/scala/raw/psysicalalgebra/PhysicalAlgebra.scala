@@ -1,6 +1,7 @@
 package raw.psysicalalgebra
 
 import raw.algebra.Expressions.Exp
+import raw.algebra.LogicalAlgebra._
 import raw.{Type, Monoid, RawNode}
 import raw.algebra.AlgebraNode
 // Converters ScalaNode <-> SparkNode
@@ -12,39 +13,39 @@ object PhysicalAlgebra {
     */
   type Algebra = Tree[RawNode, PhysicalAlgebraNode]
 
-  sealed abstract class PhysicalAlgebraNode extends AlgebraNode
+  sealed abstract class PhysicalAlgebraNode(val logicalNode:LogicalAlgebraNode) extends AlgebraNode
 
-  sealed abstract class SparkNode extends PhysicalAlgebraNode
+  sealed abstract class SparkNode(logicalNode:LogicalAlgebraNode) extends PhysicalAlgebraNode(logicalNode)
 
-  sealed abstract class ScalaNode extends PhysicalAlgebraNode
+  sealed abstract class ScalaNode(logicalNode:LogicalAlgebraNode) extends PhysicalAlgebraNode(logicalNode)
 
-  case class ScalaScan(name: String, t: Type) extends ScalaNode
-  case class SparkScan(name: String, t: Type) extends SparkNode
+  case class ScalaScan(logicalScan:Scan, name: String, t: Type) extends ScalaNode(logicalScan)
+  case class SparkScan(logicalScan:Scan, name: String, t: Type) extends SparkNode(logicalScan)
   
-  case class ScalaReduce(m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkReduce(m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaReduce(logicalReduce:Reduce, m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode) extends ScalaNode(logicalReduce)
+  case class SparkReduce(logicalReduce:Reduce, m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode) extends SparkNode(logicalReduce)
 
-  case class ScalaNest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkNest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaNest(logicalNest:Nest, m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode) extends ScalaNode(logicalNest)
+  case class SparkNest(logicalNest:Nest, m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode) extends SparkNode(logicalNest)
 
-  case class ScalaSelect(p: Exp, child: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkSelect(p: Exp, child: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaSelect(logicalSelect:Select, p: Exp, child: PhysicalAlgebraNode) extends ScalaNode(logicalSelect)
+  case class SparkSelect(logicalSelect:Select, p: Exp, child: PhysicalAlgebraNode) extends SparkNode(logicalSelect)
 
-  case class ScalaJoin(p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkJoin(p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaJoin(logicalJoin:Join, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode(logicalJoin)
+  case class SparkJoin(logicalJoin:Join, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode(logicalJoin)
 
-  case class ScalaUnnest(path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkUnnest(path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaUnnest(logicalUnnest:Unnest, path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends ScalaNode(logicalUnnest)
+  case class SparkUnnest(logicalUnnest:Unnest, path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends SparkNode(logicalUnnest)
 
-  case class ScalaOuterJoin(p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkOuterJoin(p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaOuterJoin(logicalOuterJoin:OuterJoin, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode(logicalOuterJoin)
+  case class SparkOuterJoin(logicalOuterJoin:OuterJoin, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode(logicalOuterJoin)
 
-  case class ScalaOuterUnnest(path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkOuterUnnest(path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaOuterUnnest(logicalOuterUnnest:OuterUnnest, path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends ScalaNode(logicalOuterUnnest)
+  case class SparkOuterUnnest(logicalOuterUnnest:OuterUnnest, path: Exp, pred: Exp, child: PhysicalAlgebraNode) extends SparkNode(logicalOuterUnnest)
 
-  case class ScalaMerge(m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode
-  case class SparkMerge(m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode
+  case class ScalaMerge(lNode:Merge, m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends ScalaNode(lNode)
+  case class SparkMerge(lNode:Merge, m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) extends SparkNode(lNode)
 
-  case class ScalaToSparkNode(node:ScalaNode) extends SparkNode
+  case class ScalaToSparkNode(node:ScalaNode) extends SparkNode(node.logicalNode)
 }
 

@@ -65,7 +65,7 @@ lazy val executor = (project in file("executor")).
       System.setProperty( "raw.compile.server.host", "http://localhost:5000/raw-plan" )
     },
 //
-//    testOptions in Test += Tests.Setup(() => println("Setup")),
+//    testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTests.py'"!)}),
 //    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
