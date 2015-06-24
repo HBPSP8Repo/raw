@@ -67,6 +67,8 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
 
   lazy val monoid: PackratParser[Monoid] = {
     "SetMonoid()" ^^^ SetMonoid() |
+    "OrMonoid()" ^^^ OrMonoid() |
+    "AndMonoid()" ^^^ AndMonoid() |
     "SumMonoid()" ^^^ SumMonoid() |
     "BagMonoid()" ^^^ BagMonoid() |
     prim_monoid
@@ -83,6 +85,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "StringConst(" ~> string <~ ")" ^^ StringConst |
     "BoolConst(" ~> ("true"|"false") <~ ")" ^^ { case e => BoolConst(e.toBoolean) } |
     "BinaryExp(" ~> binop ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case op ~ e1 ~ e2 => BinaryExp(op, e1, e2)} |
+    "UnaryExp(" ~> unaryop ~ ("," ~> exp) <~ ")" ^^ { case op ~ e => UnaryExp(op, e)} |
     "RecordProj(" ~> exp ~ ("," ~> idn) <~ ")" ^^ { case e ~ f => RecordProj(e, f) } |
     "RecordProj(" ~> exp ~ ("," ~> number) <~ ")" ^^ { case e ~ f => RecordProj(e, "_" + f.toString) } |
     "RecordCons(Seq(" ~> attrconss <~ "))" ^^ RecordCons |
@@ -106,6 +109,15 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "Sub()" ^^^ Sub() |
     "Div()" ^^^ Div() |
     "Mod()" ^^^ Mod()
+  }
+
+  lazy val unaryop: PackratParser[UnaryOperator] = {
+    "Not()" ^^^ Not() |
+    "Neg()" ^^^ Neg() |
+    "ToInt()" ^^^ ToInt() |
+    "ToFloat()" ^^^ ToFloat() |
+    "ToBool()" ^^^ ToBool() |
+    "ToString()" ^^^ ToString()
   }
 
   lazy val number: PackratParser[String] = "[0-9]+".r ^^ { case e => e.toString }
