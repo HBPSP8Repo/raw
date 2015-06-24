@@ -26,28 +26,28 @@ object LogicalToPhysicalAlgebra {
       case (l: ScalaNode, r: ScalaNode) => scalaBuilder(l, r)
     }
 
-    def recurse(l: LogicalAlgebraNode): PhysicalAlgebraNode = l match {
-      case LogicalAlgebra.Scan(name, t) =>
-        if (isSpark(name)) SparkScan(name, t) else ScalaScan(name, t)
+    def recurse(logicalNode: LogicalAlgebraNode): PhysicalAlgebraNode = logicalNode match {
+      case lNode@LogicalAlgebra.Scan(name, t) =>
+        if (isSpark(name)) SparkScan(lNode, name, t) else ScalaScan(lNode, name, t)
 
-      case LogicalAlgebra.Select(p, child) =>
-        helper1(child, c => ScalaSelect(p, c), c => SparkSelect(p, c))
-      case Reduce(m, e, p, child) =>
-        helper1(child, c => ScalaReduce(m, e, p, c), c => SparkReduce(m, e, p, c))
-      case Nest(m, e, f, p, g, child) =>
-        helper1(child, c => ScalaNest(m, e, f, p, g, c), c => SparkNest(m, e, f, p, g, c))
-      case OuterUnnest(path, pred, child) =>
-        helper1(child, c => ScalaOuterUnnest(path, pred, c), c => SparkOuterUnnest(path, pred, c))
-      case Unnest(path, pred, child) =>
-        helper1(child, c => ScalaUnnest(path, pred, c), c => SparkUnnest(path, pred, c))
+      case lNode@LogicalAlgebra.Select(p, child) =>
+        helper1(child, c => ScalaSelect(lNode, p, c), c => SparkSelect(lNode, p, c))
+      case lNode@Reduce(m, e, p, child) =>
+        helper1(child, c => ScalaReduce(lNode, m, e, p, c), c => SparkReduce(lNode, m, e, p, c))
+      case lNode@Nest(m, e, f, p, g, child) =>
+        helper1(child, c => ScalaNest(lNode, m, e, f, p, g, c), c => SparkNest(lNode, m, e, f, p, g, c))
+      case lNode@OuterUnnest(path, pred, child) =>
+        helper1(child, c => ScalaOuterUnnest(lNode, path, pred, c), c => SparkOuterUnnest(lNode, path, pred, c))
+      case lNode@Unnest(path, pred, child) =>
+        helper1(child, c => ScalaUnnest(lNode, path, pred, c), c => SparkUnnest(lNode, path, pred, c))
 
       // Rules which may require promotion of Java to Spark
-      case Merge(m, left, right) =>
-        helper2(left, right, (l, r) => ScalaMerge(m, l, r), (l, r) => SparkMerge(m, l, r))
-      case Join(p, left, right) =>
-        helper2(left, right, (l, r) => ScalaJoin(p, l, r), (l, r) => SparkJoin(p, l, r))
-      case OuterJoin(p, left, right) =>
-        helper2(left, right, (l, r) => ScalaOuterJoin(p, l, r), (l, r) => SparkOuterJoin(p, l, r))
+      case lNode@Merge(m, left, right) =>
+        helper2(left, right, (l, r) => ScalaMerge(lNode, m, l, r), (l, r) => SparkMerge(lNode, m, l, r))
+      case lNode@Join(p, left, right) =>
+        helper2(left, right, (l, r) => ScalaJoin(lNode, p, l, r), (l, r) => SparkJoin(lNode, p, l, r))
+      case lNode@OuterJoin(p, left, right) =>
+        helper2(left, right, (l, r) => ScalaOuterJoin(lNode, p, l, r), (l, r) => SparkOuterJoin(lNode, p, l, r))
     }
 
     recurse(root)
