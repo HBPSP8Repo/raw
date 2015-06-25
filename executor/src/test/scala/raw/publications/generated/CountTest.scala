@@ -2,6 +2,8 @@ package raw.publications.generated
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
 import raw.publications._
+import com.google.common.collect.ImmutableMultiset
+import scala.collection.JavaConversions
 
 
 @rawQueryAnnotation

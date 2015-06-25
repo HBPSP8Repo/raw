@@ -82,7 +82,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   // Create Scala type from RAW type
   def tipe(t: raw.Type, world: World): String = {
-    //      logger.info(s"Typing: $t")
     t match {
       case _: BoolType => "Boolean"
       case FunType(t1, t2) => ???
@@ -99,6 +98,30 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: NothingType => ???
       case _: CollectionType => ???
     }
+  }
+
+  // Scala tuple from rawtype.
+  def tipeAsTuple(t: raw.Type, world: World): String = {
+    logger.info(s"Typing: $t")
+    val tt = t match {
+      case _: BoolType => "Boolean"
+      case FunType(t1, t2) => ???
+      case _: StringType => "String"
+      case _: IntType => "Int"
+      case _: FloatType => "Float"
+      case r@RecordType(_, Some(name)) => s"$name"
+      case r@RecordType(atts, None) => atts.sortBy(att=> att.idn).map(att => s"(${tipeAsTuple(att.tipe, world)})").mkString("(", ", ", ")")
+      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipeAsTuple(innerType, world)}]"
+      case ListType(innerType) => s"List[${tipeAsTuple(innerType, world)}]"
+      case SetType(innerType) => s"Set[${tipeAsTuple(innerType, world)}]"
+      case UserType(idn) => tipe(world.userTypes(idn), world)
+      case TypeVariable(v) => ???
+      case _: AnyType => ???
+      case _: NothingType => ???
+      case _: CollectionType => ???
+    }
+    logger.info(s"Type: $tt")
+    tt
   }
 
   /** Build case classes that correspond to record types.
@@ -126,11 +149,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val code = anonRecordTypes
       .map {
       case r@RecordType(atts: Seq[AttrType], None) =>
-        val args = atts.map(att => s"${att.idn}: ${tipe(att.tipe, world)}").mkString(",")
+        val args = atts.sortBy(att => att.idn).map(att => s"${att.idn}: ${tipe(att.tipe, world)}").mkString(", ")
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
-
     code.map(c.parse)
   }
 
@@ -139,20 +161,24 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
     import algebra.Expressions._
 
-    def rawToScalaType(t:raw.Type): c.universe.Tree = {
-      val typeName: String = tipe(t, world)
+    def rawToScalaType(t: raw.Type): c.universe.Tree = {
+      logger.info(s"rawToScalaType: $t")
+      val typeName: String = tipeAsTuple(t, world)
+      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
-//      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+      //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
-//          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
+          //          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
           targ
       }
     }
 
     def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
       logger.info(s"Algebra: ${logicalNode}")
-      rawToScalaType(typer.tipe(logicalNode))
+      val scalaType = rawToScalaType(typer.tipe(logicalNode))
+      logger.info(s"Scala type: $scalaType")
+      scalaType
     }
 
     def expScalaType(expression: Exp): c.universe.Tree = {
@@ -160,7 +186,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       rawToScalaType(typer.expressionType(expression))
     }
 
-    def exp(e: Exp, argType: Option[c.universe.Tree] = None): Tree = {
+    def exp(e: Exp, argType: Option[c.universe.Tree] = None, useCaseClass: Boolean = false): Tree = {
       def binaryOp(op: BinaryOperator): String = op match {
         case _: Eq => "=="
         case _: Neq => "!="
@@ -187,12 +213,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               case r: RecordType => r
               case _ => ???
             })
-            val vals = atts.map(att => recurse(att.e)).mkString(",")
-            s"""$sym($vals)"""
+            val vals = atts.sortBy(att => att.idn).map(att => recurse(att.e)).mkString(",")
+            if (useCaseClass) {
+              s"""$sym($vals)"""
+            } else {
+              s"""($vals)"""
+            }
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
           case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
           case MergeMonoid(m, e1, e2) => m match {
-            case _: SumMonoid => ???
+            case _: SumMonoid => s"${recurse(e1)} + ${recurse(e2)}"
             case _: MaxMonoid => ???
             case _: MultiplyMonoid => ???
             case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
@@ -306,6 +336,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   )
   """
       case r@ScalaReduce(logicalNode, m, e, p, child) =>
+        val eCode = exp(e, useCaseClass = true)
         val code = m match {
           case m1: PrimitiveMonoid =>
             // TODO: Replace foldLeft with fold?
@@ -318,17 +349,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
              * then it must declare the imports to compile. If it does not downcast the result, then it does not need
              * the imports.
              */
-            q"""val e = ${build(child)}.filter(${exp(p)}).map(${exp(e)})
+            q"""val e = ${build(child)}.filter(${exp(p)}).map($eCode)
           com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(e))"""
           case _: ListMonoid =>
-            q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.List]"""
+            q"""${build(child)}.filter(${exp(p)}).map($eCode).to[scala.collection.immutable.List]"""
           case _: SetMonoid =>
-            q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).to[scala.collection.immutable.Set]"""
+            q"""${build(child)}.filter(${exp(p)}).map($eCode).to[scala.collection.immutable.Set]"""
         }
         if (r eq physicalTree)
           code
         else
           q"""List($code)"""
+
       case ScalaSelect(logicalNode, p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
         q"""${build(child)}.filter(${exp(p)})"""
       case ScalaScan(logicalNode, name, _) =>
@@ -368,7 +400,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       */
       case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
         val childTypeName = nodeScalaType(child.logicalNode)
-        q"""${build(child)}.filter(${exp(p, Some(childTypeName))})"""
+        val pCode = exp(p, Some(childTypeName))
+        logger.info(s"[SELECT] p: $pCode")
+        q"""${build(child)}.filter($pCode)"""
 
       /*
       * Fegaras: Ch 6. Basic Algebra O3
@@ -379,15 +413,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childTypeName = nodeScalaType(child.logicalNode)
         val pathCode = exp(path, Some(childTypeName))
         val pathType = expScalaType(path)
-        val filterPredicate = exp(pred)
-
+        val predCode = exp(pred)
+        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
         val childCode = build(child)
-        logger.info(s"Path: $path > $pathCode, pred: $pred")
         //            logger.debug("{}.path = {} \n{}", x, pathValues)
         val code = q"""
           $childCode.flatMap(x => {
             val pathValues = $pathCode(x)
-            pathValues.map((y:$pathType) => (x,y)).filter($filterPredicate)
+            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
             }
           )
         """
@@ -403,15 +436,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       The reduce operator can be thought of as a generalized version of the relational projection operator.
       */
       case SparkReduce(logicalNode, m, e, p, child) =>
+        val pCode = exp(p)
+        val eCode = exp(e, useCaseClass = true)
+        logger.info(s"[REDUCE] $m, e: $eCode, p: $pCode")
         val childCode = build(child)
-        val filterPredicate = exp(p)
-        val mapFunction = exp(e)
-//        logger.info(s"filter: $filterPredicate, map: $mapFunction")
         val filterMapCode = q"""
      val childRDD = $childCode
      childRDD
-       .filter($filterPredicate)
-       .map($mapFunction)
+       .filter($pCode)
+       .map($eCode)
      """
         val code = m match {
           case m1: PrimitiveMonoid =>
@@ -457,11 +490,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         """
 
       case SparkNest(logicalNode, m, e, f, p, g, child) =>
-        val childTree: Tree = build(child)
-        logger.info(s"m: $m, e: ${exp(e)}, f: ${exp(f)}, p: ${exp(p)}, g: ${exp(g)}")
+        val eCode = exp(e)
+        val fCode = exp(f)
+        val pCode = exp(p)
+        logger.info(s"[NEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
         val t = typer.expressionType(e)
         val st: String = tipe(t, world)
         logger.info("Type of e: {}", st)
+        val childTree: Tree = build(child)
 
         val tp = c.parse(st)
 
@@ -474,8 +510,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             //  logger.debug("mapped:\n{}", toString(mapped))
             //  logger.debug("folded:\n{}", toString(folded))
             q"""
-            val grouped = $childTree.groupBy(${exp(f)})
-            val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
+            val grouped = $childTree.groupBy($fCode)
+            val filteredP = grouped.mapValues(v => v.filter($pCode))
             val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
             val folded = mapped.mapValues(v => v.fold(${zero(m1)})(${fold(m1)}))
             folded"""
@@ -494,10 +530,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             //            logger.debug("filteredG:\n{}", toString(filteredG))
             //            logger.debug("mapped:\n{}", toString(mapped))
               q"""
-            val grouped = $childTree.groupBy(${exp(f)})
-            val filteredP = grouped.mapValues(v => v.filter(${exp(p)}))
+            val grouped = $childTree.groupBy($fCode)
+            val filteredP = grouped.mapValues(v => v.filter($pCode))
             val filteredG = filteredP.mapValues(v => v.filter(${exp(filterGNulls)}))
-            val mapped = filteredG.mapValues(v => v.map(${exp(e)}))
+            val mapped = filteredG.mapValues(v => v.map($eCode))
             """
             //            val mapped = filteredG.mapValues((v:$tp)=> v.map(${exp(e)}))
 
@@ -653,7 +689,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               accessPaths += AccessPath(termName.trim, inferredType.rawType, inferredType.isSpark)
 
             case _ =>
-//              logger.info("Ignoring element")
+            //              logger.info("Ignoring element")
           }
         })
 
@@ -723,7 +759,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(logicalTree) =>
         var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
-        logger.info("Logical algebra: {}", algebraStr)
+        //        logger.info("Logical algebra: {}", algebraStr)
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
         logger.info("Physical algebra: {}", PhysicalAlgebraPrettyPrinter(physicalTree))

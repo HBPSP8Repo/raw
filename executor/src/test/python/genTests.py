@@ -7,10 +7,15 @@ template ="""package %(package)s.generated
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
 import %(package)s._
+import com.google.common.collect.ImmutableMultiset
+import scala.collection.JavaConversions
 
 %(queryClasses)s
 
 class %(name)sTest extends AbstractSparkPublicationsTest {
+
+  def convert
+
 %(testMethods)s
 }
 """
@@ -84,7 +89,7 @@ def processFile(root, filename):
 # If no argument is given, assumes current directory.
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        baseDir = os.path.abspath(sys.arg[1])
+        baseDir = os.path.abspath(sys.argv[1])
     else:
         baseDir = os.path.abspath(".")
     print "Searching for query files in: " + baseDir
