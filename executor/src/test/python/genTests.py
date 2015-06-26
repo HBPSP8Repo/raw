@@ -14,8 +14,6 @@ import scala.collection.JavaConversions
 
 class %(name)sTest extends AbstractSparkPublicationsTest {
 
-  def convert
-
 %(testMethods)s
 }
 """

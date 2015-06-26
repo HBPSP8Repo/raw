@@ -7,6 +7,7 @@ import org.apache.spark.rdd.RDD
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.SharedSparkContext
 
+import scala.collection.JavaConversions
 import scala.reflect.ClassTag
 
 abstract class AbstractSparkPublicationsTest extends FunSuite with StrictLogging with BeforeAndAfterAll with SharedSparkContext {
@@ -24,5 +25,29 @@ abstract class AbstractSparkPublicationsTest extends FunSuite with StrictLogging
     super.beforeAll()
     authorsRDD = newRDDFromJSON[Author](ScalaDataSet.authors, sc)
     publicationsRDD = newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
+  }
+
+  def listToString[T](list:Seq[T]) = {
+    list.mkString(", ")
+  }
+
+  def authorToString(a:Author) : String = {
+    s"${a.name}; ${a.title}; ${a.year}"
+  }
+
+  def pubToString(p:Publication) : String = {
+    s"${p.title}; ${listToString(p.authors)}; ${listToString(p.affiliations)}; ${listToString(p.controlledterms)}"
+  }
+
+  def convert[T](iterator: java.util.Iterator[T], toStringF:(T => String)): String = {
+    JavaConversions.asScalaIterator[T](iterator)
+      .map(toStringF(_))
+      .toList
+      .sorted
+      .mkString("\n")
+  }
+
+  def convertExpected(expected: String): String = {
+    expected.replaceAll("""\n\s*""", "\n")
   }
 }

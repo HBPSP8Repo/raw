@@ -23,6 +23,7 @@ class Count1Query(val authors: RDD[Author], val publications: RDD[Publication]) 
 
 class CountTest extends AbstractSparkPublicationsTest {
 
+
   test("Count0") {
     val result = new Count0Query(authorsRDD, publicationsRDD).computeResult
 
