@@ -13,7 +13,6 @@ import scala.collection.JavaConversions
 %(queryClasses)s
 
 class %(name)sTest extends AbstractSparkPublicationsTest {
-
 %(testMethods)s
 }
 """

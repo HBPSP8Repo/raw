@@ -40,14 +40,31 @@ abstract class AbstractSparkPublicationsTest extends FunSuite with StrictLogging
   }
 
   def convert[T](iterator: java.util.Iterator[T], toStringF:(T => String)): String = {
-    JavaConversions.asScalaIterator[T](iterator)
-      .map(toStringF(_))
+    convertInner(JavaConversions.asScalaIterator[T](iterator), toStringF)
+  }
+
+  //  def convert[T](map: Map[T]): String = {
+  //    convert(map.toIterator, Map.toString)
+  //  }
+
+  def convertInner[T](iter: Iterator[T], toStringF:(T => String)): String = {
+    iter.map(toStringF(_))
+      .toList
+      .sorted
+      .mkString("\n").trim
+  }
+
+  /* Produces one line of output for each List[String] in s
+   */
+  def toString(s: Set[List[String]]):String = {
+    s.map(_.sorted.mkString("; "))
       .toList
       .sorted
       .mkString("\n")
   }
 
+
   def convertExpected(expected: String): String = {
-    expected.replaceAll("""\n\s*""", "\n")
+    expected.replaceAll("""\n\s*""", "\n").trim
   }
 }
