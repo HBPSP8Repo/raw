@@ -8,8 +8,12 @@ lazy val buildSettings = Seq(
   organizationName := "DIAS/EPFL",
   organizationHomepage := Some(url("http://dias.epfl.ch/")),
   version := "0.0.0",
-  scalaVersion := "2.11.6",
+  scalaVersion := "2.11.7",
   scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
+// The flags: "-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8" enable the generation of Java 8 style
+// lambdas. Spark does not yet work with them.
+// https://github.com/scala/make-release-notes/blob/2.11.x/experimental-backend.md
+//  scalacOptions ++= Seq("-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   resolvers := sonatypeResolvers,
   // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
   // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
