@@ -53,9 +53,17 @@ object Expressions {
     */
   case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
+  /** Empty collection
+    */
+  case class ZeroCollectionMonoid(m: Monoid) extends Exp
+
+  /** Singleton Monoid
+    */
+  case class ConsCollectionMonoid(m: Monoid, e1: Exp) extends Exp
+
   /** Merge Monoid
     */
-  case class MergeMonoid(m: PrimitiveMonoid, e1: Exp, e2: Exp) extends Exp
+  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
 
   /** Unary Expression
     */

@@ -65,11 +65,10 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "Nest(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> exp) ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Nest
   }
 
-  lazy val monoid: PackratParser[Monoid] = {
+  lazy val coll_monoid: PackratParser[CollectionMonoid] = {
     "SetMonoid()" ^^^ SetMonoid() |
     "BagMonoid()" ^^^ BagMonoid() |
-    "ListMonoid()" ^^^ ListMonoid() |
-    prim_monoid
+    "ListMonoid()" ^^^ ListMonoid()
   }
 
   lazy val prim_monoid: PackratParser[PrimitiveMonoid] = {
@@ -77,6 +76,11 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "AndMonoid()" ^^^ AndMonoid() |
     "SumMonoid()" ^^^ SumMonoid() |
     "MaxMonoid()" ^^^ MaxMonoid()
+  }
+
+  lazy val monoid: PackratParser[Monoid] = {
+    coll_monoid |
+    prim_monoid
   }
 
   lazy val exp: PackratParser[Exp] = {
@@ -89,7 +93,9 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "RecordProj(" ~> exp ~ ("," ~> idn) <~ ")" ^^ { case e ~ f => RecordProj(e, f) } |
     "RecordProj(" ~> exp ~ ("," ~> number) <~ ")" ^^ { case e ~ f => RecordProj(e, "_" + f.toString) } |
     "RecordCons(Seq(" ~> attrconss <~ "))" ^^ RecordCons |
-    "MergeMonoid(" ~> prim_monoid ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case m ~ e1 ~ e2 => MergeMonoid(m, e1, e2)}
+    "ZeroCollectionMonoid(" ~> coll_monoid <~ ")" ^^ { case m => ZeroCollectionMonoid(m)} |
+    "ConsCollectionMonoid(" ~> coll_monoid ~ ("," ~> exp) <~ ")" ^^ { case m ~ e => ConsCollectionMonoid(m, e)} |
+    "MergeMonoid(" ~> monoid ~ ("," ~> exp) ~ ("," ~> exp) <~ ")" ^^ { case m ~ e1 ~ e2 => MergeMonoid(m, e1, e2)}
   }
 
   lazy val attrconss: PackratParser[scala.collection.immutable.Seq[AttrCons]] = repsep(attrcons, ",")
