@@ -10,10 +10,10 @@ lazy val buildSettings = Seq(
   version := "0.0.0",
   scalaVersion := "2.11.7",
   scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
-// The flags: "-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8" enable the generation of Java 8 style
-// lambdas. Spark does not yet work with them.
-// https://github.com/scala/make-release-notes/blob/2.11.x/experimental-backend.md
-//  scalacOptions ++= Seq("-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
+  // The flags: "-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8" enable the generation of Java 8 style
+  // lambdas. Spark does not yet work with them.
+  // https://github.com/scala/make-release-notes/blob/2.11.x/experimental-backend.md
+  //  scalacOptions ++= Seq("-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   resolvers := sonatypeResolvers,
   // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
   // http://www.scala-sbt.org/0.13/docs/Cached-Resolution.html
@@ -62,15 +62,17 @@ lazy val executor = (project in file("executor")).
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.
-    //    fork in Test := true,
+    // Using SBT interactively to run the tests will eventually cause an out of memory error on the metaspace region
+    // if tests are run in the same VM.
+    fork in Test := true,
 
     // Alternative to start SBT with -D...=...
     initialize ~= { _ =>
-      System.setProperty( "raw.compile.server.host", "http://localhost:5000/raw-plan" )
+      System.setProperty("raw.compile.server.host", "http://localhost:5000/raw-plan")
     },
-//
-//    testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTests.py'"!)}),
-//    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
+    //
+    //    testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTests.py'"!)}),
+    //    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
 

@@ -31,6 +31,8 @@ templateTestMethod ="""
     val result = new %(name)sQuery(authorsRDD, publicationsRDD).computeResult
 
 %(asserts)s
+
+    assert(actual === expected, s"\\nActual: $actual\\nExpected: $expected")
   }
 """
 

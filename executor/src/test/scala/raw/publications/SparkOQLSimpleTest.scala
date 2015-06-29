@@ -9,9 +9,6 @@ import raw.{RawQuery, rawQueryAnnotation}
 @rawQueryAnnotation
 //class Query1(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
 class Query1(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  //    val oql = """select title, count(partition) as n from authors A group by title: A.title"""
-  //  val oql = """select a.title, a.name from authors a where a.title = "PhD""""
-  //  val oql = """select title, (select distinct year from partition) as years from authors A group by title: A.title"""
   //  val oql = """select distinct title, (select distinct A from partition) as people from authors A group by title: A.title"""
 
   // joins

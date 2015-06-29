@@ -1,6 +1,7 @@
 package raw.publications
 
 import com.google.common.base.Stopwatch
+import com.google.common.collect.ImmutableMultiset
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -27,42 +28,32 @@ abstract class AbstractSparkPublicationsTest extends FunSuite with StrictLogging
     publicationsRDD = newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
   }
 
-  def listToString[T](list:Seq[T]) = {
-    list.mkString(", ")
+  def resultsToString[T](s: ImmutableMultiset[T]): String = {
+    val list = JavaConversions.asScalaIterator[T](s.iterator).toList
+    resultsToString(list)
   }
 
-  def authorToString(a:Author) : String = {
-    s"${a.name}; ${a.title}; ${a.year}"
+  def resultsToString[T](s: Set[T]): String = {
+    resultsToString(s.toList)
   }
 
-  def pubToString(p:Publication) : String = {
-    s"${p.title}; ${listToString(p.authors)}; ${listToString(p.affiliations)}; ${listToString(p.controlledterms)}"
+  def resultsToString[T](l: List[T]): String = {
+    l.map(valueToString(_)).sorted.mkString("\n")
   }
 
-  def convert[T](iterator: java.util.Iterator[T], toStringF:(T => String)): String = {
-    convertInner(JavaConversions.asScalaIterator[T](iterator), toStringF)
+  def valueToString[T](value: Any): String = {
+    value match {
+      case a: Author => valueToString(List(s"name: ${a.name}", s"title: ${a.title}", s"year: ${a.year}"))
+      case p: Publication => valueToString(List(
+        s"title: ${p.title}",
+        s"authors: ${valueToString(p.authors)}",
+        s"affiliations: ${valueToString(p.affiliations)}",
+        s"controlledterms: ${valueToString(p.controlledterms)}"))
+      case l: List[_] => l.map(valueToString(_)).sorted.mkString("[", ", ", "]")
+      case s: Set[_] => s.map(valueToString(_)).toList.sorted.mkString("[", ", ", "]")
+      case _ => value.toString
+    }
   }
-
-  //  def convert[T](map: Map[T]): String = {
-  //    convert(map.toIterator, Map.toString)
-  //  }
-
-  def convertInner[T](iter: Iterator[T], toStringF:(T => String)): String = {
-    iter.map(toStringF(_))
-      .toList
-      .sorted
-      .mkString("\n").trim
-  }
-
-  /* Produces one line of output for each List[String] in s
-   */
-  def toString(s: Set[List[String]]):String = {
-    s.map(_.sorted.mkString("; "))
-      .toList
-      .sorted
-      .mkString("\n")
-  }
-
 
   def convertExpected(expected: String): String = {
     expected.replaceAll("""\n\s*""", "\n").trim
