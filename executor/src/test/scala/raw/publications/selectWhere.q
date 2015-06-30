@@ -1,7 +1,6 @@
 select a from authors a where a.title = "PhD"
 
-val authors: ImmutableMultiset[Author] = result.asInstanceOf[ImmutableMultiset[Author]]
-val actual = resultsToString(authors)
+
 val expected = convertExpected("""
 [name: Anderson, C.C., title: PhD, year: 1992]
 [name: Bellet-Amalric, E., title: PhD, year: 1964]
@@ -28,8 +27,7 @@ where "particle detectors" in P.controlledterms
     and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
     and "Sarigiannidou, E." in P.authors
 
-val pubs: ImmutableMultiset[Publication] = result.asInstanceOf[ImmutableMultiset[Publication]]
-val actual = resultsToString(pubs)
+
 val expected = convertExpected("""
 [affiliations: [CEA-Grenoble, INAC/SP2M/NPSC, 17 Rue des Martyrs, 38054 Grenoble cedex 9, France, Hewlett-Packard Lab., Palo Alto, CA, USA], authors: [McVittie, J.P., Sarigiannidou, E.], controlledterms: [neutrino detection and measurement, particle detectors, scanning electron microscope examination of materials, superconducting junction devices, superconductive tunnelling, titanium, torque], title: [Front cover]]
 [affiliations: [Dept. of Aerosp. Eng. & Mech., Minnesota Univ., Minneapolis, MN, USA, Hewlett-Packard Lab., Palo Alto, CA, USA], authors: [Cabrera, B., Ertan, H.B., McVittie, J.P., Monroy, E., Sarigiannidou, E., Zhuangde Jiang], controlledterms: [X-ray detection and measurement, grain size, particle detectors, reluctance motors, superconducting junction devices, superconducting thin films], title: Growth of epitaxial YbBa<inf>2</inf>Cu<inf>3</inf>O<inf>7</inf> superconductor by liquid&#x2010;gas&#x2010;solidification processing]
@@ -49,8 +47,7 @@ and "magnetic levitation" in P.controlledterms
 and "titanium" in P.controlledterms
 and "torque" in P.controlledterms
 
-val pubs: ImmutableMultiset[Publication] = result.asInstanceOf[ImmutableMultiset[Publication]]
-val actual = resultsToString(pubs)
+
 val expected = convertExpected("""
 [affiliations: [Dept. of Electr. & Electron. Eng., Middle East Tech. Univ., Ankara, Turkey, Key Laboratory of Materials for High Power Laser, Shanghai Institute of Optics and Fine Mechanics, Chinese Academy of Sciences, Shanghai 201800, People&#x2019], authors: [Cabrera, B., Dickson, S.C., Johnson, R.T., Lee, A., Matsumoto, Y., Xu, Rongrong], controlledterms: [elemental semiconductors, magnetic flux, magnetic levitation, particle detectors, silicon, superconducting junction devices, titanium, torque], title: On Communication Over Unknown Sparse Frequency-Selective Block-Fading Channels]
 [affiliations: [Dept. of Nucl. Eng., Kyushu Univ., Fukuoka, Japan], authors: [Bland, R.W., Das, A., Doisneau, B., Tickle, R.], controlledterms: [elemental semiconductors, magnetic levitation, neutrino detection and measurement, particle detectors, superconducting junction devices, superconducting thin films, titanium, torque], title: Heating of a dense plasma using a relativistic electron beam]

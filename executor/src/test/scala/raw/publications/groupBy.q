@@ -1,9 +1,5 @@
 select distinct title, count(partition) as n from authors A group by title: A.title
 
-val resultsAsList:Set[List[String]] = result
-  .map(a => List(s"title: ${a.title}", s"n: ${a.n}"))
-  .asInstanceOf[Set[List[String]]]
-val actual = resultsToString(resultsAsList)
 
 val expected = convertExpected("""
 [n: 11, title: assistant professor]
@@ -16,11 +12,7 @@ val expected = convertExpected("""
 
 select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
 
-val resultsAsList:Set[List[String]] = result
-  .map(a => List(s"title: ${a.title}", s"years: ${valueToString(a.years)}"))
-  .asInstanceOf[Set[List[String]]]
 
-val actual = resultsToString(resultsAsList)
 val expected = convertExpected("""
 [title: PhD, years: [1955, 1959, 1964, 1969, 1972, 1973, 1974, 1975, 1981, 1982, 1985, 1986, 1988, 1991, 1992]]
 [title: assistant professor, years: [1951, 1952, 1959, 1960, 1977, 1981, 1983, 1989, 1994]]
@@ -32,11 +24,7 @@ val expected = convertExpected("""
 
 select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
 
-val resultsAsList:Set[List[String]] = result
-  .map(a => List(s"year: ${a.year}", s"people: ${valueToString(a.people)}"))
-  .asInstanceOf[Set[List[String]]]
 
-val actual = resultsToString(resultsAsList)
 val expected = convertExpected("""
 [people: [[name: Akoh, H., title: professor, year: 1959], [name: James, R.D., title: assistant professor, year: 1959], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Takada, S., title: PhD, year: 1959]], year: 1959]
 [people: [[name: Alba, G.P., title: assistant professor, year: 1960]], year: 1960]

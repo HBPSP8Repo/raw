@@ -32,11 +32,7 @@ class GroupByTest extends AbstractSparkPublicationsTest {
 
   test("GroupBy0") {
     val result = new GroupBy0Query(authorsRDD, publicationsRDD).computeResult
-
-    val resultsAsList:Set[List[String]] = result
-      .map(a => List(s"title: ${a.title}", s"n: ${a.n}"))
-      .asInstanceOf[Set[List[String]]]
-    val actual = resultsToString(resultsAsList)
+    val actual = convertActual(result)
     
     val expected = convertExpected("""
     [n: 11, title: assistant professor]
@@ -44,36 +40,26 @@ class GroupByTest extends AbstractSparkPublicationsTest {
     [n: 18, title: professor]
     [n: 5, title: engineer]
     """)
-
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
   test("GroupBy1") {
     val result = new GroupBy1Query(authorsRDD, publicationsRDD).computeResult
-
-    val resultsAsList:Set[List[String]] = result
-      .map(a => List(s"title: ${a.title}", s"years: ${valueToString(a.years)}"))
-      .asInstanceOf[Set[List[String]]]
+    val actual = convertActual(result)
     
-    val actual = resultsToString(resultsAsList)
     val expected = convertExpected("""
     [title: PhD, years: [1955, 1959, 1964, 1969, 1972, 1973, 1974, 1975, 1981, 1982, 1985, 1986, 1988, 1991, 1992]]
     [title: assistant professor, years: [1951, 1952, 1959, 1960, 1977, 1981, 1983, 1989, 1994]]
     [title: engineer, years: [1951, 1961, 1972, 1977, 1992]]
     [title: professor, years: [1956, 1959, 1964, 1965, 1967, 1969, 1971, 1972, 1973, 1976, 1984, 1987, 1991, 1993, 1994]]
     """)
-
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
   test("GroupBy2") {
     val result = new GroupBy2Query(authorsRDD, publicationsRDD).computeResult
-
-    val resultsAsList:Set[List[String]] = result
-      .map(a => List(s"year: ${a.year}", s"people: ${valueToString(a.people)}"))
-      .asInstanceOf[Set[List[String]]]
+    val actual = convertActual(result)
     
-    val actual = resultsToString(resultsAsList)
     val expected = convertExpected("""
     [people: [[name: Akoh, H., title: professor, year: 1959], [name: James, R.D., title: assistant professor, year: 1959], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Takada, S., title: PhD, year: 1959]], year: 1959]
     [people: [[name: Alba, G.P., title: assistant professor, year: 1960]], year: 1960]
@@ -107,7 +93,6 @@ class GroupByTest extends AbstractSparkPublicationsTest {
     [people: [[name: Wang, Hairong, title: professor, year: 1993], [name: Zhuangde Jiang, title: professor, year: 1993]], year: 1993]
     [people: [[name: Young, B.A., title: professor, year: 1956]], year: 1956]
     """)
-
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
