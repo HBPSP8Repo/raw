@@ -23,3 +23,16 @@ val expected = convertExpected("""
 [p1: [name: Martoff, C.J., title: assistant professor], p2: [name: Nakagawa, H., title: assistant professor], year: 1994]
 [p1: [name: Wang, Hairong, title: professor], p2: [name: Zhuangde Jiang, title: professor], year: 1993]
 """)
+
+--
+
+select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.name, title:b.title))
+    from authors a, authors b
+    where a.year = b.year and a.name != b.name and a.year > 1992
+
+val expected = convertExpected("""
+[_X0: [[name: Johnson, R.T., title: professor], [name: Martoff, C.J., title: assistant professor]], year: 1994]
+[_X0: [[name: Johnson, R.T., title: professor], [name: Nakagawa, H., title: assistant professor]], year: 1994]
+[_X0: [[name: Martoff, C.J., title: assistant professor], [name: Nakagawa, H., title: assistant professor]], year: 1994]
+[_X0: [[name: Wang, Hairong, title: professor], [name: Zhuangde Jiang, title: professor]], year: 1993]
+""")

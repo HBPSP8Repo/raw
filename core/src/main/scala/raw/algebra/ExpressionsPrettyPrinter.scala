@@ -21,5 +21,7 @@ object ExpressionsPrettyPrinter extends PrettyPrinter {
     case BinaryExp(op, e1, e2)          => show(e1) <+> binaryOp(op) <+> show(e2)
     case MergeMonoid(m, e1, e2)         => show(e1) <+> merge(m) <+> show(e2)
     case UnaryExp(op, e1)               => unaryOp(op) <+> show(e1)
+    case ConsCollectionMonoid(m, e)     => collection(m, show(e))
+    case ZeroCollectionMonoid(m)        => ???
   }
 }

@@ -55,11 +55,11 @@ object Expressions {
 
   /** Empty collection
     */
-  case class ZeroCollectionMonoid(m: Monoid) extends Exp
+  case class ZeroCollectionMonoid(m: CollectionMonoid) extends Exp
 
   /** Singleton Monoid
     */
-  case class ConsCollectionMonoid(m: Monoid, e1: Exp) extends Exp
+  case class ConsCollectionMonoid(m: CollectionMonoid, e1: Exp) extends Exp
 
   /** Merge Monoid
     */

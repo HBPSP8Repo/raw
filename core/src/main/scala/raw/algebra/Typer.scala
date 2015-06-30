@@ -45,6 +45,10 @@ class Typer(world: World) extends Attribution with LazyLogging {
       case _: ToString => StringType()
     }
     case MergeMonoid(_, e1, _)                   => expressionType(e1)
+    case ConsCollectionMonoid(_:SetMonoid, e)    => SetType(expressionType(e))
+    case ConsCollectionMonoid(_:BagMonoid, e)    => BagType(expressionType(e))
+    case ConsCollectionMonoid(_:ListMonoid, e)   => ListType(expressionType(e))
+    case ZeroCollectionMonoid(m)                 => ???
   }
 
   private def recordType(a: Type, b: Type): RecordType =

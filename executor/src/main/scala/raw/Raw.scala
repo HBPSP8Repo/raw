@@ -227,6 +227,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             case _: MultiplyMonoid => ???
             case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
             case _: OrMonoid => ???
+            case _: SetMonoid => s"${recurse(e1)} ++ ${recurse(e2)}"
+            case _: BagMonoid => ???
+            case _: ListMonoid => ???
           }
           case UnaryExp(op, e1) => op match {
             case _: Not => s"!${recurse(e1)}"
@@ -236,6 +239,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             case _: ToFloat => s"${recurse(e1)}.toFloat"
             case _: ToString => s"${recurse(e1)}.toString"
           }
+          case ConsCollectionMonoid(m:SetMonoid, e) => s"Set(${recurse(e)})"
+          case ConsCollectionMonoid(m:BagMonoid, e) => ???
+          case ConsCollectionMonoid(m:ListMonoid, e) => s"List(${recurse(e)})"
+          case ZeroCollectionMonoid(m:SetMonoid) => s"Set()"
+          case ZeroCollectionMonoid(m:BagMonoid) => ???
+          case ZeroCollectionMonoid(m:ListMonoid) => s"List()"
         }
       }
       val expression = recurse(e)

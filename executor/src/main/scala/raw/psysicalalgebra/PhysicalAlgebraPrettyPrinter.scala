@@ -65,5 +65,6 @@ object PhysicalAlgebraPrettyPrinter extends PrettyPrinter {
 
     case SparkMerge(lNode, m, left, right) => merge("spark", m, left, right)
     case ScalaMerge(lNode, m, left, right) => merge("scala", m, left, right)
+    case ScalaToSparkNode(_) => ???
   }
 }
