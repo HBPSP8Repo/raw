@@ -36,3 +36,4 @@ val expected = convertExpected("""
 [_X0: [[name: Martoff, C.J., title: assistant professor], [name: Nakagawa, H., title: assistant professor]], year: 1994]
 [_X0: [[name: Wang, Hairong, title: professor], [name: Zhuangde Jiang, title: professor]], year: 1993]
 """)
+

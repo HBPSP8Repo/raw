@@ -30,6 +30,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   import c.universe._
 
+  var userCaseClassesMap: Map[RecordType, String] = _
+
   /** Bail out during compilation with error message. */
   def bail(message: String) = c.abort(c.enclosingPosition, message)
 
@@ -75,9 +77,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def recordTypeSym(r: RecordType): String = r match {
     case RecordType(_, Some(symName)) => symName
     case _ =>
-      // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
-      val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
-      uniqueId
+      userCaseClassesMap.get(r).get
+    //      // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
+    //      val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
+    //      uniqueId
   }
 
   // Create Scala type from RAW type
@@ -90,7 +93,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: FloatType => "Float"
       case r: RecordType => recordTypeSym(r)
       case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType, world)}]"
-      case ListType(innerType) => s"List[${tipe(innerType, world)}]"
+      case ListType(innerType) => s"Seq[${tipe(innerType, world)}]"
       case SetType(innerType) => s"Set[${tipe(innerType, world)}]"
       case UserType(idn) => tipe(world.userTypes(idn), world)
       case TypeVariable(v) => ???
@@ -110,9 +113,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: IntType => "Int"
       case _: FloatType => "Float"
       case r@RecordType(_, Some(name)) => s"$name"
-      case r@RecordType(atts, None) => atts.sortBy(att=> att.idn).map(att => s"(${tipeAsTuple(att.tipe, world)})").mkString("(", ", ", ")")
+      case r@RecordType(atts, None) => atts.sortBy(att => att.idn).map(att => s"(${tipeAsTuple(att.tipe, world)})").mkString("(", ", ", ")")
       case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipeAsTuple(innerType, world)}]"
-      case ListType(innerType) => s"List[${tipeAsTuple(innerType, world)}]"
+      case ListType(innerType) => s"Seq[${tipeAsTuple(innerType, world)}]"
       case SetType(innerType) => s"Set[${tipeAsTuple(innerType, world)}]"
       case UserType(idn) => tipe(world.userTypes(idn), world)
       case TypeVariable(v) => ???
@@ -130,26 +133,56 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import org.kiama.rewriting.Rewriter.collect
 
     // Extractor for anonymous record types
-    object IsAnonRecordType {
-      def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
+    //    object IsAnonRecordType {
+    //      def unapply(e: raw.algebra.Expressions.Exp): Option[RecordType] = typer.expressionType(e) match {
+    //        case r@RecordType(_, None) => Some(r)
+    //        case _ => None
+    //      }
+    //    }
+
+    ///////////////////////
+    object IsAnonRecordType2 {
+      def unapply(t: raw.Type): Option[RecordType] = t match {
         case r@RecordType(_, None) => Some(r)
         case _ => None
       }
     }
 
     // Collect all record types from tree
-    val collectAnonRecordTypes = collect[List, raw.RecordType] {
-      case IsAnonRecordType(t) => t
+    val collectAnonRecordTypes2 = collect[List, raw.RecordType] {
+      case IsAnonRecordType2(t) => t
     }
 
-    // Convert all collected record types to a set to remove repeated types, leaving only the structural types
-    val anonRecordTypes = collectAnonRecordTypes(logicalTree).toSet
+    val resultType = typer.tipe(logicalTree)
+    println(s"Result type: $resultType")
+    val resultRecords = collectAnonRecordTypes2(resultType).toSet
+    var i = 0;
+    this.userCaseClassesMap = resultRecords.map(recType => {
+      i = i + 1; recType -> s"UserRecord$i"
+    }).toMap
+
+    println("Record types:\n" + resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
+    ///////////////////////
+
+    // Collect all record types from tree
+    //    val collectAnonRecordTypes = collect[List, raw.RecordType] {
+    //      case IsAnonRecordType(t) => t
+    //    }
+    //    // Convert all collected record types to a set to remove repeated types, leaving only the structural types
+    //    val anonRecordTypes = collectAnonRecordTypes(logicalTree).toSet
+    //    println("All record types:\n" + anonRecordTypes.mkString("\n"))
+
 
     // Create corresponding case class
-    val code = anonRecordTypes
+    //    val code = anonRecordTypes
+    val code = resultRecords
       .map {
       case r@RecordType(atts: Seq[AttrType], None) =>
-        val args = atts.sortBy(att => att.idn).map(att => s"${att.idn}: ${tipe(att.tipe, world)}").mkString(", ")
+        val args = atts
+          .sortBy(att => att.idn)
+          .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
+          .mkString(", ")
+        //        val cl = s"""case class ${recordTypeSym(r)}($args)"""
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
@@ -186,7 +219,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       rawToScalaType(typer.expressionType(expression))
     }
 
-    def exp(e: Exp, argType: Option[c.universe.Tree] = None, useCaseClass: Boolean = false): Tree = {
+    def exp(e: Exp, argType: Option[c.universe.Tree] = None): Tree = {
       def binaryOp(op: BinaryOperator): String = op match {
         case _: Eq => "=="
         case _: Neq => "!="
@@ -209,16 +242,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case _: Arg => "arg"
           case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
           case RecordCons(atts) =>
-            val sym = recordTypeSym(typer.expressionType(e) match {
-              case r: RecordType => r
-              case _ => ???
-            })
-            val vals = atts.sortBy(att => att.idn).map(att => recurse(att.e)).mkString(",")
-            if (useCaseClass) {
-              s"""$sym($vals)"""
-            } else {
-              s"""($vals)"""
+            val tt = typer.expressionType(e).asInstanceOf[RecordType]
+            val sym = userCaseClassesMap.get(tt) match {
+              case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
+              case _ => ""
             }
+            logger.info(s"Type: $tt, ${System.identityHashCode(tt)}")
+            //            val sym = recordTypeSym(tt match {
+            //              case r: RecordType => r
+            //              case _ => ???
+            //            })
+            val vals = atts.sortBy(att => att.idn).map(att => recurse(att.e)).mkString(",")
+            s"""$sym($vals)"""
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
           case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
           case MergeMonoid(m, e1, e2) => m match {
@@ -239,12 +274,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             case _: ToFloat => s"${recurse(e1)}.toFloat"
             case _: ToString => s"${recurse(e1)}.toString"
           }
-          case ConsCollectionMonoid(m:SetMonoid, e) => s"Set(${recurse(e)})"
-          case ConsCollectionMonoid(m:BagMonoid, e) => ???
-          case ConsCollectionMonoid(m:ListMonoid, e) => s"List(${recurse(e)})"
-          case ZeroCollectionMonoid(m:SetMonoid) => s"Set()"
-          case ZeroCollectionMonoid(m:BagMonoid) => ???
-          case ZeroCollectionMonoid(m:ListMonoid) => s"List()"
+          case ConsCollectionMonoid(m: SetMonoid, e) => s"Set(${recurse(e)})"
+          case ConsCollectionMonoid(m: BagMonoid, e) => ???
+          case ConsCollectionMonoid(m: ListMonoid, e) => s"List(${recurse(e)})"
+          case ZeroCollectionMonoid(m: SetMonoid) => s"Set()"
+          case ZeroCollectionMonoid(m: BagMonoid) => ???
+          case ZeroCollectionMonoid(m: ListMonoid) => s"List()"
         }
       }
       val expression = recurse(e)
@@ -297,17 +332,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               map3"""
         case m1: BagMonoid => ???
         case m1: ListMonoid => ???
-        /* The scala code generated here does not type check because it generates an anonymous function without
-        specifying the type of the argument.
-        [error] <macro>:1: missing parameter type
-        [error] (arg => arg._2)
-        [error]  ^
-         */
+          // TODO: similar implementation as for the spark operator
         //          val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-
-        /* Also does not work, because the zero value should be typed in order for the type inference to work.
-          That is "List[Student]()" instead of "List()"". We currently do not have type information.
-         */
         //          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), ZeroCollectionMonoid(ListMonoid()), e)
         //          q"""${build(child)}
         //             .groupBy(${exp(f)})
@@ -345,7 +371,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   )
   """
       case r@ScalaReduce(logicalNode, m, e, p, child) =>
-        val eCode = exp(e, useCaseClass = true)
+        val eCode = exp(e)
         val code = m match {
           case m1: PrimitiveMonoid =>
             // TODO: Replace foldLeft with fold?
@@ -446,7 +472,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       */
       case SparkReduce(logicalNode, m, e, p, child) =>
         val pCode = exp(p)
-        val eCode = exp(e, useCaseClass = true)
+        val eCode = exp(e)
         logger.info(s"[REDUCE] $m, e: $eCode, p: $pCode")
         val childCode = build(child)
         val filterMapCode = q"""
