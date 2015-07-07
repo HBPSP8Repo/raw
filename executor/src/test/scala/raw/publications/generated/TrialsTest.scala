@@ -21,9 +21,8 @@ class TrialsTest extends AbstractSparkPublicationsTest {
 
   test("Trials0") {
     val result = new Trials0Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
 
-    logger.info(actual)
 //    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 

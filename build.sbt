@@ -38,14 +38,11 @@ lazy val root = project.in(file("."))
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
-  settings(buildSettings ++
-  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
+  settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
   settings(
-    // Must use the local spark installation instead of the spark library downloaded by sbt.
-    // TODO: must package the local app in a jar and distribute it to the worker nodes using the driver's http server.
-    //    unmanagedClasspath in Runtime ++= Seq(file( """c:\Tools\spark-1.3.1-bin-hadoop2.6\lib\spark-assembly-1.3.1-hadoop2.6.0.jar""")).classpath,
+    // The
     run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
-
+    runMain in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
 
     libraryDependencies ++=
       commonDeps ++
@@ -58,13 +55,13 @@ lazy val executor = (project in file("executor")).
           jacksonScala,
           httpClient,
           commonMath
-        ),
+        ) ++ sprayDeps,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.
     // Using SBT interactively to run the tests will eventually cause an out of memory error on the metaspace region
     // if tests are run in the same VM.
-    fork in Test := true,
+    fork := true,
 
     // Alternative to start SBT with -D...=...
     initialize ~= { _ =>
@@ -91,6 +88,25 @@ lazy val executor = (project in file("executor")).
       cp filter {
         _.data.getName == "spark-assembly-1.3.1-hadoop2.6.0.jar"
       }
+    },
+
+    /*
+      Create a shell script that launches the rest service directly from the shell, thereby bypassing SBT.
+      This avoids the overhead of starting SBT (which is considerable) and allows killing the process by simply using
+      CTRL+C in the shell (with SBT, CTRL+C kills SBT but leaves the web server running because the server is started
+      as a forked process.)
+      http://stackoverflow.com/questions/7449312/create-script-with-classpath-from-sbt
+      */
+    TaskKey[File]("mkrun") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+      val template = """#!/bin/sh
+java -classpath "%s" %s "$@"
+"""
+      val mainStr = main.getOrElse(sys.error("No main class specified"))
+      val contents = template.format(cp.files.absString, mainStr)
+      val out = base / "../run-server.sh"
+      IO.write(out, contents)
+      out.setExecutable(true)
+      out
     }
   )
 

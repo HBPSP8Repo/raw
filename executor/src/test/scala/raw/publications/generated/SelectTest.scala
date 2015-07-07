@@ -25,7 +25,7 @@ class SelectTest extends AbstractSparkPublicationsTest {
 
   test("Select0") {
     val result = new Select0Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     val expected = convertExpected("""
     [name: Neuhauser, B., title: professor, year: 1973]
     [name: Takeno, K., title: PhD, year: 1973]
@@ -35,7 +35,7 @@ class SelectTest extends AbstractSparkPublicationsTest {
 
   test("Select1") {
     val result = new Select1Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     val expected = convertExpected("""
     [annee: 1973, nom: Neuhauser, B., titre: professor]
     [annee: 1973, nom: Takeno, K., titre: PhD]

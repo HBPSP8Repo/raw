@@ -1,17 +1,17 @@
-package raw
+package raw.executionserver
 
-import java.net.{URL, URLClassLoader}
 import java.nio.file.{FileAlreadyExistsException, Files, Paths}
 
+import com.google.common.base.Stopwatch
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
-import org.datanucleus.store.query.QueryResult
-import org.scalatest.{BeforeAndAfterAll, Suite}
-import raw.executionserver.RawMutableURLClassLoader
-import raw.publications.{Publication, Author}
+import raw.publications.{Author, Publication}
 
-object SharedSparkContext {
+import scala.reflect.ClassTag
+
+object SharedSparkContext extends StrictLogging {
   private[this] val metricsConf = Paths.get(Resources.getResource("""metrics.properties""").toURI)
   private[this] val eventDirectory = {
     val dir = Paths.get(System.getProperty("java.io.tmpdir"), "spark-events")
@@ -37,7 +37,7 @@ object SharedSparkContext {
     .set("spark.shuffle.spill.compress", "false")
 
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-        .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
+    .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")
@@ -51,45 +51,10 @@ object SharedSparkContext {
     .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
   //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
-}
-
-
-
-
-/* Create a new Spark context for every test suite.
-This allows us to use the afterAll() callback to close Spark at the end of the test suit.
-An alternative design would be to use a single Spark context for all the test run, by creating it inside an object.
-The problem with this design is how to ensure that the Spark context is always closed at the end of all the tests,
-AFAIK, there is no callback in the ScalaTests to execute code when the tests end. Another problem is the loss of
-independence between test suites.
-The first problem can be mitigated by ensuring that the JVM is always closed at the end of the tests (fork := true)
-in SBT.
-*/
-trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
-  self: Suite =>
-
-  @transient private var _sc: SparkContext = _
-
-  val rawClassLoader = new RawMutableURLClassLoader(new Array[URL](0), SharedSparkContext.getClass.getClassLoader)
-
-  def sc: SparkContext = _sc
-
-  // Override to modify configuration
-  var conf = SharedSparkContext.conf
-
-  override def beforeAll() {
-    logger.info("Creating raw class loader: " + rawClassLoader)
-    Thread.currentThread().setContextClassLoader(rawClassLoader)
-    logger.info("Starting SparkContext with configuration:\n{}", conf.toDebugString)
-    _sc = new SparkContext("local[4]", "test", conf)
-    super.beforeAll()
-  }
-
-  override def afterAll() {
-    if (sc != null) {
-      sc.stop()
-    }
-    _sc = null
-    super.afterAll()
+  def newRDDFromJSON[T](lines: List[T], sparkContext: SparkContext)(implicit ct: ClassTag[T]) = {
+    val start = Stopwatch.createStarted()
+    val rdd: RDD[T] = sparkContext.parallelize(lines)
+    logger.info("Created RDD. Partitions: " + rdd.partitions.map(p => p.index).mkString(", ") + ", partitioner: " + rdd.partitioner)
+    rdd
   }
 }

@@ -1,4 +1,4 @@
-package raw.publications
+package raw.executionserver
 
 import java.io.InputStream
 
@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import raw.publications.{Author, Publication}
 
 import scala.collection.JavaConversions
 import scala.reflect.ClassTag

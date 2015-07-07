@@ -29,7 +29,7 @@ class %(name)sQuery(val authors: RDD[Author], val publications: RDD[Publication]
 templateTestMethod ="""
   test("%(name)s") {
     val result = new %(name)sQuery(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
 %(asserts)s
     assert(actual === expected, s"\\nActual: $actual\\nExpected: $expected")
   }

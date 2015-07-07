@@ -32,7 +32,7 @@ class GroupByTest extends AbstractSparkPublicationsTest {
 
   test("GroupBy0") {
     val result = new GroupBy0Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [n: 11, title: assistant professor]
@@ -45,7 +45,7 @@ class GroupByTest extends AbstractSparkPublicationsTest {
 
   test("GroupBy1") {
     val result = new GroupBy1Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [title: PhD, years: [1955, 1959, 1964, 1969, 1972, 1973, 1974, 1975, 1981, 1982, 1985, 1986, 1988, 1991, 1992]]
@@ -58,7 +58,7 @@ class GroupByTest extends AbstractSparkPublicationsTest {
 
   test("GroupBy2") {
     val result = new GroupBy2Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [people: [[name: Akoh, H., title: professor, year: 1959], [name: James, R.D., title: assistant professor, year: 1959], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Takada, S., title: PhD, year: 1959]], year: 1959]

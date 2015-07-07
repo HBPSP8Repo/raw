@@ -38,7 +38,7 @@ class JoinTest extends AbstractSparkPublicationsTest {
 
   test("Join0") {
     val result = new Join0Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [n1: Johnson, R.T., n2: Martoff, C.J., year: 1994]
@@ -51,7 +51,7 @@ class JoinTest extends AbstractSparkPublicationsTest {
 
   test("Join1") {
     val result = new Join1Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [p1: [name: Johnson, R.T., title: professor], p2: [name: Martoff, C.J., title: assistant professor], year: 1994]
@@ -64,7 +64,7 @@ class JoinTest extends AbstractSparkPublicationsTest {
 
   test("Join2") {
     val result = new Join2Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     val expected = convertExpected("""
     [_X0: [[name: Johnson, R.T., title: professor], [name: Martoff, C.J., title: assistant professor]], year: 1994]
     [_X0: [[name: Johnson, R.T., title: professor], [name: Nakagawa, H., title: assistant professor]], year: 1994]

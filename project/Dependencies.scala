@@ -34,5 +34,11 @@ object Dependencies {
   val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.5.2"
   val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.5.2"
 
+  val sprayDeps = Seq(
+    "io.spray" %% "spray-routing" % "1.3.3",
+    "io.spray" %% "spray-can" % "1.3.3",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.11",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.3.11")
+
   val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
 }

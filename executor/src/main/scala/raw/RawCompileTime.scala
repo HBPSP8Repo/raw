@@ -1,9 +1,10 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
-import raw.algebra
+import org.apache.spark.rdd.RDD
+import org.datanucleus.metadata.QueryLanguage
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-import raw.algebra.{LogicalAlgebraParser, LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
+import raw.algebra.{LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.QueryCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
@@ -11,35 +12,24 @@ import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrint
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
-import scala.language.experimental.macros
+//import scala.language.experimental.macros
 
-
-//class queryAnnotation(query: String, catalog: HList) extends StaticAnnotation {
-class rawQueryAnnotation extends StaticAnnotation {
-  def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
-}
-
-/*
- */
-abstract class RawQuery {
-  //  val query: String
-  def computeResult: Any
-}
-
-
-class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
-
-  import c.universe._
+import scala.reflect.runtime.{universe => ru}
+import scala.reflect.runtime.universe._
+import scala.tools.reflect.ToolBox
+// TODO: Work in progress, to explore the possibility of compiling a query using the Toolbox compiler.
+object RawCompileTime extends StrictLogging {
+  val mirror = runtimeMirror(getClass.getClassLoader)
+  val toolbox = mirror.mkToolBox()
 
   var userCaseClassesMap: Map[RecordType, String] = _
 
-  /**   Bail out during compilation with error message. */
-  def bail(message: String) = c.abort(c.enclosingPosition, message)
-
   case class InferredType(rawType: raw.Type, isSpark: Boolean)
+  /**   Bail out during compilation with error message. */
+  def bail(message: String) = throw new RuntimeException(message)
 
   /** Infer RAW's type from the Scala type. */
-  def inferType(t: c.Type): InferredType = {
+  def inferType(t: toolbox.u.Type): InferredType = {
     val rawType = t match {
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(new raw.Variable())
@@ -187,7 +177,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
-    code.map(c.parse)
+    code.map(toolbox.parse)
   }
 
   /** Build code-generated query plan from logical algebra tree.
@@ -195,11 +185,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
     import algebra.Expressions._
 
-    def rawToScalaType(t: raw.Type): c.universe.Tree = {
+    def rawToScalaType(t: raw.Type): Tree = {
       logger.info(s"rawToScalaType: $t")
       val typeName: String = tipeAsTuple(t, world)
       logger.info(s"typeName: $typeName")
-      val parsed: c.Tree = c.parse(typeName)
+      val parsed: Tree = toolbox.parse(typeName)
       //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
@@ -208,19 +198,19 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
     }
 
-    def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
+    def nodeScalaType(logicalNode: LogicalAlgebraNode): Tree = {
       logger.info(s"Algebra: ${logicalNode}")
       val scalaType = rawToScalaType(typer.tipe(logicalNode))
       logger.info(s"Scala type: $scalaType")
       scalaType
     }
 
-    def expScalaType(expression: Exp): c.universe.Tree = {
+    def expScalaType(expression: Exp): Tree = {
       logger.info(s"Expression: ${expression}")
       rawToScalaType(typer.expressionType(expression))
     }
 
-    def exp(e: Exp, argType: Option[c.universe.Tree] = None): Tree = {
+    def exp(e: Exp, argType: Option[Tree] = None): Tree = {
       def binaryOp(op: BinaryOperator): String = op match {
         case _: Eq => "=="
         case _: Neq => "!="
@@ -285,8 +275,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
       val expression = recurse(e)
       val code = argType match {
-        case Some(argName) => q"((arg:$argName) => ${c.parse(expression)})"
-        case None => c.parse(s"(arg => ${expression})")
+        case Some(argName) => q"((arg:$argName) => ${toolbox.parse(expression)})"
+        case None => toolbox.parse(s"(arg => ${expression})")
       }
       code
     }
@@ -333,7 +323,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               map3"""
         case m1: BagMonoid => ???
         case m1: ListMonoid => ???
-          // TODO: similar implementation as for the spark operator
+        // TODO: similar implementation as for the spark operator
         //          val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
         //          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), ZeroCollectionMonoid(ListMonoid()), e)
         //          q"""${build(child)}
@@ -535,7 +525,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         logger.info("Type of e: {}", st)
         val childTree: Tree = build(child)
 
-        val tp = c.parse(st)
+        val tp = toolbox.parse(st)
 
         val code = m match {
           case m1: PrimitiveMonoid =>
@@ -678,9 +668,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
 
   sealed abstract class QueryLanguage
+
   case object Krawl extends QueryLanguage
+
   case object OQL extends QueryLanguage
-  case object LogicalPlan extends QueryLanguage
 
   def extractQueryAndAccessPath(makro: Tree): (String, QueryLanguage, List[AccessPath]) = {
     /**
@@ -689,7 +680,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
      * If not, build code that calls the interpreted executor and return that to the user.
      */
     // Typecheck the full tree to resolve references like List[Student] to scala.List[raw.Student]
-    val typ = c.typecheck(makro.duplicate)
+    val typ = toolbox.typecheck(makro.duplicate)
     //    logger.debug("Typed tree:\n" + showRaw(typ))
     typ match {
       case ClassDef(_, className: TypeName, _, Template(_, _, body: List[Tree])) =>
@@ -718,16 +709,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               query = Some(trimmedString)
               queryLanguage = Some(OQL)
 
-            case ValDef(_, TermName("plan "), _, Literal(Constant(queryString: String))) =>
-              val trimmedString = queryString.trim
-              logger.info("Found logical plan: " + trimmedString)
-              if (query.isDefined) {
-                bail(s"Multiple queries found. Previous: ${query.get}, Current: $trimmedString")
-              }
-              query = Some(trimmedString)
-              queryLanguage = Some(LogicalPlan)
-
-            case ValDef(_, TermName(termName), typeTree: c.universe.Tree, _) =>
+            case ValDef(_, TermName(termName), typeTree, _) =>
               val inferredType = inferType(typeTree.tpe)
               logger.info("Found data source: " + termName + ", Raw type: " + inferredType.rawType + ", isSpark: " + inferredType.isSpark)
               accessPaths += AccessPath(termName.trim, inferredType.rawType, inferredType.isSpark)
@@ -782,7 +764,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     //        })
   }
 
-  def parseOqlQuery(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
+  def parseOqlQuery(query: String): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
     // world is not used for the time being. Eventually, send it to the compilation server.
     QueryCompilerClient(query) match {
       case Right(logicalAlgebra) => Right(logicalAlgebra)
@@ -790,22 +772,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
   }
 
-  def parsePlan(plan: String): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
-    LogicalAlgebraParser(plan) match {
-      case Right(logicalAlgebra) => Right(logicalAlgebra)
-      case Left(error) => Left(new ParserError(error))
-    }
-  }
-
-  def generateCode(makro: Tree, query: String, queryLanguage: QueryLanguage, accessPaths: List[AccessPath]): c.Expr[Any] = {
-    val sources = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
+  def generateCodeNoMacros[T:TypeTag](query: String, queryLanguage: QueryLanguage, accessPaths: List[AccessPath], dataSource: T): () => Any = {
+    val sources: Map[String, Type] = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
     val world = new World(sources)
 
     // Parse the query, using the catalog generated from what the user gave.
     val parseResult: Either[QueryError, LogicalAlgebraNode] = queryLanguage match {
-      case OQL => parseOqlQuery(query, world)
+      case OQL => parseOqlQuery(query)
       case Krawl => Query(query, world)
-      case LogicalPlan => parsePlan(query)
     }
 
     parseResult match {
@@ -822,64 +796,93 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val generatedTree: Tree = buildCode(physicalTree, world, typer)
         //        logger.info("Query execution code:\n{}", showCode(generatedTree))
-
-        /* Generate the actual scala code. Need to extract the class parameters and the body from the annotated
-        class. The body and the class parameters will be copied unmodified in the resulting code.
-        */
-        val q"class $className(..$paramsAsAny) extends ..$baseClass { ..$body }" = makro
-
-
-        /* We generate a companion object that will contain the actual code for executing the query in the computeResult
-        method. This method takes as arguments the data sources that were given by the user as class arguments to the
-        annotated class. So we need to generate a list of "s1:T[1], s2:[T2], ..." for the method definition, and a list of
-        "s1, s2, ..." for method invocation.
-        */
-        val methodDefParameters: List[ValDef] = paramsAsAny.asInstanceOf[List[ValDef]]
-        val methodCallParameters: List[Ident] = methodDefParameters.map(valDef => Ident(valDef.name))
+        //
+        //        /* Generate the actual scala code. Need to extract the class parameters and the body from the annotated
+        //        class. The body and the class parameters will be copied unmodified in the resulting code.
+        //        */
+//        val q"class $className(..$paramsAsAny) extends RawQuery { ..$body }" = makro
 
         /* Generating the expanded class plus the companion:
         http://stackoverflow.com/questions/21032869/create-or-extend-a-companion-object-using-a-macro-annotation-on-the-class
         */
-        val moduleName = TermName(className.decodedName.toString)
+//        val moduleName = tq"FooBarQuery"
+
         val companion = q"""
-  object $moduleName extends com.typesafe.scalalogging.StrictLogging {
+  import org.apache.spark.rdd.RDD
+  import raw.publications.{Author, Publication}
+
+  object FooBarQuery extends com.typesafe.scalalogging.StrictLogging {
     ..$caseClasses
-    def apply(..$methodDefParameters) = {
-       $generatedTree
+    def query(authors:RDD[Author]) = {
+      println("Executing: " + authors)
+      $generatedTree
     }
-  }"""
-
-        val clazz = q"""
-  class $className(..$methodDefParameters) extends RawQuery {
-    ..$body
-    def computeResult = $moduleName.apply(..$methodCallParameters)
+    def foo = println("foo")
   }
-"""
-        val block = Block(List(companion, clazz), Literal(Constant(())))
 
-        val scalaCode = showCode(block)
+  FooBarQuery
+  """
+
+        //        val clazz = q"""
+        //  class $className(..$methodDefParameters) extends RawQuery {
+        //    ..$body
+        //    def computeResult = $moduleName.apply(..$methodCallParameters)
+        //  }
+        //"""
+        //        val block = Block(List(companion, clazz), Literal(Constant(())))
+
+        val scalaCode = showCode(companion)
         logger.info("Generated code:\n{}", scalaCode)
-        QueryLogger.log(query, algebraStr, scalaCode)
-        c.Expr[Any](block)
+
+//        val compiled = toolbox.define(companion.asInstanceOf[ImplDef])
+        val compiled = toolbox.compile(companion)
+        logger.info(s"Compiled: $compiled")
+        compiled
+
+//        c.Expr[Any](block)
 
       case Left(err) => bail(err.err)
     }
   }
 
-  def query_impl(annottees: c.Expr[Any]*): c.Expr[Any] = {
-    if (annottees.size > 1) {
-      bail(s"Expected a single annottated element. Found: ${annottees.size}\n" + annottees.map(expr => showCode(expr.tree)).mkString("\n"))
-    }
-    val annottee: Expr[Any] = annottees.head
-    val annottation = c.prefix.tree
-    val makro = annottee.tree
-    //    logger.debug("Annotation: " + annottation)
-    logger.info("Expanding annotated target:\n{}", showCode(makro))
-    //    logger.debug("Tree:\n" + showRaw(makro))
+  def query[T:TypeTag](query:String, dataSource: T): () => Any = {
+//    val rddAuthorTree: ru.Tree = tq"org.apache.spark.rdd.RDD[raw.publications.Author]"
+//    dataSource.getC
+    val tt: ru.Type = typeOf[T]
+    val infered = inferType(tt)
+    logger.info(s"Infered: $dataSource $infered")
 
-    val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
-    logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
+    val authorsPath = new AccessPath("authors",  infered.rawType, infered.isSpark)
+    var accessPaths:List[AccessPath] = List(authorsPath)
+    generateCodeNoMacros(query, OQL, accessPaths, dataSource)
+  }
 
-    generateCode(makro, query, language, accessPaths)
+  // TODO: Work in Progress
+  def invoke(query:AnyRef, params:AnyRef*) = {
+
+    println(s"Classload: ${mirror.classLoader}")
+
+
+    val im: ru.InstanceMirror = mirror.reflect(query)
+    println(s"Symbol: ${im.symbol}")
+    val ccType: ru.Type = im.symbol.toType
+    val com: ru.Type = ccType.companion
+    println("Companion: " + com)
+    println("Declaratiations: " + com.decls)
+
+//    val queryMethod = ccType.decl(ru.TermName("query")).asMethod
+    val queryMethod = ccType.decl(ru.TermName("foo")).asMethod
+    println("Query method: " + queryMethod)
+    val mm: ru.MethodMirror = im.reflectMethod(queryMethod)
+    println("Query method mirror: " + mm)
+    mm()
+//    mm(params.head)
+
+//    val innerMirror = im.reflectClass(im.symbol)
+//    println(s"Inner: $innerMirror")
+//    val cm: ru.ClassMirror = mirror.reflectClass(innerMirror.symbol)
+//    val cType: ru.Type = innerMirror.symbol.toType
+//
+//    mm(params)
   }
 }

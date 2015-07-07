@@ -40,7 +40,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
 
   test("SelectWhere0") {
     val result = new SelectWhere0Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [name: Anderson, C.C., title: PhD, year: 1992]
@@ -65,7 +65,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
 
   test("SelectWhere1") {
     val result = new SelectWhere1Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [affiliations: [CEA-Grenoble, INAC/SP2M/NPSC, 17 Rue des Martyrs, 38054 Grenoble cedex 9, France, Hewlett-Packard Lab., Palo Alto, CA, USA], authors: [McVittie, J.P., Sarigiannidou, E.], controlledterms: [neutrino detection and measurement, particle detectors, scanning electron microscope examination of materials, superconducting junction devices, superconductive tunnelling, titanium, torque], title: [Front cover]]
@@ -81,7 +81,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
 
   test("SelectWhere2") {
     val result = new SelectWhere2Query(authorsRDD, publicationsRDD).computeResult
-    val actual = convertActual(result)
+    val actual = convertToString(result)
     
     val expected = convertExpected("""
     [affiliations: [Dept. of Electr. & Electron. Eng., Middle East Tech. Univ., Ankara, Turkey, Key Laboratory of Materials for High Power Laser, Shanghai Institute of Optics and Fine Mechanics, Chinese Academy of Sciences, Shanghai 201800, People&#x2019], authors: [Cabrera, B., Dickson, S.C., Johnson, R.T., Lee, A., Matsumoto, Y., Xu, Rongrong], controlledterms: [elemental semiconductors, magnetic flux, magnetic levitation, particle detectors, silicon, superconducting junction devices, titanium, torque], title: On Communication Over Unknown Sparse Frequency-Selective Block-Fading Channels]
