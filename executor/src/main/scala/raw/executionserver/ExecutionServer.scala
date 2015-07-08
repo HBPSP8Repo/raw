@@ -1,6 +1,6 @@
 package raw.executionserver
 
-import java.net.{URL, URLClassLoader}
+import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
@@ -11,27 +11,17 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import raw.RawQuery
 
+import scala.reflect.ClassTag
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-
-class RawMutableURLClassLoader(urls: Array[URL], parent: ClassLoader)
-  extends URLClassLoader(urls, parent) {
-
-  override def addURL(url: URL): Unit = {
-    super.addURL(url)
-  }
-
-  override def getURLs(): Array[URL] = {
-    super.getURLs()
-  }
-}
+case class AccessPath[T:ClassTag](name:String, path:RDD[T])
 
 /*
 http://stackoverflow.com/questions/8867766/scala-dynamic-object-class-loading
 https://code.google.com/p/session-scala/source/browse/functionaltests/src/test/scala/uk/ac/ic/doc/sessionscala/compiler/RunCompiler.scala?r=82ee19e0ad897de370ecac0e0aab3986e3e287ff
  */
-class ExecutionServer(val rawClassloader: RawMutableURLClassLoader) extends StrictLogging with ResultConverter {
+class ExecutionServer(val rawClassloader: RawMutableURLClassLoader, val sc: SparkContext) extends StrictLogging with ResultConverter {
   private[this] val baseOutputDir: Path = Files.createTempDirectory("rawqueries")
 
   // Where the server saves the generated scala source for each query
@@ -70,9 +60,9 @@ class ExecutionServer(val rawClassloader: RawMutableURLClassLoader) extends Stri
     settings.d.tryToSet(List(classOutputDir.toString))
     settings
   }
-  val compileReporter = new StoreReporter()
+  private[this] val compileReporter = new StoreReporter()
 
-  val compiler = new Global(compilerSettings, compileReporter)
+  private[this] val compiler = new Global(compilerSettings, compileReporter)
 
   private[this] val ai = new AtomicInteger()
 
@@ -80,7 +70,15 @@ class ExecutionServer(val rawClassloader: RawMutableURLClassLoader) extends Stri
     "Query" + ai.getAndIncrement()
   }
 
-  def execute(plan: String, authorsRDD: AnyRef, publicationsRDD: AnyRef, sc: SparkContext): Any = {
+  def execute(plan: String, accessPaths: Array[AccessPath[_]]): Any = {
+    logger.info("Access paths: ")
+    accessPaths.foreach(a => {
+      logger.info(s"Name: ${a.name}, ${a.path}")
+    })
+  }
+
+
+  def execute(plan: String, authorsRDD: AnyRef, publicationsRDD: AnyRef): Either[String, Any] = {
     val queryName = newClassName()
     val code = s"""
 package raw.query
@@ -108,8 +106,9 @@ class $queryName(val authors: RDD[Author], val publications: RDD[Publication]) e
     if (compileReporter.hasErrors) {
       // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
       // compilation runs are not falsely reported in the subsequent runs
+      val message = "Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
       compileReporter.reset()
-      throw new RuntimeException("Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n"))
+      return Left(message)
     }
 
     // Load the main query class and run it.
@@ -120,7 +119,7 @@ class $queryName(val authors: RDD[Author], val publications: RDD[Publication]) e
     val rawQuery: RawQuery = ctor.newInstance(authorsRDD, publicationsRDD).asInstanceOf[RawQuery]
 
     logger.info("Running query")
-    rawQuery.computeResult
+    Right(rawQuery.computeResult)
   }
 
   //  def runInterpreter(code: String, authors: AnyRef, publications: AnyRef) = {

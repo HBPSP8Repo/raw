@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableMultiset
 import scala.collection.JavaConversions
 
 trait ResultConverter {
-  val mapper = {
+  private[this] val mapper = {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     om.configure(SerializationFeature.INDENT_OUTPUT, true)
@@ -22,7 +22,6 @@ trait ResultConverter {
 
   def convertToJson(res: Any): String = {
     val value = convertToCollection(res)
-    println("Value: " + value)
     val sw = new StringWriter()
     mapper.writeValue(sw, value)
     sw.toString
@@ -64,20 +63,20 @@ trait ResultConverter {
     }
   }
 
-  def toScalaList[T](s: ImmutableMultiset[T]) = {
+  private[this] def toScalaList[T](s: ImmutableMultiset[T]) = {
     JavaConversions.asScalaIterator[T](s.iterator).toList
   }
 
-  def resultsToString[T](s: Set[T]): String = {
-    resultsToString(s.toList)
-  }
-
-  def resultsToString[T](l: List[T]): String = {
+  private[this] def resultsToString[T](l: List[T]): String = {
     //    l.map(valueToString(_)).sorted.mkString("\n")
     l.map(valueToString(_)).sorted.mkString("\n")
   }
 
-  def valueToString[T](value: Any): String = {
+  private[this] def resultsToString[T](s: Set[T]): String = {
+    resultsToString(s.toList)
+  }
+
+  private[this] def valueToString[T](value: Any): String = {
     value match {
       //      case a: Author => valueToString(List(s"name: ${a.name}", s"title: ${a.title}", s"year: ${a.year}"))
       //      case p: Publication => valueToString(List(
@@ -93,13 +92,13 @@ trait ResultConverter {
     }
   }
 
-  def convertExpected(expected: String): String = {
+  private[this] def convertExpected(expected: String): String = {
     expected.replaceAll("""\n\s*""", "\n").trim
   }
 
   // WARN: There are many classes that implement Product, like List. If this method is called with something other
   // than a case class, it will likely fail.
-  def caseClassToMapOfStrings(p: Product): Any = {
+  private[this] def caseClassToMapOfStrings(p: Product): Any = {
     val fields: Array[Field] = p.getClass.getDeclaredFields
     fields.map(f => {
       f.setAccessible(true)
