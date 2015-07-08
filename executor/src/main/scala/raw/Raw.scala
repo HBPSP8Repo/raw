@@ -155,7 +155,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     val resultType = typer.tipe(logicalTree)
-    println(s"Result type: $resultType")
+    logger.info(s"Result type: $resultType")
     val resultRecords = collectAnonRecordTypes2(resultType).toSet
     var i = 0;
     this.userCaseClassesMap = resultRecords.map(recType => {
