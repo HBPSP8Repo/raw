@@ -11,7 +11,7 @@ import raw.publications.{Author, Publication}
 
 import scala.reflect.ClassTag
 
-object SharedSparkContext extends StrictLogging {
+object DefaultSparkConfiguration extends StrictLogging {
   private[this] val metricsConf = Paths.get(Resources.getResource("""metrics.properties""").toURI)
   private[this] val eventDirectory = {
     val dir = Paths.get(System.getProperty("java.io.tmpdir"), "spark-events")
@@ -36,8 +36,9 @@ object SharedSparkContext extends StrictLogging {
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
 
-    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
+    // TODO: The default configuration of Kryo fails with Guava's ImmutableMultiSet. It requires a custom serializer
+//    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+//    .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")

@@ -27,6 +27,16 @@ class GroupBy2Query(val authors: RDD[Author], val publications: RDD[Publication]
   """
 }
 
+@rawQueryAnnotation
+class GroupBy3Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
+  val oql = """
+    select title,
+           (select A from partition) as people
+    from authors A
+    group by title: A.title
+  """
+}
+
 
 class GroupByTest extends AbstractSparkPublicationsTest {
 
@@ -92,6 +102,20 @@ class GroupByTest extends AbstractSparkPublicationsTest {
     [people: [[name: Tozoni, O.V., title: professor, year: 1976]], year: 1976]
     [people: [[name: Wang, Hairong, title: professor, year: 1993], [name: Zhuangde Jiang, title: professor, year: 1993]], year: 1993]
     [people: [[name: Young, B.A., title: professor, year: 1956]], year: 1956]
+    """)
+    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+  }
+
+  test("GroupBy3") {
+    val result = new GroupBy3Query(authorsRDD, publicationsRDD).computeResult
+    val actual = convertToString(result)
+    // These results were obtained from the Spark executor because the query fails with the Fegaras executor. Replace with
+    // the Fegaras results once it works.
+    val expected = convertExpected("""
+    [people: [[name: Akoh, H., title: professor, year: 1959], [name: Bland, R.W., title: professor, year: 1984], [name: Dickson, S.C., title: professor, year: 1971], [name: Doisneau, B., title: professor, year: 1991], [name: Johnson, R.T., title: professor, year: 1994], [name: Kokorin, V.V., title: professor, year: 1965], [name: Kotsar, Y., title: professor, year: 1964], [name: Natarajan, B.R., title: professor, year: 1964], [name: Neuhauser, B., title: professor, year: 1973], [name: Oae, Y., title: professor, year: 1967], [name: Sun, Guoliang, title: professor, year: 1987], [name: Tian, Ying, title: professor, year: 1984], [name: Tickle, R., title: professor, year: 1972], [name: Tozoni, O.V., title: professor, year: 1976], [name: Vey, J.-L., title: professor, year: 1969], [name: Wang, Hairong, title: professor, year: 1993], [name: Young, B.A., title: professor, year: 1956], [name: Zhuangde Jiang, title: professor, year: 1993]], title: professor]
+    [people: [[name: Alba, G.P., title: assistant professor, year: 1960], [name: Das, A., title: assistant professor, year: 1981], [name: Ertan, H.B., title: assistant professor, year: 1952], [name: Gagnon, P., title: assistant professor, year: 1951], [name: James, R.D., title: assistant professor, year: 1959], [name: Martoff, C.J., title: assistant professor, year: 1994], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Murdock, E.S., title: assistant professor, year: 1989], [name: Nakagawa, H., title: assistant professor, year: 1994], [name: Sakae, T., title: assistant professor, year: 1983], [name: Zhang, Junjie, title: assistant professor, year: 1977]], title: assistant professor]
+    [people: [[name: Anderson, C.C., title: PhD, year: 1992], [name: Bellet-Amalric, E., title: PhD, year: 1964], [name: Bing, D.D., title: PhD, year: 1955], [name: Cabrera, B., title: PhD, year: 1974], [name: Dignan, T.G., title: PhD, year: 1985], [name: Hu, Lili, title: PhD, year: 1981], [name: Katase, A., title: PhD, year: 1988], [name: Khurgin, J., title: PhD, year: 1986], [name: Monroy, E., title: PhD, year: 1969], [name: Sarigiannidou, E., title: PhD, year: 1975], [name: Seneclauze, C.M., title: PhD, year: 1964], [name: Shield, T., title: PhD, year: 1982], [name: Stricker, D.A., title: PhD, year: 1972], [name: Takada, S., title: PhD, year: 1959], [name: Takeno, K., title: PhD, year: 1973], [name: Wuttig, M., title: PhD, year: 1991]], title: PhD]
+    [people: [[name: Gallion, P., title: engineer, year: 1961], [name: Ishibashi, K., title: engineer, year: 1972], [name: Lee, A., title: engineer, year: 1977], [name: Matsumoto, Y., title: engineer, year: 1992], [name: Xu, Rongrong, title: engineer, year: 1951]], title: engineer]
     """)
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }

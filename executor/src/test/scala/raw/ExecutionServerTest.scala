@@ -19,11 +19,11 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
 
   override def beforeAll() {
     super.beforeAll()
-    executionServer = new ExecutionServer(rawClassLoader)
+    executionServer = new ExecutionServer(rawClassLoader, sc)
   }
 
   test("countAuthors") {
-    val result: Any = executionServer.execute(countAuthors, authorsRDD, publicationsRDD, super.sc)
+    val result: Any = executionServer.execute(countAuthors, authorsRDD, publicationsRDD)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)
@@ -66,7 +66,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
 """
 
   test("authors1993") {
-    val result: Any = executionServer.execute(authors1993, authorsRDD, publicationsRDD, super.sc)
+    val result: Any = executionServer.execute(authors1993, authorsRDD, publicationsRDD)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)
@@ -175,7 +175,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
   """
 
   test("qqq") {
-    val result: Any = executionServer.execute(qqq, authorsRDD, publicationsRDD, super.sc)
+    val result: Any = executionServer.execute(qqq, authorsRDD, publicationsRDD)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)

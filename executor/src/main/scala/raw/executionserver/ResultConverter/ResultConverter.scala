@@ -53,7 +53,7 @@ trait ResultConverter {
   def convertToString(res: Any): String = {
     res match {
       case imSet: ImmutableMultiset[_] =>
-        val resultTyped = toScalaList(imSet)
+        val resultTyped: List[Any] = toScalaList(imSet)
         resultsToString(resultTyped)
       case set: Set[_] =>
         resultsToString(set)
@@ -68,7 +68,6 @@ trait ResultConverter {
   }
 
   private[this] def resultsToString[T](l: List[T]): String = {
-    //    l.map(valueToString(_)).sorted.mkString("\n")
     l.map(valueToString(_)).sorted.mkString("\n")
   }
 
@@ -86,13 +85,14 @@ trait ResultConverter {
       //        s"controlledterms: ${valueToString(p.controlledterms)}"))
       case l: List[_] => l.map(valueToString(_)).sorted.mkString("[", ", ", "]")
       case s: Set[_] => s.map(valueToString(_)).toList.sorted.mkString("[", ", ", "]")
+      case ms: ImmutableMultiset[_] => toScalaList(ms).map(valueToString(_)).sorted.mkString("[", ", ", "]")
       case m: Map[_, _] => m.map({ case (k, v) => s"$k: ${valueToString(v)}" }).toList.sorted.mkString("[", ", ", "]")
-      case p: Product => valueToString(caseClassToMapOfStrings(p))
+      case p: Product =>  valueToString(caseClassToMapOfStrings(p))
       case _ => value.toString
     }
   }
 
-  private[this] def convertExpected(expected: String): String = {
+  def convertExpected(expected: String): String = {
     expected.replaceAll("""\n\s*""", "\n").trim
   }
 

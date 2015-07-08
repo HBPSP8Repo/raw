@@ -20,12 +20,12 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
 
   val sc = {
     Thread.currentThread().setContextClassLoader(rawClassLoader)
-    logger.info("Starting SparkContext with configuration:\n{}", SharedSparkContext.conf.toDebugString)
-    new SparkContext("local[4]", "test", SharedSparkContext.conf)
+    logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
+    new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
   }
 
-  val authorsRDD = SharedSparkContext.newRDDFromJSON[Author](ScalaDataSet.authors, sc)
-  val publicationsRDD = SharedSparkContext.newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
+  val authorsRDD = DefaultSparkConfiguration.newRDDFromJSON[Author](ScalaDataSet.authors, sc)
+  val publicationsRDD = DefaultSparkConfiguration.newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
 
   val executionServer = new ExecutionServer(rawClassLoader, sc)
   val port = 54321

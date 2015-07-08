@@ -1,59 +1,11 @@
 package raw
 
-import java.net.{URL, URLClassLoader}
-import java.nio.file.{FileAlreadyExistsException, Files, Paths}
+import java.net.URL
 
-import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.{SparkConf, SparkContext}
-import org.datanucleus.store.query.QueryResult
+import org.apache.spark.SparkContext
 import org.scalatest.{BeforeAndAfterAll, Suite}
-import raw.executionserver.RawMutableURLClassLoader
-import raw.publications.{Publication, Author}
-
-object SharedSparkContext {
-  private[this] val metricsConf = Paths.get(Resources.getResource("""metrics.properties""").toURI)
-  private[this] val eventDirectory = {
-    val dir = Paths.get(System.getProperty("java.io.tmpdir"), "spark-events")
-
-    try {
-      Files.createDirectory(dir)
-    } catch {
-      //Ignore, already exists
-      case ex: FileAlreadyExistsException => //ignore, normal
-    }
-    dir
-  }
-
-  val conf = new SparkConf()
-    .setAppName("RAW Unit Tests")
-    .setMaster("local[4]")
-    // Disable compression to avoid polluting the tmp directory with dll files.
-    // By default, Spark compresses the broadcast variables using the JavaSnappy. This library uses a native DLL which
-    // gets copied as a new file to the TMP directory every time an instance of Spark is run.
-    // http://spark.apache.org/docs/1.3.1/configuration.html#compression-and-serialization
-    .set("spark.broadcast.compress", "false")
-    .set("spark.shuffle.compress", "false")
-    .set("spark.shuffle.spill.compress", "false")
-
-    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-        .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
-
-    // https://spark.apache.org/docs/1.3.1/monitoring.html
-    .set("spark.eventLog.enabled", "true")
-    .set("spark.eventLog.dir", eventDirectory.toString)
-    .set("spark.metrics.conf", metricsConf.toString)
-
-    // Spark SQL configuration
-    //  https://spark.apache.org/docs/latest/sql-programming-guide.html
-    //  spark.sql.codegen
-    //  spark.sql.autoBroadcastJoinThreshold
-    .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
-  //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
-
-}
-
-
+import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader}
 
 
 /* Create a new Spark context for every test suite.
@@ -70,12 +22,12 @@ trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
 
   @transient private var _sc: SparkContext = _
 
-  val rawClassLoader = new RawMutableURLClassLoader(new Array[URL](0), SharedSparkContext.getClass.getClassLoader)
+  val rawClassLoader = new RawMutableURLClassLoader(new Array[URL](0), this.getClass.getClassLoader)
 
   def sc: SparkContext = _sc
 
   // Override to modify configuration
-  var conf = SharedSparkContext.conf
+  var conf = DefaultSparkConfiguration.conf
 
   override def beforeAll() {
     logger.info("Creating raw class loader: " + rawClassLoader)
