@@ -127,7 +127,9 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val number: PackratParser[String] = "[0-9]+".r ^^ { case e => e.toString }
+
   lazy val idn: PackratParser[Idn] = "[a-zA-Z_][a-zA-Z0-9_]*".r ^^ { case e => e.toString }
+
   lazy val string =
     regex ("\"[^\"]*\"".r) ^^ {
       case s => s.substring (1, s.length - 1)
