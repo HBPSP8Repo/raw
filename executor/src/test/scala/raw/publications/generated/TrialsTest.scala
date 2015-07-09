@@ -9,35 +9,21 @@
 //@rawQueryAnnotation
 //class Trials0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
 //  val oql = """
-//    select article: P,
-//           (select A
-//            from P.authors a,
-//                 authors A) as profs
-//    from publications P
-//    where "particle detectors" in P.controlledterms
+//    select author as a1, (select distinct title as t1, affiliations as aff from partition) as articles
+//    from publications P, P.authors A
+//    where A = "Akoh, H."
+//    group by author: A
 //  """
 //}
-////
-////select T.article from (
-////select article: P,
-////(select A
-////from P.authors a,
-////authors A
-////where A.name = a
-////and A.title = "professor") as profs
-////from publications P
-////where "particle detectors" in P.controlledterms
-////and "Stricker, D.A." in P.authors
-////) T having count(T.profs) > 0
+//
 //
 //class TrialsTest extends AbstractSparkPublicationsTest {
 //
 //  test("Trials0") {
 //    val result = new Trials0Query(authorsRDD, publicationsRDD).computeResult
 //    val actual = convertToString(result)
-//    println(actual)
-////    val expected = ""
-////    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+//    val expected = ""
+//    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
 //  }
 //
 //}

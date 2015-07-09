@@ -25,8 +25,6 @@ class SelectWhere1Query(val authors: RDD[Author], val publications: RDD[Publicat
 
 @rawQueryAnnotation
 class SelectWhere2Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-
-
   val oql = """
     select P from publications P
     where "particle detectors" in P.controlledterms
