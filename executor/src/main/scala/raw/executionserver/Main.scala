@@ -9,6 +9,8 @@ import raw.publications.{Author, Publication}
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 
+import scala.reflect._
+
 
 object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
   implicit val system = ActorSystem("simple-routing-app")
@@ -26,6 +28,10 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
 
   val authorsRDD = DefaultSparkConfiguration.newRDDFromJSON[Author](ScalaDataSet.authors, sc)
   val publicationsRDD = DefaultSparkConfiguration.newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
+  val accessPaths = List(
+    AccessPath("authors", authorsRDD, classTag[Author]),
+    AccessPath("publications", publicationsRDD, classTag[Publication])
+  )
 
   val executionServer = new ExecutionServer(rawClassLoader, sc)
   val port = 54321
@@ -59,7 +65,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-    executionServer.execute(cleanedQuery, authorsRDD, publicationsRDD)
+    executionServer.execute(cleanedQuery, accessPaths)
       .right.map(convertToJson(_))
   }
 }

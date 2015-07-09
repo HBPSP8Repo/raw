@@ -15,7 +15,7 @@ import scala.reflect.ClassTag
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-case class AccessPath[T:ClassTag](name:String, path:RDD[T])
+case class AccessPath[T](name: String, path: RDD[T], tag: ClassTag[T])
 
 /*
 http://stackoverflow.com/questions/8867766/scala-dynamic-object-class-loading
@@ -70,31 +70,29 @@ class ExecutionServer(val rawClassloader: RawMutableURLClassLoader, val sc: Spar
     "Query" + ai.getAndIncrement()
   }
 
-  def execute(plan: String, accessPaths: Array[AccessPath[_]]): Any = {
-    logger.info("Access paths: ")
-    accessPaths.foreach(a => {
-      logger.info(s"Name: ${a.name}, ${a.path}")
-    })
-  }
 
-
-  def execute(plan: String, authorsRDD: AnyRef, publicationsRDD: AnyRef): Either[String, Any] = {
+  def execute(plan: String, accessPaths: List[AccessPath[_]]): Either[String, Any] = {
+    //    logger.info("Access paths: " + accessPaths)
     val queryName = newClassName()
+    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
+    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
+
     val code = s"""
 package raw.query
 
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
-import raw.publications._
+$imports
 
 @rawQueryAnnotation
-class $queryName(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
+class $queryName($args) extends RawQuery {
   val plan =
   \"\"\"
   $plan
   \"\"\"
 }
 """
+
     logger.info(s"Generated code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve(queryName + ".scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
@@ -114,13 +112,18 @@ class $queryName(val authors: RDD[Author], val publications: RDD[Publication]) e
     // Load the main query class and run it.
     val queryClass = s"raw.query.$queryName"
     val clazz = rawClassloader.loadClass(queryClass)
-    val ctor = clazz.getConstructor(classOf[RDD[_]], classOf[RDD[_]])
+
+    val ctorTypeArgs = List.fill(accessPaths.size)(classOf[RDD[_]])
+    val ctor = clazz.getConstructor(ctorTypeArgs: _*)
     logger.info("Invoking constructor: " + ctor)
-    val rawQuery: RawQuery = ctor.newInstance(authorsRDD, publicationsRDD).asInstanceOf[RawQuery]
+
+    val ctorArgs = accessPaths.map(ap => ap.path)
+    val rawQuery: RawQuery = ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
 
     logger.info("Running query")
     Right(rawQuery.computeResult)
   }
+
 
   //  def runInterpreter(code: String, authors: AnyRef, publications: AnyRef) = {
   //    val interpreter = new ScriptEngineManager().getEngineByName("scala")

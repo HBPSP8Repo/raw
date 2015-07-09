@@ -9,20 +9,26 @@
 //@rawQueryAnnotation
 //class Trials0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
 //  val oql = """
-//select * from (
 //    select article: P,
 //           (select A
 //            from P.authors a,
-//                 authors A
-//            where A.name = a
-//                  and A.title = "professor") as profs
+//                 authors A) as profs
 //    from publications P
 //    where "particle detectors" in P.controlledterms
-//          and "Stricker, D.A." in P.authors
-//    ) T having count(T.profs) > 0
 //  """
 //}
-//
+////
+////select T.article from (
+////select article: P,
+////(select A
+////from P.authors a,
+////authors A
+////where A.name = a
+////and A.title = "professor") as profs
+////from publications P
+////where "particle detectors" in P.controlledterms
+////and "Stricker, D.A." in P.authors
+////) T having count(T.profs) > 0
 //
 //class TrialsTest extends AbstractSparkPublicationsTest {
 //

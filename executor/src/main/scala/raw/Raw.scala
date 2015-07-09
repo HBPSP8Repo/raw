@@ -859,7 +859,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val scalaCode = showCode(block)
         logger.info("Generated code:\n{}", scalaCode)
-        QueryLogger.log(query, algebraStr, scalaCode)
+//        QueryLogger.log(query, algebraStr, scalaCode)
         c.Expr[Any](block)
 
       case Left(err) => bail(err.err)

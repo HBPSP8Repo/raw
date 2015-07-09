@@ -23,7 +23,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
   }
 
   test("countAuthors") {
-    val result: Any = executionServer.execute(countAuthors, authorsRDD, publicationsRDD)
+    val result: Any = executionServer.execute(countAuthors, accessPaths)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)
@@ -66,7 +66,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
 """
 
   test("authors1993") {
-    val result: Any = executionServer.execute(authors1993, authorsRDD, publicationsRDD)
+    val result: Any = executionServer.execute(authors1993, accessPaths)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)
@@ -175,7 +175,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
   """
 
   test("qqq") {
-    val result: Any = executionServer.execute(qqq, authorsRDD, publicationsRDD)
+    val result: Any = executionServer.execute(qqq, accessPaths)
     println("Result: " + result)
     val resStr = convertToString(result)
     println("Result: " + resStr)
