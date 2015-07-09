@@ -6,6 +6,7 @@ import os.path, shutil, re, sys
 template ="""package %(package)s.generated
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
+import raw.datasets.publications._
 import %(package)s._
 import com.google.common.collect.ImmutableMultiset
 import scala.collection.JavaConversions

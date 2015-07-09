@@ -1,7 +1,6 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
-import raw.algebra
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
 import raw.algebra.{LogicalAlgebraParser, LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.QueryCompilerClient

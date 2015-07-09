@@ -6,7 +6,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.SharedSparkContext
-import raw.executionserver.{AccessPath, ResultConverter, ScalaDataSet}
+import raw.datasets.publications.{Author, Publication, PublicationsDataset}
+import raw.executionserver._
 
 import scala.reflect._
 
@@ -16,10 +17,11 @@ abstract class AbstractSparkPublicationsTest
   with BeforeAndAfterAll
   with SharedSparkContext
   with ResultConverter {
+
+  var pubsDS: PublicationsDataset = _
+  var accessPaths: List[AccessPath[_]] = _
   var authorsRDD: RDD[Author] = _
   var publicationsRDD: RDD[Publication] = _
-
-  var accessPaths:List[AccessPath[_]] = _
 
   def newRDDFromJSON[T](lines: List[T], sparkContext: SparkContext)(implicit ct: ClassTag[T]) = {
     val start = Stopwatch.createStarted()
@@ -30,11 +32,9 @@ abstract class AbstractSparkPublicationsTest
 
   override def beforeAll() {
     super.beforeAll()
-    authorsRDD = newRDDFromJSON[Author](ScalaDataSet.authors, sc)
-    publicationsRDD = newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
-    accessPaths = List(
-      AccessPath("authors", authorsRDD, classTag[Author]),
-      AccessPath("publications", publicationsRDD, classTag[Publication])
-    )
+    pubsDS = new PublicationsDataset(sc)
+    authorsRDD = pubsDS.authorsRDD
+    publicationsRDD = pubsDS.publicationsRDD
+    accessPaths = pubsDS.accessPaths
   }
 }

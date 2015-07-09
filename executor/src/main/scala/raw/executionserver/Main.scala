@@ -5,15 +5,12 @@ import java.net.URL
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
-import raw.publications.{Author, Publication}
+import raw.datasets.patients.PatientsDataset
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 
-import scala.reflect._
-
 
 object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
-  implicit val system = ActorSystem("simple-routing-app")
   val rawClassLoader = {
     val cl = new RawMutableURLClassLoader(new Array[URL](0), Main.getClass.getClassLoader)
     logger.info("Created raw class loader: " + cl)
@@ -26,12 +23,8 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
   }
 
-  val authorsRDD = DefaultSparkConfiguration.newRDDFromJSON[Author](ScalaDataSet.authors, sc)
-  val publicationsRDD = DefaultSparkConfiguration.newRDDFromJSON[Publication](ScalaDataSet.publications, sc)
-  val accessPaths = List(
-    AccessPath("authors", authorsRDD, classTag[Author]),
-    AccessPath("publications", publicationsRDD, classTag[Publication])
-  )
+//  val pubsDS = new PublicationsDataset(sc)
+  val ds = new PatientsDataset(sc)
 
   val executionServer = new ExecutionServer(rawClassLoader, sc)
   val port = 54321
@@ -41,7 +34,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     implicit val system = ActorSystem("simple-routing-app")
     val executePath = "execute"
     logger.info(s"Listening on localhost:$port/$executePath")
-    startServer("localhost", port = port) {
+    startServer("0.0.0.0", port = port) {
       (path(executePath) & post) {
         entity(as[String]) { query =>
           returnValue(query) match {
@@ -65,7 +58,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-    executionServer.execute(cleanedQuery, accessPaths)
+    executionServer.execute(cleanedQuery, ds.accessPaths)
       .right.map(convertToJson(_))
   }
 }

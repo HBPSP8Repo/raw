@@ -77,12 +77,6 @@ trait ResultConverter {
 
   private[this] def valueToString[T](value: Any): String = {
     value match {
-      //      case a: Author => valueToString(List(s"name: ${a.name}", s"title: ${a.title}", s"year: ${a.year}"))
-      //      case p: Publication => valueToString(List(
-      //        s"title: ${p.title}",
-      //        s"authors: ${valueToString(p.authors)}",
-      //        s"affiliations: ${valueToString(p.affiliations)}",
-      //        s"controlledterms: ${valueToString(p.controlledterms)}"))
       case l: List[_] => l.map(valueToString(_)).sorted.mkString("[", ", ", "]")
       case s: Set[_] => s.map(valueToString(_)).toList.sorted.mkString("[", ", ", "]")
       case ms: ImmutableMultiset[_] => toScalaList(ms).map(valueToString(_)).sorted.mkString("[", ", ", "]")

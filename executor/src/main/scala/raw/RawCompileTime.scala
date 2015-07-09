@@ -846,7 +846,7 @@ object RawCompileTime extends StrictLogging {
   }
 
   def query[T:TypeTag](query:String, dataSource: T): () => Any = {
-//    val rddAuthorTree: ru.Tree = tq"org.apache.spark.rdd.RDD[raw.publications.Author]"
+//    val rddAuthorTree: ru.Tree = tq"org.apache.spark.rdd.RDD[raw.executionserver.Author]"
 //    dataSource.getC
     val tt: ru.Type = typeOf[T]
     val infered = inferType(tt)

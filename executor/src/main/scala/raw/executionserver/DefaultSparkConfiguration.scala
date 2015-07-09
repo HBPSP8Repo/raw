@@ -7,7 +7,6 @@ import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
-import raw.publications.{Author, Publication}
 
 import scala.reflect.ClassTag
 
@@ -37,8 +36,8 @@ object DefaultSparkConfiguration extends StrictLogging {
     .set("spark.shuffle.spill.compress", "false")
 
     // TODO: The default configuration of Kryo fails with Guava's ImmutableMultiSet. It requires a custom serializer
-//    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-//    .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
+    //    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    //    .registerKryoClasses(Array(classOf[Publication], classOf[Author]))
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")
