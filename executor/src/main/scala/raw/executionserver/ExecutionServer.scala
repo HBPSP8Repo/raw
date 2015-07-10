@@ -15,8 +15,6 @@ import scala.reflect.ClassTag
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-case class AccessPath[T](name: String, path: RDD[T], tag: ClassTag[T])
-
 /*
 http://stackoverflow.com/questions/8867766/scala-dynamic-object-class-loading
 https://code.google.com/p/session-scala/source/browse/functionaltests/src/test/scala/uk/ac/ic/doc/sessionscala/compiler/RunCompiler.scala?r=82ee19e0ad897de370ecac0e0aab3986e3e287ff

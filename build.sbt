@@ -40,7 +40,6 @@ lazy val executor = (project in file("executor")).
   dependsOn(core).
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
   settings(
-    // The
     run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
     runMain in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
 
@@ -54,7 +53,8 @@ lazy val executor = (project in file("executor")).
           jackson,
           jacksonScala,
           httpClient,
-          commonMath
+          commonMath,
+          scallop
         ) ++ sprayDeps,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.

@@ -41,4 +41,6 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-slf4j" % "2.3.11")
 
   val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
+
+  val scallop = "org.rogach" %% "scallop" % "0.9.5"
 }
