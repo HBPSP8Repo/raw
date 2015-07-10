@@ -6,21 +6,19 @@ import os.path, shutil, re, sys
 template ="""package %(package)s.generated
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
-import raw.datasets.publications._
+import raw.datasets.patients._
 import %(package)s._
-import com.google.common.collect.ImmutableMultiset
-import scala.collection.JavaConversions
 
 %(queryClasses)s
 
-class %(name)sTest extends AbstractSparkPublicationsTest {
+class %(name)sTest extends AbstractSparkPatientsTest {
 %(testMethods)s
 }
 """
 
 templateQueryClass ="""
 @rawQueryAnnotation
-class %(name)sQuery(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
+class %(name)sQuery(val patients: RDD[Patient]) extends RawQuery {
   val oql = \"\"\"
 %(query)s
   \"\"\"
@@ -29,7 +27,7 @@ class %(name)sQuery(val authors: RDD[Author], val publications: RDD[Publication]
 
 templateTestMethod ="""
   test("%(name)s") {
-    val result = new %(name)sQuery(authorsRDD, publicationsRDD).computeResult
+    val result = new %(name)sQuery(patientsRDD).computeResult
     val actual = convertToString(result)
 %(asserts)s
     assert(actual === expected, s"\\nActual: $actual\\nExpected: $expected")
@@ -93,6 +91,8 @@ if __name__ == '__main__':
         baseDir = os.path.abspath(".")
     print "Searching for query files in: " + baseDir
     for root, dirs, files in os.walk(baseDir):
+        if not root.endswith("scala/raw/patients"):
+            continue
         first = True
         for file in files:
             if file.endswith(".q"):
@@ -102,5 +102,9 @@ if __name__ == '__main__':
                     first = False
                     targetDir = os.path.join(root, "generated")
                     print "Deleting target directory: ", targetDir
-                    shutil.rmtree(targetDir)
+                    try:
+                        shutil.rmtree(targetDir)
+                    except OSError:
+                        # Directory does not exist. Ignore error
+                        pass
                 processFile(root, file)

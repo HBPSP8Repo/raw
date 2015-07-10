@@ -80,6 +80,8 @@ package raw.query
 
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
+import raw.datasets.publications._
+import raw.datasets.patients._
 $imports
 
 @rawQueryAnnotation

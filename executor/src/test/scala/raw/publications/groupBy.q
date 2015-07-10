@@ -59,15 +59,13 @@ val expected = convertExpected("""
 [people: [[name: Young, B.A., title: professor, year: 1956]], year: 1956]
 """)
 
-
 --
+
 select title,
        (select A from partition) as people
 from authors A
 group by title: A.title
 
-// These results were obtained from the Spark executor because the query fails with the Fegaras executor. Replace with
-// the Fegaras results once it works.
 val expected = convertExpected("""
 [people: [[name: Akoh, H., title: professor, year: 1959], [name: Bland, R.W., title: professor, year: 1984], [name: Dickson, S.C., title: professor, year: 1971], [name: Doisneau, B., title: professor, year: 1991], [name: Johnson, R.T., title: professor, year: 1994], [name: Kokorin, V.V., title: professor, year: 1965], [name: Kotsar, Y., title: professor, year: 1964], [name: Natarajan, B.R., title: professor, year: 1964], [name: Neuhauser, B., title: professor, year: 1973], [name: Oae, Y., title: professor, year: 1967], [name: Sun, Guoliang, title: professor, year: 1987], [name: Tian, Ying, title: professor, year: 1984], [name: Tickle, R., title: professor, year: 1972], [name: Tozoni, O.V., title: professor, year: 1976], [name: Vey, J.-L., title: professor, year: 1969], [name: Wang, Hairong, title: professor, year: 1993], [name: Young, B.A., title: professor, year: 1956], [name: Zhuangde Jiang, title: professor, year: 1993]], title: professor]
 [people: [[name: Alba, G.P., title: assistant professor, year: 1960], [name: Das, A., title: assistant professor, year: 1981], [name: Ertan, H.B., title: assistant professor, year: 1952], [name: Gagnon, P., title: assistant professor, year: 1951], [name: James, R.D., title: assistant professor, year: 1959], [name: Martoff, C.J., title: assistant professor, year: 1994], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Murdock, E.S., title: assistant professor, year: 1989], [name: Nakagawa, H., title: assistant professor, year: 1994], [name: Sakae, T., title: assistant professor, year: 1983], [name: Zhang, Junjie, title: assistant professor, year: 1977]], title: assistant professor]
