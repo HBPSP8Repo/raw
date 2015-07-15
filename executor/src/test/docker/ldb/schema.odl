@@ -1,0 +1,32 @@
+module Publications {
+
+struct Diagnostic {
+string diag_id;
+string code;
+string diag_date;
+string description;
+string patient_id;
+};
+
+class Patient (extent patients) {
+attribute string city;
+attribute string country;
+attribute string patient_id;
+attribute long year_of_birth;
+attribute list<Diagnostic> diagnosis;
+attribute string gender;
+};
+
+class Author (extent authors) {
+attribute long year;
+attribute string name;
+attribute string title;
+};
+            
+class Publication (extent publications) {
+attribute list<string> affiliations;
+attribute list<string> authors;
+attribute list<string> controlledterms;
+attribute string title;
+};
+};

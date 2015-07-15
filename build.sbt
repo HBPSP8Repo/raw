@@ -35,10 +35,13 @@ lazy val root = project.in(file("."))
   .settings(buildSettings)
   .settings(libraryDependencies ++= commonDeps)
 
+val startDocker = taskKey[String]("Starts the docker container")
+val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
+  settings(resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven").
   settings(
     run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
     runMain in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run)),
@@ -55,7 +58,8 @@ lazy val executor = (project in file("executor")).
           httpClient,
           commonMath,
           scallop
-        ) ++ sprayDeps,
+        )
+        ++ sprayDeps,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.
@@ -63,19 +67,29 @@ lazy val executor = (project in file("executor")).
     // if tests are run in the same VM.
     fork := true,
 
-    // Alternative to start SBT with -D...=...
+    // Alternative to start SBT with -D...=... Applies to tasks launched within the VM which runs SBT
     initialize ~= { _ =>
-      System.setProperty("raw.compile.server.host", "http://localhost:5000/raw-plan")
+      val dockerAddress = System.getenv().get("DOCKER_HOST")
+      val ldbServerAddress = if (dockerAddress == null) {
+        println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
+        "http://localhost:5030/raw-plan"
+      } else {
+        println("Docker host: " + dockerAddress)
+        val uri = new URI(dockerAddress)
+        s"http://${uri.getHost}:5030/raw-plan"
+      }
+      println(s"RAW compilation server at $ldbServerAddress")
+      System.setProperty("raw.compile.server.host", ldbServerAddress)
     },
     //
-    //    testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTestsPublications.py'"!)}),
-    //    testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
+    //        testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTestsPublications.py'"!)}),
+    //        testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
 
     // javaOptions is used for forked VMs (fork := true) not when running in process.
     //    javaOptions in run += """-Dspark.master=spark://192.168.1.32:7077""",
-    javaOptions in run += """-Dspark.master=local[2]""",
+    javaOptions ++= Seq("""-Dspark.master=local[2]""", """-Dfoo=bar"""),
     // build a JAR with the Spark application plus transitive dependencies.
     // https://github.com/sbt/sbt-assembly
     test in assembly := {}, // Do not run tests when building the assembly
@@ -107,6 +121,20 @@ java -classpath "%s" %s "$@"
       IO.write(out, contents)
       out.setExecutable(true)
       out
+    },
+    startDocker := {
+      println("Starting docker")
+      val cID = "docker run -d -p 5030:5000 raw/ldb".!!
+      println(s"Started container: $cID")
+      cID
+    },
+    stopDocker := {
+      val cID = startDocker.value
+      println(s"Stopping docker container: $cID")
+      s"docker stop -t 1 ${cID}".!
+    },
+    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
+      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
     }
   )
 

@@ -34,6 +34,15 @@ templateTestMethod ="""
   }
 """
 
+templateTestMethodNoAssert ="""
+  test("%(name)s") {
+    val result = new %(name)sQuery(patientsRDD).computeResult
+    val actual = convertToString(result)
+
+    println(actual)
+  }
+"""
+
 def indent(lines, level):
     return [(" "*level)+line for line in lines]
 
@@ -47,7 +56,10 @@ def processSingleTest(testName, testDef):
     oql = "\n".join(indent(lines[:b], 4))
     asserts = "\n".join(indent(lines[b+1:], 4))
     queryClass = templateQueryClass % {"name":testName, "query": oql}
-    testMethod = templateTestMethod % {"name":testName, "asserts": asserts}
+    if len(asserts.strip()) == 0:
+        testMethod = templateTestMethodNoAssert % {"name":testName}
+    else:
+        testMethod = templateTestMethod % {"name":testName, "asserts": asserts}
     return (queryClass, testMethod)
 
 
