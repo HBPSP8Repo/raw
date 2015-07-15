@@ -25,12 +25,18 @@ abstract class RawQuery {
   def computeResult: Any
 }
 
+object RawImpl {
+  def toCannonicalForm(recordType: RecordType): Seq[AttrType] = {
+    recordType.atts.sortBy(_.idn)
+  }
+}
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
 
   import c.universe._
 
-  var userCaseClassesMap: Map[RecordType, String] = _
+//  var userCaseClassesMap: Map[RecordType, String] = _
+  var userCaseClassesMap: Map[Seq[AttrType], String] = _
 
   /**   Bail out during compilation with error message. */
   def bail(message: String) = c.abort(c.enclosingPosition, message)
@@ -77,7 +83,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def recordTypeSym(r: RecordType): String = r match {
     case RecordType(_, Some(symName)) => symName
     case _ =>
-      userCaseClassesMap.get(r).get
+      val sym: Option[String] = userCaseClassesMap.get(RawImpl.toCannonicalForm(r))
+      if (sym.isDefined) {
+        return sym.get
+      } else {
+        throw new Exception(s"User type not found: $r. Available mappings:\n${userCaseClassesMap.mkString("\n")}")
+      }
     //      // TODO: The following naming convention may conflict with user type names. Consider prefixing all types using `type = Prefix???`
     //      val uniqueId = if (r.hashCode() < 0) s"_n${Math.abs(r.hashCode()).toString}" else s"_p${r.hashCode().toString}"
     //      uniqueId
@@ -85,6 +96,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   // Create Scala type from RAW type
   def tipe(t: raw.Type, world: World): String = {
+    logger.info(s"Typing $t")
     t match {
       case _: BoolType => "Boolean"
       case FunType(t1, t2) => ???
@@ -156,12 +168,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val resultType = typer.tipe(logicalTree)
     logger.info(s"Result type: $resultType")
     val resultRecords = collectAnonRecordTypes2(resultType).toSet
-    var i = 0;
+    var i = 0
     this.userCaseClassesMap = resultRecords.map(recType => {
-      i = i + 1; recType -> s"UserRecord$i"
+      i = i + 1; RawImpl.toCannonicalForm(recType) -> s"UserRecord$i"
     }).toMap
 
-    println("Record types:\n" + resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
+    logger.info("Record types:\n" + resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
     ///////////////////////
 
     // Collect all record types from tree
@@ -182,7 +194,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .sortBy(att => att.idn)
           .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
           .mkString(", ")
-        //        val cl = s"""case class ${recordTypeSym(r)}($args)"""
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
@@ -233,7 +244,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
 
       def recurse(e: Exp): String = {
-        e match {
+        val res = e match {
           case Null => "null"
           case BoolConst(v) => v.toString
           case IntConst(v) => v
@@ -243,15 +254,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
           case RecordCons(atts) =>
             val tt = typer.expressionType(e).asInstanceOf[RecordType]
-            val sym = userCaseClassesMap.get(tt) match {
+            val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
               case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
               case _ => ""
             }
-            logger.info(s"Type: $tt, ${System.identityHashCode(tt)}")
-            //            val sym = recordTypeSym(tt match {
-            //              case r: RecordType => r
-            //              case _ => ???
-            //            })
             val vals = atts.sortBy(att => att.idn).map(att => recurse(att.e)).mkString(",")
             s"""$sym($vals)"""
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
@@ -281,6 +287,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case ZeroCollectionMonoid(m: BagMonoid) => ???
           case ZeroCollectionMonoid(m: ListMonoid) => s"List()"
         }
+//        logger.info(s"Creating expression: $e => $res")
+        res
       }
       val expression = recurse(e)
       val code = argType match {
@@ -658,6 +666,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case SparkOuterUnnest(logicalNode, path, pred, child) => ???
     }
 
+    logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
     build(physicalTree)
   }
 
