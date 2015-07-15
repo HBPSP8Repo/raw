@@ -125,7 +125,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: IntType => "Int"
       case _: FloatType => "Float"
       case r@RecordType(_, Some(name)) => s"$name"
-      case r@RecordType(atts, None) => atts.sortBy(att => att.idn).map(att => s"(${tipeAsTuple(att.tipe, world)})").mkString("(", ", ", ")")
+      case r@RecordType(atts, None) =>
+        logger.info(s"tipeAsTuple: $atts")
+        atts
+//        .sortBy(att => att.idn)
+        .map(att => s"(${tipeAsTuple(att.tipe, world)})")
+        .mkString("(", ", ", ")")
       case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipeAsTuple(innerType, world)}]"
       case ListType(innerType) => s"Seq[${tipeAsTuple(innerType, world)}]"
       case SetType(innerType) => s"Set[${tipeAsTuple(innerType, world)}]"
@@ -191,9 +196,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       .map {
       case r@RecordType(atts: Seq[AttrType], None) =>
         val args = atts
-          .sortBy(att => att.idn)
+//          .sortBy(att => att.idn)
           .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
           .mkString(", ")
+        logger.info(s"Build case class: $atts => $args")
         val cl = s"""case class ${recordTypeSym(r)}($args)"""
         cl
     }
@@ -258,7 +264,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
               case _ => ""
             }
-            val vals = atts.sortBy(att => att.idn).map(att => recurse(att.e)).mkString(",")
+            val vals = atts
+//              .sortBy(att => att.idn)
+              .map(att => recurse(att.e))
+              .mkString(",")
+            logger.info(s"exp(): $atts => $vals")
             s"""$sym($vals)"""
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
           case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
