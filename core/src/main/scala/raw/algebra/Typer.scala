@@ -10,32 +10,31 @@ class Typer(world: World) extends Attribution with LazyLogging {
   import LogicalAlgebra._
 
   def expressionType(e: Exp): Type = {
-    //    logger.info(s"Typing expression:\n$e")
     val res = realExpressionType(e) match {
       case UserType(idn) => world.userTypes(idn)
-      case t1            => t1
+      case t1 => t1
     }
-    //    logger.info(s"Expression typed:\n$e\n=>\n$res\n")
+//    logger.info(s"Expression typed:\n$e\n=>\n$res\n")
     res
   }
 
   /** Actual type of an expression.
     */
   private lazy val realExpressionType: Exp => Type = attr {
-    case Null                       => AnyType()
-    case _: BoolConst               => BoolType()
-    case _: FloatConst              => FloatType()
-    case _: IntConst                => IntType()
-    case _: StringConst             => StringType()
-    case Arg(t)                     => t
-    case rp@RecordProj(e, idn)      => expressionType(e) match {
-      case t: RecordType  => t.atts.find(_.idn == idn) match {
-        case Some(att: AttrType)  => att.tipe
-        case None                 =>
+    case Null => AnyType()
+    case _: BoolConst => BoolType()
+    case _: FloatConst => FloatType()
+    case _: IntConst => IntType()
+    case _: StringConst => StringType()
+    case Arg(t) => t
+    case rp@RecordProj(e, idn) => expressionType(e) match {
+      case t: RecordType => t.atts.find(_.idn == idn) match {
+        case Some(att: AttrType) => att.tipe
+        case None =>
           logger.warn(s"Could not find attribute $idn in type $t. Outer element: $rp Returning NothingType()")
           NothingType()
       }
-      case t@_            =>
+      case t@_ =>
         logger.warn("Record projection over invalid element. Expected: RecordType, Found: $t")
         NothingType()
     }
@@ -74,7 +73,7 @@ class Typer(world: World) extends Attribution with LazyLogging {
       case UserType(idn) => world.userTypes(idn)
       case t => t
     }
-    //    logger.info(s"Node type:\n$n\n=>\n$res\n")
+//    logger.info(s"Node type:\n$n\n=>\n$res\n")
     res
   }
 

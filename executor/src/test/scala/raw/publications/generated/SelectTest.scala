@@ -15,7 +15,7 @@ class Select0Query(val authors: RDD[Author], val publications: RDD[Publication])
 @rawQueryAnnotation
 class Select1Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
   val oql = """
-   select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
+    select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
   """
 }
 

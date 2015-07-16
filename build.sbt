@@ -72,11 +72,11 @@ lazy val executor = (project in file("executor")).
       val dockerAddress = System.getenv().get("DOCKER_HOST")
       val ldbServerAddress = if (dockerAddress == null) {
         println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
-        "http://localhost:5030/raw-plan"
+        "http://localhost:5001/raw-plan"
       } else {
         println("Docker host: " + dockerAddress)
         val uri = new URI(dockerAddress)
-        s"http://${uri.getHost}:5000/raw-plan"
+        s"http://${uri.getHost}:5001/raw-plan"
       }
       println(s"RAW compilation server at $ldbServerAddress")
       System.setProperty("raw.compile.server.host", ldbServerAddress)
@@ -124,7 +124,7 @@ java -classpath "%s" %s "$@"
     },
     startDocker := {
       println("Starting docker")
-      val cID = ("docker run -d -p 5000:5000 raw/ldb".!!).trim
+      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
       println(s"Started container: $cID")
       cID
     },
