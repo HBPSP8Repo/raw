@@ -76,7 +76,7 @@ lazy val executor = (project in file("executor")).
       } else {
         println("Docker host: " + dockerAddress)
         val uri = new URI(dockerAddress)
-        s"http://${uri.getHost}:5030/raw-plan"
+        s"http://${uri.getHost}:5000/raw-plan"
       }
       println(s"RAW compilation server at $ldbServerAddress")
       System.setProperty("raw.compile.server.host", ldbServerAddress)
@@ -124,14 +124,19 @@ java -classpath "%s" %s "$@"
     },
     startDocker := {
       println("Starting docker")
-      val cID = "docker run -d -p 5030:5000 raw/ldb".!!
+      val cID = ("docker run -d -p 5000:5000 raw/ldb".!!).trim
       println(s"Started container: $cID")
       cID
     },
     stopDocker := {
       val cID = startDocker.value
       println(s"Stopping docker container: $cID")
-      s"docker stop -t 1 ${cID}".!
+      val separator = "== Docker container logs =="
+      println(separator)
+      s"docker stop -t 0 ${cID}".!!
+      s"docker logs ${cID}".!
+      s"docker rm $cID".!!
+      println(separator)
     },
     compile in Test <<= (startDocker, (compile in Test), stopDocker) {
       (start, comp, stop) => comp.dependsOn(start).doFinally(stop)

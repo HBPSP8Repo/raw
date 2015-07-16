@@ -1,3 +1,4 @@
+// TODO: Fails because of inconsistent ordering of fields in logical algebra.
 //package raw.patients.generated
 //import org.apache.spark.rdd.RDD
 //import raw.{rawQueryAnnotation, RawQuery}
