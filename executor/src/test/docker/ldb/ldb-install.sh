@@ -4,6 +4,10 @@ set -e
 cd /raw
 git clone git://github.com/raw-db/ldb.git
 cd ldb
+
+echo "Head of commit log:"
+git log -n 3
+
 cat > Config << EOF
 # LDB
 LDBDIR = /raw/ldb
