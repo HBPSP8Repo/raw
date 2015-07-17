@@ -1,6 +1,4 @@
 #!/bin/bash
-# The double slashes are needed to avoid mingw path conversions. 
-# Seems it also works in Linux
 
 # The host that the ldb server should use to contact the scala executor. 
 # On a Linux machine, this can be localhost. But when using boot2docker, the localhost that the container sees
@@ -12,8 +10,11 @@ else
 	SCALA_SERVER_HOST=localhost
 fi
 
-echo "Using ${SCALA_SERVER_HOST} for Scala executor"
+WEB_SERVER_PORT=5000
+
+echo "Scala executor host: ${SCALA_SERVER_HOST}"
+echo "Web server port: ${WEB_SERVER_PORT}"
 # Entrypoint has a funny syntax when running with arguments. A command like "xyz -a -b foobar",
 # must be specified in this format: --entrypoint=xyz <dockerImage> -a -b foobar. 
 # https://docs.docker.com/reference/run/#entrypoint-default-command-to-execute-at-runtime
-docker run -it --rm -p 5000:5000 --entrypoint=//raw/scripts/run-with-scala-backend.sh raw/ldb ${SCALA_SERVER_HOST}
+docker run -it --rm -p ${WEB_SERVER_PORT}:5000 --entrypoint=//raw/scripts/run-with-scala-backend.sh raw/ldb ${SCALA_SERVER_HOST}
