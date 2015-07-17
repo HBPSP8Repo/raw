@@ -18,6 +18,10 @@ object LogicalAlgebra {
     */
   case class Scan(name: String, t: Type) extends LogicalAlgebraNode
 
+  /** Assign
+    */
+  case class Assign(as: Seq[Tuple2[String, LogicalAlgebraNode]], child: LogicalAlgebraNode) extends LogicalAlgebraNode
+
   /** Reduce
     */
   case class Reduce(m: Monoid, e: Exp, p: Exp, child: LogicalAlgebraNode) extends LogicalAlgebraNode

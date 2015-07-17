@@ -16,7 +16,7 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
   }
 
   lazy val tree: PackratParser[LogicalAlgebraNode] = {
-    reduce | scan | select | nest | unnest | join
+    reduce | assign | scan | select | nest | unnest | join
   }
 
   lazy val scan: PackratParser[LogicalAlgebra.Scan] = {
@@ -38,6 +38,11 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
     "ListType(" ~> tipe <~ ")" ^^ ListType
   }
 
+  lazy val assignments: PackratParser[scala.collection.immutable.Seq[Tuple2[String, LogicalAlgebraNode]]] = repsep(assignment, ",")
+  lazy val assignment: PackratParser[Tuple2[String, LogicalAlgebraNode] ] = {
+    "Bind(" ~> idn ~ ("," ~> tree) <~ ")" ^^ { case i ~ t => Tuple2(i, t) }
+  }
+
   lazy val attributes: PackratParser[scala.collection.immutable.Seq[AttrType]] = repsep(attribute, ",")
 
   lazy val attribute: PackratParser[AttrType] = {
@@ -47,6 +52,10 @@ object LogicalAlgebraParser extends PositionedParserUtilities {
 
   lazy val select: PackratParser[LogicalAlgebra.Select] = {
     "Select(" ~> exp ~ ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Select
+  }
+
+  lazy val assign: PackratParser[LogicalAlgebra.Assign] = {
+    "Assign(Seq(" ~> assignments ~ (")" ~>) ("," ~> tree) <~ ")" ^^ LogicalAlgebra.Assign
   }
 
   lazy val reduce: PackratParser[LogicalAlgebra.Reduce] = {
