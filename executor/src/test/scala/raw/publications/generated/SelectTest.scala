@@ -8,7 +8,7 @@ import raw.publications._
 @rawQueryAnnotation
 class Select0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
   val oql = """
-     select distinct a.name, a.title, a.year from authors a where a.year = 1973
+    select distinct a.name, a.title, a.year from authors a where a.year = 1973
   """
 }
 

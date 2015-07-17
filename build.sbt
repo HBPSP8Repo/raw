@@ -117,7 +117,7 @@ java -classpath "%s" %s "$@"
 """
       val mainStr = main.getOrElse(sys.error("No main class specified"))
       val contents = template.format(cp.files.absString, mainStr)
-      val out = base / "../run-server.sh"
+      val out = base / "../bin/run-server.sh"
       IO.write(out, contents)
       out.setExecutable(true)
       out
