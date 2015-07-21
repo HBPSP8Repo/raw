@@ -3,7 +3,7 @@ package raw
 import com.typesafe.scalalogging.StrictLogging
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
 import raw.algebra.{LogicalAlgebraParser, LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
-import raw.compilerclient.QueryCompilerClient
+import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
@@ -780,7 +780,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   def parseOqlQuery(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
     // world is not used for the time being. Eventually, send it to the compilation server.
-    QueryCompilerClient(query) match {
+    OQLToPlanCompilerClient(query) match {
       case Right(logicalAlgebra) => Right(logicalAlgebra)
       case Left(error) => Left(new ParserError(error))
     }

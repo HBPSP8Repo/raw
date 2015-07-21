@@ -103,7 +103,7 @@ lazy val executor = (project in file("executor")).
         _.data.getName == "spark-assembly-1.3.1-hadoop2.6.0.jar"
       }
     },
-
+    mainClass in Runtime := Some("raw.executionserver.Main"),
     /*
       Create a shell script that launches the rest service directly from the shell, thereby bypassing SBT.
       This avoids the overhead of starting SBT (which is considerable) and allows killing the process by simply using

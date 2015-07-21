@@ -7,11 +7,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import raw.RawQuery
+import raw.datasets.AccessPath
 
-import scala.reflect.ClassTag
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
@@ -19,7 +18,7 @@ import scala.tools.nsc.{Global, Settings}
 http://stackoverflow.com/questions/8867766/scala-dynamic-object-class-loading
 https://code.google.com/p/session-scala/source/browse/functionaltests/src/test/scala/uk/ac/ic/doc/sessionscala/compiler/RunCompiler.scala?r=82ee19e0ad897de370ecac0e0aab3986e3e287ff
  */
-class ExecutionServer(val rawClassloader: RawMutableURLClassLoader, val sc: SparkContext) extends StrictLogging with ResultConverter {
+class ExecutionServer(val rawClassloader: RawMutableURLClassLoader) extends StrictLogging {
   private[this] val baseOutputDir: Path = Files.createTempDirectory("rawqueries")
 
   // Where the server saves the generated scala source for each query

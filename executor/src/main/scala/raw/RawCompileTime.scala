@@ -5,7 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.datanucleus.metadata.QueryLanguage
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
 import raw.algebra.{LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
-import raw.compilerclient.QueryCompilerClient
+import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
@@ -766,7 +766,7 @@ object RawCompileTime extends StrictLogging {
 
   def parseOqlQuery(query: String): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
     // world is not used for the time being. Eventually, send it to the compilation server.
-    QueryCompilerClient(query) match {
+    OQLToPlanCompilerClient(query) match {
       case Right(logicalAlgebra) => Right(logicalAlgebra)
       case Left(error) => Left(new ParserError(error))
     }

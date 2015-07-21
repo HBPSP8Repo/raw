@@ -19,7 +19,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
 
   override def beforeAll() {
     super.beforeAll()
-    executionServer = new ExecutionServer(rawClassLoader, sc)
+    executionServer = new ExecutionServer(rawClassLoader)
   }
 
   test("countAuthors") {

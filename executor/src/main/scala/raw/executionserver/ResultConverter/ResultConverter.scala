@@ -4,7 +4,7 @@ import java.io.StringWriter
 import java.lang.reflect.Field
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.databind.{ObjectWriter, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
 
@@ -15,7 +15,7 @@ trait ResultConverter {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     om.configure(SerializationFeature.INDENT_OUTPUT, true)
-    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+//    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
     om.setSerializationInclusion(Include.NON_EMPTY)
     om
   }

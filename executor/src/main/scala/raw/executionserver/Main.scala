@@ -5,9 +5,11 @@ import java.net.URL
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
-import org.rogach.scallop.{ScallopOption, ScallopConf, Scallop}
-import raw.datasets.patients.PatientsDataset
-import raw.datasets.publications.PublicationsDataset
+import org.rogach.scallop.{ScallopConf, ScallopOption}
+import raw.datasets.Dataset
+import raw.datasets.patients.Patients
+import raw.datasets.publications.Publications
+import raw.perf.QueryCompilerClient
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 
@@ -15,33 +17,33 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
       banner("Scala/Spark OQL execution server")
-      val dataset:ScallopOption[String] = opt[String]("dataset", default = Some("publications"), short = 'd')
+      val dataset: ScallopOption[String] = opt[String]("dataset", default = Some("publications"), short = 'd')
     }
 
-    // Do not do any unncessary initialization until command line arguments (dataset) is validated.
+    // Do not do any unnecessary initialization until command line arguments (dataset) is validated.
     lazy val rawClassLoader = {
       val cl = new RawMutableURLClassLoader(new Array[URL](0), Main.getClass.getClassLoader)
       logger.info("Created raw class loader: " + cl)
       cl
     }
 
-    lazy val sc = {
+    implicit lazy val sc: SparkContext = {
       Thread.currentThread().setContextClassLoader(rawClassLoader)
       logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
       new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
     }
 
-    val ds = Conf.dataset.get match {
-      case Some("publications") => new PublicationsDataset(sc)
-      case Some("patients") => new PatientsDataset(sc)
+    val ds: List[Dataset[_]] = Conf.dataset.get match {
+      case Some("publications") => Publications.loadPublications(sc)
+      case Some("publications-large") => Publications.loadPublicationsLarge(sc)
+      case Some("patients") => Patients.loadPatients(sc)
       case _ => println(s"Unknown dataset: ${Conf.dataset}"); return
     }
+    val accessPaths = ds.map(ds => ds.accessPath)
 
-    val executionServer = new ExecutionServer(rawClassLoader, sc)
+
+    val executionServer = new QueryCompilerClient(rawClassLoader)
     val port = 54321
-
-
-
     implicit val system = ActorSystem("simple-routing-app")
     val executePath = "execute"
     logger.info(s"Listening on localhost:$port/$executePath")
@@ -68,8 +70,12 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
       // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
       // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
       val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-      executionServer.execute(cleanedQuery, ds.accessPaths)
-        .right.map(convertToJson(_))
+      executionServer.compileLogicalPlan(cleanedQuery, accessPaths)
+        .right
+        .map(compiledQuery => {
+        val res = compiledQuery.computeResult
+        convertToJson(res)
+      })
     }
   }
 }
