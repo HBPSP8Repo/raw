@@ -4,6 +4,7 @@ import java.net.URL
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.SQLContext
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader}
 
@@ -43,5 +44,17 @@ trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
     }
     _sc = null
     super.afterAll()
+  }
+}
+
+
+trait SharedSparkSQLContext extends SharedSparkContext {
+  self: Suite =>
+
+  var sqlContext: SQLContext = _
+
+  override def beforeAll() {
+    super.beforeAll()
+    sqlContext = new SQLContext(sc)
   }
 }

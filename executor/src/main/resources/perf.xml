@@ -1,0 +1,69 @@
+<queries>
+    <query name="count publications">
+        <oql>count(publications)</oql>
+        <hql>select count(*) from publications</hql>
+    </query>
+
+    <query name="count authors">
+        <oql>count(authors)</oql>
+        <hql>select count(*) from authors</hql>
+    </query>
+
+	<query name="group by title: count">
+        <oql>select title, count(partition) as n from authors A group by title: A.title</oql>
+        <hql>SELECT title, count(*) FROM authors GROUP BY title</hql>
+    </query>
+
+    <query name="group by title: list">
+        <oql>
+select title,
+       (select A from partition) as people
+from authors A
+group by title: A.title
+</oql>
+        <hql>
+SELECT title, collect_list(name), collect_list(year)
+FROM authors
+GROUP BY title</hql>
+    </query>
+
+    <query name="group by title: years">
+        <oql>
+select title,
+       (select year from partition) as values
+from authors A
+group by title: A.title
+</oql>
+        <hql>
+SELECT title, collect_list(year)
+FROM authors
+GROUP BY title</hql>
+    </query>
+
+	<query name="articles: about particle detectors published by Stricker, D.A.">
+        <oql>
+select * from (
+    select article: P,
+           (select A
+            from P.authors a,
+                 authors A
+            where A.name = a
+                  and A.title = "professor") as profs
+    from publications P
+    where "particle detectors" in P.controlledterms
+          and "Stricker, D.A." in P.authors
+    ) T having count(T.profs) > 0
+		</oql>
+        <hql>
+SELECT distinct t2.title
+FROM (
+  SELECT * FROM publications
+  WHERE array_contains(authors, "Stricker, D.A.")
+    AND array_contains(controlledterms, "particle detectors")) t2
+  LATERAL VIEW explode(authors) t1 as author
+JOIN authors
+ON (authors.name = author and authors.title = "professor")
+		</hql>
+    </query>
+
+</queries>

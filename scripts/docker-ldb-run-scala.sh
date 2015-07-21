@@ -10,7 +10,7 @@ else
 	SCALA_SERVER_HOST=localhost
 fi
 
-WEB_SERVER_PORT=5000
+WEB_SERVER_PORT=5001
 
 echo "Scala executor host: ${SCALA_SERVER_HOST}"
 echo "Web server port: ${WEB_SERVER_PORT}"
