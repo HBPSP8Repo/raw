@@ -15,8 +15,11 @@ import raw.executionserver.RawMutableURLClassLoader
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader) extends StrictLogging {
-  private[this] val baseOutputDir: Path = Files.createTempDirectory("rawqueries")
+class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDir:Option[Path] = None) extends StrictLogging {
+  private[this] val baseOutputDir: Path = outputDir match {
+    case Some(path) => path
+    case None => Files.createTempDirectory("rawqueries")
+  }
 
   // Where the server saves the generated scala source for each query
   private[this] val sourceOutputDir: Path = {

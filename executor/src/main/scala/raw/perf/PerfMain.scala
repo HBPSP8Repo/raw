@@ -9,19 +9,30 @@ import java.util.concurrent.TimeUnit
 import com.google.common.base.Stopwatch
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.io.FileUtils
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
-import raw.RawQuery
+import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
 import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
+import raw.perf.Queries.{PatientsDS, PublicationsDS, PublicationsLargeDS}
+import raw.{QueryLogger, RawQuery}
 
 import scala.collection.mutable.ArrayBuffer
 
 object Queries {
+
+  abstract sealed class DatasetType
+
+  case class PublicationsDS() extends DatasetType
+
+  case class PublicationsLargeDS() extends DatasetType
+
+  case class PatientsDS() extends DatasetType
 
   case class Query(name: String, oql: String, hql: String)
 
@@ -87,6 +98,15 @@ object PerfMain extends StrictLogging with ResultConverter {
     f"${stats.getMean}%6.3f, StdDev: ${stats.getStandardDeviation}%6.3f, Min: ${stats.getMin}%6.3f, Max: ${stats.getMax}%6.3f"
   }
 
+  def valuesToString(stats: DescriptiveStatistics): String = {
+    stats.getValues.map(d => f"$d%2.3f").mkString(", ")
+  }
+
+  def toString(stats: DescriptiveStatistics) = {
+    s"Compile  : ${statsToString(stats)}\n" +
+      s"Samples  : ${valuesToString(stats)}\n"
+  }
+
   var hqlCount = -1
 
   def nextHQLFilename(): String = {
@@ -101,9 +121,6 @@ object PerfMain extends StrictLogging with ResultConverter {
     s"OQLQuery$oqlCount.txt"
   }
 
-  def valuesToString(stats: DescriptiveStatistics): String = {
-    stats.getValues.map(d => f"$d%2.3f").mkString(", ")
-  }
 
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
@@ -111,7 +128,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       val repeats = opt[Int]("repeats", default = Some(5), short = 'r')
       val outputDir = opt[String]("outputDir", default = Some(Paths.get(System.getProperty("java.io.tmpdir"), "raw-perf-test").toString), short = 'o')
       val runQueryType = opt[String]("runTypes", default = Some("all"), short = 't')
-      val dataset = opt[String]("dataset", default = Some("publications"), short = 'd', descr = "Possible choices: publications, publicationsLarge")
+      val dataset = opt[String]("dataset", default = Some("publications"), short = 'd', descr = "Possible choices: publications, publicationsLarge, patients")
       val saveResults = opt[Boolean]("save-results", default = Some(false), short = 's', descr = "Save the results of the query")
       val queryFile = trailArg[String](required = true)
     }
@@ -138,8 +155,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       }
       br.println()
 
-      br.println(s"Execution : ${statsToString(execTimes)}")
-      br.println(s"Samples   : ${valuesToString(execTimes)}\n")
+      br.println(toString(execTimes))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${res.mkString("\n")}")
@@ -183,14 +199,9 @@ object PerfMain extends StrictLogging with ResultConverter {
         }
       }
 
-      br.println(s"Compile  : ${statsToString(compileTimes)}")
-      br.println(s"Samples  : ${valuesToString(execTimes)}\n")
-
-      br.println(s"Execution: ${statsToString(execTimes)}")
-      br.println(s"Samples  : ${valuesToString(execTimes)}\n")
-
-      br.println(s"Total    : ${statsToString(totals)}")
-      br.println(s"Samples  : ${valuesToString(totals)}\n")
+      br.println(toString(compileTimes))
+      br.println(toString(execTimes))
+      br.println(toString(totals))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${convertToJson(res)}")
@@ -211,65 +222,89 @@ object PerfMain extends StrictLogging with ResultConverter {
       sparkConfigBW.close()
     }
 
+    val dataset = Conf.dataset() match {
+      case "publications" => PublicationsDS
+      case "publicationsLarge" => PublicationsLargeDS
+      case "patients" => PatientsDS
+      case _ => throw new IllegalArgumentException("Invalid dataset")
+    }
+
+    val queries = Queries.readQueries(Conf.queryFile())
+
+    val outputDir = Paths.get(Conf.outputDir())
+    if (Files.isDirectory(outputDir)) {
+      FileUtils.cleanDirectory(outputDir.toFile)
+    } else {
+      logger.info(s"Creating results directory: $outputDir")
+      Files.createDirectory(outputDir)
+    }
+
+    QueryLogger.setOutputDirectory(outputDir.resolve("macros"))
+    writeSparkConfiguration(outputDir.resolve("sparkConfig.txt"))
 
     val runOQL = Conf.runQueryType() == "all" || Conf.runQueryType() == "oql"
     val runHQL = Conf.runQueryType() == "all" || Conf.runQueryType() == "hql"
 
-    writeSparkConfiguration(Paths.get(Conf.outputDir(), "sparkConfig.txt"))
-
-    val queries = Queries.readQueries(Conf.queryFile())
-    val resDir = Paths.get(Conf.outputDir())
-    if (!Files.isDirectory(resDir)) {
-      logger.info(s"Creating results directory: $resDir")
-      Files.createDirectory(resDir)
-    }
-
     val hqlResults = new ArrayBuffer[String]()
     if (runHQL) {
       // Load and register as tables the data sources
-      readJson("data/publications/authors.json", "authors")
-      Conf.dataset() match {
-        case "publications" => readJson("data/publications/publications.json", "publications")
-        case "publicationsLarge" => readJson("data/publications/publicationsLarge.json", "publications")
-        case _ => throw new IllegalArgumentException("Invalid dataset")
+      dataset match {
+        case PublicationsDS =>
+          readJson("data/publications/publications.json", "publications")
+          readJson("data/publications/authors.json", "authors")
+        case PublicationsLargeDS =>
+          readJson("data/publications/publicationsLarge.json", "publications")
+          readJson("data/publications/authors.json", "authors")
+        case PatientsDS =>
+          readJson("data/patients/patients.json", "patients")
       }
 
       // Execute the tests
       for (q <- queries) {
-        if (q.hql != "") {
-          timeHQL(q.hql) match {
-            case Some(qr) => hqlResults += s"    Total:   ${statsToString(qr)}"
-            case None => hqlResults += "Fail"
-          }
+        val res: String = q.hql match {
+          case s: String if s == null || s == "" => "Not run"
+          case s: String =>
+            timeHQL(s) match {
+              case Some(qr) => s"    Total:   ${statsToString(qr)}"
+              case None => "Fail"
+            }
         }
+        hqlResults += res
       }
     }
 
     val oqlResults = new ArrayBuffer[String]()
     if (runOQL) {
-      val ds: List[Dataset[_]] = Conf.dataset() match {
-        case "publications" => Publications.loadPublications(sc)
-        case "publicationsLarge" => Publications.loadPublicationsLarge(sc)
-        case _ => throw new IllegalArgumentException("Invalid dataset")
+      val ds: List[Dataset[_]] = dataset match {
+        case PublicationsDS => Publications.loadPublications(sc)
+        case PublicationsLargeDS => Publications.loadPublicationsLarge(sc)
+        case PatientsDS => Patients.loadPatients(sc)
       }
       val accessPaths = ds.map(ds => ds.accessPath)
-      val comp = new QueryCompilerClient(rawClassLoader)
+      val comp = new QueryCompilerClient(rawClassLoader, Some(outputDir))
       setDockerHost()
       for (q <- queries) {
-        if (q.oql != "") {
-          timeOQL(q.oql, comp, accessPaths) match {
-            case Some(queryRes) => oqlResults +=
-              s"    Compile: ${statsToString(queryRes.compile)}\n" +
-                s"    Exec:    ${statsToString(queryRes.exec)}\n" +
-                s"    Total:   ${statsToString(queryRes.total)}"
-
-            case None => oqlResults += "Fail"
-          }
+        val res = q.oql match {
+          case s: String if s == null || s == "" => "Not run"
+          case s: String =>
+            timeOQL(s, comp, accessPaths) match {
+              case Some(queryRes) =>
+                s"    Compile: ${statsToString(queryRes.compile)}\n" +
+                  s"    Exec:    ${statsToString(queryRes.exec)}\n" +
+                  s"    Total:   ${statsToString(queryRes.total)}"
+              case None => "Fail"
+            }
         }
+        oqlResults += res
       }
     }
 
-    val p = Paths.get(Conf.outputDir(), "summary.txt")
+    val p = outputDir.resolve("summary.txt")
+
+    // Save the file with the queries.
+    val qFile = Paths.get(Conf.queryFile())
+    Files.copy(qFile, outputDir.resolve(qFile.getFileName()))
+
     val summaryFileBW = new PrintStream(Files.newOutputStream(p))
     summaryFileBW.println(s"Configuration:\n${Conf.summary}")
     // Write the results to the summary file

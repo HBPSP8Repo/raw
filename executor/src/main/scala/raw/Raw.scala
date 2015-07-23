@@ -1,8 +1,11 @@
 package raw
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
+
 import com.typesafe.scalalogging.StrictLogging
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-import raw.algebra.{LogicalAlgebraParser, LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
+import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
@@ -35,7 +38,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   import c.universe._
 
-  /**   Bail out during compilation with error message. */
+  /** Bail out during compilation with error message. */
   def bail(message: String) = c.abort(c.enclosingPosition, message)
 
   case class InferredType(rawType: raw.Type, isSpark: Boolean)
@@ -165,18 +168,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }).toMap
     }
 
-//    logger.info("Anonymous record types in result:\n" +
-//      resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
+    //    logger.info("Anonymous record types in result:\n" +
+    //      resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
 
     // Create corresponding case class
     val code: Set[String] = resultRecords
       .map(r => {
-          val args = r.atts
-            .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
-            .mkString(", ")
-          logger.info(s"Build case class: $r.atts => $args")
-          s"""case class ${recordTypeSym(r)}($args)"""
-        }
+      val args = r.atts
+        .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
+        .mkString(", ")
+      logger.info(s"Build case class: $r.atts => $args")
+      s"""case class ${recordTypeSym(r)}($args)"""
+    }
       )
 
     code.map(c.parse)
@@ -241,7 +244,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               case _ => ""
             }
             val vals = atts
-//              .sortBy(att => att.idn)
+              //              .sortBy(att => att.idn)
               .map(att => recurse(att.e))
               .mkString(",")
             logger.info(s"exp(): $atts => $vals")
@@ -273,7 +276,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case ZeroCollectionMonoid(m: BagMonoid) => ???
           case ZeroCollectionMonoid(m: ListMonoid) => s"List()"
         }
-//        logger.info(s"Creating expression: $e => $res")
+        //        logger.info(s"Creating expression: $e => $res")
         res
       }
       val expression = recurse(e)
@@ -327,7 +330,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               map3"""
         case m1: BagMonoid => ???
         case m1: ListMonoid => ???
-          // TODO: similar implementation as for the spark operator
+        // TODO: similar implementation as for the spark operator
         //          val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
         //          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), ZeroCollectionMonoid(ListMonoid()), e)
         //          q"""${build(child)}
@@ -443,7 +446,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childTypeName = nodeScalaType(child.logicalNode)
         val pathCode = exp(path, Some(childTypeName))
         val pathType = expScalaType(path)
-//        val pathType = exp(path)
+        //        val pathType = exp(path)
         val predCode = exp(pred)
         logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
         val childCode = build(child)
@@ -674,8 +677,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
 
   sealed abstract class QueryLanguage
+
   case object Krawl extends QueryLanguage
+
   case object OQL extends QueryLanguage
+
   case object LogicalPlan extends QueryLanguage
 
   def extractQueryAndAccessPath(makro: Tree): (String, QueryLanguage, List[AccessPath]) = {
@@ -854,7 +860,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val scalaCode = showCode(block)
         logger.info("Generated code:\n{}", scalaCode)
-//        QueryLogger.log(query, algebraStr, scalaCode)
+        QueryLogger.log(query, algebraStr, scalaCode)
         c.Expr[Any](block)
 
       case Left(err) => bail(err.err)

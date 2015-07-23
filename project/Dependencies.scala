@@ -19,7 +19,9 @@ object Dependencies {
   val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
   val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
 
-  val commonMath = "org.apache.commons" % "commons-math3" % "3.5"
+  val commonsMath = "org.apache.commons" % "commons-math3" % "3.5"
+  val commonsIO = "commons-io" % "commons-io" % "2.4"
+
   val guava = "com.google.guava" % "guava" % "18.0"
 
   val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.5.2"

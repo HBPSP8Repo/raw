@@ -56,7 +56,8 @@ lazy val executor = (project in file("executor")).
           jackson,
           jacksonScala,
           httpClient,
-          commonMath,
+          commonsMath,
+          commonsIO,
           scallop
         )
         ++ sprayDeps,
