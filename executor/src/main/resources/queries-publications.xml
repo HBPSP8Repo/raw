@@ -1,0 +1,172 @@
+<queries>
+    <query name="count publications">
+        <oql>count(publications)</oql>
+        <hql>select count(*) from publications</hql>
+    </query>
+
+    <query name="count authors">
+        <oql>count(authors)</oql>
+        <hql>select count(*) from authors</hql>
+    </query>
+
+    <query name="group by title: count">
+        <oql>select title, count(partition) as n from authors A group by title: A.title</oql>
+        <hql>SELECT title, count(*) FROM authors GROUP BY title</hql>
+    </query>
+
+    <query name="group by title: list">
+        <oql>
+            select title, (select A from partition) as people
+            from authors A
+            group by title: A.title
+        </oql>
+        <hql>
+            SELECT title, collect_list(name), collect_list(year)
+            FROM authors
+            GROUP BY title
+        </hql>
+    </query>
+
+    <query name="group by title: years">
+        <oql>
+            select title,
+            (select year from partition) as values
+            from authors A
+            group by title: A.title
+        </oql>
+        <hql>
+            SELECT title, collect_list(year)
+            FROM authors
+            GROUP BY title
+        </hql>
+    </query>
+
+
+    <query name="Whole article entries grouped by number of authors">
+        <oql>
+            select N, (select a.G.article from a in partition) as articles
+            from (
+            select P as article, count(P.authors) as n
+            from publications P
+            ) G
+            group by N: G.n
+        </oql>
+        <hql>
+            SELECT size(authors), title, authors, affiliations, controlledterms
+            FROM publications
+        </hql>
+    </query>
+
+    <query name="List of articles published per author">
+        <oql>
+            select author, (select P from partition) as articles
+            from publications P, P.authors A
+            group by author: A
+        </oql>
+        <hql>
+            SELECT authorExp, title, authors, affiliations, controlledterms
+            FROM publications LATERAL VIEW explode(authors) t1 AS authorExp
+            ORDER BY authorExp
+        </hql>
+    </query>
+
+    <query name="Find all articles (full entry) on a certain topic">
+        <oql>
+            select P
+            from publications P
+            where "particle detectors" in P.controlledterms
+        </oql>
+        <hql>
+            SELECT *
+            FROM publications
+            WHERE array_contains(controlledterms, "particle detectors")
+        </hql>
+    </query>
+
+    <query name="Select authors having worked on a certain topic">
+        <oql>
+            select distinct author
+            from publications P, author in P.authors
+            where "particle detectors" in P.controlledterms
+        </oql>
+        <hql>
+            SELECT distinct explode(authors)
+            FROM publications
+            WHERE array_contains(controlledterms, "particle detectors")
+        </hql>
+    </query>
+
+    <query name="Proficiency of authors on a certain topic">
+        <oql>
+            select author, (select P from partition) as articles
+            from publications P, author in P.authors
+            where "particle detectors" in P.controlledterms
+            group by author: author
+        </oql>
+        <hql>
+            SELECT authorexp, title, authors, affiliations, controlledterms
+            FROM publications LATERAL VIEW explode(authors) t1 as authorexp
+            WHERE array_contains(controlledterms, "particle detectors")
+            ORDER BY authorexp
+        </hql>
+    </query>
+
+    <query name="Articles written by a certain student, with a professor">
+        <oql>
+            select * from (
+            select article: P,
+            (select A
+            from P.authors a,
+            authors A
+            where A.name = a
+            and A.title = "professor") as profs
+            from publications P
+            where "particle detectors" in P.controlledterms
+            and "Stricker, D.A." in P.authors
+            ) T having count(T.profs) > 0
+        </oql>
+        <hql>
+            SELECT authors.name, authors.title, authors.year, t2.title, t2.authors, t2.affiliations, t2.controlledterms
+            FROM (
+            SELECT * FROM publications
+            WHERE array_contains(authors, "Stricker, D.A.")
+            AND array_contains(controlledterms, "particle detectors")) t2
+            LATERAL VIEW explode(authors) t1 as author
+            JOIN authors
+            ON (authors.name = author and authors.title = "professor")
+            ORDER BY t2.title
+        </hql>
+    </query>
+    <query name="Articles with one professor author, one PhD author where the PhD author is older">
+        <!-- Crashes the OQL compiler -->
+        <!--<oql>-->
+            <!--<![CDATA[-->
+            <!--select * from (select article.title, min(article.phd) as mphd, max(article.profs) as mprofs, count(article.phd) as cphd, count(article.profs) as cprofs from (-->
+            <!--select doc.p.title as title,-->
+            <!--(select p.year from doc.people p where p.title = "PhD") as phd,-->
+            <!--(select p.year from doc.people p where p.title = "professor") as profs-->
+            <!--from (-->
+            <!--select p, (select A from p.authors a, authors A where A.name = a) as people-->
+            <!--from publications p-->
+            <!--) doc-->
+            <!--) article) X where X.cphd > 0 and X.cprofs > 0 and X.mphd < X.mprofs-->
+            <!--]]>-->
+        <!--</oql>-->
+        <hql>
+            <![CDATA[
+            SELECT phds.title, phds.name as phdName, phds.year as phdYear, profs.name as profName, profs.year as profYear
+            FROM
+            (SELECT t1.id, t1.title, authors.name, authors.year
+            FROM (select hash(title, authors) id, * from publications) t1 LATERAL VIEW explode(t1.authors) newTable AS authorsExp
+            JOIN authors ON (authors.name = authorsExp and (authors.title = "PhD"))) phds
+            JOIN
+            (SELECT t2.id, t2.title, authors.name, authors.year
+            FROM (select hash(title, authors) id, * from publications) t2 LATERAL VIEW explode(t2.authors) newTable AS authorsExp
+            JOIN authors ON (authors.name = authorsExp and (authors.title = "professor"))) profs
+            ON (phds.id = profs.id)
+            WHERE (phds.year < profs.year)
+            ORDER BY phds.title
+            ]]>
+        </hql>
+    </query>
+</queries>
