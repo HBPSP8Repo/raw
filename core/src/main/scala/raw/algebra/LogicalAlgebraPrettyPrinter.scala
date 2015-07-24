@@ -20,5 +20,12 @@ object LogicalAlgebraPrettyPrinter extends PrettyPrinter {
     case OuterJoin(p, left, right)      => "outer_join" <> parens(nest(group(lsep(List(ExpressionsPrettyPrinter(p), nest(show(left)), nest(show(right))), comma))))
     case OuterUnnest(path, pred, child) => "outer_unnest" <> parens(group(nest(lsep(List(ExpressionsPrettyPrinter(path), ExpressionsPrettyPrinter(pred), nest(show(child))), comma))))
     case Merge(m, left, right)          => "merge" <> parens(nest(group(lsep(List(monoid(m), nest(show(left)), nest(show(right))), comma))))
+    case Assign(as, child)              =>
+      /* Kiama pretty printer expects sequences to be instances of s.c.immutable.Seq, while the Assign node has a
+       * s.c.Seq instance. They are not compatible, so we have to convert it here to List, which is implements the
+       * immutable Seq.
+       */
+      val assignDocs = as.map({case (key, node) => text(s"$key := ") <> show(node)}).to[List]
+      "assign" <> parens(nest(group(lsep( assignDocs ++ List(nest(show(child))), comma))))
   }
 }
