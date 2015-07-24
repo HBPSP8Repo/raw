@@ -1,10 +1,7 @@
 package raw
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
-
 import com.typesafe.scalalogging.StrictLogging
-import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
+import raw.algebra.LogicalAlgebra.{LogicalAlgebraNode, Reduce}
 import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
@@ -82,43 +79,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   //  var userCaseClassesMap: Map[RecordType, String] = _
   var userCaseClassesMap: Map[Seq[AttrType], String] = _
 
-  def recordTypeSym(r: RecordType): String = r match {
-    case RecordType(_, Some(symName)) => symName
-    case RecordType(_, None) =>
-      /* TODO: We only generate case classes for anonymous records that appear in the result of the tree.
-        So this may fail for any other uses of anonymous records.
-       */
-      val sym: Option[String] = userCaseClassesMap.get(RawImpl.toCannonicalForm(r))
-      if (sym.isDefined) {
-        return sym.get
-      } else {
-        throw new Exception(s"User type not found: $r. Available mappings:\n${userCaseClassesMap.mkString("\n")}")
-      }
+  def recordTypeSym(r: RecordType): Option[String] = r match {
+    case RecordType(_, Some(symName)) => Some(symName)
+    case RecordType(_, None) => userCaseClassesMap.get(RawImpl.toCannonicalForm(r))
   }
 
-  // Create Scala type from RAW type
-  def tipe(t: raw.Type, world: World): String = {
-    logger.info(s"Typing as case class: $t")
-    t match {
-      case _: BoolType => "Boolean"
-      case FunType(t1, t2) => ???
-      case _: StringType => "String"
-      case _: IntType => "Int"
-      case _: FloatType => "Float"
-      case r: RecordType => recordTypeSym(r)
-      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipe(innerType, world)}]"
-      case ListType(innerType) => s"Seq[${tipe(innerType, world)}]"
-      case SetType(innerType) => s"Set[${tipe(innerType, world)}]"
-      case UserType(idn) => tipe(world.userTypes(idn), world)
-      case TypeVariable(v) => ???
-      case _: AnyType => ???
-      case _: NothingType => ???
-      case _: CollectionType => ???
-    }
-  }
-
-  // Scala tuple from rawtype.
-  def tipeAsTuple(t: raw.Type, world: World): String = {
+  def buildScalaType(t: raw.Type, world: World): String = {
     logger.info(s"Typing as tuple: $t")
     val tt = t match {
       case _: BoolType => "Boolean"
@@ -126,16 +92,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
-      case r@RecordType(_, Some(name)) => s"$name"
-      case r@RecordType(atts, None) =>
-        logger.info(s"tipeAsTuple: $atts")
-        atts
-          .map(att => s"(${tipeAsTuple(att.tipe, world)})")
-          .mkString("(", ", ", ")")
-      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${tipeAsTuple(innerType, world)}]"
-      case ListType(innerType) => s"Seq[${tipeAsTuple(innerType, world)}]"
-      case SetType(innerType) => s"Set[${tipeAsTuple(innerType, world)}]"
-      case UserType(idn) => tipeAsTuple(world.userTypes(idn), world)
+      case r@RecordType(atts, _) =>
+        recordTypeSym(r) match {
+          case Some(sym) => sym
+          case None =>
+            atts
+              .map(att => s"(${buildScalaType(att.tipe, world)})")
+              .mkString("(", ", ", ")")
+        }
+      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
+      case ListType(innerType) => s"Seq[${buildScalaType(innerType, world)}]"
+      case SetType(innerType) => s"Set[${buildScalaType(innerType, world)}]"
+      case UserType(idn) => buildScalaType(world.userTypes(idn), world)
       case TypeVariable(v) => ???
       case _: AnyType => ???
       case _: NothingType => ???
@@ -145,20 +113,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     tt
   }
 
-  /** Build case classes for the anonymous record types used to hold the query results.
-    */
-  def buildCaseClasses(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[Tree] = {
+  def collectAnonRecordTypes(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[RecordType] = {
     import org.kiama.rewriting.Rewriter.collect
 
-    val resultType = typer.tipe(logicalTree)
-    logger.info(s"Result type: $resultType")
-
-    // Define a traversal rule to collect all anonymous record types
-    val collectAnonRecordTypes: (Any) => List[RecordType] = collect[List, raw.RecordType] {
-      case r@RecordType(_, None) => r
+    val collectReduceNodes: (Any) => List[Reduce] = collect[List, Reduce] {
+      case r: Reduce => r
     }
-    val resultRecords: Set[RecordType] = collectAnonRecordTypes(resultType).toSet
+    val reduceNodes: Set[Reduce] = collectReduceNodes(logicalTree).toSet
+    reduceNodes.flatMap(r => {
+      val resultType = typer.tipe(r)
+      // Collect all anonymous record types
+      val collectAnonRecordTypes: (Any) => List[RecordType] = collect[List, raw.RecordType] {
+        case r@RecordType(_, None) => r
+      }
+      collectAnonRecordTypes(resultType).toSet
+    })
+  }
 
+  /** Build case classes for the anonymous record types used to hold the results of Reduce nodes
+    */
+  def buildCaseClasses(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[Tree] = {
+    val resultRecords = collectAnonRecordTypes(logicalTree, world, typer)
     // Create a map between RecordType and case class names
     this.userCaseClassesMap = {
       var i = 0
@@ -168,17 +143,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }).toMap
     }
 
-    //    logger.info("Anonymous record types in result:\n" +
-    //      resultRecords.map(rec => rec + " " + System.identityHashCode(rec)).mkString("\n"))
-
     // Create corresponding case class
     val code: Set[String] = resultRecords
       .map(r => {
       val args = r.atts
-        .map(att => s"${att.idn}: ${tipe(att.tipe, world)}")
+        .map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}")
         .mkString(", ")
       logger.info(s"Build case class: $r.atts => $args")
-      s"""case class ${recordTypeSym(r)}($args)"""
+      recordTypeSym(r) match {
+        case Some(sym) => s"""case class ${sym}($args)"""
+        case None => bail(s"No case class available for record: $r")
+      }
     }
       )
 
@@ -192,7 +167,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
       logger.info(s"rawToScalaType: $t")
-      val typeName: String = tipeAsTuple(t, world)
+      val typeName: String = buildScalaType(t, world)
       logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
       //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
@@ -404,6 +379,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case ScalaOuterUnnest(logicalNode, path, pred, child) => ???
       case ScalaToSparkNode(node) => ???
       case ScalaUnnest(logicalNode, path, pref, child) => ???
+      case ScalaAssign(logicalNode, as, child) => ???
 
 
       /////////////////////////////////////////////////////
@@ -529,7 +505,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val pCode = exp(p)
         logger.info(s"[NEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
         val t = typer.expressionType(e)
-        val st: String = tipe(t, world)
+        val st: String = buildScalaType(t, world)
         logger.info("Type of e: {}", st)
         val childTree: Tree = build(child)
 
@@ -655,6 +631,22 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             """
         code
       case SparkOuterUnnest(logicalNode, path, pred, child) => ???
+      /*
+      val key = code(child)
+
+      key.
+       */
+      case SparkAssign(logicalNode, as, child) => {
+        val m: scala.Seq[c.universe.Tree] = as.map({ case (key, node) => {
+          logger.info(s"Key: $key")
+          val assignTree = build(node)
+          val code = ValDef(Modifiers(), TermName(key), TypeTree(), assignTree)
+          logger.info(s"Code: $code")
+          code
+        }
+        })
+        q"""..$m; ${build(child)}"""
+      }
     }
 
     logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
@@ -813,6 +805,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(logicalTree) =>
         var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
+        logger.info(s"Algebra pretty:\n${algebraStr}")
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
         logger.info("Physical algebra: {}", PhysicalAlgebraPrettyPrinter(physicalTree))

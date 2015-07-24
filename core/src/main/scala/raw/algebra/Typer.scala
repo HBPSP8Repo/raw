@@ -149,6 +149,9 @@ class Typer(world: World) extends Attribution with LazyLogging {
       case _ => NothingType()
     }
 
+    // TODO: Confirm with Ben
+    case Assign(as, child) => tipe(child)
+
     /** Rule for Merge */
     case Merge(_, left, right) => tipe(left)
   }

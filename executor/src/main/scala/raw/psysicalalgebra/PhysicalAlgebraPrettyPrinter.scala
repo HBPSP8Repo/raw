@@ -11,32 +11,36 @@ object PhysicalAlgebraPrettyPrinter extends PrettyPrinter {
   def apply(n: PhysicalAlgebraNode): String =
     super.pretty(show(n)).layout
 
-  private def scan(opType: String, name: String): Doc = s"${opType}_scan" <> parens( s""""$name"""")
+  private[this] def scan(opType: String, name: String): Doc = s"${opType}_scan" <> parens(s""""$name"""")
 
-  private def reduce(opType: String, m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode): Doc =
+  private[this] def reduce(opType: String, m: Monoid, e: Exp, p: Exp, child: PhysicalAlgebraNode): Doc =
     s"${opType}_reduce" <> parens(nest(group(lsep(List(monoid(m), ExpressionsPrettyPrinter(e), ExpressionsPrettyPrinter(p), nest(show(child))), comma))))
 
-  private def nest(opType: String, m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode): Doc =
+  private[this] def nest(opType: String, m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: PhysicalAlgebraNode): Doc =
     s"${opType}_nest" <> parens(nest(group(lsep(List(monoid(m), ExpressionsPrettyPrinter(e), ExpressionsPrettyPrinter(f), ExpressionsPrettyPrinter(p), ExpressionsPrettyPrinter(g), nest(show(child))), comma))))
 
-  private def select(opType: String, p: Exp, child: PhysicalAlgebraNode): Doc =
+  private[this] def select(opType: String, p: Exp, child: PhysicalAlgebraNode): Doc =
     s"${opType}_select" <> parens(nest(group(lsep(List(ExpressionsPrettyPrinter(p), nest(show(child))), comma))))
 
-  private def join(opType: String, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode): Doc =
+  private[this] def join(opType: String, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode): Doc =
     s"${opType}_join" <> parens(nest(group(lsep(List(ExpressionsPrettyPrinter(p), nest(show(left)), nest(show(right))), comma))))
 
-  private def unnest(opType: String, path: Exp, pred: Exp, child: PhysicalAlgebraNode): Doc =
+  private[this] def unnest(opType: String, path: Exp, pred: Exp, child: PhysicalAlgebraNode): Doc =
     s"${opType}_unnest" <> parens(nest(group(lsep(List(ExpressionsPrettyPrinter(path), ExpressionsPrettyPrinter(pred), nest(show(child))), comma))))
 
-  private def outerJoin(opType: String, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode): Doc =
+  private[this] def outerJoin(opType: String, p: Exp, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode): Doc =
     s"${opType}_outer_join" <> parens(nest(group(lsep(List(ExpressionsPrettyPrinter(p), nest(show(left)), nest(show(right))), comma))))
 
-  private def outerUnnest(opType: String, path: Exp, pred: Exp, child: PhysicalAlgebraNode): Doc =
+  private[this] def outerUnnest(opType: String, path: Exp, pred: Exp, child: PhysicalAlgebraNode): Doc =
     s"${opType}_outer_unnest" <> parens(group(nest(lsep(List(ExpressionsPrettyPrinter(path), ExpressionsPrettyPrinter(pred), nest(show(child))), comma))))
 
-  private def merge(opType: String, m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) =
+  private[this] def merge(opType: String, m: Monoid, left: PhysicalAlgebraNode, right: PhysicalAlgebraNode) =
     s"${opType}_merge" <> parens(nest(group(lsep(List(monoid(m), nest(show(left)), nest(show(right))), comma))))
 
+  private[this] def assign(opType: String, as: Seq[(String, PhysicalAlgebraNode)], child: PhysicalAlgebraNode) = {
+    val assignDocs = as.map({ case (key, node) => text(s"$key := ") <> show(node) }).to[List]
+    s"${opType}_assign" <> parens(nest(group(lsep(assignDocs ++ List(nest(show(child))), comma))))
+  }
 
   def show(a: PhysicalAlgebraNode): Doc = a match {
     case SparkScan(lNode, name, _) => scan("spark", name)
@@ -63,8 +67,12 @@ object PhysicalAlgebraPrettyPrinter extends PrettyPrinter {
     case SparkOuterUnnest(lNode, path, pred, child) => outerUnnest("spark", path, pred, child)
     case ScalaOuterUnnest(lNode, path, pred, child) => outerUnnest("scala", path, pred, child)
 
+    case SparkAssign(lNode, as, child) => assign("spark", as, child)
+    case ScalaAssign(lNode, as, child) => assign("scala", as, child)
+
     case SparkMerge(lNode, m, left, right) => merge("spark", m, left, right)
     case ScalaMerge(lNode, m, left, right) => merge("scala", m, left, right)
+
     case ScalaToSparkNode(_) => ???
   }
 }
