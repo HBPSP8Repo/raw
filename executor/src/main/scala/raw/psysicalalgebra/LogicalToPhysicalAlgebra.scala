@@ -4,12 +4,25 @@ import raw.algebra.LogicalAlgebra
 import raw.algebra.LogicalAlgebra._
 import raw.psysicalalgebra.PhysicalAlgebra._
 
+import scala.collection.mutable
+
 object LogicalToPhysicalAlgebra {
   def apply(root: LogicalAlgebraNode, isSpark: Map[String, Boolean]): PhysicalAlgebraNode = {
     buildPhysicalTree(root, isSpark)
   }
 
   private def buildPhysicalTree(root: LogicalAlgebraNode, isSpark: Map[String, Boolean]): PhysicalAlgebraNode = {
+    // Make a mutable copy, so we can store the type of the assign nodes.
+    val isSparkAux: mutable.Map[String, Boolean] = mutable.Map(isSpark.toSeq: _*)
+
+    def convertAssign(key: String, node: LogicalAlgebraNode): PhysicalAlgebraNode = {
+      val phyNode: PhysicalAlgebraNode = recurse(node)
+      // Update the cache with the type of this assign node
+      val isSparkNode = phyNode.isInstanceOf[SparkNode]
+      isSparkAux.put(key, isSparkNode)
+      phyNode
+    }
+
     def helper1(node: LogicalAlgebraNode,
                 scalaBuilder: ScalaNode => ScalaNode,
                 sparkBuilder: SparkNode => SparkNode): PhysicalAlgebraNode = recurse(node) match {
@@ -28,7 +41,7 @@ object LogicalToPhysicalAlgebra {
 
     def recurse(logicalNode: LogicalAlgebraNode): PhysicalAlgebraNode = logicalNode match {
       case lNode@LogicalAlgebra.Scan(name, t) =>
-        if (isSpark(name)) SparkScan(lNode, name, t) else ScalaScan(lNode, name, t)
+        if (isSparkAux.apply(name)) SparkScan(lNode, name, t) else ScalaScan(lNode, name, t)
 
       case lNode@LogicalAlgebra.Select(p, child) =>
         helper1(child, c => ScalaSelect(lNode, p, c), c => SparkSelect(lNode, p, c))
@@ -40,6 +53,9 @@ object LogicalToPhysicalAlgebra {
         helper1(child, c => ScalaOuterUnnest(lNode, path, pred, c), c => SparkOuterUnnest(lNode, path, pred, c))
       case lNode@Unnest(path, pred, child) =>
         helper1(child, c => ScalaUnnest(lNode, path, pred, c), c => SparkUnnest(lNode, path, pred, c))
+      case lNode@Assign(as, child) =>
+        val asPhysicalNodes: Seq[(String, PhysicalAlgebraNode)] = as.map({ case (key, node) => (key, convertAssign(key, node)) })
+        helper1(child, c => ScalaAssign(lNode, asPhysicalNodes, c), c => SparkAssign(lNode, asPhysicalNodes, c))
 
       // Rules which may require promotion of Java to Spark
       case lNode@Merge(m, left, right) =>
