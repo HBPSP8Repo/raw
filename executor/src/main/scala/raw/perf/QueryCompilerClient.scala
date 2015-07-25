@@ -12,10 +12,11 @@ import raw.RawQuery
 import raw.datasets.AccessPath
 import raw.executionserver.RawMutableURLClassLoader
 
+import scala.reflect.ClassTag
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDir:Option[Path] = None) extends StrictLogging {
+class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDir: Option[Path] = None) extends StrictLogging {
   private[this] val baseOutputDir: Path = outputDir match {
     case Some(path) => path
     case None => Files.createTempDirectory("rawqueries")
@@ -78,7 +79,15 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDi
   private[this] def compile(queryFieldName: String, plan: String, accessPaths: List[AccessPath[_]]): Either[String, RawQuery] = {
     //    logger.info("Access paths: " + accessPaths)
     val queryName = newClassName()
-    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
+    val aps: List[String] = accessPaths.map(ap => ap.tag.toString())
+    logger.info(s"Access paths: $aps")
+    val imports = aps.map(ap => ap.lastIndexOf(".") match {
+      case -1 => return Left(s"Case classes in access paths should not be at top level package: $ap")
+      case i: Int => "import " + ap.substring(0, i + 1) + "_"
+    }).toSet.mkString("\n")
+    logger.info(s"Packages: $imports")
+
+    //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
     val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
 
     val code = s"""
@@ -86,8 +95,6 @@ package raw.query
 
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
-import raw.datasets.publications._
-import raw.datasets.patients._
 $imports
 
 @rawQueryAnnotation

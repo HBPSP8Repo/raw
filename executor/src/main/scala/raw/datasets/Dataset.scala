@@ -14,3 +14,20 @@ class Dataset[T:ClassTag](name:String, file:String, sc:SparkContext) {
   val accessPath: AccessPath[_] = AccessPath(name, rdd, classTag[T])
 }
 
+
+//package raw.datasets
+//
+//import org.apache.spark.SparkContext
+//import org.apache.spark.rdd.RDD
+//import raw.executionserver.{DefaultSparkConfiguration, JsonLoader}
+//
+//import scala.reflect.runtime.universe._
+//
+//case class AccessPath[T](name: String, path: RDD[T], tag: TypeTag[T])
+//
+//class Dataset[T: TypeTag](name: String, file: String, sc: SparkContext) {
+//  val data: List[T] = JsonLoader.load[T](file)
+//  val rdd = DefaultSparkConfiguration.newRDDFromJSON[T](data, sc)
+//  val accessPath: AccessPath[_] = AccessPath(name, rdd, typeTag[T])
+//}
+//

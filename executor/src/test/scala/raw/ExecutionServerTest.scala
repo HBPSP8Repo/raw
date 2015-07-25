@@ -1,9 +1,9 @@
 package raw
 
-import raw.executionserver._
+import raw.perf.QueryCompilerClient
 import raw.publications.AbstractSparkPublicationsTest
 
-class ExecutionServerTest extends AbstractSparkPublicationsTest {
+class ExecutionServerTest extends AbstractSparkPublicationsTest with LDBDockerContainer {
   val countAuthors = """Reduce(SumMonoid(),
      IntConst(1),
      BoolConst(true),
@@ -15,19 +15,26 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
                                     Author)))))
 """
 
-  var executionServer: ExecutionServer = _
+  var queryCompiler: QueryCompilerClient = _
 
   override def beforeAll() {
     super.beforeAll()
-    executionServer = new ExecutionServer(rawClassLoader)
+    queryCompiler = new QueryCompilerClient(rawClassLoader)
   }
 
-  test("countAuthors") {
-    val result: Any = executionServer.execute(countAuthors, accessPaths)
-    println("Result: " + result)
-    val resStr = convertToString(result)
-    println("Result: " + resStr)
+  def getResult(res: Either[String, RawQuery]) = res match {
+    case Left(error) => fail(error)
+    case Right(query) =>
+      val result = query.computeResult
+      println("Result: " + result)
+      val resStr = convertToString(result)
+      println("Result: " + resStr)
+      resStr
   }
+
+  //  test("countAuthors") {
+  //    getResult(queryCompiler.compileLogicalPlan(countAuthors, accessPaths))
+  //  }
 
   //  select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
   val authors1993 = """
@@ -65,13 +72,9 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
           Author)))))
 """
 
-  test("authors1993") {
-    val result: Any = executionServer.execute(authors1993, accessPaths)
-    println("Result: " + result)
-    val resStr = convertToString(result)
-    println("Result: " + resStr)
-  }
-
+  //  test("authors1993") {
+  //    getResult(queryCompiler.compileLogicalPlan(authors1993, accessPaths))
+  //  }
 
   // select author as a1, (select distinct title as t1, affiliations as aff from partition) as articles
   val qqq =
@@ -174,11 +177,12 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest {
                                                     Publication)))))))
   """
 
-  test("qqq") {
-    val result: Any = executionServer.execute(qqq, accessPaths)
-    println("Result: " + result)
-    val resStr = convertToString(result)
-    println("Result: " + resStr)
+  //  test("qqq") {
+  //    getResult(queryCompiler.compileLogicalPlan(qqq, accessPaths))
+  //  }
+
+  test("compile oql") {
+    getResult(queryCompiler.compileOQL("count(authors)", accessPaths))
   }
 
 
