@@ -1,0 +1,33 @@
+<queries>
+    <query name="Articles with one professor author, one PhD author where the PhD author is older">
+        <oql>
+            <![CDATA[
+            select * from (select article.title, min(article.phd) as mphd, max(article.profs) as mprofs, count(article.phd) as cphd, count(article.profs) as cprofs from (
+            select doc.p.title as title,
+            (select p.year from doc.people p where p.title = "PhD") as phd,
+            (select p.year from doc.people p where p.title = "professor") as profs
+            from (
+            select p, (select A from p.authors a, authors A where A.name = a) as people
+            from publications p
+            ) doc
+            ) article) X where X.cphd > 0 and X.cprofs > 0 and X.mphd < X.mprofs
+            ]]>
+        </oql>
+        <hql>
+            <![CDATA[
+            SELECT phds.title, phds.name as phdName, phds.year as phdYear, profs.name as profName, profs.year as profYear
+            FROM
+            (SELECT t1.id, t1.title, authors.name, authors.year
+            FROM (select hash(title, authors) id, * from publications) t1 LATERAL VIEW explode(t1.authors) newTable AS authorsExp
+            JOIN authors ON (authors.name = authorsExp and (authors.title = "PhD"))) phds
+            JOIN
+            (SELECT t2.id, t2.title, authors.name, authors.year
+            FROM (select hash(title, authors) id, * from publications) t2 LATERAL VIEW explode(t2.authors) newTable AS authorsExp
+            JOIN authors ON (authors.name = authorsExp and (authors.title = "professor"))) profs
+            ON (phds.id = profs.id)
+            WHERE (phds.year < profs.year)
+            ORDER BY phds.title
+            ]]>
+        </hql>
+    </query>
+</queries>
