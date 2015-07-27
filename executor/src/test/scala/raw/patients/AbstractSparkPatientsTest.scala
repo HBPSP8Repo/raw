@@ -1,5 +1,7 @@
 package raw.patients
 
+import java.nio.file.Paths
+
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.scalatest.{BeforeAndAfterAll, FunSuite}

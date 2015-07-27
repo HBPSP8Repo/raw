@@ -1,5 +1,8 @@
+import java.nio.file.{Files, Paths}
+
 import Dependencies._
 import Resolvers._
+import org.apache.commons.io.FileUtils
 import sbt.Keys._
 
 lazy val buildSettings = Seq(
@@ -82,8 +85,16 @@ lazy val executor = (project in file("executor")).
       println(s"RAW compilation server at $ldbServerAddress")
       System.setProperty("raw.compile.server.host", ldbServerAddress)
     },
-    //
-    //        testOptions in Test += Tests.Setup(() => {val res = ("bash -c 'python executor/src/test/python/genTestsPublications.py'"!)}),
+
+    testOptions in Test += Tests.Setup(() => {
+      val path = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
+      try {
+        FileUtils.cleanDirectory(path.toFile)
+      } catch {
+        // Directory does not exist. Create it.
+        case ex: IllegalArgumentException => Files.createDirectory(path)
+      }
+    }),
     //        testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
@@ -122,26 +133,26 @@ java -classpath "%s" %s "$@"
       IO.write(out, contents)
       out.setExecutable(true)
       out
-    },
-    startDocker := {
-      println("Starting docker")
-      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
-      println(s"Started container: $cID")
-      cID
-    },
-    stopDocker := {
-      val cID = startDocker.value
-      println(s"Stopping docker container: $cID")
-      val separator = "== Docker container logs =="
-      println(separator)
-      s"docker stop -t 0 ${cID}".!!
-      s"docker logs ${cID}".!
-      s"docker rm $cID".!!
-      println(separator)
-    },
-    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
-      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
     }
+//    startDocker := {
+//      println("Starting docker")
+//      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
+//      println(s"Started container: $cID")
+//      cID
+//    },
+//    stopDocker := {
+//      val cID = startDocker.value
+//      println(s"Stopping docker container: $cID")
+//      val separator = "== Docker container logs =="
+//      println(separator)
+//      s"docker stop -t 0 ${cID}".!!
+//      s"docker logs ${cID}".!
+//      s"docker rm $cID".!!
+//      println(separator)
+//    },
+//    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
+//      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
+//    }
   )
 
 lazy val core = (project in file("core")).

@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit
 import com.google.common.base.Stopwatch
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.FileUtils
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
@@ -21,6 +20,7 @@ import raw.datasets.publications.Publications
 import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.perf.Queries.{PatientsDS, PublicationsDS, PublicationsLargeDS}
+import raw.utils.RawUtils
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -234,14 +234,8 @@ object PerfMain extends StrictLogging with ResultConverter {
     val queries = Queries.readQueries(Conf.queryFile())
 
     val outputDir = Paths.get(Conf.outputDir())
-    if (Files.isDirectory(outputDir)) {
-      FileUtils.cleanDirectory(outputDir.toFile)
-    } else {
-      logger.info(s"Creating results directory: $outputDir")
-      Files.createDirectory(outputDir)
-    }
+    RawUtils.cleanOrCreateDirectory(outputDir)
 
-    QueryLogger.setOutputDirectory(outputDir.resolve("macros"))
     writeSparkConfiguration(outputDir.resolve("sparkConfig.txt"))
 
     val runOQL = Conf.runQueryType() == "all" || Conf.runQueryType() == "oql"
@@ -283,7 +277,7 @@ object PerfMain extends StrictLogging with ResultConverter {
         case PatientsDS => Patients.loadPatients(sc)
       }
       val accessPaths = ds.map(ds => ds.accessPath)
-      val comp = new QueryCompilerClient(rawClassLoader, Some(outputDir))
+      val comp = new QueryCompilerClient(rawClassLoader, outputDir)
       setDockerHost()
       for (q <- queries) {
         val res = q.oql match {

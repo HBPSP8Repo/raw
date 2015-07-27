@@ -3,27 +3,15 @@ package raw
 import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.FileUtils
 
-// TODO: File is not being closed.
 object QueryLogger extends StrictLogging {
   private[this] var outputDirectory: Path = {
-    val tmp = Paths.get(System.getProperty("java.io.tmpdir"), "raw-macro-generated")
-    prepareDirectory(tmp)
+    val tmp = Paths.get(System.getProperty("java.io.tmpdir"))
     tmp
   }
   private[this] var i = -1
 
-  private[this] def prepareDirectory(path: Path) = {
-    if (Files.exists(path)) {
-      FileUtils.cleanDirectory(path.toFile)
-    } else {
-      Files.createDirectories(path)
-    }
-  }
-
   def setOutputDirectory(path: Path): Unit = {
-    prepareDirectory(path)
     this.outputDirectory = path
   }
 

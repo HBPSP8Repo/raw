@@ -8,30 +8,46 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
-import raw.RawQuery
 import raw.datasets.AccessPath
 import raw.executionserver.RawMutableURLClassLoader
+import raw.{QueryLogger, RawQuery}
 
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
-class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDir: Option[Path] = None) extends StrictLogging {
-  private[this] val baseOutputDir: Path = outputDir match {
-    case Some(path) => path
-    case None => Files.createTempDirectory("rawqueries")
+object QueryCompilerClient {
+  val defaultTargetDirectory = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
+  private[this] val ai = new AtomicInteger()
+
+  private def newClassName(): String = {
+    "Query" + ai.getAndIncrement()
+  }
+}
+
+class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging {
+  {
+    val dir = baseOutputDir.resolve("macro-generated")
+    if (!Files.exists(dir)) {
+      Files.createDirectory(dir)
+    }
+    QueryLogger.setOutputDirectory(baseOutputDir.resolve("macro-generated"))
   }
 
   // Where the server saves the generated scala source for each query
   private[this] val sourceOutputDir: Path = {
     val dir = baseOutputDir.resolve("src")
-    Files.createDirectory(dir)
+    if (!Files.exists(dir)) {
+      Files.createDirectory(dir)
+    }
     dir
   }
 
   // Where the compiler writes the generated classes that implement the queries.
   private[this] val classOutputDir: Path = {
     val dir = baseOutputDir.resolve("classes")
-    Files.createDirectory(dir)
+    if (!Files.exists(dir)) {
+      Files.createDirectory(dir)
+    }
     // Point the classloader to the directory with the query classes.
     this.rawClassloader.addURL(dir.toUri.toURL)
     dir
@@ -61,12 +77,6 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDi
 
   private[this] val compiler = new Global(compilerSettings, compileReporter)
 
-  private[this] val ai = new AtomicInteger()
-
-  private[this] def newClassName(): String = {
-    "Query" + ai.getAndIncrement()
-  }
-
   /**
    * @return An instance of the query
    * @throws RuntimeException If compilation fails
@@ -82,7 +92,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDi
 
   private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     //    logger.info("Access paths: " + accessPaths)
-    val queryName = newClassName()
+    val queryName = QueryCompilerClient.newClassName()
     val aps: List[String] = accessPaths.map(ap => ap.tag.toString())
     logger.info(s"Access paths: $aps")
 
