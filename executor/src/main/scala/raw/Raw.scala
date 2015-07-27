@@ -85,7 +85,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   }
 
   def buildScalaType(t: raw.Type, world: World): String = {
-    logger.info(s"Typing as tuple: $t")
     val tt = t match {
       case _: BoolType => "Boolean"
       case FunType(t1, t2) => ???
@@ -109,7 +108,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: NothingType => ???
       case _: CollectionType => ???
     }
-    logger.info(s"Type: $tt")
+//    logger.info(s"Type: $tt")
     tt
   }
 
@@ -166,9 +165,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import algebra.Expressions._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-      logger.info(s"rawToScalaType: $t")
+//      logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-      logger.info(s"typeName: $typeName")
+//      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
       //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
@@ -179,14 +178,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
-      logger.info(s"Algebra: ${logicalNode}")
+//      logger.info(s"Algebra: ${logicalNode}")
       val scalaType = rawToScalaType(typer.tipe(logicalNode))
-      logger.info(s"Scala type: $scalaType")
+//      logger.info(s"Scala type: $scalaType")
       scalaType
     }
 
     def expScalaType(expression: Exp): c.universe.Tree = {
-      logger.info(s"Expression: ${expression}")
+//      logger.info(s"Expression: ${expression}")
       rawToScalaType(typer.expressionType(expression))
     }
 
@@ -219,10 +218,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               case _ => ""
             }
             val vals = atts
-              //              .sortBy(att => att.idn)
               .map(att => recurse(att.e))
               .mkString(",")
-            logger.info(s"exp(): $atts => $vals")
+//            logger.info(s"exp(): $atts => $vals")
             s"""$sym($vals)"""
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
           case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
@@ -255,7 +253,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
       }
       val expression = recurse(e)
-      logger.info(s"Expression type: ${typer.expressionType(e)}")
+//      logger.info(s"Expression type: ${typer.expressionType(e)}")
       val code = argType match {
         case Some(argName) => q"((arg:$argName) => ${c.parse(expression)})"
         case None => c.parse(s"(arg => ${expression})")
@@ -506,7 +504,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         logger.info(s"[NEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
         val t = typer.expressionType(e)
         val st: String = buildScalaType(t, world)
-        logger.info("Type of e: {}", st)
         val childTree: Tree = build(child)
 
         val tp = c.parse(st)

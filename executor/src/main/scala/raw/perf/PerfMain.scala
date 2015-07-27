@@ -1,7 +1,7 @@
 package raw.perf
 
 import java.io.PrintStream
-import java.net.{URI, URL}
+import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
@@ -14,13 +14,12 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
-import raw.QueryLogger
 import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
 import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.perf.Queries.{PatientsDS, PublicationsDS, PublicationsLargeDS}
-import raw.utils.RawUtils
+import raw.utils.{DockerUtils, RawUtils}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -53,21 +52,10 @@ object Queries {
 
 }
 
+/* From SBT, project executor:
+ * run -r 1 -t oql -d publications  src\main\resources\perf\trial.xml
+ */
 object PerfMain extends StrictLogging with ResultConverter {
-  def setDockerHost(): Unit = {
-    val dockerAddress = System.getenv().get("DOCKER_HOST")
-    val ldbServerAddress = if (dockerAddress == null) {
-      println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
-      "http://localhost:5001/raw-plan"
-    } else {
-      println("Docker host: " + dockerAddress)
-      val uri = new URI(dockerAddress)
-      s"http://${uri.getHost}:5001/raw-plan"
-    }
-    println(s"RAW compilation server at $ldbServerAddress")
-    System.setProperty("raw.compile.server.host", ldbServerAddress)
-  }
-
   // This custom classloader must be created and set as the context classloader
   // for the main thread before the Spark context is created.
   val rawClassLoader = {
@@ -120,7 +108,6 @@ object PerfMain extends StrictLogging with ResultConverter {
     oqlCount += 1
     s"OQLQuery$oqlCount.txt"
   }
-
 
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
@@ -278,20 +265,25 @@ object PerfMain extends StrictLogging with ResultConverter {
       }
       val accessPaths = ds.map(ds => ds.accessPath)
       val comp = new QueryCompilerClient(rawClassLoader, outputDir)
-      setDockerHost()
-      for (q <- queries) {
-        val res = q.oql match {
-          case s: String if s == null || s == "" => "Not run"
-          case s: String =>
-            timeOQL(s, comp, accessPaths) match {
-              case Some(queryRes) =>
-                s"    Compile: ${statsToString(queryRes.compile)}\n" +
-                  s"    Exec:    ${statsToString(queryRes.exec)}\n" +
-                  s"    Total:   ${statsToString(queryRes.total)}"
-              case None => "Fail"
-            }
+      DockerUtils.setEnvironment()
+      DockerUtils.startDocker()
+      try {
+        for (q <- queries) {
+          val res = q.oql match {
+            case s: String if s == null || s == "" => "Not run"
+            case s: String =>
+              timeOQL(s, comp, accessPaths) match {
+                case Some(queryRes) =>
+                  s"    Compile: ${statsToString(queryRes.compile)}\n" +
+                    s"    Exec:    ${statsToString(queryRes.exec)}\n" +
+                    s"    Total:   ${statsToString(queryRes.total)}"
+                case None => "Fail"
+              }
+          }
+          oqlResults += res
         }
-        oqlResults += res
+      } finally {
+        DockerUtils.stopDocker()
       }
     }
 
