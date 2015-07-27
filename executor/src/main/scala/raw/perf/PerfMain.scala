@@ -18,12 +18,11 @@ import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
 import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
-import raw.perf.Queries.{PatientsDS, PublicationsDS, PublicationsLargeDS}
 import raw.utils.{DockerUtils, RawUtils}
 
 import scala.collection.mutable.ArrayBuffer
 
-object Queries {
+object PerfMainUtils {
 
   abstract sealed class DatasetType
 
@@ -50,12 +49,41 @@ object Queries {
 
   case class QueryResult(avg: Double, min: Double, max: Double, stdDev: Double)
 
+  def statsToString(stats: DescriptiveStatistics): String = {
+    f"${stats.getMean}%6.3f, StdDev: ${stats.getStandardDeviation}%6.3f, Min: ${stats.getMin}%6.3f, Max: ${stats.getMax}%6.3f"
+  }
+
+  def valuesToString(stats: DescriptiveStatistics): String = {
+    stats.getValues.map(d => f"$d%2.3f").mkString(", ")
+  }
+
+  def resultsToString(stats: DescriptiveStatistics) = {
+    s"Compile  : ${statsToString(stats)}\n" +
+      s"Samples  : ${valuesToString(stats)}\n"
+  }
+
+  var hqlCount = -1
+
+  def nextHQLFilename(): String = {
+    hqlCount += 1
+    s"HQLQuery$hqlCount.txt"
+  }
+
+  var oqlCount = -1
+
+  def nextOQLFilename(): String = {
+    oqlCount += 1
+    s"OQLQuery$oqlCount.txt"
+  }
+
 }
 
 /* From SBT, project executor:
  * run -r 1 -t oql -d publications  src\main\resources\perf\trial.xml
  */
 object PerfMain extends StrictLogging with ResultConverter {
+  import PerfMainUtils._
+
   // This custom classloader must be created and set as the context classloader
   // for the main thread before the Spark context is created.
   val rawClassLoader = {
@@ -82,32 +110,6 @@ object PerfMain extends StrictLogging with ResultConverter {
     df
   }
 
-  def statsToString(stats: DescriptiveStatistics): String = {
-    f"${stats.getMean}%6.3f, StdDev: ${stats.getStandardDeviation}%6.3f, Min: ${stats.getMin}%6.3f, Max: ${stats.getMax}%6.3f"
-  }
-
-  def valuesToString(stats: DescriptiveStatistics): String = {
-    stats.getValues.map(d => f"$d%2.3f").mkString(", ")
-  }
-
-  def toString(stats: DescriptiveStatistics) = {
-    s"Compile  : ${statsToString(stats)}\n" +
-      s"Samples  : ${valuesToString(stats)}\n"
-  }
-
-  var hqlCount = -1
-
-  def nextHQLFilename(): String = {
-    hqlCount += 1
-    s"HQLQuery$hqlCount.txt"
-  }
-
-  var oqlCount = -1
-
-  def nextOQLFilename(): String = {
-    oqlCount += 1
-    s"OQLQuery$oqlCount.txt"
-  }
 
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
@@ -142,7 +144,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       }
       br.println()
 
-      br.println(toString(execTimes))
+      br.println(resultsToString(execTimes))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${res.mkString("\n")}")
@@ -188,9 +190,9 @@ object PerfMain extends StrictLogging with ResultConverter {
         }
       }
 
-      br.println(toString(compileTimes))
-      br.println(toString(execTimes))
-      br.println(toString(totals))
+      br.println(resultsToString(compileTimes))
+      br.println(resultsToString(execTimes))
+      br.println(resultsToString(totals))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${convertToJson(res)}")
@@ -218,7 +220,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       case _ => throw new IllegalArgumentException("Invalid dataset")
     }
 
-    val queries = Queries.readQueries(Conf.queryFile())
+    val queries = readQueries(Conf.queryFile())
 
     val outputDir = Paths.get(Conf.outputDir())
     RawUtils.cleanOrCreateDirectory(outputDir)
