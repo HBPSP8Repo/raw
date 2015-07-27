@@ -1,59 +1,16 @@
 package raw.publications.generated
-import org.apache.spark.rdd.RDD
-import raw.{rawQueryAnnotation, RawQuery}
-import raw.datasets.publications._
-import raw.publications._
 
-
-@rawQueryAnnotation
-class Join0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct a.year, a.name as n1, b.name as n2
-        from authors a, authors b
-        where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
-  """
-}
-
-@rawQueryAnnotation
-class Join1Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
-        from authors a, authors b
-        where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
-  """
-}
-
-@rawQueryAnnotation
-class Join2Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.name, title:b.title))
-        from authors a, authors b
-        where a.year = b.year and a.name != b.name and a.year > 1992
-  """
-}
-
-@rawQueryAnnotation
-class Join3Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select * from (
-        select article: P,
-               (select A
-                from P.authors a,
-                     authors A
-                where A.name = a
-                      and A.title = "professor") as profs
-        from publications P
-        where "particle detectors" in P.controlledterms
-              and "Stricker, D.A." in P.authors
-        ) T having count(T.profs) > 2
-  """
-}
-
+import raw.publications.AbstractSparkPublicationsTest
 
 class JoinTest extends AbstractSparkPublicationsTest {
 
   test("Join0") {
-    val result = new Join0Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct a.year, a.name as n1, b.name as n2
+        from authors a, authors b
+        where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -66,7 +23,12 @@ class JoinTest extends AbstractSparkPublicationsTest {
   }
 
   test("Join1") {
-    val result = new Join1Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+        from authors a, authors b
+        where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -79,7 +41,12 @@ class JoinTest extends AbstractSparkPublicationsTest {
   }
 
   test("Join2") {
-    val result = new Join2Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.name, title:b.title))
+        from authors a, authors b
+        where a.year = b.year and a.name != b.name and a.year > 1992
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     val expected = convertExpected("""
     [_X0: [[name: Johnson, R.T., title: professor], [name: Martoff, C.J., title: assistant professor]], year: 1994]
@@ -91,7 +58,20 @@ class JoinTest extends AbstractSparkPublicationsTest {
   }
 
   test("Join3") {
-    val result = new Join3Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select * from (
+        select article: P,
+               (select A
+                from P.authors a,
+                     authors A
+                where A.name = a
+                      and A.title = "professor") as profs
+        from publications P
+        where "particle detectors" in P.controlledterms
+              and "Stricker, D.A." in P.authors
+        ) T having count(T.profs) > 2
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     val expected = convertExpected("""
     [article: [affiliations: [11911 Parklawn Drive, Rockville, M.D, USA, Dept. of Phys., Stanford Univ., CA, USA], authors: [Bland, R.W., Johnson, R.T., Katase, A., Stricker, D.A., Sun, Guoliang], controlledterms: [magnetic levitation, neutrino detection and measurement, particle detectors, superconducting thin films], title: Influence of poling on far-infrared response of lead zirconate titanate ceramics], profs: [[name: Bland, R.W., title: professor, year: 1984], [name: Johnson, R.T., title: professor, year: 1994], [name: Sun, Guoliang, title: professor, year: 1987]]]

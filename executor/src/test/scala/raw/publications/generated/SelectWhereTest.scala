@@ -1,44 +1,14 @@
 package raw.publications.generated
-import org.apache.spark.rdd.RDD
-import raw.{rawQueryAnnotation, RawQuery}
-import raw.datasets.publications._
-import raw.publications._
 
-
-@rawQueryAnnotation
-class SelectWhere0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select a from authors a where a.title = "PhD"
-  """
-}
-
-@rawQueryAnnotation
-class SelectWhere1Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select P from publications P
-    where "particle detectors" in P.controlledterms
-        and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
-        and "Sarigiannidou, E." in P.authors
-  """
-}
-
-@rawQueryAnnotation
-class SelectWhere2Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select P from publications P
-    where "particle detectors" in P.controlledterms
-    and "elemental semiconductors" in P.controlledterms
-    and "magnetic levitation" in P.controlledterms
-    and "titanium" in P.controlledterms
-    and "torque" in P.controlledterms
-  """
-}
-
+import raw.publications.AbstractSparkPublicationsTest
 
 class SelectWhereTest extends AbstractSparkPublicationsTest {
 
   test("SelectWhere0") {
-    val result = new SelectWhere0Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select a from authors a where a.title = "PhD"
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -63,7 +33,13 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
   }
 
   test("SelectWhere1") {
-    val result = new SelectWhere1Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select P from publications P
+    where "particle detectors" in P.controlledterms
+        and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
+        and "Sarigiannidou, E." in P.authors
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -79,7 +55,15 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
   }
 
   test("SelectWhere2") {
-    val result = new SelectWhere2Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select P from publications P
+    where "particle detectors" in P.controlledterms
+    and "elemental semiconductors" in P.controlledterms
+    and "magnetic levitation" in P.controlledterms
+    and "titanium" in P.controlledterms
+    and "torque" in P.controlledterms
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""

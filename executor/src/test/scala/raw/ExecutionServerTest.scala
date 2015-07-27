@@ -15,21 +15,12 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest with LDBDockerCo
                                     Author)))))
 """
 
-  var queryCompiler: QueryCompilerClient = _
-
-  override def beforeAll() {
-    super.beforeAll()
-    queryCompiler = new QueryCompilerClient(rawClassLoader)
-  }
-
-  def getResult(res: Either[String, RawQuery]) = res match {
-    case Left(error) => fail(error)
-    case Right(query) =>
-      val result = query.computeResult
-      println("Result: " + result)
-      val resStr = convertToString(result)
-      println("Result: " + resStr)
-      resStr
+  def getResult(query: RawQuery) = {
+    val result = query.computeResult
+    println("Result: " + result)
+    val resStr = convertToString(result)
+    println("Result: " + resStr)
+    resStr
   }
 
   //  test("countAuthors") {

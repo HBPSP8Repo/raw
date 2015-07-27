@@ -50,32 +50,30 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     startServer("0.0.0.0", port = port) {
       (path(executePath) & post) {
         entity(as[String]) { query =>
-          returnValue(query) match {
-            case Left(error) =>
-              logger.warn(s"Failed to process request: $error")
-              complete(StatusCodes.BadRequest, error)
-            case Right(result) =>
-              logger.info("Query succeeded. Returning result: " + result.take(10))
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete(result)
-              }
+          try {
+            val result = returnValue(query)
+            logger.info("Query succeeded. Returning result: " + result.take(10))
+            respondWithMediaType(MediaTypes.`application/json`) {
+              complete(result)
+            }
+          } catch {
+            case ex: RuntimeException =>
+              logger.warn(s"Failed to process request: $ex")
+              complete(StatusCodes.BadRequest, ex.getMessage)
           }
         }
       }
     }
 
-    def returnValue(query: String): Either[String, String] = {
+    def returnValue(query: String): String = {
       // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
       // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
       // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
       // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
       val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-      executionServer.compileLogicalPlan(cleanedQuery, accessPaths)
-        .right
-        .map(compiledQuery => {
-        val res = compiledQuery.computeResult
-        convertToJson(res)
-      })
+      val compiledQuery = executionServer.compileLogicalPlan(cleanedQuery, accessPaths)
+      val res = compiledQuery.computeResult
+      convertToJson(res)
     }
   }
 }

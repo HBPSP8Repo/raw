@@ -67,15 +67,20 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDi
     "Query" + ai.getAndIncrement()
   }
 
-  def compileOQL(oql: String, accessPaths: List[AccessPath[_]]): Either[String, RawQuery] = {
+  /**
+   * @return An instance of the query
+   * @throws RuntimeException If compilation fails
+   */
+  def compileOQL(oql: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     compile("oql", oql, accessPaths)
   }
 
-  def compileLogicalPlan(plan: String, accessPaths: List[AccessPath[_]]): Either[String, RawQuery] = {
+
+  def compileLogicalPlan(plan: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     compile("plan", plan, accessPaths)
   }
 
-  private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): Either[String, RawQuery] = {
+  private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     //    logger.info("Access paths: " + accessPaths)
     val queryName = newClassName()
     val aps: List[String] = accessPaths.map(ap => ap.tag.toString())
@@ -90,7 +95,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, outputDi
      * and by recursively scanning the full type of the access path.
      */
     val imports = aps.map(ap => ap.lastIndexOf(".") match {
-      case -1 => return Left(s"Case classes in access paths should not be at top level package: $ap")
+      case -1 => throw new RuntimeException(s"Case classes in access paths should not be at top level package: $ap")
       case i: Int => "import " + ap.substring(0, i + 1) + "_"
     }).toSet.mkString("\n")
 
@@ -126,7 +131,7 @@ class $queryName($args) extends RawQuery {
       // compilation runs are not falsely reported in the subsequent runs
       val message = "Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
       compileReporter.reset()
-      return Left(message)
+      return throw new RuntimeException(message)
     }
 
     // Load the main query class
@@ -140,6 +145,6 @@ class $queryName($args) extends RawQuery {
 
     // Create an instance of the query using the rdd instance given in the access paths.
     val ctorArgs = accessPaths.map(ap => ap.path)
-    Right(ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery])
+    ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
   }
 }

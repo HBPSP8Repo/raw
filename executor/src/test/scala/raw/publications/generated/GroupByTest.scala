@@ -1,46 +1,14 @@
 package raw.publications.generated
-import org.apache.spark.rdd.RDD
-import raw.{rawQueryAnnotation, RawQuery}
-import raw.datasets.publications._
-import raw.publications._
 
-
-@rawQueryAnnotation
-class GroupBy0Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct title, count(partition) as n from authors A group by title: A.title
-  """
-}
-
-@rawQueryAnnotation
-class GroupBy1Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
-  """
-}
-
-@rawQueryAnnotation
-class GroupBy2Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
-  """
-}
-
-@rawQueryAnnotation
-class GroupBy3Query(val authors: RDD[Author], val publications: RDD[Publication]) extends RawQuery {
-  val oql = """
-    select title,
-           (select A from partition) as people
-    from authors A
-    group by title: A.title
-  """
-}
-
+import raw.publications.AbstractSparkPublicationsTest
 
 class GroupByTest extends AbstractSparkPublicationsTest {
 
   test("GroupBy0") {
-    val result = new GroupBy0Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct title, count(partition) as n from authors A group by title: A.title
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -53,7 +21,10 @@ class GroupByTest extends AbstractSparkPublicationsTest {
   }
 
   test("GroupBy1") {
-    val result = new GroupBy1Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -66,7 +37,10 @@ class GroupByTest extends AbstractSparkPublicationsTest {
   }
 
   test("GroupBy2") {
-    val result = new GroupBy2Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     
     val expected = convertExpected("""
@@ -106,7 +80,13 @@ class GroupByTest extends AbstractSparkPublicationsTest {
   }
 
   test("GroupBy3") {
-    val result = new GroupBy3Query(authorsRDD, publicationsRDD).computeResult
+    val oql = """
+          select title,
+           (select A from partition) as people
+    from authors A
+    group by title: A.title
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
     val expected = convertExpected("""
     [people: [[name: Akoh, H., title: professor, year: 1959], [name: Bland, R.W., title: professor, year: 1984], [name: Dickson, S.C., title: professor, year: 1971], [name: Doisneau, B., title: professor, year: 1991], [name: Johnson, R.T., title: professor, year: 1994], [name: Kokorin, V.V., title: professor, year: 1965], [name: Kotsar, Y., title: professor, year: 1964], [name: Natarajan, B.R., title: professor, year: 1964], [name: Neuhauser, B., title: professor, year: 1973], [name: Oae, Y., title: professor, year: 1967], [name: Sun, Guoliang, title: professor, year: 1987], [name: Tian, Ying, title: professor, year: 1984], [name: Tickle, R., title: professor, year: 1972], [name: Tozoni, O.V., title: professor, year: 1976], [name: Vey, J.-L., title: professor, year: 1969], [name: Wang, Hairong, title: professor, year: 1993], [name: Young, B.A., title: professor, year: 1956], [name: Zhuangde Jiang, title: professor, year: 1993]], title: professor]

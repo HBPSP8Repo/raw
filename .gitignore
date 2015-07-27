@@ -10,3 +10,6 @@ Scratchpad.sc
 .idea_modules/raw.iml
 .idea_modules/raw-build.iml
 id_rsa
+*.pyc
+derby.log
+metastore_db/

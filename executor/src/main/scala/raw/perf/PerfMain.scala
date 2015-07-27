@@ -15,12 +15,12 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
+import raw.QueryLogger
 import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
 import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.perf.Queries.{PatientsDS, PublicationsDS, PublicationsLargeDS}
-import raw.{QueryLogger, RawQuery}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -181,21 +181,23 @@ object PerfMain extends StrictLogging with ResultConverter {
       var res: Any = null
 
       for (i <- 1 to Conf.repeats()) {
-        val clock = Stopwatch.createStarted()
-        val result = comp.compileOQL(oql, accessPaths) match {
-          case Left(error) => {
-            logger.warn(s"Error compiling query: $oql. Error: $error")
+        try {
+          // Compile
+          val clock = Stopwatch.createStarted()
+          val query = comp.compileOQL(oql, accessPaths)
+          val compileTime = clock.elapsed(TimeUnit.MILLISECONDS) / 1000.0
+          compileTimes.addValue(compileTime)
+
+          // Execute
+          clock.reset().start()
+          res = query.computeResult
+          val execTime = clock.elapsed(TimeUnit.MILLISECONDS) / 1000.0
+          execTimes.addValue(execTime)
+          totals.addValue(compileTime + execTime)
+        } catch {
+          case ex: RuntimeException =>
+            logger.warn(s"Error compiling query: $oql. Exception: $ex")
             return None
-          }
-          case Right(query: RawQuery) => {
-            val compileTime = clock.elapsed(TimeUnit.MILLISECONDS) / 1000.0
-            compileTimes.addValue(compileTime)
-            clock.reset().start()
-            res = query.computeResult
-            val execTime = clock.elapsed(TimeUnit.MILLISECONDS) / 1000.0
-            execTimes.addValue(execTime)
-            totals.addValue(compileTime + execTime)
-          }
         }
       }
 
