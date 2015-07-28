@@ -518,11 +518,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             //  logger.debug("folded:\n{}", toString(folded))
             q"""
             val grouped = $childTree.groupBy($fCode)
-            val filteredP = grouped.mapValues(v => v.filter($pCode))
-            val mapped = grouped.mapValues(v => v.map(${exp(f1)}))
-            val folded = mapped.mapValues(v => v.fold(${zero(m1)})(${fold(m1)}))
-            folded"""
-
+            grouped.mapValues(v => v
+                .filter($pCode)
+                .map(${exp(f1)})
+                .fold(${zero(m1)})(${fold(m1)}))
+            """
           case m1: CollectionMonoid =>
             // TODO: Does not handle dotequality.
             /* TODO: The filter by p probably can be applied at the start of this operator implementation,
@@ -531,6 +531,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             // Since the zero element of a collection monoid is an empty collection,
             // instead of using fold we can just filter any elements such that g(w) == null
             val filterGNulls = IfThenElse(BinaryExp(Eq(), g, Null), BoolConst(false), BoolConst(true))
+            val monoidReduceCode = m1 match {
+              case m2: SetMonoid =>
+                q"""mappedByE.toSet"""
+              case m1: BagMonoid =>
+                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
+              case m1: ListMonoid =>
+                q"""mappedByE.toList"""
+            }
             val commonCode =
             //            logger.debug("groupBy:\n{}", toString(grouped))
             //            logger.debug("filteredP:\n{}", toString(filteredP))
@@ -538,37 +546,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             //            logger.debug("mapped:\n{}", toString(mapped))
               q"""
             val grouped = $childTree.groupBy($fCode)
-            val filteredP = grouped.mapValues(v => v.filter($pCode))
-            val filteredG = filteredP.mapValues(v => v.filter(${exp(filterGNulls)}))
-            val mapped = filteredG.mapValues(v => v.map($eCode))
+            grouped.mapValues(v => {
+                val filteredByP = v.filter($pCode)
+                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
+                val mappedByE = filteredByG.map($eCode)
+                ${monoidReduceCode}
+            })
             """
-            //            val mapped = filteredG.mapValues((v:$tp)=> v.map(${exp(e)}))
-
-            //            logger.debug("reduced:\n{}", toString(reduced))
-            //            logger.debug("reduced:\n{}", toString(reduced))
-            //            logger.debug("reduced:\n{}", toString(reduced))
-            val reduceCode = m1 match {
-              case m2: SetMonoid =>
-                q"""
-            val reduced = mapped.mapValues(v => v.toSet)
-            reduced
-              """
-
-              case m1: BagMonoid =>
-                q"""
-            val reduced = mapped.mapValues(v => com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(v)))
-            reduced
-          """
-              case m1: ListMonoid =>
-                q"""
-            val reduced = mapped.mapValues(v => v.toList)
-            reduced
-            """
-            }
-
-            q"""..$commonCode
-                ..$reduceCode
-              """
+            commonCode
         }
 
         q"""
