@@ -61,10 +61,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
     val p = Paths.get(mpPlugin.toURI)
     logger.info("Loading plugin: " + p)
-    settings.processArgumentString(s"-Xplugin:${p.toString}") match {
-      case (false, xs) => throw new RuntimeException("Failed to set configuration: " + xs)
-      case (true, _) =>
-    }
+    settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))
 
     settings.usejavacp.value = true
