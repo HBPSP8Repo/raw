@@ -13,3 +13,24 @@ val expected = convertExpected("""
 [annee: 1973, nom: Neuhauser, B., titre: professor]
 [annee: 1973, nom: Takeno, K., titre: PhD]
 """)
+
+--
+
+select a.title from authors a where a.year = 1959
+
+val expected = convertExpected("""
+PhD
+assistant professor
+assistant professor
+professor
+""")
+
+--
+
+select distinct a.title from authors a where a.year = 1959
+
+val expected = convertExpected("""
+PhD
+assistant professor
+professor
+""")

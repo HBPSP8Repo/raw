@@ -4,7 +4,7 @@ import raw.publications.AbstractSparkPublicationsTest
 
 class AssignTest extends AbstractSparkPublicationsTest {
 
-  ignore("Assign0") {
+  test("Assign0") {
     val oql = """
           select G.title,
           (select year: v,

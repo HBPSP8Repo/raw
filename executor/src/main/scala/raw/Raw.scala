@@ -99,7 +99,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               .map(att => s"(${buildScalaType(att.tipe, world)})")
               .mkString("(", ", ", ")")
         }
-      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
+      //      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
+      //      case BagType(innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
+      case BagType(innerType) => s"Seq[${buildScalaType(innerType, world)}]"
       case ListType(innerType) => s"Seq[${buildScalaType(innerType, world)}]"
       case SetType(innerType) => s"Set[${buildScalaType(innerType, world)}]"
       case UserType(idn) => buildScalaType(world.userTypes(idn), world)
@@ -108,7 +110,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: NothingType => ???
       case _: CollectionType => ???
     }
-//    logger.info(s"Type: $tt")
+    //    logger.info(s"Type: $tt")
     tt
   }
 
@@ -165,9 +167,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import algebra.Expressions._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-//      logger.info(s"rawToScalaType: $t")
+      //      logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-//      logger.info(s"typeName: $typeName")
+      //      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
       //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
@@ -178,14 +180,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
-//      logger.info(s"Algebra: ${logicalNode}")
+      //      logger.info(s"Algebra: ${logicalNode}")
       val scalaType = rawToScalaType(typer.tipe(logicalNode))
-//      logger.info(s"Scala type: $scalaType")
+      //      logger.info(s"Scala type: $scalaType")
       scalaType
     }
 
     def expScalaType(expression: Exp): c.universe.Tree = {
-//      logger.info(s"Expression: ${expression}")
+      //      logger.info(s"Expression: ${expression}")
       rawToScalaType(typer.expressionType(expression))
     }
 
@@ -220,7 +222,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             val vals = atts
               .map(att => recurse(att.e))
               .mkString(",")
-//            logger.info(s"exp(): $atts => $vals")
+            //            logger.info(s"exp(): $atts => $vals")
             s"""$sym($vals)"""
           case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
           case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
@@ -253,7 +255,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
       }
       val expression = recurse(e)
-//      logger.info(s"Expression type: ${typer.expressionType(e)}")
+      //      logger.info(s"Expression type: ${typer.expressionType(e)}")
       val code = argType match {
         case Some(argName) => q"((arg:$argName) => ${c.parse(expression)})"
         case None => c.parse(s"(arg => ${expression})")
@@ -461,34 +463,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
              */
             q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
 
-          case _: ListMonoid =>
-            q"""$filterMapCode
-          .toLocalIterator
-          .to[scala.collection.immutable.List]"""
-
-          case _: BagMonoid =>
-            /* RDD.countByValue() should reduce the amount of data sent to the server by sending a single (v, count)
-             * tuple for all values v in the RDD.
-             */
-            q"""
-          val m = $filterMapCode.countByValue()
-          val b = com.google.common.collect.ImmutableMultiset.builder[Any]()
-          m.foreach( p => b.addCopies(p._1, p._2.toInt) )
-          b.build()"""
-
-          case _: SetMonoid =>
-            /* - calling distinct in each partition reduces the size of the data that has to be sent to the driver,
-             *   by eliminating the duplicates early.
-             *
-             * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
-             * collect(), which first gets all results.
-             *
-             * - toSet is a Scala local operation.
-             */
-            q"""$filterMapCode
-            .distinct
-            .toLocalIterator
-            .to[scala.collection.immutable.Set]"""
+          case _: ListMonoid => q"""$filterMapCode"""
+          case _: BagMonoid => q"""$filterMapCode"""
+          case _: SetMonoid => q"""$filterMapCode.distinct"""
         }
         q"""
         val start = "************ SparkReduce ************"
@@ -534,8 +511,21 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             val monoidReduceCode = m1 match {
               case m2: SetMonoid =>
                 q"""mappedByE.toSet"""
+              //              case m1: BagMonoid =>
+              //                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
               case m1: BagMonoid =>
-                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
+                // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
+                q"""mappedByE.toList"""
+              //              case m1: BagMonoid =>
+              //                q"""
+              //                def bagBuilderIter[T:scala.reflect.ClassTag](iter:Iterable[T]): scala.collection.immutable.Bag[T] = {
+              //                  import scala.collection.immutable.Bag
+              //                  Bag.newBuilder(Bag.configuration.compact[T])
+              //                    .++=(iter)
+              //                    .result()
+              //                }
+              //                bagBuilderIter(mappedByE)
+              //                """
               case m1: ListMonoid =>
                 q"""mappedByE.toList"""
             }
@@ -632,7 +622,37 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
-    build(physicalTree)
+    val tree = build(physicalTree)
+    val treeType = typer.tipe(physicalTree.logicalNode)
+    logger.info("Type of tree: " + treeType)
+    val reducedTree = treeType match {
+      case BagType(_) =>
+        q"""
+        val m = $tree.countByValue()
+        raw.QueryHelpers.bagBuilder(m)
+        """
+
+      case ListType(_) =>
+        q"""$tree
+            .toLocalIterator
+            .to[scala.collection.immutable.List]"""
+
+      case SetType(_) =>
+        /* - calling distinct in each partition reduces the size of the data that has to be sent to the driver,
+         *   by eliminating the duplicates early.
+         *
+         * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
+         * collect(), which first gets all results.
+         *
+         * - toSet is a Scala local operation.
+         */
+        q"""$tree.distinct
+                .toLocalIterator
+                .to[scala.collection.immutable.Set]"""
+
+      case _ => tree
+    }
+    reducedTree
   }
 
 

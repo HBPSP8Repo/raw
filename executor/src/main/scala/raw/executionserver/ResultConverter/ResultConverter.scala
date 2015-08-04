@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.{ObjectWriter, ObjectMapper, Serialization
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
 
-import scala.collection.JavaConversions
+import scala.collection.{Bag, JavaConversions}
 
 trait ResultConverter {
   private[this] val mapper = {
@@ -52,11 +52,13 @@ trait ResultConverter {
 
   def convertToString(res: Any): String = {
     res match {
+      case bag: Bag[_] =>
+        resultsToString(bag.toList)
       case imSet: ImmutableMultiset[_] =>
         val resultTyped: List[Any] = toScalaList(imSet)
         resultsToString(resultTyped)
       case set: Set[_] =>
-        resultsToString(set)
+        resultsToString(set.toList)
       case list: List[_] =>
         resultsToString(list)
       case _ => res.toString
@@ -71,9 +73,9 @@ trait ResultConverter {
     l.map(valueToString(_)).sorted.mkString("\n")
   }
 
-  private[this] def resultsToString[T](s: Set[T]): String = {
-    resultsToString(s.toList)
-  }
+//  private[this] def resultsToString[T](s: Set[T]): String = {
+//    resultsToString(s.toList)
+//  }
 
   private[this] def valueToString[T](value: Any): String = {
     value match {

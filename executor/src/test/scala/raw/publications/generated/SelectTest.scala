@@ -30,4 +30,33 @@ class SelectTest extends AbstractSparkPublicationsTest {
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
+  test("Select2") {
+    val oql = """
+          select a.title from authors a where a.year = 1959
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val actual = convertToString(result)
+    val expected = convertExpected("""
+    PhD
+    assistant professor
+    assistant professor
+    professor
+    """)
+    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+  }
+
+  test("Select3") {
+    val oql = """
+          select distinct a.title from authors a where a.year = 1959
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val actual = convertToString(result)
+    val expected = convertExpected("""
+    PhD
+    assistant professor
+    professor
+    """)
+    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+  }
+
 }
