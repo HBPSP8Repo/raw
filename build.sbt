@@ -61,7 +61,8 @@ lazy val executor = (project in file("executor")).
           httpClient,
           commonsMath,
           commonsIO,
-          scallop
+          scallop,
+          multisets
         )
         ++ sprayDeps,
 
@@ -134,25 +135,25 @@ java -classpath "%s" %s "$@"
       out.setExecutable(true)
       out
     }
-//    startDocker := {
-//      println("Starting docker")
-//      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
-//      println(s"Started container: $cID")
-//      cID
-//    },
-//    stopDocker := {
-//      val cID = startDocker.value
-//      println(s"Stopping docker container: $cID")
-//      val separator = "== Docker container logs =="
-//      println(separator)
-//      s"docker stop -t 0 ${cID}".!!
-//      s"docker logs ${cID}".!
-//      s"docker rm $cID".!!
-//      println(separator)
-//    },
-//    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
-//      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
-//    }
+    //    startDocker := {
+    //      println("Starting docker")
+    //      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
+    //      println(s"Started container: $cID")
+    //      cID
+    //    },
+    //    stopDocker := {
+    //      val cID = startDocker.value
+    //      println(s"Stopping docker container: $cID")
+    //      val separator = "== Docker container logs =="
+    //      println(separator)
+    //      s"docker stop -t 0 ${cID}".!!
+    //      s"docker logs ${cID}".!
+    //      s"docker rm $cID".!!
+    //      println(separator)
+    //    },
+    //    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
+    //      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
+    //    }
   )
 
 lazy val core = (project in file("core")).

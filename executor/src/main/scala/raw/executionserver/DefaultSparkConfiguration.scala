@@ -3,10 +3,13 @@ package raw.executionserver
 import java.nio.file.{FileAlreadyExistsException, Files, Paths}
 
 import com.google.common.base.Stopwatch
+import com.google.common.collect.ImmutableMultiset
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
+import raw.datasets.patients.{Diagnostic, Patient}
+import raw.datasets.publications.{Author, Publication}
 
 import scala.reflect.ClassTag
 

@@ -36,6 +36,7 @@ object Dependencies {
   val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
 
   val scallop = "org.rogach" %% "scallop" % "0.9.5"
+  val multisets = "io.github.nicolasstucki" % "multisets_2.11" % "0.3"
 }
   // Ignore, left here for reference in case we ever need to use docker-java library
 //  val dockerJava = Seq(

@@ -58,7 +58,7 @@ object PerfMainUtils {
   }
 
   def resultsToString(stats: DescriptiveStatistics) = {
-    s"Compile  : ${statsToString(stats)}\n" +
+    s"${statsToString(stats)}\n" +
       s"Samples  : ${valuesToString(stats)}\n"
   }
 
@@ -144,7 +144,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       }
       br.println()
 
-      br.println(resultsToString(execTimes))
+      br.println("Execution: " + resultsToString(execTimes))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${res.mkString("\n")}")
@@ -190,9 +190,9 @@ object PerfMain extends StrictLogging with ResultConverter {
         }
       }
 
-      br.println(resultsToString(compileTimes))
-      br.println(resultsToString(execTimes))
-      br.println(resultsToString(totals))
+      br.println("Compile  : " + resultsToString(compileTimes))
+      br.println("Execution: " + resultsToString(execTimes))
+      br.println("Total    : " + resultsToString(totals))
 
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${convertToJson(res)}")
