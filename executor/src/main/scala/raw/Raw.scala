@@ -548,9 +548,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         q"""
           val start = "************ SparkNest ************"
-          def toString[R](rdd: RDD[R]): String = {
-            rdd.collect().toList.mkString("\n")
-          }
           val sparkNest = $code
           val end = "************ SparkNest ************"
           sparkNest"""
@@ -604,27 +601,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         code
       case SparkOuterUnnest(logicalNode, path, pred, child) => ???
       /*
-      val key = code(child)
-
-      key.
+      The assign node contains one more more assignments. Each is transformed into
+      a statement in the form: val key = `build(code)`
        */
-      case SparkAssign(logicalNode, as, child) => {
-        val m: scala.Seq[c.universe.Tree] = as.map({ case (key, node) => {
-          logger.info(s"Key: $key")
-          val assignTree = build(node)
-          val code = ValDef(Modifiers(), TermName(key), TypeTree(), assignTree)
-          logger.info(s"Code: $code")
-          code
+      case SparkAssign(logicalNode, assigns, child) => {
+        var block: c.universe.Tree = q""
+        assigns.foreach({ case (key, node) => {
+          val rddName = TermName(key)
+          val rddCode = build(node)
+          // Appends the additional statements to the block. Without the "..$", this would generate independent blocks:
+          // "{val rdd1 =...; rdd1.cache()}; {val rdd2 =...; rdd2.cache()}" , and the RDDs defined in one block would
+          // not be visible outside. The "..$" creates a single block with the concatenation of all the expressions.
+          block = q"..$block; val $rddName = $rddCode; $rddName.cache()"
         }
         })
-        q"""..$m; ${build(child)}"""
+        q"""..$block; ${build(child)}"""
       }
     }
 
     logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
     val tree = build(physicalTree)
     val treeType = typer.tipe(physicalTree.logicalNode)
-    logger.info("Type of tree: " + treeType)
     val reducedTree = treeType match {
       case BagType(_) =>
         q"""

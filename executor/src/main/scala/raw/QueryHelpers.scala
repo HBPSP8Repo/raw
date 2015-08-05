@@ -1,5 +1,7 @@
 package raw
 
+import org.apache.spark.rdd.RDD
+
 /**
  * Helper functions used by the generated code.
  *
@@ -16,5 +18,9 @@ object QueryHelpers {
     val builder = Bag.newBuilder
     map.foreach(v => builder.add(v._1, v._2.toInt))
     builder.result()
+  }
+
+  def toString[R](rdd: RDD[R]): String = {
+    rdd.collect().toList.mkString("\n")
   }
 }

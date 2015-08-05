@@ -41,6 +41,6 @@ ADD schema.odl /raw/
 ENTRYPOINT ["/usr/bin/python", "server.py", "--schema=/raw/schema.odl"]
 
 RUN mkdir /raw/scripts
-ADD run-with-scala-backend.sh /raw/scripts/
-ADD init-schema.sh /raw/scripts/
+ADD run-with-scala-backend.sh init-schema.sh /raw/scripts/
 
+ADD data /raw/ldb/utils/pyserver/data/

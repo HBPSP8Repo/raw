@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # The host that the ldb server should use to contact the scala executor. 
 # On a Linux machine, this can be localhost. But when using boot2docker, the localhost that the container sees
