@@ -5,6 +5,7 @@ import org.apache.spark.rdd.RDD
 import raw.executionserver.{DefaultSparkConfiguration, JsonLoader}
 
 import scala.reflect._
+import scala.reflect.runtime.universe._
 
 /**
  * If the type parameter used in the access path contains custom subtypes, they must be in the same package as the top
@@ -17,11 +18,11 @@ import scala.reflect._
 // Note: name and tag are execute for generating the code, while path is for creating an instance of the query.
 // The compilation and instantiation should be separated. This would allow caching the queries and executing the
 // same query with different access paths.
-case class AccessPath[T: ClassTag](name: String, path: RDD[T])(implicit val tag: ClassTag[T])
+case class AccessPath[T](name: String, path: RDD[T], tag: ClassTag[T])
 
-class Dataset[T: ClassTag](name: String, file: String, sc: SparkContext) {
-  val data: List[T] = JsonLoader.load[T](file)
+class Dataset[T: ClassTag: TypeTag](name: String, file: String, sc: SparkContext) {
+  val data: List[T] = JsonLoader.load[List[T]](file)
   val rdd = DefaultSparkConfiguration.newRDDFromJSON[T](data, sc)
-  val accessPath: AccessPath[_] = AccessPath[T](name, rdd)
+  val accessPath: AccessPath[_] = AccessPath[T](name, rdd, classTag[T])
 }
 

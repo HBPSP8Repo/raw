@@ -34,6 +34,8 @@ trait ResultConverter {
         resultTyped.map(convertToCollection(_))
       case set: Set[_] =>
         set.map(convertToCollection(_))
+      case bag: Bag[_] =>
+        bag.map(convertToCollection(_))
       case list: List[_] =>
         list.map(convertToCollection(_))
       case m: Map[_, _] =>

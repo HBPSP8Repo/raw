@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # On Linux, the web server port is mapped to the localhost interface. On Windows it is mapped into the boot2docker VM IP
 if [[ $(uname -s) == CYGWIN* || $(uname -s) == MINGW* ]]; then

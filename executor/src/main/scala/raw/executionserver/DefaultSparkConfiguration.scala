@@ -3,13 +3,10 @@ package raw.executionserver
 import java.nio.file.{FileAlreadyExistsException, Files, Paths}
 
 import com.google.common.base.Stopwatch
-import com.google.common.collect.ImmutableMultiset
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
-import raw.datasets.patients.{Diagnostic, Patient}
-import raw.datasets.publications.{Author, Publication}
 
 import scala.reflect.ClassTag
 
@@ -54,7 +51,7 @@ object DefaultSparkConfiguration extends StrictLogging {
     .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
   //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
-  def newRDDFromJSON[T](lines: List[T], sparkContext: SparkContext)(implicit ct: ClassTag[T]) = {
+  def newRDDFromJSON[T:ClassTag](lines: List[T], sparkContext: SparkContext) = {
     val start = Stopwatch.createStarted()
     val rdd: RDD[T] = sparkContext.parallelize(lines)
     logger.info("Created RDD. Partitions: " + rdd.partitions.map(p => p.index).mkString(", ") + ", partitioner: " + rdd.partitioner)
