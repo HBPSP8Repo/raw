@@ -623,29 +623,35 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val tree = build(physicalTree)
     val treeType = typer.tipe(physicalTree.logicalNode)
     val reducedTree = treeType match {
+      /*
+       Currently, we do not take advantage of the Bag semantics to optimize an RDD representing a BagType. So an RDD
+       representing a Bag containes multiple copies of equivalent elements. A possible optimization is to represent
+       a Bag as a PairRDD[Elem, Count], but this would require special handling to deal with the multiple representations
+        */
       case BagType(_) =>
-        q"""
-        val m = $tree.countByValue()
-        raw.QueryHelpers.bagBuilder(m)
-        """
+        q"""$tree.collect"""
+//        q"""
+//        val m = $tree.countByValue()
+//        raw.QueryHelpers.bagBuilder(m)
+//        """
 
+    /*
+     * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
+     * collect(), which first gets all results.
+     *
+     * - toSet is a Scala local operation.
+     */
       case ListType(_) =>
         q"""$tree
             .toLocalIterator
             .to[scala.collection.immutable.List]"""
 
-      case SetType(_) =>
-        /* - calling distinct in each partition reduces the size of the data that has to be sent to the driver,
-         *   by eliminating the duplicates early.
-         *
-         * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
-         * collect(), which first gets all results.
-         *
-         * - toSet is a Scala local operation.
-         */
-        q"""$tree.distinct
-                .toLocalIterator
-                .to[scala.collection.immutable.Set]"""
+      case n@SetType(_) =>
+        logger.info(s"Node: $n")
+        q"""$tree.collect"""
+//        q"""$tree
+//                .collect
+//                .to[scala.collection.immutable.Set]"""
 
       case _ => tree
     }

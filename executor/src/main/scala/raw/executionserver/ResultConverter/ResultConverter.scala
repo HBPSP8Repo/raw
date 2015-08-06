@@ -28,42 +28,50 @@ trait ResultConverter {
   }
 
   private[this] def convertToCollection(res: Any): Any = {
-    res match {
-      case imSet: ImmutableMultiset[_] =>
-        val resultTyped: List[Any] = toScalaList(imSet)
-        resultTyped.map(convertToCollection(_))
-      case set: Set[_] =>
-        set.map(convertToCollection(_))
-      case bag: Bag[_] =>
-        bag.map(convertToCollection(_))
-      case list: List[_] =>
-        list.map(convertToCollection(_))
-      case m: Map[_, _] =>
-        m.map({ case (k, v) => s"$k: ${convertToCollection(v)}" })
-      case p: Product =>
-        val fields: Array[Field] = p.getClass.getDeclaredFields
-        fields.map(f => {
-          f.setAccessible(true)
-          f.getName -> convertToCollection(f.get(p))
-        }
-        ).toMap
-      case _ =>
-        res.toString
+    if (res.isInstanceOf[Array[_]]) {
+      res.asInstanceOf[Array[_]].map(convertToCollection(_))
+    } else {
+      res match {
+        case imSet: ImmutableMultiset[_] =>
+          val resultTyped: List[Any] = toScalaList(imSet)
+          resultTyped.map(convertToCollection(_))
+        case set: Set[_] =>
+          set.map(convertToCollection(_))
+        case bag: Bag[_] =>
+          bag.map(convertToCollection(_))
+        case list: List[_] =>
+          list.map(convertToCollection(_))
+        case m: Map[_, _] =>
+          m.map({ case (k, v) => s"$k: ${convertToCollection(v)}" })
+        case p: Product =>
+          val fields: Array[Field] = p.getClass.getDeclaredFields
+          fields.map(f => {
+            f.setAccessible(true)
+            f.getName -> convertToCollection(f.get(p))
+          }
+          ).toMap
+        case _ =>
+          res.toString
+      }
     }
   }
 
   def convertToString(res: Any): String = {
-    res match {
-      case bag: Bag[_] =>
-        resultsToString(bag.toList)
-      case imSet: ImmutableMultiset[_] =>
-        val resultTyped: List[Any] = toScalaList(imSet)
-        resultsToString(resultTyped)
-      case set: Set[_] =>
-        resultsToString(set.toList)
-      case list: List[_] =>
-        resultsToString(list)
-      case _ => res.toString
+    if (res.isInstanceOf[Array[_]]) {
+      resultsToString(res.asInstanceOf[Array[_]].toList)
+    } else {
+      res match {
+        case bag: Bag[_] =>
+          resultsToString(bag.toList)
+        case imSet: ImmutableMultiset[_] =>
+          val resultTyped: List[Any] = toScalaList(imSet)
+          resultsToString(resultTyped)
+        case set: Set[_] =>
+          resultsToString(set.toList)
+        case list: List[_] =>
+          resultsToString(list)
+        case _ => res.toString
+      }
     }
   }
 

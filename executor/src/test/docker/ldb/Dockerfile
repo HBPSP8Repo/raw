@@ -34,9 +34,12 @@ ADD ldb-install.sh /tmp/
 RUN bash /tmp/ldb-install.sh
 EXPOSE 5000	
 
-# the server.py script must be executed from this directory, because it uses relative 
+# the server.py script must be executed from this directory, because it uses relative
 # paths to find other files.
 WORKDIR /raw/ldb/utils/pyserver
+
+RUN python load_files.py -b data/*
+
 ADD schema.odl /raw/
 ENTRYPOINT ["/usr/bin/python", "server.py", "--schema=/raw/schema.odl"]
 

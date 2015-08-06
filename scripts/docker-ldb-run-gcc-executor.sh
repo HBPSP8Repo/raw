@@ -11,4 +11,4 @@ fi
 WEB_SERVER_PORT=5001
 
 echo "Starting web server on address: ${WEB_SERVER_IP}:${WEB_SERVER_PORT}/static/index.html"
-docker run -it --rm -p ${WEB_SERVER_PORT}:5000 --entrypoint=//usr/bin/python raw/ldb server.py -r
+docker run -it --rm -p ${WEB_SERVER_PORT}:5000 --entrypoint=//usr/bin/python raw/ldb server.py

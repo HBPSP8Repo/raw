@@ -20,6 +20,7 @@ import raw.datasets.{AccessPath, Dataset}
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.utils.{DockerUtils, RawUtils}
 
+import scala.collection.TraversableLike
 import scala.collection.mutable.ArrayBuffer
 
 object PerfMainUtils {
@@ -154,7 +155,7 @@ object PerfMain extends StrictLogging with ResultConverter {
       Some(execTimes)
     }
 
-    case class OQLResults(compile: DescriptiveStatistics, exec: DescriptiveStatistics, total: DescriptiveStatistics)
+    case class OQLResults(compile: DescriptiveStatistics, exec: DescriptiveStatistics, total: DescriptiveStatistics, numberResults:Int)
 
     def timeOQL(oql: String, comp: QueryCompilerClient, accessPaths: List[AccessPath[_]]): Option[OQLResults] = {
       logger.info(s"**************** Query:\n$oql")
@@ -194,12 +195,34 @@ object PerfMain extends StrictLogging with ResultConverter {
       br.println("Execution: " + resultsToString(execTimes))
       br.println("Total    : " + resultsToString(totals))
 
+      val size = if (res.isInstanceOf[Array[_]]) {
+        res.asInstanceOf[Array[_]].length
+      } else if (res.isInstanceOf[TraversableLike[_, _]]) {
+        res.asInstanceOf[TraversableLike[_, _]].size
+      } else {
+        logger.warn(s"Unexpected result type: $res")
+        -1
+      }
+
+      br.println(s"Number of results: $size")
+
       if (Conf.saveResults()) {
         br.println(s"Query result:\n${convertToJson(res)}")
+      } else {
+        val sampleSize = 2
+        val resHead = if (res.isInstanceOf[Array[_]]) {
+          res.asInstanceOf[Array[_]].take(sampleSize)
+        } else if (res.isInstanceOf[TraversableLike[_, _]]) {
+          res.asInstanceOf[TraversableLike[_, _]].take(sampleSize)
+        } else {
+          logger.warn(s"Unexpected result type: $res")
+          null
+        }
+        br.println(s"Query result:\n${convertToJson(resHead)}")
       }
       br.close()
 
-      Some(OQLResults(compileTimes, execTimes, totals))
+      Some(OQLResults(compileTimes, execTimes, totals, size))
     }
 
     def writeSparkConfiguration(path: Path) = {
@@ -276,9 +299,10 @@ object PerfMain extends StrictLogging with ResultConverter {
             case s: String =>
               timeOQL(s, comp, accessPaths) match {
                 case Some(queryRes) =>
-                  s"    Compile: ${statsToString(queryRes.compile)}\n" +
+                    s"    Compile: ${statsToString(queryRes.compile)}\n" +
                     s"    Exec:    ${statsToString(queryRes.exec)}\n" +
-                    s"    Total:   ${statsToString(queryRes.total)}"
+                    s"    Total:   ${statsToString(queryRes.total)}\n" +
+                    s"    #results: ${queryRes.numberResults}"
                 case None => "Fail"
               }
           }
