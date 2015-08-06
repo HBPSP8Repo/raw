@@ -11,7 +11,7 @@ git checkout 437c10b73ae4b83306f77c851cf8385172ae3759
 cd ..
 autoreconf -vif
 automake --add-missing
-./configure --enable-redirect-malloc --enable-large-config
+./configure --enable-threads=posix --enable-thread-local-alloc --enable-parallel-mark --enable-cplusplus --enable-static --disable-shared
 git apply <<EOF
 diff --git a/misc.c b/misc.c
 index 93e8665..69e072d 100644
