@@ -1,10 +1,11 @@
 package raw.publications.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class ComplexTest extends AbstractSparkPublicationsTest {
+class ComplexTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
-  ignore("Complex0") {
+  test("Complex0") {
     val oql = """
           select * from (select article.title, min(article.phd) as mphd, max(article.profs) as mprofs, count(article.phd) as cphd, count(article.profs) as cprofs from (
         select doc.p.title as title,

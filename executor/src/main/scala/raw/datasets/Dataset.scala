@@ -2,6 +2,8 @@ package raw.datasets
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import raw.datasets.patients.Patients
+import raw.datasets.publications.Publications
 import raw.executionserver.{DefaultSparkConfiguration, JsonLoader}
 
 import scala.reflect._
@@ -18,11 +20,23 @@ import scala.reflect.runtime.universe._
 // Note: name and tag are execute for generating the code, while path is for creating an instance of the query.
 // The compilation and instantiation should be separated. This would allow caching the queries and executing the
 // same query with different access paths.
-case class AccessPath[T](name: String, path: RDD[T], tag: ClassTag[T])
+case class AccessPath[T <: Product](name: String, path: RDD[T], tag: TypeTag[T])
 
-class Dataset[T: ClassTag: TypeTag](name: String, file: String, sc: SparkContext) {
-  val data: List[T] = JsonLoader.load[List[T]](file)
-  val rdd = DefaultSparkConfiguration.newRDDFromJSON[T](data, sc)
-  val accessPath: AccessPath[_] = AccessPath[T](name, rdd, classTag[T])
+object AccessPath {
+  def loadJSON[T <: Product : ClassTag : TypeTag](name: String, file: String, sc: SparkContext): AccessPath[T] = {
+    val data: List[T] = JsonLoader.load[List[T]](file)
+    val rdd = DefaultSparkConfiguration.newRDDFromJSON[T](data, sc)
+    val accessPath: AccessPath[T] = new AccessPath[T](name, rdd, typeTag[T])
+    accessPath
+  }
+
+  def loadDataset(dsName: String, sc: SparkContext): List[AccessPath[_ <: Product]] = {
+    dsName match {
+      case "publications" => Publications.publications(sc)
+      case "publicationsSmallDups" => Publications.publicationsSmallDups(sc)
+      case "publicationsLarge" => Publications.publicationsLarge(sc)
+      case "patients" => Patients.loadPatients(sc)
+      case _ => throw new IllegalArgumentException(s"Invalid dataset: $dsName. Valid options: publications, publicationsSmallDups, publicationsLarge, patients.")
+    }
+  }
 }
-

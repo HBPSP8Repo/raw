@@ -1,9 +1,9 @@
 package raw
 
-import raw.perf.QueryCompilerClient
+import raw.datasets.publications.Publications
 import raw.publications.AbstractSparkPublicationsTest
 
-class ExecutionServerTest extends AbstractSparkPublicationsTest with LDBDockerContainer {
+class ExecutionServerTest extends AbstractSparkPublicationsTest(Publications.publications) {
   val countAuthors = """Reduce(SumMonoid(),
      IntConst(1),
      BoolConst(true),

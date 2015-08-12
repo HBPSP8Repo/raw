@@ -7,8 +7,9 @@ import common
 templateClass ="""package %(package)s.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class %(name)sTest extends AbstractSparkPublicationsTest {
+class %(name)sTest extends AbstractSparkPublicationsTest(Publications.publications) {
 %(testMethods)s
 }
 """

@@ -9,8 +9,14 @@ trait LDBDockerContainer extends BeforeAndAfterAll with StrictLogging {
 
   override def beforeAll() {
     super.beforeAll()
-    DockerUtils.setEnvironment()
-    DockerUtils.startDocker()
+    try {
+      DockerUtils.setEnvironment()
+      DockerUtils.startDocker()
+    } catch {
+      case ex: Exception =>
+        super.afterAll()
+        throw ex
+    }
   }
 
   override def afterAll(): Unit = {

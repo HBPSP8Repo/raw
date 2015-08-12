@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.datasets.Dataset
+import raw.datasets.AccessPath
 import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
 import raw.perf.QueryCompilerClient
@@ -33,14 +33,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
       new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
     }
 
-    val ds: List[Dataset[_]] = Conf.dataset.get match {
-      case Some("publications") => Publications.loadPublications(sc)
-      case Some("publications-large") => Publications.loadPublicationsLarge(sc)
-      case Some("patients") => Patients.loadPatients(sc)
-      case _ => println(s"Unknown dataset: ${Conf.dataset}"); return
-    }
-    val accessPaths = ds.map(ds => ds.accessPath)
-
+    val accessPaths = AccessPath.loadDataset(Conf.dataset(), sc)
 
     val executionServer = new QueryCompilerClient(rawClassLoader)
     val port = 54321

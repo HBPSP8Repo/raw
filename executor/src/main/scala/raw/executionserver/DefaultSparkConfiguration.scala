@@ -39,11 +39,24 @@ object DefaultSparkConfiguration extends StrictLogging {
 
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     .registerKryoClasses(Array(classOf[Publication], classOf[Author], classOf[Patient], classOf[Diagnostic]))
+//    .set("spark.kryo.referenceTracking", "false")
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")
     .set("spark.eventLog.dir", eventDirectory.toString)
     .set("spark.metrics.conf", metricsConf.toString)
+
+    /* codegen is still buggy:
+    the query below produces the wrong results, where the results do not contain all the keywords.
+    Additionally, execution is not consistent, it produces different number of results in each run.
+      select * from publications
+      where array_contains(controlledterms, "particle detectors")
+      and array_contains(controlledterms, "elemental semiconductors")
+      and array_contains(controlledterms, "magnetic levitation")
+      and array_contains(controlledterms, "titanium")
+      and array_contains(controlledterms, "torque")
+      */
+//    .set("spark.sql.codegen", "true")
 
     // Spark SQL configuration
     //  https://spark.apache.org/docs/latest/sql-programming-guide.html

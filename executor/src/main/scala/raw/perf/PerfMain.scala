@@ -7,16 +7,13 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.google.common.base.Stopwatch
-import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
-import raw.datasets.patients.Patients
-import raw.datasets.publications.Publications
-import raw.datasets.{AccessPath, Dataset}
+import raw.datasets.AccessPath
 import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.utils.{DockerUtils, RawUtils}
 
@@ -24,14 +21,6 @@ import scala.collection.TraversableLike
 import scala.collection.mutable.ArrayBuffer
 
 object PerfMainUtils {
-
-  abstract sealed class DatasetType
-
-  case class PublicationsDS() extends DatasetType
-
-  case class PublicationsLargeDS() extends DatasetType
-
-  case class PatientsDS() extends DatasetType
 
   case class Query(name: String, oql: String, hql: String)
 
@@ -76,13 +65,13 @@ object PerfMainUtils {
     oqlCount += 1
     s"OQLQuery$oqlCount.txt"
   }
-
 }
 
 /* From SBT, project executor:
  * run -r 1 -t oql -d publications  src\main\resources\perf\trial.xml
  */
 object PerfMain extends StrictLogging with ResultConverter {
+
   import PerfMainUtils._
 
   // This custom classloader must be created and set as the context classloader
@@ -103,14 +92,21 @@ object PerfMain extends StrictLogging with ResultConverter {
    */
   lazy val sqlContext: HiveContext = new HiveContext(sc)
 
-  def readJson(resource: String, tableName: String): DataFrame = {
-    val url = Resources.getResource(resource)
-    val fullpath = Paths.get(url.toURI).toString
-    val df = sqlContext.read.json(fullpath)
-    df.registerTempTable(tableName)
+  //  def readJson(resource: String, tableName: String): DataFrame = {
+  //    val url = Resources.getResource(resource)
+  //    val fullpath = Paths.get(url.toURI).toString
+  //    val df = sqlContext.read.json(fullpath)
+  //    df.registerTempTable(tableName)
+  //    logger.info(s"Loaded ${df.count()} rows from $resource. Registered as $tableName")
+  //    df
+  //  }
+
+  def registerTable[T <: scala.Product](ap: AccessPath[T]): DataFrame = {
+    val df: DataFrame = sqlContext.implicits.rddToDataFrameHolder(ap.path)(ap.tag).toDF()
+    df.registerTempTable(ap.name)
+    logger.info(s"Loaded ${df.count()} rows. Registered as ${ap.name}")
     df
   }
-
 
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
@@ -123,7 +119,9 @@ object PerfMain extends StrictLogging with ResultConverter {
       val queryFile = trailArg[String](required = true)
     }
 
-    def timeHQL(hql: String): Option[DescriptiveStatistics] = {
+    case class HQLResults(exec: DescriptiveStatistics, numberResults: Int)
+
+    def timeHQL(hql: String): Option[HQLResults] = {
       logger.info(s"Testing query:\n$hql")
 
       val p = Paths.get(Conf.outputDir(), nextHQLFilename())
@@ -152,10 +150,10 @@ object PerfMain extends StrictLogging with ResultConverter {
       }
       br.close()
 
-      Some(execTimes)
+      Some(HQLResults(execTimes, res.length))
     }
 
-    case class OQLResults(compile: DescriptiveStatistics, exec: DescriptiveStatistics, total: DescriptiveStatistics, numberResults:Int)
+    case class OQLResults(compile: DescriptiveStatistics, exec: DescriptiveStatistics, total: DescriptiveStatistics, numberResults: Int)
 
     def timeOQL(oql: String, comp: QueryCompilerClient, accessPaths: List[AccessPath[_]]): Option[OQLResults] = {
       logger.info(s"**************** Query:\n$oql")
@@ -200,8 +198,8 @@ object PerfMain extends StrictLogging with ResultConverter {
       } else if (res.isInstanceOf[TraversableLike[_, _]]) {
         res.asInstanceOf[TraversableLike[_, _]].size
       } else {
-        logger.warn(s"Unexpected result type: $res")
-        -1
+        logger.warn(s"Result is not a sequence or an array: ${res.getClass}.")
+        1
       }
 
       br.println(s"Number of results: $size")
@@ -215,8 +213,7 @@ object PerfMain extends StrictLogging with ResultConverter {
         } else if (res.isInstanceOf[TraversableLike[_, _]]) {
           res.asInstanceOf[TraversableLike[_, _]].take(sampleSize)
         } else {
-          logger.warn(s"Unexpected result type: $res")
-          null
+          res
         }
         br.println(s"Query result:\n${convertToJson(resHead)}")
       }
@@ -236,12 +233,6 @@ object PerfMain extends StrictLogging with ResultConverter {
       sparkConfigBW.close()
     }
 
-    val dataset = Conf.dataset() match {
-      case "publications" => PublicationsDS
-      case "publicationsLarge" => PublicationsLargeDS
-      case "patients" => PatientsDS
-      case _ => throw new IllegalArgumentException("Invalid dataset")
-    }
 
     val queries = readQueries(Conf.queryFile())
 
@@ -253,19 +244,11 @@ object PerfMain extends StrictLogging with ResultConverter {
     val runOQL = Conf.runQueryType() == "all" || Conf.runQueryType() == "oql"
     val runHQL = Conf.runQueryType() == "all" || Conf.runQueryType() == "hql"
 
+
     val hqlResults = new ArrayBuffer[String]()
     if (runHQL) {
-      // Load and register as tables the data sources
-      dataset match {
-        case PublicationsDS =>
-          readJson("data/publications/publications.json", "publications")
-          readJson("data/publications/authors.json", "authors")
-        case PublicationsLargeDS =>
-          readJson("data/publications/publicationsLarge.json", "publications")
-          readJson("data/publications/authors.json", "authors")
-        case PatientsDS =>
-          readJson("data/patients/patients.json", "patients")
-      }
+      val datasets = AccessPath.loadDataset(Conf.dataset(), sc)
+      datasets.foreach(ds => registerTable(ds))
 
       // Execute the tests
       for (q <- queries) {
@@ -273,7 +256,9 @@ object PerfMain extends StrictLogging with ResultConverter {
           case s: String if s == null || s == "" => "Not run"
           case s: String =>
             timeHQL(s) match {
-              case Some(qr) => s"    Total:   ${statsToString(qr)}"
+              case Some(qr) =>
+                s"    Total:   ${statsToString(qr.exec)}\n" +
+                  s"    #results: ${qr.numberResults}"
               case None => "Fail"
             }
         }
@@ -283,12 +268,7 @@ object PerfMain extends StrictLogging with ResultConverter {
 
     val oqlResults = new ArrayBuffer[String]()
     if (runOQL) {
-      val ds: List[Dataset[_]] = dataset match {
-        case PublicationsDS => Publications.loadPublications(sc)
-        case PublicationsLargeDS => Publications.loadPublicationsLarge(sc)
-        case PatientsDS => Patients.loadPatients(sc)
-      }
-      val accessPaths = ds.map(ds => ds.accessPath)
+      val aps = AccessPath.loadDataset(Conf.dataset(), sc)
       val comp = new QueryCompilerClient(rawClassLoader, outputDir)
       DockerUtils.setEnvironment()
       DockerUtils.startDocker()
@@ -297,9 +277,9 @@ object PerfMain extends StrictLogging with ResultConverter {
           val res = q.oql match {
             case s: String if s == null || s == "" => "Not run"
             case s: String =>
-              timeOQL(s, comp, accessPaths) match {
+              timeOQL(s, comp, aps) match {
                 case Some(queryRes) =>
-                    s"    Compile: ${statsToString(queryRes.compile)}\n" +
+                  s"    Compile: ${statsToString(queryRes.compile)}\n" +
                     s"    Exec:    ${statsToString(queryRes.exec)}\n" +
                     s"    Total:   ${statsToString(queryRes.total)}\n" +
                     s"    #results: ${queryRes.numberResults}"

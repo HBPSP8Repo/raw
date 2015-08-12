@@ -1,8 +1,9 @@
 package raw.publications.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class JoinTest extends AbstractSparkPublicationsTest {
+class JoinTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
   test("Join0") {
     val oql = """

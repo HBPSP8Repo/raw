@@ -231,7 +231,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             case _: MaxMonoid => ???
             case _: MultiplyMonoid => ???
             case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
-            case _: OrMonoid => ???
+            case _: OrMonoid => s"${recurse(e1)} || ${recurse(e2)}"
             case _: SetMonoid => s"${recurse(e1)} ++ ${recurse(e2)}"
             case _: BagMonoid => ???
             case _: ListMonoid => ???

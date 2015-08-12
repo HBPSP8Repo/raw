@@ -1,8 +1,9 @@
 package raw.publications.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class AssignTest extends AbstractSparkPublicationsTest {
+class AssignTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
   test("Assign0") {
     val oql = """

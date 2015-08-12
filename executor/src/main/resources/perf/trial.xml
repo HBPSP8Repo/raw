@@ -30,18 +30,18 @@
     <!--]]>-->
     <!--</hql>-->
     <!--</query>-->
-    <query name="With distinct">
-        <oql>
-            select distinct author, (select distinct P from partition) as articles
-            from publications P, P.authors A
-            group by author: A
-        </oql>
-        <hql>
-            SELECT distinct title, collect_list(name), collect_list(year)
-            FROM authors
-            GROUP BY title
-        </hql>
-    </query>
+    <!--<query name="With distinct">-->
+    <!--<oql>-->
+    <!--select distinct author, (select distinct P from partition) as articles-->
+    <!--from publications P, P.authors A-->
+    <!--group by author: A-->
+    <!--</oql>-->
+    <!--<hql>-->
+    <!--SELECT distinct authorExp, title, authors, affiliations, controlledterms-->
+    <!--FROM publications LATERAL VIEW explode (authors) t1 AS authorExp-->
+    <!--ORDER BY authorExp-->
+    <!--</hql>-->
+    <!--</query>-->
     <query name="Without distinct">
         <oql>
             select author, (select P from partition) as articles
@@ -49,9 +49,27 @@
             group by author: A
         </oql>
         <hql>
-            SELECT title, collect_list(name), collect_list(year)
-            FROM authors
-            GROUP BY title
+            SELECT authorExp, title, authors, affiliations, controlledterms
+            FROM publications LATERAL VIEW explode (authors) t1 AS authorExp
+            ORDER BY authorExp
         </hql>
     </query>
+    <!--<query name="select where multiple predicates in array">-->
+    <!--<oql>-->
+    <!--select P from publications P-->
+    <!--where "particle detectors" in P.controlledterms-->
+    <!--and "elemental semiconductors" in P.controlledterms-->
+    <!--and "magnetic levitation" in P.controlledterms-->
+    <!--and "titanium" in P.controlledterms-->
+    <!--and "torque" in P.controlledterms-->
+    <!--</oql>-->
+    <!--<hql>-->
+    <!--SELECT * FROM publications-->
+    <!--WHERE array_contains(controlledterms, "particle detectors")-->
+    <!--AND array_contains(controlledterms, "elemental semiconductors")-->
+    <!--AND array_contains(controlledterms, "magnetic levitation")-->
+    <!--AND array_contains(controlledterms, "titanium")-->
+    <!--AND array_contains(controlledterms, "torque")-->
+    <!--</hql>-->
+    <!--</query>-->
 </queries>

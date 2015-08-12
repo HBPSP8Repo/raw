@@ -102,7 +102,17 @@ lazy val executor = (project in file("executor")).
 
     // javaOptions is used for forked VMs (fork := true) not when running in process.
     //    javaOptions in run += """-Dspark.master=spark://192.168.1.32:7077""",
-    javaOptions ++= Seq("""-Dspark.master=local[2]""", """-Dfoo=bar"""),
+    /*
+     http://docs.oracle.com/javacomponents/jmc-5-5/jfr-runtime-guide/run.htm
+     -XX:FlightRecorderOptions
+      delay=XX[smhd]
+      duration=XX[smhd]
+      dumponexit=true,dumponexitpath=path
+     */
+    javaOptions ++= Seq("""-Dspark.master=local[2]"""),
+//        """-XX:+UnlockCommercialFeatures""",
+//        """-XX:+FlightRecorder""",
+//        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
     // build a JAR with the Spark application plus transitive dependencies.
     // https://github.com/sbt/sbt-assembly
     test in assembly := {}, // Do not run tests when building the assembly

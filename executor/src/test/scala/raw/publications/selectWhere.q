@@ -1,6 +1,5 @@
 select a from authors a where a.title = "PhD"
 
-
 val expected = convertExpected("""
 [name: Anderson, C.C., title: PhD, year: 1992]
 [name: Bellet-Amalric, E., title: PhD, year: 1964]
@@ -18,6 +17,17 @@ val expected = convertExpected("""
 [name: Takada, S., title: PhD, year: 1959]
 [name: Takeno, K., title: PhD, year: 1973]
 [name: Wuttig, M., title: PhD, year: 1991]
+""")
+
+--
+
+select a from authors a
+where a.year = 1973 or a.year = 1975
+
+val expected = convertExpected("""
+[name: Neuhauser, B., title: professor, year: 1973]
+[name: Sarigiannidou, E., title: PhD, year: 1975]
+[name: Takeno, K., title: PhD, year: 1973]
 """)
 
 --

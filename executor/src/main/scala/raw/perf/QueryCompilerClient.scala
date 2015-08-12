@@ -90,7 +90,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
   private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     //    logger.info("Access paths: " + accessPaths)
     val queryName = QueryCompilerClient.newClassName()
-    val aps: List[String] = accessPaths.map(ap => ap.tag.toString())
+    val aps: List[String] = accessPaths.map(ap => ap.tag.tpe.typeSymbol.fullName)
     logger.info(s"Access paths: $aps")
 
     /* For every top level type argument of the access path, import the containing package. The is, for the following
@@ -107,7 +107,8 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     }).toSet.mkString("\n")
 
     //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
-    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
+//    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
+    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.tpe.typeSymbol.name}]").mkString(", ")
 
     val code = s"""
 package raw.query

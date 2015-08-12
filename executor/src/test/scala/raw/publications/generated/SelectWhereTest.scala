@@ -1,8 +1,9 @@
 package raw.publications.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class SelectWhereTest extends AbstractSparkPublicationsTest {
+class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
   test("SelectWhere0") {
     val oql = """
@@ -10,7 +11,6 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
-    
     val expected = convertExpected("""
     [name: Anderson, C.C., title: PhD, year: 1992]
     [name: Bellet-Amalric, E., title: PhD, year: 1964]
@@ -34,6 +34,21 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
 
   test("SelectWhere1") {
     val oql = """
+          select a from authors a
+    where a.year = 1973 or a.year = 1975
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val actual = convertToString(result)
+    val expected = convertExpected("""
+    [name: Neuhauser, B., title: professor, year: 1973]
+    [name: Sarigiannidou, E., title: PhD, year: 1975]
+    [name: Takeno, K., title: PhD, year: 1973]
+    """)
+    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+  }
+
+  test("SelectWhere2") {
+    val oql = """
           select P from publications P
     where "particle detectors" in P.controlledterms
         and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
@@ -54,7 +69,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest {
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
-  test("SelectWhere2") {
+  test("SelectWhere3") {
     val oql = """
           select P from publications P
     where "particle detectors" in P.controlledterms

@@ -1,8 +1,9 @@
 package raw.publications.generated
 
 import raw.publications.AbstractSparkPublicationsTest
+import raw.datasets.publications.Publications
 
-class GroupByTest extends AbstractSparkPublicationsTest {
+class GroupByTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
   test("GroupBy0") {
     val oql = """
