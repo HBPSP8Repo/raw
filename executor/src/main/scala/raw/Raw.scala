@@ -270,7 +270,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => q"false"
       case _: SumMonoid => q"0"
       case _: MultiplyMonoid => q"1"
-      case _: MaxMonoid => q"0" // TODO: Fix since it is not a monoid
+      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
     def fold(m: PrimitiveMonoid): Tree = m match {
@@ -278,7 +278,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => q"((a, b) => a || b)"
       case _: SumMonoid => q"((a, b) => a + b)"
       case _: MultiplyMonoid => q"((a, b) => a * b)"
-      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
+//      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
+      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
     def zeroExp(m: PrimitiveMonoid): Const = m match {
@@ -286,7 +287,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => BoolConst(false)
       case _: SumMonoid => IntConst("0")
       case _: MultiplyMonoid => IntConst("1")
-      case _: MaxMonoid => IntConst("0") // TODO: Fix since it is not a monoid
+      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
     def build(a: PhysicalAlgebraNode): Tree = a match {
@@ -459,6 +460,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
        .map($eCode)
      """
         val code = m match {
+          case m1: MaxMonoid => q"""$filterMapCode.max()"""
+          case m1: MinMonoid => q"""$filterMapCode.min()"""
           case m1: PrimitiveMonoid =>
             /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
              * Compare the Spark implementations versus a generic code generator based on fold
@@ -488,6 +491,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val tp = c.parse(st)
 
         val code = m match {
+          case m1: MinMonoid =>
+            q"""
+            val grouped = $childTree.groupBy($fCode)
+            grouped.mapValues(v => v
+                .filter($pCode)
+                .map($eCode)
+                .min)
+            """
+          case m1: MaxMonoid =>
+            q"""
+            val grouped = $childTree.groupBy($fCode)
+            grouped.mapValues(v => v
+                .filter($pCode)
+                .map($eCode)
+                .max)
+            """
+
           case m1: PrimitiveMonoid =>
             val z1 = zeroExp(m1)
             val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
