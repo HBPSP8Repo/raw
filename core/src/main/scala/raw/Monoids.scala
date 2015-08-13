@@ -18,6 +18,10 @@ case class MaxMonoid() extends NumberMonoid {
   def idempotent = true
 }
 
+case class MinMonoid() extends NumberMonoid {
+  def idempotent = true
+}
+
 case class MultiplyMonoid() extends NumberMonoid {
   def idempotent = false
 }
