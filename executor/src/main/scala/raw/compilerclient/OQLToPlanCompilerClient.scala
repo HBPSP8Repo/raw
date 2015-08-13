@@ -7,6 +7,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
+import org.slf4j.LoggerFactory
 import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
 import raw.algebra.LogicalAlgebraParser
 
@@ -14,6 +15,7 @@ import scala.io.Source
 
 
 object OQLToPlanCompilerClient extends StrictLogging {
+  val loggerQueries = LoggerFactory.getLogger("raw.queries")
   val compileServerUrlProperty = "raw.compile.server.host"
   val serverUrl: String = System.getProperty(compileServerUrlProperty, "http://localhost:5001/raw-plan")
 
@@ -22,6 +24,7 @@ object OQLToPlanCompilerClient extends StrictLogging {
     //    val p = Files.createTempFile("logicalPlan-", ".txt")
     //    Files.write(p, logicalPlan.getBytes(StandardCharsets.UTF_8))
     logger.info(s"Raw logical algebra:\n$logicalPlan")
+    loggerQueries.info(s"LDB generated logical plan:\n${logicalPlan}")
     LogicalAlgebraParser(logicalPlan)
   }
 

@@ -7,6 +7,19 @@
         </encoder>
     </appender>
 
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>queries.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="raw.queries" additivity="false" level="INFO">
+        <appender-ref ref="FILE" />
+    </logger>
+
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>

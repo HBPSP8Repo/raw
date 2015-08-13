@@ -5,7 +5,7 @@ import raw.datasets.publications.Publications
 
 class ComplexTest extends AbstractSparkPublicationsTest(Publications.publications) {
 
-  test("Complex0") {
+  ignore("Complex0") {
     val oql = """
           select * from (select article.title, min(article.phd) as mphd, max(article.profs) as mprofs, count(article.phd) as cphd, count(article.profs) as cprofs from (
         select doc.p.title as title,

@@ -1,6 +1,7 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
+import org.slf4j.LoggerFactory
 import raw.algebra.LogicalAlgebra.{LogicalAlgebraNode, Reduce}
 import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
@@ -32,6 +33,7 @@ object RawImpl {
 }
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
+  val loggerQueries = LoggerFactory.getLogger("raw.queries")
 
   import c.universe._
 
@@ -630,17 +632,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         */
       case BagType(_) =>
         q"""$tree.collect"""
-//        q"""
-//        val m = $tree.countByValue()
-//        raw.QueryHelpers.bagBuilder(m)
-//        """
+      //        q"""
+      //        val m = $tree.countByValue()
+      //        raw.QueryHelpers.bagBuilder(m)
+      //        """
 
-    /*
-     * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
-     * collect(), which first gets all results.
-     *
-     * - toSet is a Scala local operation.
-     */
+      /*
+       * - toLocalIterator() retrieves one partition at a time by the driver, which requires less memory than
+       * collect(), which first gets all results.
+       *
+       * - toSet is a Scala local operation.
+       */
       case ListType(_) =>
         q"""$tree
             .toLocalIterator
@@ -649,9 +651,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n@SetType(_) =>
         logger.info(s"Node: $n")
         q"""$tree.collect"""
-//        q"""$tree
-//                .collect
-//                .to[scala.collection.immutable.Set]"""
+      //        q"""$tree
+      //                .collect
+      //                .to[scala.collection.immutable.Set]"""
 
       case _ => tree
     }
@@ -800,6 +802,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val sources = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
     val world = new World(sources)
 
+    loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
     val parseResult: Either[QueryError, LogicalAlgebraNode] = queryLanguage match {
       case OQL => parseOqlQuery(query, world)
@@ -810,7 +813,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(logicalTree) =>
         var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
-        logger.info(s"Algebra pretty:\n${algebraStr}")
+        logger.info(s"Algebra:\n${algebraStr}")
+        loggerQueries.info(s"Algebra:\n${algebraStr}")
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
         logger.info("Physical algebra: {}", PhysicalAlgebraPrettyPrinter(physicalTree))
@@ -821,6 +825,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val generatedTree: Tree = buildCode(physicalTree, world, typer)
         //        logger.info("Query execution code:\n{}", showCode(generatedTree))
+        loggerQueries.info(s"Scala code:\n${showCode(generatedTree)}")
 
         /* Generate the actual scala code. Need to extract the class parameters and the body from the annotated
         class. The body and the class parameters will be copied unmodified in the resulting code.

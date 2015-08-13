@@ -1,4 +1,3 @@
-<!-- Controls logging when using the sbt console -->
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!-- encoders are assigned the type
@@ -8,9 +7,21 @@
         </encoder>
     </appender>
 
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>queries.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
+
+    <logger name="raw.queries" additivity="false" level="INFO">
+        <appender-ref ref="FILE" />
+    </logger>
 
     <logger name="raw" level="DEBUG"/>
     <logger name="akka" level="INFO"/>
