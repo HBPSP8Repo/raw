@@ -9,7 +9,7 @@ if [[ $(uname -s) == CYGWIN* || $(uname -s) == MINGW* ]]; then
 	SCALA_SERVER_HOST=$(ipconfig | grep "IPv4 Address" | head -n 1 | cut -c 40-55)
 	WEB_SERVER_IP=$(boot2docker ip)
 else
-	SCALA_SERVER_HOST=localhost
+	SCALA_SERVER_HOST=$(/sbin/ifconfig docker0|grep 'inet addr' | sed 's/inet addr:\([0-9\.]*\).*/\1/')
 	WEB_SERVER_IP=localhost
 fi
 
