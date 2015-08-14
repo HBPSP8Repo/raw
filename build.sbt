@@ -73,19 +73,20 @@ lazy val executor = (project in file("executor")).
     fork := true,
 
     // Alternative to start SBT with -D...=... Applies to tasks launched within the VM which runs SBT
-    initialize ~= { _ =>
-      val dockerAddress = System.getenv().get("DOCKER_HOST")
-      val ldbServerAddress = if (dockerAddress == null) {
-        println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
-        "http://localhost:5001/raw-plan"
-      } else {
-        println("Docker host: " + dockerAddress)
-        val uri = new URI(dockerAddress)
-        s"http://${uri.getHost}:5001/raw-plan"
-      }
-      println(s"RAW compilation server at $ldbServerAddress")
-      System.setProperty("raw.compile.server.host", ldbServerAddress)
-    },
+    // No longer needed, done by LDBDockerContainer.scala
+//    initialize ~= { _ =>
+//      val dockerAddress = System.getenv().get("DOCKER_HOST")
+//      val ldbServerAddress = if (dockerAddress == null) {
+//        println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
+//        "http://localhost:5001/raw-plan"
+//      } else {
+//        println("Docker host: " + dockerAddress)
+//        val uri = new URI(dockerAddress)
+//        s"http://${uri.getHost}:5001/raw-plan"
+//      }
+//      println(s"RAW compilation server at $ldbServerAddress")
+//      System.setProperty("raw.compile.server.host", ldbServerAddress)
+//    },
 
     testOptions in Test += Tests.Setup(() => {
       val path = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
