@@ -11,8 +11,10 @@ object Publications {
   def loadPublications_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publications.json", sc)
   def loadPublicationsLarge_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publicationsLarge.json", sc)
   def loadPublicationsSmallDups_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publicationsSmallWithDups.json", sc)
+  def loadPublicationsSmall_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publicationsSmall.json", sc)
 
   def publications(sc: SparkContext) = List(loadAuthors_(sc), loadPublications_(sc))
   def publicationsLarge(sc: SparkContext) = List(loadAuthors_(sc),loadPublicationsLarge_(sc))
   def publicationsSmallDups(sc: SparkContext) = List(loadAuthors_(sc), loadPublicationsSmallDups_(sc))
+  def publicationsSmall(sc: SparkContext) = List(loadAuthors_(sc), loadPublicationsSmall_(sc))
 }

@@ -4,18 +4,21 @@ import java.io.StringWriter
 import java.lang.reflect.Field
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectWriter, ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
+import org.slf4j.LoggerFactory
 
 import scala.collection.{Bag, JavaConversions}
 
 trait ResultConverter {
+  val loggerQueries = LoggerFactory.getLogger("raw.queries")
+
   private[this] val mapper = {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     om.configure(SerializationFeature.INDENT_OUTPUT, true)
-//    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
     om.setSerializationInclusion(Include.NON_EMPTY)
     om
   }
@@ -57,22 +60,25 @@ trait ResultConverter {
   }
 
   def convertToString(res: Any): String = {
-    if (res.isInstanceOf[Array[_]]) {
-      resultsToString(res.asInstanceOf[Array[_]].toList)
-    } else {
-      res match {
-        case bag: Bag[_] =>
-          resultsToString(bag.toList)
-        case imSet: ImmutableMultiset[_] =>
-          val resultTyped: List[Any] = toScalaList(imSet)
-          resultsToString(resultTyped)
-        case set: Set[_] =>
-          resultsToString(set.toList)
-        case list: List[_] =>
-          resultsToString(list)
-        case _ => res.toString
+    val result:String =
+      if (res.isInstanceOf[Array[_]]) {
+        resultsToString(res.asInstanceOf[Array[_]].toList)
+      } else {
+        res match {
+          case bag: Bag[_] =>
+            resultsToString(bag.toList)
+          case imSet: ImmutableMultiset[_] =>
+            val resultTyped: List[Any] = toScalaList(imSet)
+            resultsToString(resultTyped)
+          case set: Set[_] =>
+            resultsToString(set.toList)
+          case list: List[_] =>
+            resultsToString(list)
+          case _ => res.toString
+        }
       }
-    }
+    loggerQueries.info(s"Result:\n$result")
+    result
   }
 
   private[this] def toScalaList[T](s: ImmutableMultiset[T]) = {
@@ -83,9 +89,9 @@ trait ResultConverter {
     l.map(valueToString(_)).sorted.mkString("\n")
   }
 
-//  private[this] def resultsToString[T](s: Set[T]): String = {
-//    resultsToString(s.toList)
-//  }
+  //  private[this] def resultsToString[T](s: Set[T]): String = {
+  //    resultsToString(s.toList)
+  //  }
 
   private[this] def valueToString[T](value: Any): String = {
     value match {
@@ -93,7 +99,8 @@ trait ResultConverter {
       case s: Set[_] => s.map(valueToString(_)).toList.sorted.mkString("[", ", ", "]")
       case ms: ImmutableMultiset[_] => toScalaList(ms).map(valueToString(_)).sorted.mkString("[", ", ", "]")
       case m: Map[_, _] => m.map({ case (k, v) => s"$k: ${valueToString(v)}" }).toList.sorted.mkString("[", ", ", "]")
-      case p: Product =>  valueToString(caseClassToMapOfStrings(p))
+      case p: Product => valueToString(caseClassToMapOfStrings(p))
+      case null => "null"
       case _ => value.toString
     }
   }
