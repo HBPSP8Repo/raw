@@ -26,9 +26,32 @@ object DockerUtils extends StrictLogging {
 
   def startDocker(): Unit = {
     println("Starting docker")
-    val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
-    println(s"Started container: $cID")
-    dockerCID = cID
+    dockerCID = ("docker run -d --name=ldb -p 5001:5000 raw/ldb".!!).trim
+    logger.info(s"Started container: $dockerCID")
+
+    (1 to 10).foreach(i => {
+      logger.info("Waiting for LDB server to start")
+      val sb = new StringBuilder
+      s"docker logs $dockerCID" ! ProcessLogger(sb.append(_), sb.append(_))
+      val output = sb.toString()
+      logger.info(s"Output: $output")
+      if (output.contains("Running on")) {
+        logger.info(s"LDB web server started")
+        return
+      }
+      try {
+        Thread.sleep(500)
+      } catch {
+        case ex:Exception => ex.printStackTrace()
+      }
+    }
+    )
+    try {
+      stopDocker()
+    } catch {
+      case ex:Exception => // ignore
+    }
+    throw new RuntimeException("LDB failed to start.")
   }
 
   def stopDocker(): Unit = {
