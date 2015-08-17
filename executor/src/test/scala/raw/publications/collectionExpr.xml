@@ -1,0 +1,64 @@
+<queries dataset="publications">
+    <query>
+        <oql>
+            min(select year from authors)
+        </oql>
+        <result>
+            1951
+        </result>
+    </query>
+
+    <query>
+        <oql>
+            max(select year from authors)
+        </oql>
+        <result>
+            1994
+        </result>
+    </query>
+
+    <query>
+        <oql>
+            sum(select year from authors)
+        </oql>
+        <result>
+            98724
+        </result>
+    </query>
+
+    <query disabled="https://github.com/raw-db/ldb/issues/25">
+        <oql>
+            avg(select year from authors)
+        </oql>
+        <result>
+            1974
+        </result>
+    </query>
+
+    <query>
+        <oql>
+            count(select year from authors)
+        </oql>
+        <result>
+            50
+        </result>
+    </query>
+
+    <query disabled="https://github.com/raw-db/ldb/issues/25">
+        <oql>
+            unique(select year from authors)
+        </oql>
+        <result>
+            false
+        </result>
+    </query>
+
+    <query>
+        <oql>
+            EXISTS (select year from authors)
+        </oql>
+        <result>
+            true
+        </result>
+    </query>
+</queries>

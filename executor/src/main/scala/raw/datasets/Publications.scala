@@ -8,6 +8,7 @@ case class Author(name: String, title: String, year: Int)
 
 object Publications {
   def loadAuthors_(sc:SparkContext) =  AccessPath.loadJSON[Author]("authors", "data/publications/authors.json", sc)
+  def loadAuthorsSmall_(sc:SparkContext) =  AccessPath.loadJSON[Author]("authors", "data/publications/authorsSmall.json", sc)
   def loadPublications_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publications.json", sc)
   def loadPublicationsLarge_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publicationsLarge.json", sc)
   def loadPublicationsSmallDups_(sc:SparkContext) =  AccessPath.loadJSON[Publication]("publications", "data/publications/publicationsSmallWithDups.json", sc)
@@ -15,6 +16,6 @@ object Publications {
 
   def publications(sc: SparkContext) = List(loadAuthors_(sc), loadPublications_(sc))
   def publicationsLarge(sc: SparkContext) = List(loadAuthors_(sc),loadPublicationsLarge_(sc))
-  def publicationsSmallDups(sc: SparkContext) = List(loadAuthors_(sc), loadPublicationsSmallDups_(sc))
-  def publicationsSmall(sc: SparkContext) = List(loadAuthors_(sc), loadPublicationsSmall_(sc))
+  def publicationsSmallDups(sc: SparkContext) = List(loadAuthorsSmall_(sc), loadPublicationsSmallDups_(sc))
+  def publicationsSmall(sc: SparkContext) = List(loadAuthorsSmall_(sc), loadPublicationsSmall_(sc))
 }

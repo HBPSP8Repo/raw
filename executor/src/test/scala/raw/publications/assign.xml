@@ -1,3 +1,6 @@
+<queries dataset="publications">
+    <query>
+        <oql><![CDATA[
 select G.title,
       (select year: v,
               N: count(partition)
@@ -7,4 +10,7 @@ from (
       select distinct title, (select year from partition) as values
       from authors A
       group by title: A.title) G
-
+ ]]>
+        </oql>
+    </query>
+</queries>

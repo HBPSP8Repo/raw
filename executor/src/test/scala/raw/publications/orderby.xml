@@ -1,0 +1,20 @@
+<queries disabled="https://github.com/raw-db/ldb/issues/26" dataset="publicationsSmall">
+    <query>
+        <oql>
+            select A.name from authors A order by A.name
+        </oql>
+    </query>
+
+    <query>
+        <oql>
+            select A.name from authors A order by A.name ASC
+        </oql>
+    </query>
+
+    <query>
+        <oql>
+            select A.name from authors A order by A.name DESC
+        </oql>
+    </query>
+</queries>
+
