@@ -11,13 +11,14 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.publication
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
-    
+
     val expected = convertExpected("""
     [n: 11, title: assistant professor]
     [n: 16, title: PhD]
     [n: 18, title: professor]
     [n: 5, title: engineer]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -27,13 +28,14 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.publication
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
-    
+
     val expected = convertExpected("""
     [title: PhD, years: [1955, 1959, 1964, 1969, 1972, 1973, 1974, 1975, 1981, 1982, 1985, 1986, 1988, 1991, 1992]]
     [title: assistant professor, years: [1951, 1952, 1959, 1960, 1977, 1981, 1983, 1989, 1994]]
     [title: engineer, years: [1951, 1961, 1972, 1977, 1992]]
     [title: professor, years: [1956, 1959, 1964, 1965, 1967, 1969, 1971, 1972, 1973, 1976, 1984, 1987, 1991, 1993, 1994]]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -43,7 +45,7 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.publication
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
-    
+
     val expected = convertExpected("""
     [people: [[name: Akoh, H., title: professor, year: 1959], [name: James, R.D., title: assistant professor, year: 1959], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Takada, S., title: PhD, year: 1959]], year: 1959]
     [people: [[name: Alba, G.P., title: assistant professor, year: 1960]], year: 1960]
@@ -77,6 +79,7 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.publication
     [people: [[name: Wang, Hairong, title: professor, year: 1993], [name: Zhuangde Jiang, title: professor, year: 1993]], year: 1993]
     [people: [[name: Young, B.A., title: professor, year: 1956]], year: 1956]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -89,12 +92,14 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.publication
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
+
     val expected = convertExpected("""
     [people: [[name: Akoh, H., title: professor, year: 1959], [name: Bland, R.W., title: professor, year: 1984], [name: Dickson, S.C., title: professor, year: 1971], [name: Doisneau, B., title: professor, year: 1991], [name: Johnson, R.T., title: professor, year: 1994], [name: Kokorin, V.V., title: professor, year: 1965], [name: Kotsar, Y., title: professor, year: 1964], [name: Natarajan, B.R., title: professor, year: 1964], [name: Neuhauser, B., title: professor, year: 1973], [name: Oae, Y., title: professor, year: 1967], [name: Sun, Guoliang, title: professor, year: 1987], [name: Tian, Ying, title: professor, year: 1984], [name: Tickle, R., title: professor, year: 1972], [name: Tozoni, O.V., title: professor, year: 1976], [name: Vey, J.-L., title: professor, year: 1969], [name: Wang, Hairong, title: professor, year: 1993], [name: Young, B.A., title: professor, year: 1956], [name: Zhuangde Jiang, title: professor, year: 1993]], title: professor]
     [people: [[name: Alba, G.P., title: assistant professor, year: 1960], [name: Das, A., title: assistant professor, year: 1981], [name: Ertan, H.B., title: assistant professor, year: 1952], [name: Gagnon, P., title: assistant professor, year: 1951], [name: James, R.D., title: assistant professor, year: 1959], [name: Martoff, C.J., title: assistant professor, year: 1994], [name: McVittie, J.P., title: assistant professor, year: 1959], [name: Murdock, E.S., title: assistant professor, year: 1989], [name: Nakagawa, H., title: assistant professor, year: 1994], [name: Sakae, T., title: assistant professor, year: 1983], [name: Zhang, Junjie, title: assistant professor, year: 1977]], title: assistant professor]
     [people: [[name: Anderson, C.C., title: PhD, year: 1992], [name: Bellet-Amalric, E., title: PhD, year: 1964], [name: Bing, D.D., title: PhD, year: 1955], [name: Cabrera, B., title: PhD, year: 1974], [name: Dignan, T.G., title: PhD, year: 1985], [name: Hu, Lili, title: PhD, year: 1981], [name: Katase, A., title: PhD, year: 1988], [name: Khurgin, J., title: PhD, year: 1986], [name: Monroy, E., title: PhD, year: 1969], [name: Sarigiannidou, E., title: PhD, year: 1975], [name: Seneclauze, C.M., title: PhD, year: 1964], [name: Shield, T., title: PhD, year: 1982], [name: Stricker, D.A., title: PhD, year: 1972], [name: Takada, S., title: PhD, year: 1959], [name: Takeno, K., title: PhD, year: 1973], [name: Wuttig, M., title: PhD, year: 1991]], title: PhD]
     [people: [[name: Gallion, P., title: engineer, year: 1961], [name: Ishibashi, K., title: engineer, year: 1972], [name: Lee, A., title: engineer, year: 1977], [name: Matsumoto, Y., title: engineer, year: 1992], [name: Xu, Rongrong, title: engineer, year: 1951]], title: engineer]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 

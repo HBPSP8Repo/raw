@@ -11,10 +11,12 @@ class SelectTest extends AbstractSparkPublicationsTest(Publications.publications
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
+
     val expected = convertExpected("""
     [name: Neuhauser, B., title: professor, year: 1973]
     [name: Takeno, K., title: PhD, year: 1973]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -24,10 +26,12 @@ class SelectTest extends AbstractSparkPublicationsTest(Publications.publications
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
+
     val expected = convertExpected("""
     [annee: 1973, nom: Neuhauser, B., titre: professor]
     [annee: 1973, nom: Takeno, K., titre: PhD]
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -37,12 +41,14 @@ class SelectTest extends AbstractSparkPublicationsTest(Publications.publications
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
+
     val expected = convertExpected("""
     PhD
     assistant professor
     assistant professor
     professor
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
@@ -52,11 +58,13 @@ class SelectTest extends AbstractSparkPublicationsTest(Publications.publications
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
+
     val expected = convertExpected("""
     PhD
     assistant professor
     professor
     """)
+
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 

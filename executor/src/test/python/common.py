@@ -10,7 +10,11 @@ templateTestMethod ="""
     \"\"\"
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
-%(asserts)s
+
+    val expected = convertExpected(\"\"\"
+%(expectedResults)s
+    \"\"\")
+
     assert(actual === expected, s"\\nActual: $actual\\nExpected: $expected")
   }
 """
@@ -42,12 +46,12 @@ class TestGenerator:
         except ValueError:
             b = len(lines)
         oql = "\n".join(self.indent(lines[:b], 4))
-        asserts = "\n".join(self.indent(lines[b+1:], 4))
+        expectedResults = "\n".join(self.indent(lines[b+1:], 4))
 
-        if len(asserts.strip()) == 0:
+        if len(expectedResults.strip()) == 0:
             testMethod = templateTestMethodNoAssert % {"name":testName, "query": oql}
         else:
-            testMethod = templateTestMethod % {"name":testName, "query": oql, "asserts": asserts}
+            testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
         return testMethod
 
 
