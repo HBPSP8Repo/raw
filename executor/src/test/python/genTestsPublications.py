@@ -9,7 +9,7 @@ templateClass ="""package %(package)s.generated
 import raw.publications.AbstractSparkPublicationsTest
 import raw.datasets.publications.Publications
 
-class %(name)sTest extends AbstractSparkPublicationsTest(Publications.%(dataset)s) {
+class %(name)sTest extends AbstractSparkPublicationsTest(Publications.Spark.%(dataset)s) {
 %(testMethods)s
 }
 """

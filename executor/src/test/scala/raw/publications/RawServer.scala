@@ -5,7 +5,7 @@ import raw.datasets.publications.Publications
 import scala.reflect.runtime.{universe => ru}
 
 // TODO: WIP, trying to using the toolbox to compile the query at runtime.
-class RawServerTest extends AbstractSparkPublicationsTest(Publications.publications) {
+class RawServerTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
 
   def generateCode(queryName: String, query: String) = {
     s"""

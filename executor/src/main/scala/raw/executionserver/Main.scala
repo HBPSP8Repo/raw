@@ -33,7 +33,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
       new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
     }
 
-    val accessPaths = AccessPath.loadDataset(Conf.dataset(), sc)
+    val accessPaths = AccessPath.loadSparkDataset(Conf.dataset(), sc)
 
     val executionServer = new QueryCompilerClient(rawClassLoader)
     val port = 54321

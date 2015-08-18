@@ -6,7 +6,7 @@ import raw.datasets.patients.{Patient, Patients}
 
 import scala.reflect.runtime.universe._
 
-abstract class AbstractSparkPatientsTest extends AbstractSparkTest(Patients.loadPatients) {
+abstract class AbstractSparkPatientsTest extends AbstractSparkTest(Patients.Spark.patients) {
 
   var patientsRDD: RDD[Patient] = _
 

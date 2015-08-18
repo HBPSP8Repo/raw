@@ -3,7 +3,7 @@ package raw
 import raw.datasets.publications.Publications
 import raw.publications.AbstractSparkPublicationsTest
 
-class ExecutionServerTest extends AbstractSparkPublicationsTest(Publications.publications) {
+class ExecutionServerTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
   val countAuthors = """Reduce(SumMonoid(),
      IntConst(1),
      BoolConst(true),

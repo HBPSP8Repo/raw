@@ -3,7 +3,7 @@ package raw.publications.generated
 import raw.publications.AbstractSparkPublicationsTest
 import raw.datasets.publications.Publications
 
-class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.publications) {
+class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
 
   test("SelectWhere0") {
     val oql = """

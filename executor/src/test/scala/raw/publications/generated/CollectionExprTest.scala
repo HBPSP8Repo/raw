@@ -3,66 +3,73 @@ package raw.publications.generated
 import raw.publications.AbstractSparkPublicationsTest
 import raw.datasets.publications.Publications
 
-class SelectTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
+class CollectionExprTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
 
-  test("Select0") {
+  test("CollectionExpr0") {
     val oql = """
-      select distinct a.name, a.title, a.year from authors a where a.year = 1973
+      min(select year from authors)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-[name: Neuhauser, B., title: professor, year: 1973]
-            [name: Takeno, K., title: PhD, year: 1973]
+1951
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
-  test("Select1") {
+  test("CollectionExpr1") {
     val oql = """
-      select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
+      max(select year from authors)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-[annee: 1973, nom: Neuhauser, B., titre: professor]
-            [annee: 1973, nom: Takeno, K., titre: PhD]
+1994
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
-  test("Select2") {
+  test("CollectionExpr2") {
     val oql = """
-      select a.title from authors a where a.year = 1959
+      sum(select year from authors)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-PhD
-            assistant professor
-            assistant professor
-            professor
+98724
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
   }
 
-  test("Select3") {
+  test("CollectionExpr4") {
     val oql = """
-      select distinct a.title from authors a where a.year = 1959
+      count(select year from authors)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-PhD
-            assistant professor
-            professor
+50
+    """)
+
+    assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
+  }
+
+  test("CollectionExpr6") {
+    val oql = """
+      EXISTS (select year from authors)
+    """
+    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val actual = convertToString(result)
+
+    val expected = convertExpected("""
+true
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")

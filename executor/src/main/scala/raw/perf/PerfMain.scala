@@ -247,7 +247,7 @@ object PerfMain extends StrictLogging with ResultConverter {
 
     val hqlResults = new ArrayBuffer[String]()
     if (runHQL) {
-      val datasets = AccessPath.loadDataset(Conf.dataset(), sc)
+      val datasets = AccessPath.loadSparkDataset(Conf.dataset(), sc)
       datasets.foreach(ds => registerTable(ds))
 
       // Execute the tests
@@ -268,7 +268,7 @@ object PerfMain extends StrictLogging with ResultConverter {
 
     val oqlResults = new ArrayBuffer[String]()
     if (runOQL) {
-      val aps = AccessPath.loadDataset(Conf.dataset(), sc)
+      val aps = AccessPath.loadSparkDataset(Conf.dataset(), sc)
       val comp = new QueryCompilerClient(rawClassLoader, outputDir)
       DockerUtils.setEnvironment()
       DockerUtils.startDocker()
