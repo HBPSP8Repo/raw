@@ -3,18 +3,26 @@ MAINTAINER Nuno Santos "nfssantos@gmail.com"
 
 # Install software 
 RUN apt-get update && apt-get install -y \
-    git \
     autoconf \
-    libtool \
+    bison \
+    cmake \
+    cscope \
+    flex \
     g++ \
     gcc \
-    make \
+    git \
+    indent \
     libc-dev \
+    libgc1c2 \
+    libgc-dev \
+    libtool \
+    make \
     pkg-config \
-    bison \
-    flex \
-    python-minimal \
+    python-cxx-dev \
     python-flask \
+    python-minimal \
+    python-pandas \
+    python-pip \
     vim
 
 # ssh config for github
@@ -23,9 +31,6 @@ ADD id_rsa /root/.ssh/id_rsa
 RUN touch /root/.ssh/known_hosts && ssh-keyscan github.com >> /root/.ssh/known_hosts
 
 RUN mkdir /raw
-# Install the dependencies
-ADD bdwgc-install.sh /tmp/
-RUN bash /tmp/bdwgc-install.sh
 
 ADD shore-mt-install.sh /tmp/
 RUN bash /tmp/shore-mt-install.sh

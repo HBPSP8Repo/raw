@@ -12,9 +12,6 @@ cat > Config << EOF
 # LDB
 LDBDIR = /raw/ldb
 
-# Garbage Collector
-GCDIR = /raw/bdwgc
-
 # Shore-MT
 SHORE = /raw/shoremt
 EOF

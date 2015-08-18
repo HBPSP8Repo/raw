@@ -1,4 +1,4 @@
-module Publications {
+module User {
 
 struct Diagnostic {
 string diag_id;
