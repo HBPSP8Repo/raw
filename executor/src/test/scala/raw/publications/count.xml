@@ -1,0 +1,19 @@
+<queries dataset="publications">
+    <query>
+        <oql>
+            count(authors)
+        </oql>
+        <result>
+            50
+        </result>
+    </query>
+
+    <query>
+        <oql>
+            count(publications)
+        </oql>
+        <result>
+            1000
+        </result>
+    </query>
+</queries>

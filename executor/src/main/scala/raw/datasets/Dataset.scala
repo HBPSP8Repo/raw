@@ -33,6 +33,7 @@ object AccessPath {
   def loadDataset(dsName: String, sc: SparkContext): List[AccessPath[_ <: Product]] = {
     dsName match {
       case "publications" => Publications.publications(sc)
+      case "publicationsSmall" => Publications.publicationsSmall(sc)
       case "publicationsSmallDups" => Publications.publicationsSmallDups(sc)
       case "publicationsLarge" => Publications.publicationsLarge(sc)
       case "patients" => Patients.loadPatients(sc)

@@ -7,13 +7,13 @@ class CountTest extends AbstractSparkPublicationsTest(Publications.publications)
 
   test("Count0") {
     val oql = """
-          count(authors)
+      count(authors)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-    50
+50
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")
@@ -21,13 +21,13 @@ class CountTest extends AbstractSparkPublicationsTest(Publications.publications)
 
   test("Count1") {
     val oql = """
-          count(publications)
+      count(publications)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected("""
-    1000
+1000
     """)
 
     assert(actual === expected, s"\nActual: $actual\nExpected: $expected")

@@ -599,24 +599,33 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case SparkOuterJoin(logicalNode, p, left, right) =>
         val leftNodeType = nodeScalaType(left.logicalNode)
         val rightNodeType = nodeScalaType(right.logicalNode)
+        val expP: c.universe.Tree = exp(p)
+        logger.info(s"[SparkOuterJoin] exp(p) = ${showCode(expP)}")
 
         val code = q"""
             val start = "************ SparkOuterJoin ************"
             val leftRDD:RDD[$leftNodeType] = ${build(left)}
+            queryLogger.info("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
+
             val rightRDD:RDD[$rightNodeType] = ${build(right)}
+            queryLogger.info("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
+
             val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
               .cartesian(rightRDD)
               .filter(tuple => tuple._1 != null)
-              .filter(${exp(p)})
+              .filter($expP)
+            queryLogger.info("matching:\n"+ raw.QueryHelpers.toString(matching))
 
             val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
               .map(v => (v, v))
               .leftOuterJoin(matching)
+            queryLogger.info("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
 
             val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
               case (v1, (v2, None)) => (v1, null)
               case (v1, (v2, Some(w))) => (v1, w)
             })
+            queryLogger.info("res:\n"+ raw.QueryHelpers.toString(res))
             val end = "************ SparkOuterJoin ************"
             res
             """
@@ -867,6 +876,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val moduleName = TermName(className.decodedName.toString)
         val companion = q"""
   object $moduleName extends com.typesafe.scalalogging.StrictLogging {
+    val queryLogger = org.slf4j.LoggerFactory.getLogger("raw.queries")
     ..$caseClasses
     def apply(..$methodDefParameters) = {
        $generatedTree

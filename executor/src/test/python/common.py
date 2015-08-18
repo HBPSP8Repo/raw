@@ -2,6 +2,7 @@
 # the string "--". Each XXX.q file will be transformed into one XXXTest.scala file.
 # The generated files are placed in the subdirectory "generated".
 import os.path, shutil, re, sys
+import xml.etree.ElementTree as ET
 
 templateTestMethod ="""
   test("%(name)s") {
@@ -38,22 +39,20 @@ class TestGenerator:
     def indent(self, lines, level):
         return [(" "*level)+line for line in lines]
 
-    def processSingleTest(self, testName, testDef):
-        lines = testDef.strip().splitlines()
-        slines = map(lambda x: x.strip(),  lines)
-        try:
-            b = slines.index("")
-        except ValueError:
-            b = len(lines)
-        oql = "\n".join(self.indent(lines[:b], 4))
-        expectedResults = "\n".join(self.indent(lines[b+1:], 4))
-
-        if len(expectedResults.strip()) == 0:
+    def processQuery(self, testName, testDef):
+        disabledAttr = testDef.get('disabled')
+        if disabledAttr != None:
+            print "Test disabled:", testName, ". Reason:", disabledAttr
+            return ""
+        qe = testDef.find("oql")
+        oql = qe.text.strip()
+        resultElem = testDef.find("result")
+        if resultElem == None:
             testMethod = templateTestMethodNoAssert % {"name":testName, "query": oql}
         else:
+            expectedResults = resultElem.text.strip()
             testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
         return testMethod
-
 
     def processFile(self, root, filename):
         package = re.split('src/test/scala/', root)[1]
@@ -65,19 +64,26 @@ class TestGenerator:
             pass #Directory already exists
         queryFilename = os.path.join(root, filename)
         print "Found query file", queryFilename
-        f = open(queryFilename)
-        contents = f.read().replace("\r", "")
-        f.close()
-        queryDefs = re.split("^--$", contents, flags = re.M)
+
+        root = ET.parse(queryFilename).getroot()
+        dataset =  root.get('dataset')
+        if dataset == None:
+            raise Exception('dataset attribute is mandatory')
+
+        disabledAttr =  root.get('disabled')
+        if disabledAttr != None:
+            print "Skipping file, tests disabled. Reason:", disabledAttr
+            return
+
         name = os.path.splitext(filename)[0]
         name = name[0].upper() + name[1:]
         testMethods = ""
         i = 0
-        for queryDef in queryDefs:
-            testMethod = self.processSingleTest(name+str(i), queryDef)
+        for child in root:
+            testMethod = self.processQuery(name+str(i), child)
             testMethods += testMethod
             i+=1
-        code = self.template % {"name": name, "package": package, "testMethods": testMethods}
+        code = self.template % {"name": name, "package": package, "testMethods": testMethods, "dataset": dataset}
         scalaFilename = os.path.join(generatedDirectory, name+"Test.scala")
         print "Writing", i, "tests in file", scalaFilename
         outFile = open(scalaFilename, "w")
@@ -90,7 +96,7 @@ class TestGenerator:
                 continue
             first = True
             for file in files:
-                if file.endswith(".q"):
+                if file.endswith(".xml"):
                     # Delete the subdirectory with previously generated tests the first time it encounters a directory with
                     # query files
                     if first:
