@@ -47,7 +47,7 @@ select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.na
         </result>
     </query>
 
-    <query disabled="https://github.com/raw-db/ldb/issues/27">
+    <query>
         <oql><![CDATA[
             select (select A
             from P.authors a, authors A
@@ -57,7 +57,7 @@ select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.na
         </oql>
     </query>
 
-    <query disabled="https://github.com/raw-db/ldb/issues/27">
+    <query>
         <oql><![CDATA[
 select * from (
     select article: P,

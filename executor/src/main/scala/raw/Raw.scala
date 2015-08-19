@@ -298,7 +298,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           //              logger.debug("map1:\n{}", map1.mkString("\n"))
           //              logger.debug("map2:\n{}", map2.mkString("\n"))
           //              logger.debug("map3:\n{}", map3.mkString("\n"))
-          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
+          def computeG(l: Seq[Exp]): Exp = l match {
+            case Nil => BoolConst(false)
+            case h::t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+          }
+
+          val f1 = g match {
+            case RecordCons(attrs) => computeG(attrs.map{a: AttrCons => a.e})
+            case _ => { assert(false) ; BoolConst(true) }
+          }
+
           q"""val child = ${build(child)}
               logger.debug("Child:\n{}", child.mkString("\n"))
               val grouped = child.groupBy(${exp(f)})
@@ -490,6 +499,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val tp = c.parse(st)
 
+        def computeG(l: Seq[Exp]): Exp = l match {
+          case Nil => BoolConst(false)
+          case h::t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+        }
+
+        val gExp = g match {
+          case RecordCons(attrs) => computeG(attrs.map{a: AttrCons => a.e})
+          case _ => { assert(false) ; BoolConst(true) }
+        }
+
         val code = m match {
           case m1: MinMonoid =>
             q"""
@@ -510,7 +529,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
           case m1: PrimitiveMonoid =>
             val z1 = zeroExp(m1)
-            val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
+            val f1 = IfThenElse(gExp, z1, e)
             //  logger.debug("groupBy:\n{}", toString(grouped))
             //  logger.debug("filteredP:\n{}", toString(filteredP))
             //  logger.debug("mapped:\n{}", toString(mapped))
@@ -529,7 +548,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
              */
             // Since the zero element of a collection monoid is an empty collection,
             // instead of using fold we can just filter any elements such that g(w) == null
-            val filterGNulls = IfThenElse(BinaryExp(Eq(), g, Null), BoolConst(false), BoolConst(true))
+            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
             val monoidReduceCode = m1 match {
               case m2: SetMonoid =>
                 q"""mappedByE.toSet"""
