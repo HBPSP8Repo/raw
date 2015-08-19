@@ -25,7 +25,6 @@ lazy val buildSettings = Seq(
 
 lazy val commonDeps = Seq(
   scalatest % Test,
-  scalacheck % Test,
   scalaLogging,
   logbackClassic,
   log4jOverSlf4j,
