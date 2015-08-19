@@ -20,4 +20,4 @@ echo "Scala executor host: ${SCALA_SERVER_HOST}"
 # Entrypoint has a funny syntax when running with arguments. A command like "xyz -a -b foobar",
 # must be specified in this format: --entrypoint=xyz <dockerImage> -a -b foobar. 
 # https://docs.docker.com/reference/run/#entrypoint-default-command-to-execute-at-runtime
-docker run -it --rm -p ${WEB_SERVER_PORT}:5000 --entrypoint=//raw/scripts/run-with-scala-backend.sh raw/ldb ${SCALA_SERVER_HOST}
+docker run -it --rm -p ${WEB_SERVER_PORT}:5000 raw/ldb //raw/scripts/run-with-scala-backend.sh ${SCALA_SERVER_HOST}

@@ -13,3 +13,4 @@ id_rsa
 *.pyc
 derby.log
 metastore_db/
+.src-*/

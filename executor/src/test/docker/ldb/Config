@@ -1,0 +1,5 @@
+# LDB
+LDBDIR = /raw/ldb
+
+# Shore-MT
+SHORE = /raw/shoremt

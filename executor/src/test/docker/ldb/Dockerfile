@@ -35,8 +35,14 @@ RUN mkdir /raw
 ADD shore-mt-install.sh /tmp/
 RUN bash /tmp/shore-mt-install.sh
 
-ADD ldb-install.sh /tmp/
-RUN bash /tmp/ldb-install.sh
+# LDB. Will copy the LDB source code from the host directory /tmp/ldb
+RUN mkdir /raw/ldb
+RUN mkdir /raw/ldbstore
+RUN mkdir /raw/ldbstore/log
+ADD Config ldbconfig /raw/ldb/
+ADD .src-ldb/ /raw/ldb
+RUN cd /raw/ldb && make
+
 EXPOSE 5000	
 
 # the server.py script must be executed from this directory, because it uses relative
@@ -44,11 +50,10 @@ EXPOSE 5000
 WORKDIR /raw/ldb/utils/pyserver
 
 ADD schema.odl /raw/
-ENTRYPOINT ["/usr/bin/python", "server.py", "--schema=/raw/schema.odl"]
 
 RUN mkdir /raw/scripts
-ADD run-with-scala-backend.sh init-schema.sh /raw/scripts/
+ADD run-with-*-backend.sh init-schema.sh /raw/scripts/
 
 ADD data /raw/ldb/utils/pyserver/data/
-RUN python load_files.py -b data/*
+RUN python load_files.py -b data/pubs/*
 
