@@ -350,26 +350,17 @@ trait Simplifier extends Normalizer {
 }
 
 
-object Simplifier extends Simplifier {
+object Simplifier {
 
   import org.kiama.rewriting.Rewriter.rewriteTree
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-
-    // Desugar tree
-    val tree1 = Desugarer(tree)
-
-    // Uniquify identifiers
-    val tree2 = Uniquifier(tree1, world)
-
-    // Desugar expresion blocks
-    val tree3 = DesugarExpBlocks(tree2)
-
-    // Uniquify identifiers
-    val tree4 = Uniquifier(tree3, world)
-
-    // Simplify
-    rewriteTree(strategy)(tree4)
+    val t1 = Desugarer(tree)
+    val a = new SemanticAnalyzer(t1, world)
+    val simplifier = new Simplifier {
+      override def analyzer: SemanticAnalyzer = a
+    }
+    rewriteTree(simplifier.strategy)(t1)
   }
 }

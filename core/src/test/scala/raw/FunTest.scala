@@ -4,6 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
 import raw.calculus.{Calculus, SyntaxAnalyzer}
 
+import scala.collection.mutable
+
 class FunTest extends FunSuite with LazyLogging {
 
   def parse(q: String): Calculus.Exp = {
@@ -20,7 +22,7 @@ class FunTest extends FunSuite with LazyLogging {
     */
   def compare(actual: String, expected: String) = {
     def norm(in: Iterator[String]) = {
-      var m = scala.collection.mutable.Map[String, Int]()
+      val m = scala.collection.mutable.Map[String, Int]()
       var cnt = 0
       for (v <- in) {
         val c = m.getOrElseUpdate(v, cnt)

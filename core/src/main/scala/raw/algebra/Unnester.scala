@@ -9,6 +9,7 @@ case class UnnesterError(err: String) extends RawException(err)
 
 /** Patterns
   */
+// TODO: Remove Pattern and reuse RecordCons
 sealed abstract class Pattern
 case class PairPattern(fst: Pattern, snd: Pattern) extends Pattern
 case class IdnPattern(idn: String, t: Type) extends Pattern

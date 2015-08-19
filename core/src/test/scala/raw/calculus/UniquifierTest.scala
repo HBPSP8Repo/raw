@@ -6,14 +6,13 @@ class UniquifierTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val t1 = Desugarer(t)
-    val t2 = Uniquifier(t1, w)
+    val t1 = Uniquifier(t, w)
 
-    val analyzer = new SemanticAnalyzer(t2, w)
+    val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
 
-    CalculusPrettyPrinter(t2.root, 200)
+    CalculusPrettyPrinter(t1.root, 200)
   }
 
   test("different entities are unique entities") {
@@ -30,8 +29,16 @@ class UniquifierTest extends FunTest {
         """for ($0 <- things) yield set (a := $0, b := for ($1 <- things) yield set $1)""")
   }
 
-  test("FunAbs with pattern") {
-    compare(process("""\(a, b) -> a + b"""), """\$0 -> { $1 := $0._1; $2 := $0._2; $1 + $2 }""")
+  test("PatternFunAbs 1") {
+    compare(process("""\(a, b) -> a + b"""), """\($0, $1) -> $0 + $1""")
   }
+
+  test("PatternFunAbs 2") {
+    compare(
+      process(
+        """\(a: int, b: int) -> a + b + 2"""),
+        """\($0 : int, $1 : int) -> $0 + $1 + 2""")
+  }
+
 
 }
