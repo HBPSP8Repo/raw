@@ -16,16 +16,12 @@ def valueToString(value):
     else:
         return str(value)
 
-expectedTemplate = """
-val expected = convertExpected(\"\"\"
-%(expectedData)s
-\"\"\")
-"""
+
 def generateExpectedOutput(resultList):
     print "**************************************************"
     mapped = [valueToString(x) for x in resultList]
     mapped.sort()
-    print expectedTemplate % { "expectedData": "\n".join(mapped) }
+    print "\n".join(mapped)
 
 ##############
 # Publication

@@ -1,12 +1,13 @@
 package raw.executionserver
 
-import java.io.StringWriter
+import java.io.{File, StringWriter}
 import java.lang.reflect.Field
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
+import com.google.common.io.Resources
 import org.slf4j.LoggerFactory
 
 import scala.collection.{Bag, JavaConversions}
@@ -14,7 +15,7 @@ import scala.collection.{Bag, JavaConversions}
 trait ResultConverter {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
 
-  private[this] val mapper = {
+  val mapper = {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     om.configure(SerializationFeature.INDENT_OUTPUT, true)
@@ -30,7 +31,12 @@ trait ResultConverter {
     sw.toString
   }
 
-  private[this] def convertToCollection(res: Any): Any = {
+  def convertToJsonNode(res: Any): JsonNode = {
+    val json: Any = convertToCollection(res)
+    mapper.valueToTree[JsonNode](json)
+  }
+
+  def convertToCollection(res: Any): Any = {
     if (res.isInstanceOf[Array[_]]) {
       res.asInstanceOf[Array[_]].map(convertToCollection(_))
     } else {
@@ -53,8 +59,7 @@ trait ResultConverter {
             f.getName -> convertToCollection(f.get(p))
           }
           ).toMap
-        case _ =>
-          res.toString
+        case _ => res
       }
     }
   }

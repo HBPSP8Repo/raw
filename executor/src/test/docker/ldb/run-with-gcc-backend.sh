@@ -7,8 +7,10 @@ cd /raw/ldb/utils/pyserver
 # Options: pubs, pubs-small
 if [ $# -ne 0 ]; then
     DATASET=$1
-    directory="data/${DATASET}/*"
-    python load_files.py -b ${directory}
+    if [ $DATASET != "publications" ]; then
+        directory="data/${DATASET}/*"
+        python load_files.py -b ${directory}
+    fi
 fi
 
 echo "Starting OQL server with arguments $ARGS"

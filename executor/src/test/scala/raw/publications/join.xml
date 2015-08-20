@@ -1,25 +1,25 @@
-<queries dataset="publications">
+<queries dataset="publicationsSmall">
     <query>
         <oql><![CDATA[
 select distinct a.year, a.name as n1, b.name as n2
 from authors a, authors b
-where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
+where a.year = b.year and a.name != b.name and a.name < b.name
            ]]>
         </oql>
-        <result><![CDATA[
-[n1: Johnson, R.T., n2: Martoff, C.J., year: 1994]
-[n1: Johnson, R.T., n2: Nakagawa, H., year: 1994]
-[n1: Martoff, C.J., n2: Nakagawa, H., year: 1994]
-[n1: Wang, Hairong, n2: Zhuangde Jiang, year: 1993]
-           ]]>
-        </result>
+        <!--<result><![CDATA[-->
+<!--[n1: Johnson, R.T., n2: Martoff, C.J., year: 1994]-->
+<!--[n1: Johnson, R.T., n2: Nakagawa, H., year: 1994]-->
+<!--[n1: Martoff, C.J., n2: Nakagawa, H., year: 1994]-->
+<!--[n1: Wang, Hairong, n2: Zhuangde Jiang, year: 1993]-->
+           <!--]]>-->
+        <!--</result>-->
     </query>
 
     <query>
         <oql><![CDATA[
 select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
     from authors a, authors b
-    where a.year = b.year and a.name != b.name and a.name < b.name and a.year > 1992
+    where a.year = b.year and a.name != b.name and a.name < b.name
                ]]>
         </oql>
         <result><![CDATA[
@@ -35,7 +35,7 @@ select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.
         <oql><![CDATA[
 select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.name, title:b.title))
     from authors a, authors b
-    where a.year = b.year and a.name != b.name and a.year > 1992
+    where a.year = b.year and a.name != b.name
                ]]>
         </oql>
         <result><![CDATA[
@@ -49,12 +49,20 @@ select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.na
 
     <query>
         <oql><![CDATA[
-            select (select A
+            select P as publication, (select A
             from P.authors a, authors A
             where A.name = a and A.title = "professor") as profs
             from publications P
            ]]>
         </oql>
+        <result><![CDATA[
+[profs: [[name: Kokorin, V.V., title: professor, year: 1965]], publication: [affiliations: [Department of Electrical and Computer Engineering, The Johns Hopkins University, Baltimore, Maryland 21218, Key Laboratory of Materials for High Power Laser, Shanghai Institute of Optics and Fine Mechanics, Chinese Academy of Sciences, Shanghai 201800, People&#x2019], authors: [Anderson, C.C., Kokorin, V.V.], controlledterms: [elemental semiconductors, grain size, lattice phonons, superconducting thin films], title: Humidity response properties of a potentiometric sensor using LaF<inf>3</inf> thin film as the solid electrolyte]]
+[profs: [[name: Natarajan, B.R., title: professor, year: 1964], [name: Sun, Guoliang, title: professor, year: 1987], [name: Young, B.A., title: professor, year: 1956]], publication: [affiliations: [Hewlett-Packard Lab., Palo Alto, CA, USA], authors: [Alba, G.P., Dignan, T.G., Monroy, E., Natarajan, B.R., Sun, Guoliang, Young, B.A.], controlledterms: [X-ray detection and measurement, elemental semiconductors, magnetic levitation, silicon, stepping motors, superconducting junction devices, superconducting thin films, superconductive tunnelling], title: Designing a magnetodynamic stable suspension system]]
+[profs: [[name: Sun, Guoliang, title: professor, year: 1987]], publication: [affiliations: [Dept. of Phys. & Astron., San Francisco State Univ., CA, USA], authors: [Bellet-Amalric, E., Sun, Guoliang, Xu, Rongrong], controlledterms: [grain size, magnetic flux, neutrino detection and measurement, particle detectors, reluctance motors, superconducting junction devices, superconductive tunnelling, torque], title: Phonon-mediated detection of X-rays in silicon crystals using superconducting transition edge phonon sensors]]
+[profs: [[name: Zhuangde Jiang, title: professor, year: 1993]], publication: [affiliations: [CEA-Grenoble, INAC/SP2M/NPSC, 17 Rue des Martyrs, 38054 Grenoble cedex 9, France, Key Laboratory of Materials for High Power Laser, Shanghai Institute of Optics and Fine Mechanics, Chinese Academy of Sciences, Shanghai 201800, People&#x2019], authors: [Ertan, H.B., Zhang, Junjie, Zhuangde Jiang], controlledterms: [elemental semiconductors, grain size, magnetic levitation, reluctance motors, scanning electron microscope examination of materials, superconducting junction devices, titanium, torque], title: Prediction of torque and inductance displacement characteristics of asymmetrically slotted variable-reluctance motors using a simplified model for numerical field solution]]
+[profs: [], publication: [affiliations: [CEA-Grenoble, INAC/SP2M/NPSC, 17 Rue des Martyrs, 38054 Grenoble cedex 9, France, Dept. of Phys. & Astron., San Francisco State Univ., CA, USA], authors: [Dignan, T.G.], controlledterms: [X-ray detection and measurement, magnetic levitation, neutrino detection and measurement, particle detectors, reluctance motors, silicon, superconductive tunnelling], title: Characteristics of high-transmission-probability tunnel junctions for use as particle detectors]]
+        ]]>
+        </result>
     </query>
 
     <query>

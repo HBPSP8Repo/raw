@@ -55,5 +55,5 @@ RUN mkdir /raw/scripts
 ADD run-with-*-backend.sh init-schema.sh /raw/scripts/
 
 ADD data /raw/ldb/utils/pyserver/data/
-RUN python load_files.py -b data/pubs/*
+RUN python load_files.py -b data/publications/*
 
