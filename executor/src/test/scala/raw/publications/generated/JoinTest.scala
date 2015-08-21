@@ -18,8 +18,8 @@ where a.year = b.year and a.name != b.name and a.name < b.name
   test("Join1") {
     val oql = """
       select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
-    from authors a, authors b
-    where a.year = b.year and a.name != b.name and a.name < b.name
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     assertJsonEqual("Join1", result)
@@ -27,9 +27,11 @@ where a.year = b.year and a.name != b.name and a.name < b.name
 
   test("Join2") {
     val oql = """
-      select distinct a.year, set(struct(name:a.name, title:a.title), struct(name:b.name, title:b.title))
-    from authors a, authors b
-    where a.year = b.year and a.name != b.name
+      select P as publication,
+      (select A
+       from P.authors a, authors A
+       where A.name = a and A.title = "professor") as profs
+from publications P
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     assertJsonEqual("Join2", result)
@@ -37,31 +39,16 @@ where a.year = b.year and a.name != b.name and a.name < b.name
 
   test("Join3") {
     val oql = """
-      select P as publication, (select A
-            from P.authors a, authors A
-            where A.name = a and A.title = "professor") as profs
-            from publications P
+      select article: P,
+       (select A
+        from P.authors a, authors A
+        where A.name = a
+              and A.title = "professor") as profs
+from publications P
+where "particle detectors" in P.controlledterms
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
     assertJsonEqual("Join3", result)
-  }
-
-  test("Join4") {
-    val oql = """
-      select * from (
-    select article: P,
-           (select A
-            from P.authors a,
-                 authors A
-            where A.name = a
-                  and A.title = "professor") as profs
-    from publications P
-    where "particle detectors" in P.controlledterms
-          and "Stricker, D.A." in P.authors
-    ) T having count(T.profs) > 2
-    """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("Join4", result)
   }
 
 }

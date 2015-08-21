@@ -7,7 +7,8 @@ cd /raw/ldb/utils/pyserver
 # Options: pubs, pubs-small
 if [ $# -ne 0 ]; then
     DATASET=$1
-    if [ $DATASET != "publications" ]; then
+    # The all dataset is preloaded and contains the publications and patients datasets
+    if [[ $DATASET != "all" && $DATASET != "publications" && $DATASET != "patients" ]]; then
         directory="data/${DATASET}/*"
         python load_files.py -b ${directory}
     fi

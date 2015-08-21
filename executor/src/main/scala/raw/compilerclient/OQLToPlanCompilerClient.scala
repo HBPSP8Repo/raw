@@ -21,9 +21,7 @@ object OQLToPlanCompilerClient extends StrictLogging {
 
   def apply(oql: String): Either[String, LogicalAlgebraNode] = {
     val logicalPlan = getRestContent(serverUrl, oql)
-    //    val p = Files.createTempFile("logicalPlan-", ".txt")
-    //    Files.write(p, logicalPlan.getBytes(StandardCharsets.UTF_8))
-    logger.info(s"Raw logical algebra:\n$logicalPlan")
+    //    logger.info(s"Raw logical algebra:\n$logicalPlan")
     loggerQueries.info(s"LDB generated logical plan:\n${logicalPlan}")
     LogicalAlgebraParser(logicalPlan)
   }

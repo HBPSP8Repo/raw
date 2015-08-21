@@ -624,27 +624,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
             val start = "************ SparkOuterJoin ************"
             val leftRDD:RDD[$leftNodeType] = ${build(left)}
-            queryLogger.info("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
+            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
 
             val rightRDD:RDD[$rightNodeType] = ${build(right)}
-            queryLogger.info("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
+            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
 
             val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
               .cartesian(rightRDD)
               .filter(tuple => tuple._1 != null)
               .filter($expP)
-            queryLogger.info("matching:\n"+ raw.QueryHelpers.toString(matching))
+            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
 
             val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
               .map(v => (v, v))
               .leftOuterJoin(matching)
-            queryLogger.info("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
+            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
 
             val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
               case (v1, (v2, None)) => (v1, null)
               case (v1, (v2, Some(w))) => (v1, w)
             })
-            queryLogger.info("res:\n"+ raw.QueryHelpers.toString(res))
+            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
             val end = "************ SparkOuterJoin ************"
             res
             """
@@ -723,7 +723,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
 
-  sealed abstract class QueryLanguage
+  sealed trait QueryLanguage
 
   case object Krawl extends QueryLanguage
 
@@ -861,7 +861,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(logicalTree) =>
         var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
-        logger.info(s"Algebra:\n${algebraStr}")
         loggerQueries.info(s"Algebra:\n${algebraStr}")
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)

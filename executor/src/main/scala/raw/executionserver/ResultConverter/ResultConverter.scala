@@ -4,7 +4,7 @@ import java.io.{File, StringWriter}
 import java.lang.reflect.Field
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.databind.{ObjectWriter, JsonNode, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
 import com.google.common.io.Resources
@@ -22,6 +22,13 @@ trait ResultConverter {
     //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
     om.setSerializationInclusion(Include.NON_EMPTY)
     om
+  }
+
+  def prettyPrintTree(tree:String): String ={
+    val json = mapper.readValue(tree, classOf[Any])
+    val sw = new StringWriter()
+    mapper.writerWithDefaultPrettyPrinter[ObjectWriter]().writeValue(sw, json)
+    sw.toString
   }
 
   def convertToJson(res: Any): String = {

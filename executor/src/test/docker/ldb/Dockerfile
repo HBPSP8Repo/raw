@@ -49,11 +49,9 @@ EXPOSE 5000
 # paths to find other files.
 WORKDIR /raw/ldb/utils/pyserver
 
-ADD schema.odl /raw/
+ADD data /raw/ldb/utils/pyserver/data/
+RUN python load_files.py -b data/all/*
 
+ADD schema.odl /raw/
 RUN mkdir /raw/scripts
 ADD run-with-*-backend.sh init-schema.sh /raw/scripts/
-
-ADD data /raw/ldb/utils/pyserver/data/
-RUN python load_files.py -b data/publications/*
-

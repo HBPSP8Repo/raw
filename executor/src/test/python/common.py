@@ -42,21 +42,19 @@ class TestGenerator:
         gccexecurl = "http://192.168.59.104:5001/query"
         payload = {"oql": query}
         i = 0
-        while i < 3:
+        execRetries = 3
+        while i < execRetries:
             print "Sending post to", gccexecurl, ", form:",payload
             r = requests.post(gccexecurl, data=payload)
             # The order of dictionary keys is not preserved
             jsonResponse = r.json()
             if jsonResponse["result"]["success"]:
-                print r.text
                 output = jsonResponse["result"]["output"]
-                # print output
                 pretty = json.dumps(output, indent=2, separators=(',', ': '))
-                # print pretty
                 return pretty
             print "Request failed:\n",r.text
             i+=1
-        print "All attempts have failed."
+        raise RuntimeError("Failed to execute query " + str(execRetries) + " times. Giving up. Query: " + query)
 
     def indent(self, lines, level):
         return [(" "*level)+line for line in lines]
@@ -78,7 +76,7 @@ class TestGenerator:
         outFile.close()
 
         # Generate test method
-        resultElem = testDef.find("result")
+        # resultElem = testDef.find("result")
         # if resultElem == None:
         testMethod = templateTestMethodJsonCompare % {"name":testName, "query": oql}
         # else:
@@ -90,7 +88,6 @@ class TestGenerator:
         cmd = "docker run -d -p 5001:5000 raw/ldb //raw/scripts/run-with-gcc-backend.sh " + dataset
         print "Starting docker:", cmd
         cid = subprocess.check_output(cmd, shell=True).strip()
-        print "CID:",cid
         return cid
 
     def waitForLDBContainer(self, cid):
@@ -102,12 +99,12 @@ class TestGenerator:
                 return
             if "Exceptions.LDBException: internal error" in logs:
                 subprocess.check_output("docker logs " + cid, shell=True)
-                raise Exception("Web server failed to start")
+                raise RuntimeWarning("Web server failed to start")
             i+=1
             print "Waiting for LDB web server to start:", i
             time.sleep(1)
         subprocess.check_output("docker logs " + cid, shell=True)
-        raise Exception("Giving up waiting for python server")
+        raise RuntimeError("Giving up waiting for python server")
 
     def stopDocker(self, cid):
         cmd = "docker stop -t 0 " + cid + " && docker rm " + cid
@@ -126,7 +123,7 @@ class TestGenerator:
         i = root.rfind("/test/scala/")
         testPath = root[0:(i+5)]
         gccExecResultsPath = os.path.join(testPath, "resources", "generated")
-        print gccExecResultsPath
+        print "GCC executor results:", gccExecResultsPath
         try:
             os.mkdir(gccExecResultsPath)
         except OSError:
@@ -146,14 +143,14 @@ class TestGenerator:
         if dataset == None:
             raise Exception('dataset attribute is mandatory')
 
+        disabledAttr =  root.get('disabled')
+        if disabledAttr != None:
+            print "Skipping file, tests disabled. Reason:", disabledAttr
+            return
+
         cid = self.startDocker(dataset)
         try:
             self.waitForLDBContainer(cid)
-            disabledAttr =  root.get('disabled')
-            if disabledAttr != None:
-                print "Skipping file, tests disabled. Reason:", disabledAttr
-                return
-
             name = os.path.splitext(filename)[0]
             name = name[0].upper() + name[1:]
             testMethods = ""
@@ -190,5 +187,10 @@ class TestGenerator:
                         except OSError:
                             # Directory does not exist. Ignore error
                             pass
-                    if file.startswith("join"):
-                        self.processFile(root, file)
+                    # if file.startswith("join"):
+                    while True:
+                        try:
+                            self.processFile(root, file)
+                            break
+                        except RuntimeWarning:
+                            pass
