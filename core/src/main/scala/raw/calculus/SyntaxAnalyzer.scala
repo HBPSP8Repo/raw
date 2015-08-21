@@ -108,13 +108,12 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     zeroAndConsMonoid |
     unaryFun |
     funAbs |
-    patternFunAbs |
     funApp |
     "(" ~> exp <~ ")" |
    idnExp
 
   lazy val expBlock: PackratParser[ExpBlock] =
-    positioned(("{" ~> rep(anyBind <~ opt(";"))) ~ (exp <~ "}") ^^ ExpBlock)
+    positioned(("{" ~> rep(bind <~ opt(";"))) ~ (exp <~ "}") ^^ ExpBlock)
 
   lazy val const: PackratParser[Exp] =
     nullConst |
@@ -203,19 +202,12 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
 
   lazy val qualifier: PackratParser[Qual] =
     gen |
-    patternGen |
-    anyBind |
+    bind |
     filter |
     failure("illegal qualifier")
 
   lazy val gen: PackratParser[Gen] =
-    positioned((idnDef <~ "<-") ~ exp ^^ Gen)
-
-  lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ~ opt(":" ~> tipe) ^^ IdnDef)
-
-  lazy val patternGen: PackratParser[PatternGen] =
-    positioned((patternProd <~ "<-") ~ exp ^^ PatternGen)
+    positioned((pattern <~ "<-") ~ exp ^^ Gen)
 
   lazy val pattern: PackratParser[Pattern] =
     patternIdn |
@@ -224,18 +216,17 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val patternIdn: PackratParser[PatternIdn] =
     positioned(idnDef ^^ PatternIdn)
 
+  lazy val idnDef: PackratParser[IdnDef] =
+    positioned(ident ~ opt(":" ~> tipe) ^^ {
+      case idn ~ None => IdnDef(idn, TypeVariable(new Variable()))
+      case idn ~ Some(t) => IdnDef(idn, t)
+    })
+
   lazy val patternProd: PackratParser[PatternProd] =
     positioned("(" ~> rep1sep(pattern, ",") <~ ")" ^^ PatternProd)
 
-  lazy val anyBind: PackratParser[AnyBind] =
-    bind |
-    patternBind
-
   lazy val bind: PackratParser[Bind] =
-    positioned((idnDef <~ ":=") ~ exp ^^ Bind)
-
-  lazy val patternBind: PackratParser[PatternBind] =
-    positioned((patternProd <~ ":=") ~ exp ^^ PatternBind)
+    positioned((pattern <~ ":=") ~ exp ^^ Bind)
 
   lazy val filter: PackratParser[Exp] =
     exp
@@ -270,10 +261,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       "to_string" ^^^ ToString())
 
   lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> idnDef ~ ("->" ~> exp) ^^ FunAbs)
-
-  lazy val patternFunAbs: PackratParser[PatternFunAbs] =
-    positioned("\\" ~> patternProd ~ ("->" ~> exp) ^^ PatternFunAbs)
+    positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ FunAbs)
 
   lazy val tipe: PackratParser[Type] =
     primitiveType |

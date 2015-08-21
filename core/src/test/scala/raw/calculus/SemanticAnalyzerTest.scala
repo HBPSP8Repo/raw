@@ -31,11 +31,13 @@ class SemanticAnalyzerTest extends FunTest {
       SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
   }
 
-  test("departments") {
+  test("departments1") {
     success(
       """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
+  }
 
+  test("departments2") {
     success(
       """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("deptName", StringType())), None)))
@@ -49,7 +51,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("simple type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(AnyType()),
+      "unknown" -> SetType(TypeVariable(new Variable())),
       "integers" -> SetType(IntType()),
       "floats" -> SetType(FloatType()),
       "booleans" -> SetType(BoolType()),
@@ -67,7 +69,8 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (r <- unknown; x <- strings; r = x) yield set r", world, SetType(StringType()))
     success("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", world, IntType())
     success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
-    success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
+    // TODO: What do we want exactly to be the behaviour of 'v' in the following? Could be int or float. Or force it?
+    //success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
     success("for (r <- unknown; v := r) yield set (r + 0)", world, SetType(IntType()))
     success("for (r <- unknownrecords) yield set r.dead or r.alive", world, SetType(BoolType()))
     success("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", world, SetType(IntType()))

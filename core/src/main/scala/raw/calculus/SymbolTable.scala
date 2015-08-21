@@ -2,6 +2,7 @@ package raw
 package calculus
 
 import org.kiama.util.Environments
+import raw.calculus.Calculus.IdnDef
 
 object SymbolTable extends Environments {
 
@@ -30,28 +31,11 @@ object SymbolTable extends Environments {
     val id = next()
   }
 
-  /** Entity for a bind statement.
+  /** Entity for a variable (aka. identifier).
     */
-  case class BindEntity(t: Type, e: Exp) extends RawEntity
-
-  /** Entity for a generator statement.
-    */
-  case class GenEntity(t: Type, e: Exp) extends RawEntity
-
-  /** Entity for the argument of function abstraction.
-    */
-  case class FunArgEntity(t: Type) extends RawEntity
-
-  /** Entity for a pattern bind statement.
-    */
-  case class PatternBindEntity(t: Type, e: Exp, idxs: Seq[Int]) extends RawEntity
-
-  /** Entity for a pattern generator statement.
-    */
-  case class PatternGenEntity(t: Type, e: Exp, idxs: Seq[Int]) extends RawEntity
+  case class VariableEntity(idn: IdnDef) extends RawEntity
 
   /** Entity for a data source.
     */
   case class DataSourceEntity(name: String) extends RawEntity
-
 }

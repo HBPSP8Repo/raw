@@ -209,7 +209,7 @@ object Unnester extends LazyLogging {
       /** Returns true if the comprehension `c` does not depend on `s` generators.
         */
       def areIndependent(c: Calculus.Comp, s: List[Calculus.Gen]) = {
-        val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.IdnDef(v, _), _) => v }.toSet
+        val sVs: Set[String] = s.map { case Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), _) => v }.toSet
         variables(c).intersect(sVs).isEmpty
       }
 
@@ -252,7 +252,7 @@ object Unnester extends LazyLogging {
 
           /** Rule C4.
             */
-          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, None, EmptyTerm) =>
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), Scan(x)) :: r, p, e), None, None, EmptyTerm) =>
             logger.debug(s"Applying unnester rule C4")
             val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
             val pat_v = IdnPattern(v, getInnerType(x.t))
@@ -268,7 +268,7 @@ object Unnester extends LazyLogging {
           /** Rule C6
             */
 
-          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), Scan(x)) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
             logger.debug(s"Applying unnester rule C6")
             val pat_v = IdnPattern(v, getInnerType(x.t))
             val pat_w_v = PairPattern(w, pat_v)
@@ -280,7 +280,7 @@ object Unnester extends LazyLogging {
           /** Rule C7
             */
 
-          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
             logger.debug(s"Applying unnester rule C7")
             val pat_v = IdnPattern(v, getInnerType(tipes(path)))
             val pat_w_v = PairPattern(w, pat_v)
@@ -297,7 +297,7 @@ object Unnester extends LazyLogging {
           /** Rule C9
             */
 
-          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), Scan(x)) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), Scan(x)) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
             logger.debug(s"Applying unnester rule C9")
             val pat_v = IdnPattern(v, getInnerType(x.t))
             val pat_w_v = PairPattern(w, pat_v)
@@ -309,15 +309,22 @@ object Unnester extends LazyLogging {
           /** Rule C10
             */
 
-          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.IdnDef(v, _), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+          case CalculusTerm(CanonicalComp(m, Calculus.Gen(Calculus.PatternIdn(Calculus.IdnDef(v, _)), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
             logger.debug(s"Applying unnester rule C10")
             val pat_v = IdnPattern(v, getInnerType(tipes(path)))
             val pat_w_v = PairPattern(w, pat_v)
             val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
             apply(CalculusTerm(CanonicalComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(LogicalAlgebra.OuterUnnest(createExp(path, w), createPredicate(pred_v, pat_w_v), child))))
 
+
+            // TODO: seems to me that I could use PatternFunAbs for all functions and then put in the Pattern directly there as the argument
+            //       again, that seems like a much simpler/cleaner design actually.
+            //       also, i don't have to re-create the type: can just re-type the tree!!!
+
+
           /** Rule (missing from the paper) to handle merge of two comprehensions
             */
+            // TODO: This goes away entirely when I rewrite it as a rule that applies whenever there is a Comp Exp
 
           case CalculusTerm(Calculus.MergeMonoid(m, e1, e2), None, None, EmptyTerm) =>
             logger.debug(s"Applying unnester rule TopLevelMerge")

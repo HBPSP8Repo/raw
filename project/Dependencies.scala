@@ -7,7 +7,7 @@ object Dependencies {
   val scalaReflect = "org.scala-lang" % "scala-reflect" % "2.11.7"
 
   val scalatest = "org.scalatest" %% "scalatest" % "2.2.4"
-  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.12.3"
+  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.12.2"
 
   val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.1.3"

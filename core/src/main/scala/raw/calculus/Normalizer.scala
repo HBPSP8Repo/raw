@@ -1,8 +1,6 @@
 package raw
 package calculus
 
-import raw.calculus.SymbolTable.{BindEntity, RawEntity}
-
 case class NormalizerError(err: String) extends RawException(err)
 
 /** Normalize a comprehension by transforming a tree into its normalized form.
@@ -29,7 +27,7 @@ trait Normalizer extends Uniquifier {
   }
 
   lazy val rule1 = rule[Comp] {
-    case Comp(m, Rule1(r, Bind(IdnDef(x, _), u), s), e) =>
+    case Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x, _)), u), s), e) =>
       logger.debug(s"Applying normalizer rule 1")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => deepclone(u)
@@ -43,7 +41,7 @@ trait Normalizer extends Uniquifier {
     */
 
   private lazy val rule2 = rule[Exp] {
-    case f @ FunApp(FunAbs(IdnDef(idn, _), e1), e2) =>
+    case f @ FunApp(FunAbs(PatternIdn(IdnDef(idn, _)), e1), e2) =>
       logger.debug(s"Applying normalizer rule 2")
       rewrite(everywhere(rule[Exp] {
         case IdnExp(IdnUse(`idn`)) => deepclone(e2)
@@ -67,10 +65,10 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule4 = rule[Exp] {
-    case Comp(m, Rule4(q, Gen(idn, IfThenElse(e1, e2, e3)), s), e) if m.commutative || q.isEmpty =>
+    case Comp(m, Rule4(q, Gen(p, IfThenElse(e1, e2, e3)), s), e) if m.commutative || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 4")
-      val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(idn, e2)) ++ s, e)
-      val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(idn), e3)) ++ s.map(deepclone), deepclone(e))
+      val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(p, e2)) ++ s, e)
+      val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(p), e3)) ++ s.map(deepclone), deepclone(e))
       MergeMonoid(m, c1, rewriteIdns(c2))
   }
 
@@ -82,7 +80,7 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule5 = rule[Exp] {
-    case Comp(m, Rule5(q, Gen(idn, ze: ZeroCollectionMonoid), s), e) =>
+    case Comp(m, Rule5(q, Gen(_, ze: ZeroCollectionMonoid), s), e) =>
       logger.debug(s"Applying normalizer rule 5")
       m match {
         case _: MaxMonoid        => IntConst("0")
@@ -102,9 +100,9 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule6 = rule[Exp] {
-    case Comp(m, Rule6(q, Gen(idn, ConsCollectionMonoid(_, e1)), s), e) =>
+    case Comp(m, Rule6(q, Gen(p, ConsCollectionMonoid(_, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 6")
-      Comp(m, q ++ Seq(Bind(idn, e1)) ++ s, e)
+      Comp(m, q ++ Seq(Bind(p, e1)) ++ s, e)
   }
 
   /** Rule 7
@@ -115,10 +113,10 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule7 = rule[Exp] {
-    case Comp(m, Rule7(q, Gen(idn, MergeMonoid(_, e1, e2)), s), e) if m.commutative || q.isEmpty =>
+    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if m.commutative || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 7")
-      val c1 = Comp(deepclone(m), q ++ Seq(Gen(idn, e1)) ++ s, e)
-      val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(idn), e2)) ++ s.map(deepclone), deepclone(e))
+      val c1 = Comp(deepclone(m), q ++ Seq(Gen(p, e1)) ++ s, e)
+      val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(p), e2)) ++ s.map(deepclone), deepclone(e))
       MergeMonoid(m, c1, rewriteIdns(c2))
   }
 
@@ -130,9 +128,9 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule8 = rule[Exp] {
-    case Comp(m, Rule8(q, Gen(idn, Comp(_, r, e1)), s), e) =>
+    case Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 8")
-      Comp(m, q ++ r ++ Seq(Bind(idn, e1)) ++ s, e)
+      Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
   }
 
   /** Rule 9

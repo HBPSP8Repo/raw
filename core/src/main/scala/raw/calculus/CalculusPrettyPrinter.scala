@@ -31,8 +31,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case IntConst(v)                => v
       case FloatConst(v)              => v
       case StringConst(v)             => s""""$v""""
-      case IdnDef(idn, Some(t))       => idn <+> ":" <+> tipe(t)
-      case IdnDef(idn, None)          => ident(idn)
+      case IdnDef(idn, t)             => idn <+> ":" <+> tipe(t)
       case IdnUse(idn)                => ident(idn)
       case IdnExp(idn)                => apply(idn)
       case RecordProj(e, idn)         => apply(e) <> dot <> ident(idn)
@@ -46,15 +45,12 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case MergeMonoid(m, e1, e2)     => apply(e1) <+> merge(m) <+> apply(e2)
       case Comp(m, qs, e)             => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
       case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
-      case FunAbs(idn, e)             => "\\" <> apply(idn) <+> "->" <+> apply(e)
-      case Gen(idn, e)                => apply(idn) <+> "<-" <+> apply(e)
-      case Bind(idn, e)               => apply(idn) <+> ":=" <+> apply(e)
+      case FunAbs(p, e)               => "\\" <> apply(p) <+> "->" <+> apply(e)
+      case Gen(p, e)                  => apply(p) <+> "<-" <+> apply(e)
+      case Bind(p, e)                 => apply(p) <+> ":=" <+> apply(e)
       case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
       case PatternIdn(idn)            => apply(idn)
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
-      case PatternBind(p, e)          => apply(p) <+> ":=" <+> apply(e)
-      case PatternGen(p, e)           => apply(p) <+> "<-" <+> apply(e)
-      case PatternFunAbs(p, e)        => "\\" <> apply(p) <+> "->" <+> apply(e)
     })
 
     apply(n)

@@ -35,7 +35,7 @@ trait Transformer extends LazyLogging {
 
     rewrite(
       everywhere(rule[IdnNode] {
-        case IdnDef(idn, _) if idn.startsWith("$") => IdnDef(newIdn(idn), None)
+        case IdnDef(idn, _) if idn.startsWith("$") => IdnDef(newIdn(idn), TypeVariable(new Variable()))
         case IdnUse(idn)    if idn.startsWith("$") => IdnUse(newIdn(idn))
       }))(n)
   }
