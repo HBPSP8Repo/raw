@@ -217,10 +217,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     positioned(idnDef ^^ PatternIdn)
 
   lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ~ opt(":" ~> tipe) ^^ {
-      case idn ~ None => IdnDef(idn, TypeVariable(new Variable()))
-      case idn ~ Some(t) => IdnDef(idn, t)
-    })
+    positioned(ident ^^ IdnDef)
 
   lazy val patternProd: PackratParser[PatternProd] =
     positioned("(" ~> rep1sep(pattern, ",") <~ ")" ^^ PatternProd)
@@ -263,36 +260,6 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val funAbs: PackratParser[FunAbs] =
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ FunAbs)
 
-  lazy val tipe: PackratParser[Type] =
-    primitiveType |
-    recordType |
-    collectionType |
-    classType |
-    failure("illegal type")
-
-  lazy val primitiveType: PackratParser[PrimitiveType] =
-    positioned(
-      "bool" ^^^ BoolType() |
-      "int" ^^^ IntType() |
-      "float" ^^^ FloatType() |
-      "string" ^^^ StringType())
-
-  lazy val recordType: PackratParser[RecordType] =
-    positioned("record" ~ "(" ~> rep1sep(attr, ",") <~ ")" ^^ { case atts => RecordType(atts, None) })
-
-  lazy val attr: PackratParser[AttrType] =
-    positioned((attrName <~ ":") ~ tipe ^^ AttrType)
-
-  lazy val collectionType: PackratParser[CollectionType] =
-    positioned(
-      ("bag" ~ "(") ~> (tipe <~ ")") ^^ BagType |
-      ("list" ~ "(") ~> (tipe <~ ")") ^^ ListType |
-      ("set" ~ "(") ~> (tipe <~ ")") ^^ SetType
-    )
-
-  lazy val classType: PackratParser[UserType] =
-    positioned(attrName ^^ UserType)
-
   lazy val funApp: PackratParser[FunApp] =
     positioned(exp ~ exp ^^ FunApp)
 
@@ -302,7 +269,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val idnUse: PackratParser[IdnUse] =
     positioned(ident ^^ IdnUse)
 
-  def kw (s : String) =
+  def kw(s: String) =
     (s + "\\b").r
 
 }

@@ -46,7 +46,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def inferType(t: c.Type): InferredType = {
     val rawType = t match {
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(new raw.Variable())
+      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(raw.calculus.SymbolTable.next())
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Predef.String" => raw.StringType()
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.SetType(inferType(t1).rawType)
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.ListType(inferType(t1).rawType) // TODO can we pattern match on something else

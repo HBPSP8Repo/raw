@@ -51,7 +51,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("simple type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(TypeVariable(new Variable())),
+      "unknown" -> SetType(TypeVariable(SymbolTable.next())),
       "integers" -> SetType(IntType()),
       "floats" -> SetType(FloatType()),
       "booleans" -> SetType(BoolType()),
@@ -93,8 +93,8 @@ class SemanticAnalyzerTest extends FunTest {
 
   ignore("complex type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(TypeVariable(new Variable())),
-      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable(new Variable())), AttrType("alive", TypeVariable(new Variable()))), None))))
+      "unknown" -> SetType(TypeVariable(SymbolTable.next())),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable(SymbolTable.next())), AttrType("alive", TypeVariable(SymbolTable.next()))), None))))
 
     // TODO: Data source record type is not inferred
     success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)))
@@ -120,13 +120,10 @@ class SemanticAnalyzerTest extends FunTest {
   test("inference for function abstraction") {
     val world = new World()
 
-    success("""\a: int -> a + 2""", world, FunType(IntType(), IntType()))
-    success("""\a: int -> a""", world, FunType(IntType(), IntType()))
     success("""\a -> a + 2""", world, FunType(IntType(), IntType()))
     success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
-    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
-    success("""\(a: int, b: int) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
     success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
     // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
     success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(AnyType(), None, None), AnyType()))
@@ -163,6 +160,10 @@ class SemanticAnalyzerTest extends FunTest {
 
     // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
     // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
-    success("""\(x, y) -> x + y""", world, FunType(IntType(), IntType()))
+    success("""\(x, y) -> x + y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+
+//    success("""\(x, y) -> (x, y)""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+
+    success("""\(x, y) -> if (x = y) then x else y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
   }
 }

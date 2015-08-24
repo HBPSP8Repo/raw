@@ -2,12 +2,11 @@ package raw
 package calculus
 
 import org.kiama.util.Environments
-import raw.calculus.Calculus.IdnDef
+import raw.calculus.Calculus.{Idn, IdnDef}
 
 object SymbolTable extends Environments {
 
   import org.kiama.util.{Counter, Entity}
-  import Calculus.Exp
 
   val counter = new Counter(0)
 
@@ -33,7 +32,7 @@ object SymbolTable extends Environments {
 
   /** Entity for a variable (aka. identifier).
     */
-  case class VariableEntity(idn: IdnDef) extends RawEntity
+  case class VariableEntity(idn: IdnDef, t: Type) extends RawEntity
 
   /** Entity for a data source.
     */

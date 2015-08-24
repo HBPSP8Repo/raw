@@ -28,7 +28,7 @@ trait Desugarer extends Transformer {
       logger.debug("Applying desugar rulePatternFunAbs")
       val idn = SymbolTable.next()
       FunAbs(
-        PatternIdn(IdnDef(idn, TypeVariable(new Variable()))),
+        PatternIdn(IdnDef(idn)),
         ExpBlock(ps.zipWithIndex.map { case (p, idx) => Bind(p, RecordProj(IdnExp(IdnUse(idn)), s"_${idx + 1}")) }, e))
   }
 
@@ -44,7 +44,7 @@ trait Desugarer extends Transformer {
     case Comp(m, RulePatternGen(r, Gen(p, u), s), e) =>
       logger.debug("Applying desugar rulePatternGen")
       val idn = SymbolTable.next()
-      Comp(m, r ++ Seq(Gen(PatternIdn(IdnDef(idn, TypeVariable(new Variable()))), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
+      Comp(m, r ++ Seq(Gen(PatternIdn(IdnDef(idn)), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
   }
 
   /** De-sugar pattern binds inside expression blocks.
@@ -75,7 +75,7 @@ trait Desugarer extends Transformer {
     */
 
   private lazy val ruleExpBlocks = rule[ExpBlock] {
-    case in @ ExpBlock(Bind(PatternIdn(IdnDef(x, _)), u) :: rest, e) =>
+    case in @ ExpBlock(Bind(PatternIdn(IdnDef(x)), u) :: rest, e) =>
       logger.debug(s"Applying desugar ruleExpBlocks to ${CalculusPrettyPrinter(in, 200)}")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => deepclone(u)

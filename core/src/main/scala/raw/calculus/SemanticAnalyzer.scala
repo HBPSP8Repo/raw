@@ -34,7 +34,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case n => check(n) {
 
         // Identifier declared more than once in the same scope
-        case d @ IdnDef(i, _) if entity(d) == MultipleEntity() =>
+        case d @ IdnDef(i) if entity(d) == MultipleEntity() =>
           message(d, s"$i is declared more than once")
 
         // Identifier used without being declared
@@ -42,7 +42,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           message(u, s"$i is not declared")
 
         // Identifier declared has no inferred type
-        case d @ IdnDef(i, _) if entityType(entity(d)) == NothingType() =>
+        case d @ IdnDef(i) if entityType(entity(d)) == NothingType() =>
           message(d, s"$i has no type")
 
         // Identifier used has no inferred type
@@ -104,14 +104,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     else
       UnknownEntity()
 
-  /** The entity (symbol) of an identifier.
+  /** The entity of an identifier.
     */
   lazy val entity: IdnNode => Entity = attr {
-    case n @ IdnDef(idn, _) =>
+    case n @ IdnDef(idn) =>
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
-        VariableEntity(n)
+        VariableEntity(n, TypeVariable(SymbolTable.next()))
     case n @ IdnUse(idn) =>
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
@@ -147,7 +147,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case f: FunAbs        => leave(out(f))
 
     // A new variable was defined in the current scope.
-    case n @ IdnDef(i, _) => define(out(n), i, entity(n))
+    case n @ IdnDef(i)    => define(out(n), i, entity(n))
 
     // The `out` environment of a bind or generator is the environment after the assignment.
     case Bind(p, _)       => env(p)
@@ -214,19 +214,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case UnaryExp(_: ToFloat, _)  => Set(BoolType(), IntType())
       case UnaryExp(_: ToString, _) => Set(BoolType(), IntType(), FloatType())
 
-        // TODO: This makes sense, but patternType is still a bit too broad check, no?
-        // TODO: It should be whatever that patternType ends up being resolved too, based on the IdnDef new/latest types.
-        // TODO: So perhaps need a new patternType method that walks the tree for Idn latest types???
-//      // Bind expression must have the same type as the pattern
-//      case Bind(pat, _) => Set(patternType(pat))
-////
-////      // The generator expression must be some collection over the same type as the pattern
-////      // TODO: This is cool but check with Ben :)
-//      case Gen(pat, _)  => //Set(ConstraintCollectionType(patternType(pat), None, None))
-//        Set(SetType(patternType(pat)),
-//        BagType(patternType(pat)),
-//        ListType(patternType(pat)))
-
       case _ => Set(AnyType())
     }
     case _ => Set(AnyType()) // There is no parent, i.e. the root node.
@@ -249,48 +236,31 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   }
 
   // TODO: Move it into a separate class to isolate its behavior with an interface!
-  private var variableMap = scala.collection.mutable.Map[Variable, Type]()
+  private var variableMap = scala.collection.mutable.Map[String, Type]()
 
-  def VMapToStr(): String = {
-    variableMap.map{case (v: Variable, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}")
-  }
-
-  private def getVariable(v: Variable) = {
-    if (!variableMap.contains(v))
-      variableMap.put(v, AnyType())
-    variableMap(v)
-  }
+  // TODO: Call pass1(tree.root) from a private non-lay val, to trigger the pass1 at startup.
 
   lazy val tipe: Exp => Type = {
     case e => {
       // Run `pass1` from the root for its side-effect, which is to type the nodes and build the `variableMap`.
       // Subsequent runs are harmless since they hit the cached value.
-      //val cucu = query[Qual] { case n1: Qual => println(">>> " + n1); pass1(n1) }(tree.root)
-
-      logger.debug("Typing...")
-
       pass1(tree.root)
 
-
-      logger.debug(s"Looking for type of ${CalculusPrettyPrinter(e)}")
-      logger.debug(s"*** FINAL varMap")
-      logger.debug(VMapToStr())
-
       def walk(t: Type): Type = t match {
-        case _: PrimitiveType       => t
         case _: AnyType             => t
-        case TypeVariable(v)        => walk(getVariable(v))
+        case _: PrimitiveType       => t
+        case _: UserType            => t
+        case TypeVariable(v)        => if (variableMap.contains(v)) walk(variableMap(v)) else t
         case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) }, name)
         case ListType(innerType)    => ListType(walk(innerType))
         case SetType(innerType)     => SetType(walk(innerType))
         case BagType(innerType)     => BagType(walk(innerType))
-        case FunType(aType, eType)  => FunType(walk(aType), walk(eType))
+        case FunType(t1, t2)        => FunType(walk(t1), walk(t2))
         case ConstraintRecordType(atts) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
         case ConstraintCollectionType(innerType, c, i) => ConstraintCollectionType(walk(innerType), c, i)
       }
 
       val t = walk(pass1(e))
-      logger.debug(s"Found type ${PrettyPrinter(t)}")
       t
     }
   }
@@ -303,8 +273,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   }
 
   private lazy val entityType: Entity => Type = attr {
-    case VariableEntity(idnDef @ IdnDef(idn, t))    => {
-      idnDef match {
+    case VariableEntity(idn, t)    => {
+      idn match {
         case tree.parent(p: Pattern) => patternDef(p) match {
           case Bind(p1, e) =>
             unify(patternType(p1), pass1(e))
@@ -338,25 +308,16 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _: StringConst => StringType()
 
     // Rule 2
-    case _: Null => TypeVariable(new Variable())
+    case _: Null => TypeVariable(SymbolTable.next())
 
     // Rule 3
     case IdnExp(idn) => idnType(idn)
 
     // Rule 4
-//    case RecordProj(e, idn) =>
-//      logger.debug(s"We got here for idn $idn and e $e and pass1(e) is ${pass1(e)}")
-//      pass1(e) match {
-//        case RecordType(atts, _) => atts.find(_.idn == idn) match {
-//          case Some(att: AttrType) => att.tipe
-//          case _                   => NothingType()
-//        }
-//        case _                   => AnyType()
-//      }
     case RecordProj(e, idn) =>
-      val v = new Variable()
-      val inner = TypeVariable(new Variable())
-      variableMap.put(v, ConstraintRecordType(Set(AttrType(idn, inner))))
+      val v = SymbolTable.next()
+      val inner = TypeVariable(SymbolTable.next())
+      variableMap.update(v, ConstraintRecordType(Set(AttrType(idn, inner))))
       unify(pass1(e), TypeVariable(v))
       inner
 
@@ -372,13 +333,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Rule 8
     case FunApp(f, _) => pass1(f) match {
       case FunType(_, t2) => t2
-      case _ => TypeVariable(new Variable()) //??? // TODO: Add a fancy contraint that it is a FunAbs?
+      case _ => TypeVariable(SymbolTable.next()) //??? // TODO: Add a fancy contraint that it is a FunAbs?
     }
 
     // Rule 9
-    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(TypeVariable(new Variable()))
-    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(new Variable()))
-    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(TypeVariable(new Variable()))
+    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(TypeVariable(SymbolTable.next()))
+    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(SymbolTable.next()))
+    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(TypeVariable(SymbolTable.next()))
 
     // Rule 10
     case ConsCollectionMonoid(_: BagMonoid, e)  => BagType(pass1(e))
@@ -438,15 +399,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case _ => NothingType()
   }
 
-  // Return the type corresponding to a given pattern
+  /** The type corresponding to a given pattern.
+    */
   private def patternType(p: Pattern): Type = p match {
     case PatternIdn(idn) => entity(idn) match {
-      case VariableEntity(idnDef) => idnDef.t
-      case _ => NothingType()
+      case VariableEntity(_, t) => t
+      case _                    => NothingType()
     }
     case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))}, None)
   }
-
 
   /** Hindley-Milner unification algorithm.
     */
@@ -460,39 +421,34 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case UserType(t) => world.userTypes(t)
       case t => t
     }
+
     (nt1, nt2) match {
       case (n: NothingType, _) => n
       case (_, n: NothingType) => n
       case (_: AnyType, t) => t
       case (t, _: AnyType) => t
-      case (a: PrimitiveType, b: PrimitiveType) if a == b => a
+      case (t1: PrimitiveType, t2: PrimitiveType) if t1 == t2 => t1
       case (SetType(a), SetType(b)) => SetType(unify(a, b))
       case (BagType(a), BagType(b)) => BagType(unify(a, b))
       case (ListType(a), ListType(b)) => ListType(unify(a, b))
       case (FunType(a1, a2), FunType(b1, b2)) => FunType(unify(a1, b1), unify(a2, b2))
-      case (RecordType(atts1, Some(name1)), RecordType(atts2, Some(name2))) if atts1.map(_.idn) == atts2.map(_.idn) && name1 == name2 =>
-        // Create a record type with same name
-        RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, Some(name1))
-      case (RecordType(atts1, None), RecordType(atts2, None)) if atts1.map(_.idn) == atts2.map(_.idn) =>
-        // Create an 'anonymous' record type
-        RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, None)
-
-      case (a@ConstraintRecordType(atts1), b@ConstraintRecordType(atts2)) =>
+      case (RecordType(atts1, name1), RecordType(atts2, name2)) if atts1.map(_.idn) == atts2.map(_.idn) && name1 == name2 =>
+        RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, name1)
+      case (t1 @ ConstraintRecordType(atts1), t2 @ ConstraintRecordType(atts2)) =>
         val common = atts1.map(_.idn).intersect(atts2.map(_.idn))
-        val commonAttr = common.map { case idn => AttrType(idn, unify(a.getType(idn).head, b.getType(idn).head)) }
+        val commonAttr = common.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head)) }
         ConstraintRecordType(atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttr)
-      case (a@ConstraintRecordType(atts1), b@RecordType(atts2, name)) =>
+      case (t1@ConstraintRecordType(atts1), t2@RecordType(atts2, name)) =>
         if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet))
           NothingType()
         else
-          RecordType(atts2.map { case att => a.getType(att.idn) match {
+          RecordType(atts2.map { case att => t1.getType(att.idn) match {
             case Some(t) => AttrType(att.idn, unify(t, att.tipe))
             case None => att
           }
           }, name)
-      case (a: RecordType, b: ConstraintRecordType) =>
-        unify(b, a)
-
+      case (t1: RecordType, t2: ConstraintRecordType) =>
+        unify(t2, t1)
       case (a@ConstraintCollectionType(t1, c1, i1), b@ConstraintCollectionType(t2, c2, i2)) =>
         if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
           NothingType()
@@ -525,15 +481,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         else
           NothingType()
 
-      case (a: CollectionType, b: ConstraintCollectionType) =>
-        unify(b, a)
+      case (t1: CollectionType, t2: ConstraintCollectionType) =>
+        unify(t2, t1)
 
-      case (t1@TypeVariable(a), t2@TypeVariable(b)) =>
+      case (t1 @ TypeVariable(a), t2 @ TypeVariable(b)) =>
         if (t1 == t2)
           t1
-        else {
-          val ta = getVariable(a)
-          val tb = getVariable(b)
+        else if (variableMap.contains(a) && variableMap.contains(b)) {
+          val ta = variableMap.get(a).head
+          val tb = variableMap.get(b).head
           val nt = unify(ta, tb)
           nt match {
             case _: NothingType =>
@@ -543,18 +499,36 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
               variableMap.update(b, t1)
               t1
           }
+        } else if (variableMap.contains(a)) {
+          variableMap.update(b, t1)
+          t1
+        } else if (variableMap.contains(b)) {
+          variableMap.update(a, t2)
+          t2
+        } else {
+          variableMap.update(b, t1)
+          t1
         }
-      case (TypeVariable(a), b) =>
-        val ta = getVariable(a)
-        val nt = unify(ta, b)
-        nt match {
-          case _: NothingType => nt
-          case _ =>
-            variableMap.update(a, nt)
-            nt
+      case (t1 @ TypeVariable(a), t2) =>
+        logger.debug(s"* t1 is ${PrettyPrinter(t1)} and t2 is ${PrettyPrinter(t2)}")
+        if (variableMap.contains(a)) {
+          logger.debug("**")
+          val ta = variableMap.get(a).head
+          val nt = unify(ta, t2)
+          nt match {
+            case _: NothingType => nt
+            case _ =>
+              variableMap.update(a, nt)
+              logger.debug(s"nt is ${PrettyPrinter(nt)}")
+              nt
+          }
+        } else {
+          logger.debug("**|")
+          variableMap.update(a, t2)
+          t2
         }
-      case (a, b: TypeVariable) =>
-        unify(b, a)
+      case (t1, t2: TypeVariable) =>
+        unify(t2, t1)
       case _ => NothingType()
     }
   }
@@ -581,3 +555,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 // - I guess it says (AnyType(), AnyType()); but that is not sound.
 
 // - How to declare functions w/o arguments???
+
+// - Either remove user types, or add them to the language
+// - They are useful to refer to cyclical things though; but what should their scope be?
+// - ... no. Makes sense to have them as-is.

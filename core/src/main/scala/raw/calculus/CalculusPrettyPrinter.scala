@@ -31,7 +31,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case IntConst(v)                => v
       case FloatConst(v)              => v
       case StringConst(v)             => s""""$v""""
-      case IdnDef(idn, t)             => idn <+> ":" <+> tipe(t)
+      case IdnDef(idn)                => idn
       case IdnUse(idn)                => ident(idn)
       case IdnExp(idn)                => apply(idn)
       case RecordProj(e, idn)         => apply(e) <> dot <> ident(idn)

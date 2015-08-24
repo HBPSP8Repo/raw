@@ -27,7 +27,7 @@ trait Normalizer extends Uniquifier {
   }
 
   lazy val rule1 = rule[Comp] {
-    case Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x, _)), u), s), e) =>
+    case Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x)), u), s), e) =>
       logger.debug(s"Applying normalizer rule 1")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => deepclone(u)
@@ -41,7 +41,7 @@ trait Normalizer extends Uniquifier {
     */
 
   private lazy val rule2 = rule[Exp] {
-    case f @ FunApp(FunAbs(PatternIdn(IdnDef(idn, _)), e1), e2) =>
+    case f @ FunApp(FunAbs(PatternIdn(IdnDef(idn)), e1), e2) =>
       logger.debug(s"Applying normalizer rule 2")
       rewrite(everywhere(rule[Exp] {
         case IdnExp(IdnUse(`idn`)) => deepclone(e2)

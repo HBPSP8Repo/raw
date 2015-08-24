@@ -49,9 +49,7 @@ case class FunType(t1: Type, t2: Type) extends Type
 
 /** Type Variable
   */
-case class TypeVariable(v: Variable) extends Type
-
-class Variable()
+case class TypeVariable(idn: String) extends Type
 
 /** Constraint Record Type
   */

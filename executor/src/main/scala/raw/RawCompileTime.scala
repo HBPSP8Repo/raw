@@ -32,7 +32,7 @@ object RawCompileTime extends StrictLogging {
   def inferType(t: toolbox.u.Type): InferredType = {
     val rawType = t match {
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(new raw.Variable())
+      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(raw.calculus.SymbolTable.next())
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Predef.String" => raw.StringType()
 
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.SetType(inferType(t1).rawType)
