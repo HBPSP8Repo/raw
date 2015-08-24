@@ -10,7 +10,7 @@ class SemanticAnalyzerTest extends FunTest {
     val analyzer = new SemanticAnalyzer(t, world)
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
-    analyzer.debugTreeTypes
+    //analyzer.debugTreeTypes
 
     assert(analyzer.tipe(ast) === tipe)
   }
@@ -93,15 +93,15 @@ class SemanticAnalyzerTest extends FunTest {
 
   ignore("complex type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(AnyType()),
-      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
+      "unknown" -> SetType(TypeVariable(new Variable())),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable(new Variable())), AttrType("alive", TypeVariable(new Variable()))), None))))
 
     // TODO: Data source record type is not inferred
     success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)))
     // TODO: Missing record type inference
-    success("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", world, SetType(RecordType(List(AttrType("value", FloatType())), None)))
+//    success("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", world, SetType(RecordType(List(AttrType("value", FloatType())), None)))
     // TODO: Data source record type is not inferred
-    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", world, SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)))
+//    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", world, SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)))
   }
 
   test("expression block with multiple comprehensions") {
@@ -127,6 +127,9 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\a -> a""", world, FunType(AnyType(), AnyType()))
     success("""\(a: int, b: int) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
+    // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
+    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(AnyType(), None, None), AnyType()))
   }
 
   test("patterns") {
@@ -148,9 +151,18 @@ class SemanticAnalyzerTest extends FunTest {
 
     success("for (s <- students) yield list s", world, students)
     success("for (s <- students) yield list (a := 1, b := s)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student)), None)))
+    // TODO: Check w/ Ben. The following should indeed blow up!
     success("for (s <- students; p <- professors; s = p) yield list s", world, students)
-    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
-    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
-    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+//    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
+//    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+//    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+  }
+
+  test("soundness") {
+    val world = new World()
+
+    // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
+    // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
+    success("""\(x, y) -> x + y""", world, FunType(IntType(), IntType()))
   }
 }

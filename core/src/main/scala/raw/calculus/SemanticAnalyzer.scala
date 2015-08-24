@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 
 /** Analyzes the semantics of an AST.
-  * This includes the type checker and monoid composition.
+  * This includes the type checker/inference as well as monoid compatibility.
   *
   * The semantic analyzer reads the user types and the catalog of user-defined class entities from the World object.
   * User types are the type definitions available to the user.
@@ -16,12 +16,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   import org.kiama.==>
   import org.kiama.attribution.Decorators
-  import org.kiama.rewriting.Rewriter._
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import Calculus._
   import SymbolTable._
-  import scala.collection.immutable.Seq
 
   /** Decorators on the tree.
     */
@@ -51,46 +49,24 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case u @ IdnUse(i) if entityType(entity(u)) == NothingType() =>
           message(u, s"$i has no type")
 
-        // Check whether pattern structure matches expression type
-//        case Bind(p, e) => patternCompatible(p, tipe(e), e)
-//        case Gen(p, e)  => tipe(e) match {
-//          case t: CollectionType => patternCompatible(p, t.innerType, e)
-//          case _                 => noMessages // Initial error is already signaled elsewhere
-//        }
-
-          // TODO: REname 'e'
-        case e: Qual =>
+        case e: Exp =>
           // Mismatch between type expected and actual type
           message(e, s"expected ${expectedType(e).map{ case p => PrettyPrinter(p) }.mkString(" or ")} got ${PrettyPrinter(tipe(e))}",
             !typesCompatible(e)) ++
             check(e) {
-
               // Semantic error in monoid composition
               case c @ Comp(m, qs, _) =>
-                logger.debug(s"========================================================== Comp is ${CalculusPrettyPrinter(c)}")
                 qs.flatMap {
-                  case Gen(_, g)        => monoidsCompatible(m, g)
-                  case _                => noMessages
+                  case Gen(_, g) => monoidsCompatible(m, g)
+                  case _         => noMessages
                 }.toVector
             }
       }
     }
 
-//  // Return error messages if the pattern is not compatible with the type.
-//  // `e` is only used as a marker to position the error message
-//  private def patternCompatible(p: Pattern, t: Type, e: Exp): Messages = (p, t) match {
-//    case (PatternProd(ps), RecordType(atts, _)) =>
-//      if (ps.length != atts.length)
-//        message(e, s"expected record with ${ps.length} attributes but got record with ${atts.length} attributes")
-//      else
-//        ps.zip(atts).flatMap { case (p1, att) => patternCompatible(p1, att.tipe, e) }.toVector
-//    case (p1: PatternProd, t1) =>
-//      message(e, s"expected ${PrettyPrinter(patternType(p1))} but got ${PrettyPrinter(t1)}")
-//    case (_: PatternIdn, _) => noMessages
-//  }
-
-  // Return error message if the monoid is not compatible with the generator expression type.
-  private def monoidsCompatible(m: Monoid, g: Exp) = {
+  /** Check whether monoid is compatible with the generator expression.
+    */
+  private def monoidsCompatible(m: Monoid, g: Exp): Messages = {
     def errors(t: Type) = t match {
       case _: SetType =>
         if (!m.commutative && !m.idempotent)
@@ -108,6 +84,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           noMessages
       case _: ListType =>
         noMessages
+      case _: ConstraintCollectionType =>
+        noMessages
       case t =>
         message(g, s"expected collection but got ${PrettyPrinter(t)}")
     }
@@ -118,20 +96,22 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
   }
 
-  // Looks up the identifier in the World. If present, return a a new entity instance.
+  /** Looks up the identifier in the World and returns a new entity instance.
+    */
   private def lookupDataSource(idn: String): Entity =
     if (world.sources.contains(idn))
       DataSourceEntity(idn)
     else
       UnknownEntity()
 
+  /** The entity (symbol) of an identifier.
+    */
   lazy val entity: IdnNode => Entity = attr {
     case n @ IdnDef(idn, _) =>
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
         VariableEntity(n)
-
     case n @ IdnUse(idn) =>
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
@@ -178,12 +158,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case e: Exp => env.in(e)
   }
 
-  // The expected type of an expression.
-  private lazy val expectedType: Qual => Set[Type] = attr {
+  /** The expected type of an expression.
+    */
+  private lazy val expectedType: Exp => Set[Type] = attr {
 
     case tree.parent.pair(e, p) => p match {
       // Record projection must be over a record type that contains the identifier to project
-      case RecordProj(_, idn) => Set(RecordType(List(AttrType(idn, AnyType())), None))
+      case RecordProj(_, idn) => //Set(RecordType(List(AttrType(idn, AnyType())), None))
+        Set(ConstraintRecordType(Set(AttrType(idn, AnyType()))))
 
       // If condition must be a boolean
       case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
@@ -232,9 +214,18 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case UnaryExp(_: ToFloat, _)  => Set(BoolType(), IntType())
       case UnaryExp(_: ToString, _) => Set(BoolType(), IntType(), FloatType())
 
-      // TODO: Add here rules for Bind and Gen: if in an expression, its type must be compatible with the type of the pattern?
-      // TODO: And btw, in a pattern, its type must be compatiblee with the expression
-      // TODO: So make one of them match the other; as usual, the 2nd matches the 1st.
+        // TODO: This makes sense, but patternType is still a bit too broad check, no?
+        // TODO: It should be whatever that patternType ends up being resolved too, based on the IdnDef new/latest types.
+        // TODO: So perhaps need a new patternType method that walks the tree for Idn latest types???
+//      // Bind expression must have the same type as the pattern
+//      case Bind(pat, _) => Set(patternType(pat))
+////
+////      // The generator expression must be some collection over the same type as the pattern
+////      // TODO: This is cool but check with Ben :)
+//      case Gen(pat, _)  => //Set(ConstraintCollectionType(patternType(pat), None, None))
+//        Set(SetType(patternType(pat)),
+//        BagType(patternType(pat)),
+//        ListType(patternType(pat)))
 
       case _ => Set(AnyType())
     }
@@ -244,25 +235,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   /** Checks for type compatibility between expected and actual types of an expression.
     * Uses type unification but overrides it to handle the special case of record projections.
     */
-  private def typesCompatible(n: Qual): Boolean = {
-    val actual = tipe(n)
+  private def typesCompatible(e: Exp): Boolean = {
+    val actual = tipe(e)
     // Type checker keeps quiet on nothing types because the actual error will be signalled in one of its children
     // through the `expectedType` comparison.
     if (actual == NothingType())
       return true
-    for (expected <- expectedType(n)) {
-      // Type checker keeps quiet on nothing types because the actual error will be signalled in one of its children
-      // through the `expectedType` comparison.
-      if (expected == NothingType())
+    for (expected <- expectedType(e)) {
+      if (expected == NothingType() || unify(expected, actual) != NothingType())
         return true
-
-      (expected, actual) match {
-        case (RecordType(atts1, _), RecordType(atts2, _)) =>
-          // Handle the special case of an expected type being a record type containing a given identifier.
-          val idn = atts1.head.idn
-          if (atts2.collect { case AttrType(`idn`, _) => true }.nonEmpty) return true
-        case _ => if (unify(expected, actual) != NothingType()) return true
-      }
     }
     false
   }
@@ -271,7 +252,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   private var variableMap = scala.collection.mutable.Map[Variable, Type]()
 
   def VMapToStr(): String = {
-    return variableMap.map{case (v: Variable, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}")
+    variableMap.map{case (v: Variable, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}")
   }
 
   private def getVariable(v: Variable) = {
@@ -280,8 +261,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     variableMap(v)
   }
 
-  lazy val tipe: Qual => Type = {
-    case n => {
+  lazy val tipe: Exp => Type = {
+    case e => {
       // Run `pass1` from the root for its side-effect, which is to type the nodes and build the `variableMap`.
       // Subsequent runs are harmless since they hit the cached value.
       //val cucu = query[Qual] { case n1: Qual => println(">>> " + n1); pass1(n1) }(tree.root)
@@ -291,21 +272,24 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       pass1(tree.root)
 
 
-      logger.debug(s"Looking for type of ${CalculusPrettyPrinter(n)}")
+      logger.debug(s"Looking for type of ${CalculusPrettyPrinter(e)}")
       logger.debug(s"*** FINAL varMap")
       logger.debug(VMapToStr())
 
       def walk(t: Type): Type = t match {
+        case _: PrimitiveType       => t
+        case _: AnyType             => t
         case TypeVariable(v)        => walk(getVariable(v))
-        case RecordType(atts, name) => RecordType(atts.map { case AttrType(iAtt, tAtt) => AttrType(iAtt, walk(tAtt)) }, name)
+        case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) }, name)
         case ListType(innerType)    => ListType(walk(innerType))
         case SetType(innerType)     => SetType(walk(innerType))
         case BagType(innerType)     => BagType(walk(innerType))
         case FunType(aType, eType)  => FunType(walk(aType), walk(eType))
-        case _                      => t
+        case ConstraintRecordType(atts) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
+        case ConstraintCollectionType(innerType, c, i) => ConstraintCollectionType(walk(innerType), c, i)
       }
 
-      val t = walk(pass1(n))
+      val t = walk(pass1(e))
       logger.debug(s"Found type ${PrettyPrinter(t)}")
       t
     }
@@ -337,7 +321,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   private def idnType(idn: IdnNode): Type = entityType(entity(idn))
 
-  private def pass1(n: Qual): Type = realPass1(n) match {
+  private def pass1(n: Exp): Type = realPass1(n) match {
     case UserType(name) => world.userTypes.get(name) match {
       case Some(t) => t
       case _       => NothingType()
@@ -345,7 +329,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case t => t
   }
 
-  private lazy val realPass1: Qual => Type = attr {
+  private lazy val realPass1: Exp => Type = attr {
 
     // Rule 1
     case _: BoolConst   => BoolType()
@@ -370,51 +354,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 //        case _                   => AnyType()
 //      }
     case RecordProj(e, idn) =>
-      logger.debug(s"*** RecordProj e ${CalculusPrettyPrinter(e)} and idn is $idn")
-      logger.debug(s"e type is ${pass1(e)}")
-      logger.debug(s"pre ${VMapToStr()}")
       val v = new Variable()
       val inner = TypeVariable(new Variable())
       variableMap.put(v, ConstraintRecordType(Set(AttrType(idn, inner))))
-      val x = unify(pass1(e), TypeVariable(v))
-      logger.debug(s"post ${VMapToStr()}")
-      logger.debug(s"unify is ${PrettyPrinter(x)}")
-      logger.debug(s"return type is ${PrettyPrinter(inner)}")
+      unify(pass1(e), TypeVariable(v))
       inner
-//      x match {
-//        case r: RecordType => r.getType(idn).get
-//        case r: ConstraintRecordType => r.getType(idn).get
-//        case t: TypeVariable => variableMap.get(t.v)
-//      }
-
-//      pass1(e) match {
-//        case RecordType(atts, _) => atts.find(_.idn == idn) match {
-//          case Some(att: AttrType) => att.tipe
-//          case _                   => NothingType()
-//        }
-//        case t: TypeVariable =>
-//
-//
-//          val x = unify(t, RecordType(Seq(AttrType(idn, TypeVariable(new Variable()))), None)); logger.debug(s"x is $x"); x match {
-//          case RecordType(atts, _) => atts.find(_.idn == idn) match {
-//            case Some(att: AttrType) => att.tipe
-//            case _ => ???
-//          }
-//        }
-//        case _ => NothingType() // ???
-//        //case _                   => AnyType() // ???
-//      }
-
-
-
-//      if i unified 'e' iwth a record type with 'idn'
-//      then my own type is the projection of a another type?
-//    so i must point to the other type variable... and project out?
-//
-//    so my type is the projection
-//
-//    so first i unify
-//    then i project out
 
     // Rule 5
     case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, pass1(att.e))), None)
@@ -491,34 +435,18 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Expression block type
     case ExpBlock(_, e) => pass1(e)
 
-//    // Bind unifies the type of the pattern with the type of the expression although it has NothingType()
-//    case Bind(p, e) =>
-//      unify(patternType(p), pass1(e))
-//      NothingType()
-//
-//    // Gen is similar to Bind but extracts the inner type of the expression, which must be a collection
-//    case Gen(p, e) =>
-//      logger.debug(s"*** Gen(p, e) p ${CalculusPrettyPrinter(p)} e ${CalculusPrettyPrinter(e)}")
-//      val v = new Variable()
-//      logger.debug(s"p type is ${patternType(p)}")
-//      logger.debug(s"e type is ${pass1(e)}")
-//      logger.debug(s"pre ${VMapToStr()}")
-//      variableMap.put(v, ConstraintCollectionType(patternType(p), None, None))
-//      val x = unify(pass1(e), TypeVariable(v))
-//      logger.debug(s"post ${VMapToStr()}")
-//      logger.debug(s"unify is ${PrettyPrinter(x)}")
-//      NothingType()
-
     case _ => NothingType()
   }
 
   // Return the type corresponding to a given pattern
   private def patternType(p: Pattern): Type = p match {
     case PatternIdn(idn) => entity(idn) match {
-      case VariableEntity(idn) => idn.t
+      case VariableEntity(idnDef) => idnDef.t
+      case _ => NothingType()
     }
     case PatternProd(ps) => RecordType(ps.zipWithIndex.map{ case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1))}, None)
   }
+
 
   /** Hindley-Milner unification algorithm.
     */
@@ -631,9 +559,25 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
   }
 
-  def debugTreeTypes =
-    everywherebu(query[Exp] {
-      case n => logger.error(CalculusPrettyPrinter(tree.root, debug = Some({ case `n` => s"[${PrettyPrinter(tipe(n))}] " })))
-    })(tree.root)
-
 }
+
+
+// TODO:
+// - Improve FunAbs behaviour
+//   Perhaps add a constraint?
+// - Is there a way to improve the expectedType?
+//   Should it still call unify and stuff?
+// - Clean up code comments
+// - Remove logging info
+
+// - ADD METHOD to resolve user type
+
+// - Skip building TypeVariable(new Variable()) by hand and do lazy val v = new Variable()
+
+// - How to handle error reporting? Let NothingType propagate through or not?
+
+// - If we have \(x,y) => x + y
+// - the inference is what?
+// - I guess it says (AnyType(), AnyType()); but that is not sound.
+
+// - How to declare functions w/o arguments???
