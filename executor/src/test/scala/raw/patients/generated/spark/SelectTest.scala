@@ -1,15 +1,16 @@
-package raw.patients.generated
+package raw.patients.generated.spark
 
-import raw.patients.AbstractSparkPatientsTest
+import raw._
+import raw.datasets.patients.Patients
 
-class SelectTest extends AbstractSparkPatientsTest {
+class SelectTest extends AbstractSparkTest(Patients.Spark.patients) {
 
   test("Select0") {
     val oql = """
       count(patients)
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("Select0", result)
+    assertJsonEqual("patients", "Select0", result)
   }
 
   test("Select1") {
@@ -17,7 +18,7 @@ class SelectTest extends AbstractSparkPatientsTest {
       select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("Select1", result)
+    assertJsonEqual("patients", "Select1", result)
   }
 
   test("Select2") {
@@ -25,7 +26,7 @@ class SelectTest extends AbstractSparkPatientsTest {
       select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("Select2", result)
+    assertJsonEqual("patients", "Select2", result)
   }
 
 }

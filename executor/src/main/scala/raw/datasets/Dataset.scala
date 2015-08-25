@@ -16,28 +16,31 @@ import scala.reflect.runtime.universe._
  *
  * @param name The identifier of the access path, used to generate the query code.
  * @param path The actual instance of the access path, used to execute the query.
- * @param tag Type information of the access path. Used to generate the query code.
+ * @param elemTag Type information of the access path. Used to generate the query code.
  */
-// Note: name and tag are execute for generating the code, while path is for creating an instance of the query.
+// Note: name and tag are used for generating the code, while path is for creating an instance of the query.
 // The compilation and instantiation should be separated. This would allow caching the queries and executing the
 // same query with different access paths.
-case class AccessPath[T <: Product](name: String, path: RDD[T], tag: TypeTag[T])
+//case class SparkAccessPath[T <: Product](name: String, path: RDD[T], tag: TypeTag[T])
+//
+//case class ScalaAccessPath[T <: Product](name: String, path: List[T], tag: TypeTag[T])
 
-case class ScalaAccessPath[T <: Product](name: String, path: List[T], tag: TypeTag[T])
+//case class FunkyAccessPath[T<: Product, PathType[T]](name: String, path: PathType[T])(implicit tag:TypeTag[PathType])
+
+case class AccessPath[T <: Product](name: String, path: Either[List[T], RDD[T]])(implicit val tag: TypeTag[T])
 
 case class Dataset[T <: Product](name: String, file: String, tag: TypeTag[T])
-
 
 object AccessPath {
   def toRDDAcessPath[T <: Product : ClassTag : TypeTag](dataset: Dataset[T], sc: SparkContext): AccessPath[T] = {
     val data = JsonLoader.load[List[T]](dataset.file)
-    val rdd = DefaultSparkConfiguration.newRDDFromJSON[T](data, sc)
-    new AccessPath[T](dataset.name, rdd, dataset.tag)
+    val rdd = DefaultSparkConfiguration.newRDDFromJSON(data, sc)
+    new AccessPath[T](dataset.name, Right(rdd))
   }
 
-  def toScalaAcessPath[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): ScalaAccessPath[T] = {
-    val data = JsonLoader.load[List[T]](dataset.file)
-    new ScalaAccessPath[T](dataset.name, data, dataset.tag)
+  def toScalaAcessPath[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): AccessPath[T] = {
+    val data: List[T] = JsonLoader.load[List[T]](dataset.file)
+    new AccessPath[T](dataset.name, Left(data))
   }
 
   def loadSparkDataset(dsName: String, sc: SparkContext): List[AccessPath[_ <: Product]] = {
@@ -51,7 +54,7 @@ object AccessPath {
     }
   }
 
-  def loadScalaDataset(dsName: String): List[ScalaAccessPath[_ <: Product]] = {
+  def loadScalaDataset[_ <: Product](dsName: String): List[AccessPath[_ <: Product]] = {
     dsName match {
       case "publications" => Publications.Scala.publications()
       case "publicationsSmall" => Publications.Scala.publicationsSmall()

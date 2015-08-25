@@ -1,16 +1,16 @@
-package raw.publications.generated
+package raw.publications.generated.spark
 
-import raw.publications.AbstractSparkPublicationsTest
+import raw._
 import raw.datasets.publications.Publications
 
-class GroupByTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
+class GroupByTest extends AbstractSparkTest(Publications.Spark.publications) {
 
   test("GroupBy0") {
     val oql = """
       select distinct title, count(partition) as n from authors A group by title: A.title
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("GroupBy0", result)
+    assertJsonEqual("publications", "GroupBy0", result)
   }
 
   test("GroupBy1") {
@@ -18,7 +18,7 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.Spark.publi
       select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("GroupBy1", result)
+    assertJsonEqual("publications", "GroupBy1", result)
   }
 
   test("GroupBy2") {
@@ -26,7 +26,7 @@ class GroupByTest extends AbstractSparkPublicationsTest(Publications.Spark.publi
       select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("GroupBy2", result)
+    assertJsonEqual("publications", "GroupBy2", result)
   }
 
   test("GroupBy3") {
@@ -37,7 +37,7 @@ from authors A
 group by title: A.title
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("GroupBy3", result)
+    assertJsonEqual("publications", "GroupBy3", result)
   }
 
 }

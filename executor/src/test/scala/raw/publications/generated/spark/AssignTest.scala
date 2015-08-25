@@ -1,9 +1,9 @@
-package raw.publications.generated
+package raw.publications.generated.spark
 
-import raw.publications.AbstractSparkPublicationsTest
+import raw._
 import raw.datasets.publications.Publications
 
-class AssignTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
+class AssignTest extends AbstractSparkTest(Publications.Spark.publications) {
 
   test("Assign0") {
     val oql = """
@@ -18,7 +18,7 @@ from (
       group by title: A.title) G
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("Assign0", result)
+    assertJsonEqual("publications", "Assign0", result)
   }
 
 }

@@ -87,6 +87,20 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     compile("plan", plan, accessPaths)
   }
 
+  private[this] def getContainerClass(accessPath: AccessPath[_]): Class[_] = {
+    accessPath.path match {
+      case Left(list) => classOf[List[_]]
+      case Right(rdd) => classOf[RDD[_]]
+    }
+  }
+
+  private[this] def getAccessPaths(accessPath: AccessPath[_]): Object = {
+    accessPath.path match {
+      case Left(list) => list
+      case Right(rdd) => rdd
+    }
+  }
+
   private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): RawQuery = {
     //    logger.info("Access paths: " + accessPaths)
     val queryName = QueryCompilerClient.newClassName()
@@ -107,8 +121,8 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     }).toSet.mkString("\n")
 
     //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
-//    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
-    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.tpe.typeSymbol.name}]").mkString(", ")
+    //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
+    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.name}]").mkString(", ")
 
     val code = s"""
 package raw.query
@@ -148,11 +162,11 @@ class $queryName($args) extends RawQuery {
     val clazz = rawClassloader.loadClass(queryClass)
 
     // Find the constructor
-    val ctorTypeArgs = List.fill(accessPaths.size)(classOf[RDD[_]])
+    val ctorTypeArgs: List[Class[_]] = accessPaths.map(ap => getContainerClass(ap))
     val ctor = clazz.getConstructor(ctorTypeArgs: _*)
 
-    // Create an instance of the query using the rdd instance given in the access paths.
-    val ctorArgs = accessPaths.map(ap => ap.path)
+    // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
+    val ctorArgs: List[Object] = accessPaths.map(ap => getAccessPaths(ap))
     ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
   }
 }

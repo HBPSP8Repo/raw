@@ -1,14 +1,13 @@
 # Generate test classes from .q files. Each .q file contains one or more query/test blocks separated by a line with
 # the string "--". Each XXX.q file will be transformed into one XXXTest.scala file.
 # The generated files are placed in the subdirectory "generated".
-import os.path, shutil, re, sys
+import os.path
+import shutil
+import re
 import xml.etree.ElementTree as ET
-import requests
-import json
-import subprocess
-import time
+import utils
 
-templateTestMethod ="""
+templateTestMethod = """
   test("%(name)s") {
     val oql = \"\"\"
       %(query)s
@@ -24,42 +23,25 @@ templateTestMethod ="""
   }
 """
 
-templateTestMethodJsonCompare ="""
+templateTestMethodJsonCompare = """
   test("%(name)s") {
     val oql = \"\"\"
       %(query)s
     \"\"\"
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual(\"%(name)s\", result)
+    assertJsonEqual(\"%(dataset)s\", \"%(name)s\", result)
   }
 """
+
 
 class TestGenerator:
     def __init__(self, template):
         self.template = template
 
-    def execQueryGCC(self, query):
-        gccexecurl = "http://192.168.59.104:5001/query"
-        payload = {"oql": query}
-        i = 0
-        execRetries = 3
-        while i < execRetries:
-            print "Sending post to", gccexecurl, ", form:",payload
-            r = requests.post(gccexecurl, data=payload)
-            # The order of dictionary keys is not preserved
-            jsonResponse = r.json()
-            if jsonResponse["result"]["success"]:
-                output = jsonResponse["result"]["output"]
-                pretty = json.dumps(output, indent=2, separators=(',', ': '))
-                return pretty
-            print "Request failed:\n",r.text
-            i+=1
-        raise RuntimeError("Failed to execute query " + str(execRetries) + " times. Giving up. Query: " + query)
-
     def indent(self, lines, level):
-        return [(" "*level)+line for line in lines]
+        return [(" " * level) + line for line in lines]
 
-    def processQuery(self, testName, testDef, testResourcesPath):
+    def processQuery(self, dataset, testName, testDef):
         disabledAttr = testDef.get('disabled')
         if disabledAttr != None:
             print "Test disabled:", testName, ". Reason:", disabledAttr
@@ -67,107 +49,72 @@ class TestGenerator:
         qe = testDef.find("oql")
         oql = qe.text.strip()
 
-        # Compute GCC executor result and save it to a file as JSON
-        jsonResult = self.execQueryGCC(oql)
-        resultFile = os.path.join(testResourcesPath, testName+".json")
-        print "Saving result to file", resultFile
-        outFile = open(resultFile, "w")
-        outFile.write(jsonResult)
-        outFile.close()
-
         # Generate test method
         # resultElem = testDef.find("result")
         # if resultElem == None:
-        testMethod = templateTestMethodJsonCompare % {"name":testName, "query": oql}
+        testMethod = templateTestMethodJsonCompare % \
+                     {"dataset": dataset, "name": testName, "query": oql}
         # else:
         #     expectedResults = resultElem.text.strip()
         #     testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
         return testMethod
 
-    def startDocker(self, dataset):
-        cmd = "docker run -d -p 5001:5000 raw/ldb //raw/scripts/run-with-gcc-backend.sh " + dataset
-        print "Starting docker:", cmd
-        cid = subprocess.check_output(cmd, shell=True).strip()
-        return cid
-
-    def waitForLDBContainer(self, cid):
-        i=0
-        while i<20:
-            logs = subprocess.check_output("docker logs " + cid, shell=True, stderr=subprocess.STDOUT)
-            if "Running on http://" in logs:
-                print "LDB server started. Container logs:\n" + logs
-                return
-            if "Exceptions.LDBException: internal error" in logs:
-                subprocess.check_output("docker logs " + cid, shell=True)
-                raise RuntimeWarning("Web server failed to start")
-            i+=1
-            print "Waiting for LDB web server to start:", i
-            time.sleep(1)
-        subprocess.check_output("docker logs " + cid, shell=True)
-        raise RuntimeError("Giving up waiting for python server")
-
-    def stopDocker(self, cid):
-        cmd = "docker stop -t 0 " + cid + " && docker rm " + cid
-        print cmd
-        try:
-            status = subprocess.call(cmd, shell=True)
-            print "Status:", status
-        except:
-            pass
+    def writeTestFile(self, directory, name, code):
+        utils.createDirIfNotExists(directory)
+        scalaFilename = os.path.join(directory, name + "Test.scala")
+        print "Writing file", scalaFilename
+        outFile = open(scalaFilename, "w")
+        outFile.write(code)
+        outFile.close()
 
     def processFile(self, root, filename):
         package = re.split('src/test/scala/', root)[1]
-        package = package.replace("/",".")
-
-        # Where to save the gcc executor results in json format
-        i = root.rfind("/test/scala/")
-        testPath = root[0:(i+5)]
-        gccExecResultsPath = os.path.join(testPath, "resources", "generated")
-        print "GCC executor results:", gccExecResultsPath
-        try:
-            os.mkdir(gccExecResultsPath)
-        except OSError:
-            pass #Directory already exists
+        package = package.replace("/", ".")
 
         # Generated test source files
         generatedDirectory = os.path.join(root, "generated")
-        try:
-            os.mkdir(generatedDirectory)
-        except OSError:
-            pass #Directory already exists
+        utils.createDirIfNotExists(generatedDirectory)
+
         queryFilename = os.path.join(root, filename)
         print "Found query file", queryFilename
 
         root = ET.parse(queryFilename).getroot()
-        dataset =  root.get('dataset')
+        dataset = root.get('dataset')
         if dataset == None:
             raise Exception('dataset attribute is mandatory')
 
-        disabledAttr =  root.get('disabled')
+        disabledAttr = root.get('disabled')
         if disabledAttr != None:
             print "Skipping file, tests disabled. Reason:", disabledAttr
             return
 
-        cid = self.startDocker(dataset)
-        try:
-            self.waitForLDBContainer(cid)
-            name = os.path.splitext(filename)[0]
-            name = name[0].upper() + name[1:]
-            testMethods = ""
-            i = 0
-            for child in root:
-                testName = name+str(i)
-                testMethod = self.processQuery(testName, child, gccExecResultsPath)
-                testMethods += testMethod
-                i+=1
-            code = self.template % {"name": name, "package": package, "testMethods": testMethods, "dataset": dataset}
-            scalaFilename = os.path.join(generatedDirectory, name+"Test.scala")
-            print "Writing", i, "tests in file", scalaFilename
-            outFile = open(scalaFilename, "w")
-            outFile.write(code)
-            outFile.close()
-        finally:
-            self.stopDocker(cid)
+        name = os.path.splitext(filename)[0]
+        name = name[0].upper() + name[1:]
+        testMethods = ""
+        i = 0
+        for child in root:
+            testName = name + str(i)
+            testMethod = self.processQuery(dataset, testName, child)
+            testMethods += testMethod
+            i += 1
+
+        sparkTestsDirectory = os.path.join(generatedDirectory, "spark")
+        code = self.template % {
+            "name": name,
+            "package": package + ".generated.spark",
+            "testMethods": testMethods,
+            "dataset": dataset,
+            "testType": "Spark"}
+        self.writeTestFile(sparkTestsDirectory, name, code)
+
+        scalaTestsDirectory = os.path.join(generatedDirectory, "scala")
+        code = self.template % {
+            "name": name,
+            "package": package + ".generated.scala",
+            "testMethods": testMethods,
+            "dataset": dataset,
+            "testType": "Scala"}
+        self.writeTestFile(scalaTestsDirectory, name, code)
 
     def processAllFiles(self, baseDir, matchDir):
         for root, dirs, files in os.walk(baseDir):

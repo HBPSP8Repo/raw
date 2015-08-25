@@ -17,8 +17,8 @@ abstract class AbstractSparkPublicationsTest(loader: (SparkContext) => List[Acce
   override def beforeAll() {
     super.beforeAll()
     try {
-      authorsRDD = accessPaths.filter(ap => ap.tag == typeTag[Author]).head.path.asInstanceOf[RDD[Author]]
-      publicationsRDD = accessPaths.filter(ap => ap.tag == typeTag[Publication]).head.path.asInstanceOf[RDD[Publication]]
+      authorsRDD = accessPaths.filter(ap => ap.tag == typeTag[Author]).head.path.right.get.asInstanceOf[RDD[Author]]
+      publicationsRDD = accessPaths.filter(ap => ap.tag == typeTag[Publication]).head.path.right.get.asInstanceOf[RDD[Publication]]
     } catch {
       case ex: Exception =>
         super.afterAll()

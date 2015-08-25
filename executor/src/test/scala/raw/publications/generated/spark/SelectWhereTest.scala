@@ -1,16 +1,16 @@
-package raw.publications.generated
+package raw.publications.generated.spark
 
-import raw.publications.AbstractSparkPublicationsTest
+import raw._
 import raw.datasets.publications.Publications
 
-class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
+class SelectWhereTest extends AbstractSparkTest(Publications.Spark.publications) {
 
   test("SelectWhere0") {
     val oql = """
       select a from authors a where a.title = "PhD"
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("SelectWhere0", result)
+    assertJsonEqual("publications", "SelectWhere0", result)
   }
 
   test("SelectWhere1") {
@@ -19,7 +19,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.Spark.p
             where a.year = 1973 or a.year = 1975
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("SelectWhere1", result)
+    assertJsonEqual("publications", "SelectWhere1", result)
   }
 
   test("SelectWhere2") {
@@ -30,7 +30,7 @@ class SelectWhereTest extends AbstractSparkPublicationsTest(Publications.Spark.p
             and "Sarigiannidou, E." in P.authors
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("SelectWhere2", result)
+    assertJsonEqual("publications", "SelectWhere2", result)
   }
 
   test("SelectWhere3") {
@@ -43,7 +43,7 @@ and "titanium" in P.controlledterms
 and "torque" in P.controlledterms
     """
     val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
-    assertJsonEqual("SelectWhere3", result)
+    assertJsonEqual("publications", "SelectWhere3", result)
   }
 
 }

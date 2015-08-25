@@ -7,8 +7,6 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.datasets.AccessPath
-import raw.datasets.patients.Patients
-import raw.datasets.publications.Publications
 import raw.perf.QueryCompilerClient
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
@@ -18,6 +16,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
     object Conf extends ScallopConf(args) {
       banner("Scala/Spark OQL execution server")
       val dataset: ScallopOption[String] = opt[String]("dataset", default = Some("publications"), short = 'd')
+      val executor: ScallopOption[String] = opt[String]("executor", default = Some("scala"), short = 'e')
     }
 
     // Do not do any unnecessary initialization until command line arguments (dataset) is validated.
@@ -27,13 +26,22 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
       cl
     }
 
-    implicit lazy val sc: SparkContext = {
-      Thread.currentThread().setContextClassLoader(rawClassLoader)
-      logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
-      new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
+    val accessPaths = Conf.executor() match {
+      case "scala" =>
+        AccessPath.loadScalaDataset(Conf.dataset())
+      case "spark" =>
+        lazy val sc: SparkContext = {
+          Thread.currentThread().setContextClassLoader(rawClassLoader)
+          logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
+          new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
+        }
+        AccessPath.loadSparkDataset(Conf.dataset(), sc)
+
+      case exec @ _ =>
+        println(s"Invalid executor: $exec. Valid options: [scala, spark]")
+        return
     }
 
-    val accessPaths = AccessPath.loadSparkDataset(Conf.dataset(), sc)
 
     val executionServer = new QueryCompilerClient(rawClassLoader)
     val port = 54321

@@ -1,18 +1,16 @@
 package raw
 
-import org.apache.spark.SparkContext
 import raw.datasets.AccessPath
 
-abstract class AbstractSparkTest(loader: (SparkContext) => List[AccessPath[_ <: Product]])
-  extends AbstractRawTest
-  with SharedSparkContext {
+abstract class AbstractScalaTest(loader: () => List[AccessPath[_ <: Product]])
+  extends AbstractRawTest {
 
   var accessPaths: List[AccessPath[_ <: Product]] = _
 
   override def beforeAll() {
     super.beforeAll()
     try {
-      accessPaths = loader(sc)
+      accessPaths = loader()
     } catch {
       case ex: Exception =>
         super.afterAll()

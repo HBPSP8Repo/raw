@@ -39,7 +39,7 @@ object DefaultSparkConfiguration extends StrictLogging {
 
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     .registerKryoClasses(Array(classOf[Publication], classOf[Author], classOf[Patient], classOf[Diagnostic]))
-//    .set("spark.kryo.referenceTracking", "false")
+    //    .set("spark.kryo.referenceTracking", "false")
 
     // https://spark.apache.org/docs/1.3.1/monitoring.html
     .set("spark.eventLog.enabled", "true")
@@ -56,7 +56,7 @@ object DefaultSparkConfiguration extends StrictLogging {
       and array_contains(controlledterms, "titanium")
       and array_contains(controlledterms, "torque")
       */
-//    .set("spark.sql.codegen", "true")
+    //    .set("spark.sql.codegen", "true")
 
     // Spark SQL configuration
     //  https://spark.apache.org/docs/latest/sql-programming-guide.html
@@ -65,7 +65,7 @@ object DefaultSparkConfiguration extends StrictLogging {
     .set("spark.sql.shuffle.partitions", "10") // By default it's 200, which is large for small datasets
   //      .set("spark.io.compression.codec", "lzf") //lz4, lzf, snappy
 
-  def newRDDFromJSON[T: ClassTag](lines: List[T], sparkContext: SparkContext) = {
+  def newRDDFromJSON[T <: Product : ClassTag](lines: List[T], sparkContext: SparkContext): RDD[T] = {
     val start = Stopwatch.createStarted()
     val rdd: RDD[T] = sparkContext.parallelize(lines)
     logger.info("Created RDD. Partitions: " + rdd.partitions.map(p => p.index).mkString(", ") + ", partitioner: " + rdd.partitioner)

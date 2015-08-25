@@ -1,8 +1,7 @@
 package raw.datasets.publications
 
 import org.apache.spark.SparkContext
-import raw.datasets.{Dataset, AccessPath}
-import raw.executionserver.JsonLoader
+import raw.datasets.{AccessPath, Dataset}
 
 import scala.reflect.runtime.universe._
 

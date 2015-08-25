@@ -102,7 +102,7 @@ object PerfMain extends StrictLogging with ResultConverter {
   //  }
 
   def registerTable[T <: scala.Product](ap: AccessPath[T]): DataFrame = {
-    val df: DataFrame = sqlContext.implicits.rddToDataFrameHolder(ap.path)(ap.tag).toDF()
+    val df: DataFrame = sqlContext.implicits.rddToDataFrameHolder(ap.path.right.get)(ap.tag).toDF()
     df.registerTempTable(ap.name)
     logger.info(s"Loaded ${df.count()} rows. Registered as ${ap.name}")
     df
