@@ -25,11 +25,6 @@ RUN apt-get update && apt-get install -y \
     python-pip \
     vim
 
-# ssh config for github
-RUN mkdir /root/.ssh/
-ADD id_rsa /root/.ssh/id_rsa
-RUN touch /root/.ssh/known_hosts && ssh-keyscan github.com >> /root/.ssh/known_hosts
-
 RUN mkdir /raw
 
 ADD shore-mt-install.sh /tmp/
