@@ -86,6 +86,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         noMessages
       case _: ConstraintCollectionType =>
         noMessages
+      case _: TypeVariable =>
+        noMessages
       case t =>
         message(g, s"expected collection but got ${PrettyPrinter(t)}")
     }
@@ -164,7 +166,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
     case tree.parent.pair(e, p) => p match {
       // Record projection must be over a record type that contains the identifier to project
-      case RecordProj(_, idn) => //Set(RecordType(List(AttrType(idn, AnyType())), None))
+      case RecordProj(_, idn) =>
         Set(ConstraintRecordType(Set(AttrType(idn, AnyType()))))
 
       // If condition must be a boolean
@@ -238,6 +240,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // TODO: Move it into a separate class to isolate its behavior with an interface!
   private var variableMap = scala.collection.mutable.Map[String, Type]()
 
+
+  def VMapToStr(): String = {
+    return variableMap.map{case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}")
+  }
   // TODO: Call pass1(tree.root) from a private non-lay val, to trigger the pass1 at startup.
 
   lazy val tipe: Exp => Type = {
@@ -246,11 +252,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       // Subsequent runs are harmless since they hit the cached value.
       pass1(tree.root)
 
+      logger.debug(VMapToStr())
+
       def walk(t: Type): Type = t match {
         case _: AnyType             => t
         case _: PrimitiveType       => t
         case _: UserType            => t
-        case TypeVariable(v)        => if (variableMap.contains(v)) walk(variableMap(v)) else t
+        case TypeVariable(v)        => if (variableMap.contains(v) && variableMap(v) != t) walk(variableMap(v)) else t
         case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) }, name)
         case ListType(innerType)    => ListType(walk(innerType))
         case SetType(innerType)     => SetType(walk(innerType))
@@ -260,8 +268,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case ConstraintCollectionType(innerType, c, i) => ConstraintCollectionType(walk(innerType), c, i)
       }
 
-      val t = walk(pass1(e))
-      t
+      // Walk through type variables until the root type
+      walk(pass1(e))
     }
   }
 
@@ -449,7 +457,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           }, name)
       case (t1: RecordType, t2: ConstraintRecordType) =>
         unify(t2, t1)
-      case (a@ConstraintCollectionType(t1, c1, i1), b@ConstraintCollectionType(t2, c2, i2)) =>
+      case (ConstraintCollectionType(a1, c1, i1), ConstraintCollectionType(b1, c2, i2)) =>
         if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
           NothingType()
         } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
@@ -457,27 +465,27 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         } else {
           val nc = if (c1.isDefined) c1 else c2
           val ni = if (i1.isDefined) i1 else i2
-          ConstraintCollectionType(unify(t1, t2), nc, ni)
+          ConstraintCollectionType(unify(a1, b1), nc, ni)
         }
 
-      case (a@ConstraintCollectionType(t1, c1, i1), b: SetType) =>
-        if (((c1.isDefined && c1.get) || !c1.isDefined) &&
-          ((i1.isDefined && i1.get) || !i1.isDefined))
-          SetType(unify(t1, b.innerType))
+      case (ConstraintCollectionType(a1, c1, i1), t2: SetType) =>
+        if (((c1.isDefined && c1.get) || c1.isEmpty) &&
+          ((i1.isDefined && i1.get) || i1.isEmpty))
+          SetType(unify(a1, t2.innerType))
         else
           NothingType()
 
-      case (a@ConstraintCollectionType(t1, c1, i1), b: BagType) =>
-        if (((c1.isDefined && c1.get) || !c1.isDefined) &&
-          ((i1.isDefined && !i1.get) || !i1.isDefined))
-          BagType(unify(t1, b.innerType))
+      case (ConstraintCollectionType(a1, c1, i1), t2: BagType) =>
+        if (((c1.isDefined && c1.get) || c1.isEmpty) &&
+          ((i1.isDefined && !i1.get) || i1.isEmpty))
+          BagType(unify(a1, t2.innerType))
         else
           NothingType()
 
-      case (a@ConstraintCollectionType(t1, c1, i1), b: ListType) =>
-        if (((c1.isDefined && !c1.get) || !c1.isDefined) &&
-          ((i1.isDefined && !i1.get) || !i1.isDefined))
-          ListType(unify(t1, b.innerType))
+      case (ConstraintCollectionType(a1, c1, i1), t2: ListType) =>
+        if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
+          ((i1.isDefined && !i1.get) || i1.isEmpty))
+          ListType(unify(a1, t2.innerType))
         else
           NothingType()
 
@@ -488,8 +496,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         if (t1 == t2)
           t1
         else if (variableMap.contains(a) && variableMap.contains(b)) {
-          val ta = variableMap.get(a).head
-          val tb = variableMap.get(b).head
+          val ta = variableMap(a)
+          val tb = variableMap(b)
           val nt = unify(ta, tb)
           nt match {
             case _: NothingType =>
@@ -503,9 +511,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           variableMap.update(b, t1)
           t1
         } else if (variableMap.contains(b)) {
-          variableMap.update(a, t2)
-          t2
+          unify(t2, t1)
         } else {
+          val nt = TypeVariable(SymbolTable.next())
+          variableMap.update(a, nt)
           variableMap.update(b, t1)
           t1
         }
@@ -513,7 +522,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         logger.debug(s"* t1 is ${PrettyPrinter(t1)} and t2 is ${PrettyPrinter(t2)}")
         if (variableMap.contains(a)) {
           logger.debug("**")
-          val ta = variableMap.get(a).head
+          val ta = variableMap(a)
           val nt = unify(ta, t2)
           nt match {
             case _: NothingType => nt
@@ -534,28 +543,3 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   }
 
 }
-
-
-// TODO:
-// - Improve FunAbs behaviour
-//   Perhaps add a constraint?
-// - Is there a way to improve the expectedType?
-//   Should it still call unify and stuff?
-// - Clean up code comments
-// - Remove logging info
-
-// - ADD METHOD to resolve user type
-
-// - Skip building TypeVariable(new Variable()) by hand and do lazy val v = new Variable()
-
-// - How to handle error reporting? Let NothingType propagate through or not?
-
-// - If we have \(x,y) => x + y
-// - the inference is what?
-// - I guess it says (AnyType(), AnyType()); but that is not sound.
-
-// - How to declare functions w/o arguments???
-
-// - Either remove user types, or add them to the language
-// - They are useful to refer to cyclical things though; but what should their scope be?
-// - ... no. Makes sense to have them as-is.

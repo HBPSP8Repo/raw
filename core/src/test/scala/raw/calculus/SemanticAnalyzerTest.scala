@@ -123,7 +123,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\a -> a + 2""", world, FunType(IntType(), IntType()))
     success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
+//    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
     success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
     // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
     success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(AnyType(), None, None), AnyType()))
@@ -161,9 +161,31 @@ class SemanticAnalyzerTest extends FunTest {
     // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
     // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
     success("""\(x, y) -> x + y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\(x, y) -> x.age = y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 
 //    success("""\(x, y) -> (x, y)""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 
-    success("""\(x, y) -> if (x = y) then x else y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+//    success("""\(x, y) -> if (x = y) then x else y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+  }
+
+  test("coolness") {
+    val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
+    val students = ListType(student)
+    val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
+    val professors = ListType(professor)
+    val world = new World(sources = Map("students" -> students, "professors" -> professors))
+
+    success(
+      """
+        {
+        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+        age := (students, \x -> x.age);
+
+        v := sum1(age);
+        sum1
+        }
+
+      """, world, AnyType())
   }
 }
+
