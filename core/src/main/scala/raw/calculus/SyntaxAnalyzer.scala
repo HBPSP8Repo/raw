@@ -63,7 +63,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     positioned(kw("not") ^^^ Not())
 
   lazy val comparisonExp: PackratParser[Exp] =
-    positioned(termExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+    positioned(plusMinusExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
   lazy val comparisonOp: PackratParser[BinaryOperator] =
     positioned(
@@ -74,6 +74,14 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       "<" ^^^ Lt() |
       ">=" ^^^ Ge() |
       ">" ^^^ Gt())
+
+  lazy val plusMinusExp: PackratParser[Exp] =
+    positioned(minus ~ plusMinusExp ^^ { case op ~ e => UnaryExp(op, e)}) |
+    "+" ~> plusMinusExp |
+    termExp
+
+  lazy val minus: PackratParser[Neg] =
+    positioned("-" ^^^ Neg())
 
   lazy val termExp: PackratParser[Exp] =
     positioned(productExp * (
@@ -121,8 +129,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     nullConst |
     boolConst |
     stringConst |
-    numberConst |
-    positioned(neg ~ numberConst ^^ UnaryExp)
+    numberConst
 
   lazy val nullConst: PackratParser[Null] =
     positioned("null" ^^^ Null())
@@ -136,9 +143,6 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
 
   def stringLit: Parser[String] =
     ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s.drop(1).dropRight(1))
-
-  lazy val neg: PackratParser[Neg] =
-    positioned("-" ^^^ Neg())
 
   lazy val numberConst: PackratParser[NumberConst] =
     positioned(numericLit ^^ { case v =>

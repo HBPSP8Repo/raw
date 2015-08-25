@@ -162,15 +162,15 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("parentheses - unary minus - #51") {
-    matches("-a", "-a")
+    matches("-a", "- a")
   }
 
   test("parentheses - double unary minus - #51") {
-    matches("-(-a)", "a")
+    matches("-(-a)", "- - a")
   }
 
   test("parentheses - unary plus - #51") {
-    matches("+a", "+a")
+    matches("+a", "a")
   }
 
   test("parentheses - equality - redundant") {
