@@ -6,13 +6,27 @@ class SyntaxAnalyzerTest extends FunTest {
     matches(q, Some(expected))
   }
 
-  // Utility function. If `expected` is empty, the parsed string must be the same as the input string `q`.
+  /** Utility function to check whether parsed strings matches `expected` string.
+    * If `expected` is empty, the parsed string must be the same as the input string `q`.
+    */
   def matches(q: String, expected: Option[String] = None): Unit = {
     val ast = parse(q)
-    val actual = CalculusPrettyPrinter(ast, 200)
-    logger.debug("\n\tInput: {}\n\tParsed: {}\n\tAST: {}", q, actual, ast)
+    val pretty = CalculusPrettyPrinter(ast, 200)
+    logger.debug("\n\tInput: {}\n\tParsed: {}\n\tAST: {}", q, pretty, ast)
 
-    assert(actual == expected.getOrElse(q))
+    assert(pretty == expected.getOrElse(q))
+  }
+
+  /** Check whether two strings parse to the same AST.
+    */
+  def equals(q1: String, q2: String): Unit = {
+    val ast1 = parse(q1)
+    val pretty1 = CalculusPrettyPrinter(ast1, 200)
+    val ast2 = parse(q2)
+    val pretty2 = CalculusPrettyPrinter(ast2, 200)
+    logger.debug("\nFirst String\n\tInput: {}\n\tParsed: {}\n\tAST: {}\nSecond String\n\tInput: {}\n\tParsed: {}\n\tAST: {}", q1, pretty1, ast1, q2, pretty2, ast2)
+
+    assert(ast1 == ast2)
   }
 
   def parseError(q: String, expected: Option[String] = None): Unit = {
@@ -147,15 +161,15 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("((a / b) / (c / d))", "a / b / (c / d)")
   }
 
-  ignore("parentheses - unary minus - #51") {
+  test("parentheses - unary minus - #51") {
     matches("-a", "-a")
   }
 
-  ignore("parentheses - double unary minus - #51") {
+  test("parentheses - double unary minus - #51") {
     matches("-(-a)", "a")
   }
 
-  ignore("parentheses - unary plus - #51") {
+  test("parentheses - unary plus - #51") {
     matches("+a", "+a")
   }
 
@@ -183,7 +197,7 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
   }
 
-  test("source code comments") {
+  ignore("source code comments") {
     matches(
       """
         // compute the max of values
@@ -215,5 +229,15 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("""for (r <- records; v := trueandfalse) yield set v""")
     matches("""for (r <- records; v := falseortrue) yield set v""")
     matches("""{ v := iftruethen1else2; v }""")
+  }
+
+  test("#92 (record projection priorities)") {
+    equals("""for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
+    equals("""(t.A) and (t.B)""", """t.A and t.B""")
+  }
+
+  test("#52 (chained logical operators)") {
+    equals("""(a < b) = c""", """a < b = c""")
+    equals("""(2 < 4) = false""", """2 < 4 = false""")
   }
 }

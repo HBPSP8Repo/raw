@@ -55,10 +55,15 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   lazy val and: PackratParser[AndMonoid] =
     positioned(kw("and") ^^^ AndMonoid())
 
+  lazy val notExp: PackratParser[Exp] =
+    positioned(not ~ notExp ^^ { case op ~ e => UnaryExp(op, e)}) |
+    comparisonExp
+
+  lazy val not: PackratParser[Not] =
+    positioned(kw("not") ^^^ Not())
+
   lazy val comparisonExp: PackratParser[Exp] =
-    positioned(termExp ~ comparisonOp ~ termExp ^^ { case e1 ~ op ~ e2 => BinaryExp(op, e1, e2) }) |
-    positioned(not ~ termExp ^^ { case op ~ e => UnaryExp(op, e) }) |
-    termExp
+    positioned(termExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
   lazy val comparisonOp: PackratParser[BinaryOperator] =
     positioned(
@@ -69,9 +74,6 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
       "<" ^^^ Lt() |
       ">=" ^^^ Ge() |
       ">" ^^^ Gt())
-
-  lazy val not: PackratParser[Not] =
-    positioned(kw("not") ^^^ Not())
 
   lazy val termExp: PackratParser[Exp] =
     positioned(productExp * (
