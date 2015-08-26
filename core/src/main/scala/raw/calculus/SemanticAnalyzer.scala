@@ -583,16 +583,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       // TODO: figure it out w/ Ben
     //case f @ FunAbs(p, _) => tipeWithPos(FunType(patternType(p), ))
 
-    // Rule 9
-    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(TypeVariable(SymbolTable.next()))
-    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(SymbolTable.next()))
-    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(TypeVariable(SymbolTable.next()))
-
-    // Rule 10
-    case ConsCollectionMonoid(_: BagMonoid, e)  => BagType(pass1(e))
-    case ConsCollectionMonoid(_: ListMonoid, e) => ListType(pass1(e))
-    case ConsCollectionMonoid(_: SetMonoid, e)  => SetType(pass1(e))
-
     case n => tipeWithPos(TypeVariable(SymbolTable.next()), n)
   }
 
