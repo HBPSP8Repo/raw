@@ -3,6 +3,10 @@ package calculus
 
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
+import org.kiama.rewriting.Rewriter._
+
+import scala.Predef
+import scala.collection.immutable.{Map, Seq}
 
 /** Analyzes the semantics of an AST.
   * This includes the type checker/inference as well as monoid compatibility.
@@ -20,6 +24,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import Calculus._
   import SymbolTable._
+  import Constraint._
 
   /** Decorators on the tree.
     */
@@ -457,6 +462,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           }, name)
       case (t1: RecordType, t2: ConstraintRecordType) =>
         unify(t2, t1)
+
       case (ConstraintCollectionType(a1, c1, i1), ConstraintCollectionType(b1, c2, i2)) =>
         if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
           NothingType()
@@ -542,4 +548,290 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
   }
 
+  //
+
+  /** Annotate the type with the (parser) position of the expression.
+    */
+  def tipeWithPos(t: Type, e: Exp): Type = {
+    t.pos = e.pos
+    t
+  }
+
+  /** The type of an expression.
+    * If the type cannot be immediately derived from the expression itself, then TypeVariables are used.
+    */
+  lazy val expType: Exp => Type = attr {
+
+    // Rule 1
+    case c: IntConst => tipeWithPos(IntType(), c)
+    case c: StringConst => tipeWithPos(StringType(), c)
+    // TODO: Add missing Rule1s
+
+    // Rule 2: is type variable
+
+    // Rule 3
+    case i@ IdnExp(idn) => tipeWithPos(idnType(idn), i)
+
+    // Rule 4: is type variable
+
+    // Rule 5
+    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(att.e))), None)
+
+    // Rile 6: is type variable
+
+    // Rule 7
+      // TODO: figure it out w/ Ben
+    //case f @ FunAbs(p, _) => tipeWithPos(FunType(patternType(p), ))
+
+    // Rule 9
+    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(TypeVariable(SymbolTable.next()))
+    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(SymbolTable.next()))
+    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(TypeVariable(SymbolTable.next()))
+
+    // Rule 10
+    case ConsCollectionMonoid(_: BagMonoid, e)  => BagType(pass1(e))
+    case ConsCollectionMonoid(_: ListMonoid, e) => ListType(pass1(e))
+    case ConsCollectionMonoid(_: SetMonoid, e)  => SetType(pass1(e))
+
+    case n => tipeWithPos(TypeVariable(SymbolTable.next()), n)
+  }
+
+
+  def solve(c: Constraint, world: World): Either[String, Seq[Map[String, Type]]] = {
+
+    def recurse(c: Constraint, m: Map[String, Type]): Either[String, Seq[Map[String, Type]]] = {
+
+      /** Hindley-Milner unification algorithm.
+        * If unification fails, returns an error string.
+        * Otherwise, returns the new unified type.
+        */
+      def unify(t1: Type, t2: Type): Either[String, Type] = {
+        logger.debug(s"t1 is ${PrettyPrinter(t1)} and t2 is ${PrettyPrinter(t2)}")
+        (t1, t2) match {
+          case (n: NothingType, _) => Right(n)
+          case (_, n: NothingType) => Right(n)
+          case (_: AnyType, t) => Right(t)
+          case (t, _: AnyType) => Right(t)
+          case (t1: PrimitiveType, t2: PrimitiveType) if t1 == t2 => Right(t1)
+          case (SetType(t1), SetType(t2)) =>
+            Right(SetType(unify(t1, t2) match { case Right(t) => t case Left(err) => return Left(err) }))
+          case (BagType(t1), BagType(t2)) =>
+            Right(BagType(unify(t1, t2) match { case Right(t) => t case Left(err) => return Left(err) }))
+          case (ListType(t1), ListType(t2)) =>
+            Right(ListType(unify(t1, t2) match { case Right(t) => t case Left(err) => return Left(err) }))
+          case (FunType(a1, a2), FunType(b1, b2)) =>
+            Right(FunType(
+              unify(a1, b1) match { case Right(t) => t case Left(err) => return Left(err)},
+              unify(a2, b2) match { case Right(t) => t case Left(err) => return Left(err)}))
+          case (RecordType(atts1, name1), RecordType(atts2, name2)) =>
+            if (name1 != name2)
+              return Left("records with different names")
+            if (atts1.length != atts2.length)
+              return Left("records with different sizes")
+            if (atts1.map(_.idn) != atts2.map(_.idn))
+              return Left("records have different field names")
+            Right(RecordType(
+              atts1.zip(atts2).map {
+                case (att1, att2) => unify(att1.tipe, att2.tipe) match {
+                  case Left(err) => return Left(err)
+                  case Right(t) => AttrType(att1.idn, t)
+                }
+              }, name1))
+          case (t1 @ ConstraintRecordType(atts1), t2 @ ConstraintRecordType(atts2)) =>
+            val common = atts1.map(_.idn).intersect(atts2.map(_.idn))
+            val commonAttrs = common.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head) match { case Left(err) => return Left(err) case Right(t) => t }) }
+            Right(ConstraintRecordType(atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttrs))
+          case (t1@ConstraintRecordType(atts1), t2@RecordType(atts2, name)) =>
+            if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet))
+              Left(s"Constraints record types incompatible idns")
+            else
+              Right(
+                RecordType(atts2.map {
+                  case att => t1.getType(att.idn) match {
+                    case Some(t) => unify(t, att.tipe) match {
+                      case Right(t) => AttrType(att.idn, t)
+                      case Left(err) => return Left(err)
+                    }
+                    case None => att
+                  }
+                }, name))
+          case (t1: RecordType, t2: ConstraintRecordType) =>
+            unify(t2, t1)
+          case (ConstraintCollectionType(a1, c1, i1), ConstraintCollectionType(b1, c2, i2)) =>
+            if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
+              Left("err1")
+            } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
+              Left("err2")
+            } else {
+              val nc = if (c1.isDefined) c1 else c2
+              val ni = if (i1.isDefined) i1 else i2
+              Right(ConstraintCollectionType(unify(a1, b1) match { case Left(err) => return Left(err) case Right(t) => t}, nc, ni))
+            }
+          case (ConstraintCollectionType(a1, c1, i1), t2: SetType) =>
+            if (((c1.isDefined && c1.get) || c1.isEmpty) &&
+              ((i1.isDefined && i1.get) || i1.isEmpty))
+              Right(SetType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+            else
+              Left("err4")
+          case (ConstraintCollectionType(a1, c1, i1), t2: BagType) =>
+            if (((c1.isDefined && c1.get) || c1.isEmpty) &&
+              ((i1.isDefined && !i1.get) || i1.isEmpty))
+              Right(BagType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+            else
+              Left("err5")
+          case (ConstraintCollectionType(a1, c1, i1), t2: ListType) =>
+            if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
+              ((i1.isDefined && !i1.get) || i1.isEmpty))
+              Right(ListType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+            else
+              Left("err6")
+          case (t1: CollectionType, t2: ConstraintCollectionType) =>
+            unify(t2, t1)
+          case (t1: TypeVariable, t2: TypeVariable) =>
+            Right(TypeVariable(SymbolTable.next()))
+          case (t1: TypeVariable, t2) =>
+            Right(t2)
+          case (t1, t2: TypeVariable) =>
+            Right(t1)
+          case _ =>
+            Left(s"mismatch between types ${PrettyPrinter(t1)} and ${PrettyPrinter(t2)}")
+        }
+      }
+
+      c match {
+        case Or(c1, c2) =>
+          (recurse(c1, m), recurse(c2, m)) match {
+            case (Right(m1), Right(m2)) => Right(m1 ++ m2)
+            case (Right(m1), _) => Right(m1)
+            case (_, Right(m2)) => Right(m2)
+            case (Left(err1), Left(err2)) => Left(s"Or errors: $err1 and $err2")
+          }
+        case And(c1, c2) =>
+          (recurse(c1, m), recurse(c2, m)) match {
+            case (Right(ms1), Right(ms2)) => {
+              val unifiedMaps = scala.collection.mutable.MutableList[Map[String, Type]]()
+
+              for (m1 <- ms1; m2 <- ms2) {
+
+                // Unify maps m1 and m2 and return a new map (or None if unification not possible)
+                def unifyMaps(): Option[Map[String, Type]] = {
+                  val m = scala.collection.mutable.HashMap[String, Type]()  // New unified map
+                  val commonIdns = m1.keys.toSet.intersect(m2.keys.toSet)
+                  for (idn <- commonIdns) {
+                    // Find representative
+                    val nt1 = find(TypeVariable(idn), m1)
+                    val nt2 = find(TypeVariable(idn), m2)
+                    // Unify representatives
+                    unify(nt1, nt2) match {
+                      case Right(t) =>
+                        (nt1, nt2) match {
+                          case (nt1: TypeVariable, nt2: TypeVariable) => m += (nt2.idn -> nt1, nt1.idn -> t)
+                          case (nt1: TypeVariable, _) => m += (nt1.idn -> t)
+                          case (_, nt2: TypeVariable) => m += (nt2.idn -> t)
+                          case (_, _) =>
+                            // Nothing to do right now, since it is not a type variable
+                        }
+                      case Left(err) => return None
+                    }
+                  }
+                  // If we got this far, then the common variables unify.
+                  // Let's add all the remaining variables.
+                  for (idn <- m1.keys; if !commonIdns.contains(idn)) {
+                    m += (idn -> m1(idn))
+                  }
+                  for (idn <- m2.keys; if !commonIdns.contains(idn)) {
+                    m += (idn -> m2(idn))
+                  }
+
+                  Some(m.toMap)
+                }
+
+                unifyMaps() match {
+                  case Some(m) => unifiedMaps += m
+                  case None =>
+                }
+              }
+
+              if (unifiedMaps.isEmpty)
+                Left(s"Failed here")
+              else
+                Right(unifiedMaps.to)
+            }
+            case _ => Left(s"And error")
+          }
+        case Eq(t1, t2) => {
+          val nt1 = find(t1, m)
+          val nt2 = find(t2, m)
+          unify(nt1, nt2) match {
+            case Right(t) =>
+              val nm = (nt1, nt2) match {
+                case (nt1: TypeVariable, nt2: TypeVariable) => m + (nt2.idn -> nt1, nt1.idn -> t)
+                case (nt1: TypeVariable, _) => m + (nt1.idn -> t)
+                case (_, nt2: TypeVariable) => m + (nt2.idn -> t)
+                case (_, _) => m
+              }
+              Right(Seq(nm))
+            case Left(err) =>
+              Left(err)
+          }
+        }
+        case NoConstraint => Right(Seq(m))
+      }
+    }
+    recurse(c, Map())
+  }
+
+  private lazy val constraintApp = collect[List, Constraint] { case e: Exp => constraint(e) }
+
+  private lazy val rootConstraint = Constraint.and(constraintApp(tree.root):_*)
+
+  private lazy val solutions = solve(rootConstraint, world)
+
+  lazy val error = solutions match {
+    case Right(m) if m.length > 1 => Some("too many solutions")
+    case Right(m) => None
+    case Left(err) => Some(err)
+  }
+
+  // walk up the type tree if it is a type variable until we get to the root type and return that
+  def find(t: Type, m: Map[String, Type]): Type = t match {
+    case UserType(name) => find(world.userTypes(name), m)
+    case t: TypeVariable => if (m.contains(t.idn)) find(m(t.idn), m) else t
+    case _ => t
+  }
+
+  def tipe2(e: Exp): Type = {
+    solutions match {
+      case Right(m) if m.length > 1 => NothingType()
+      case Right(m) => find(expType(e), m.head)
+      case Left(err) => NothingType()
+    }
+  }
+
+
+  lazy val constraint: Exp => Constraint.Constraint = {
+    import Constraint._
+    attr {
+      case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
+        and(
+          expType(e1) := expType(e2),
+          or(
+            expType(e1) := IntType(),
+            expType(e1) := FloatType()),
+          expType(n) := expType(e1))
+
+      case n@RecordProj(e, idn) =>
+        expType(e) := ConstraintRecordType(Set(AttrType(idn, expType(n))))
+
+      case n @ IfThenElse(e1, e2, e3) =>
+        and(
+          expType(e1) := BoolType(),
+          expType(e2) := expType(e3),
+          expType(n) := expType(e2))
+
+      case _ => NoConstraint
+    }
+  }
+
 }
+
