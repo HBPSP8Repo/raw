@@ -31,23 +31,23 @@ object Constraint extends LazyLogging {
 
 }
 
-object Foo extends App {
-  println("Hello world")
-
-  val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
-  val students = ListType(student)
-  val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
-  val professors = ListType(professor)
-  val world = new World(sources = Map("students" -> students, "professors" -> professors))
-
-  SyntaxAnalyzer("""\(x, y) -> x.age = y""") match {
-    case Right(ast) =>
-      val t = new Calculus.Calculus(ast)
-      val analyzer = new SemanticAnalyzer(t, world)
-      analyzer.error match {
-        case Some(err) => println("ERROR: " + err)
-        case None => println("Root type is " + analyzer.tipe2(t.root))
-      }
-  }
-
-}
+//object Foo extends App {
+//  println("Hello world")
+//
+//  val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
+//  val students = ListType(student)
+//  val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
+//  val professors = ListType(professor)
+//  val world = new World(sources = Map("students" -> students, "professors" -> professors))
+//
+//  SyntaxAnalyzer("""\(x, y) -> x.age = y""") match {
+//    case Right(ast) =>
+//      val t = new Calculus.Calculus(ast)
+//      val analyzer = new SemanticAnalyzer(t, world)
+//      analyzer.errors match {
+//        case Some(err) => println("ERROR: " + err)
+//        case None => println("Root type is " + analyzer.tipe2(t.root))
+//      }
+//  }
+//
+//}

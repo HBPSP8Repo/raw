@@ -59,10 +59,10 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
       "record" <> parens(name) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
     case RecordType(atts, None) =>
       "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case ConstraintRecordType(_, atts) =>
-      "constraint_record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
-    case ConstraintCollectionType(_, innerType, c, i) =>
-      "constraint_collection" <> parens(tipe(innerType) <+> c.toString <+> i.toString)
+    case ConstraintRecordType(idn, atts) =>
+      "constraint_record" <> parens(idn <+> group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
+    case ConstraintCollectionType(idn, innerType, c, i) =>
+      "constraint_collection" <> parens(idn <+> tipe(innerType) <+> c.toString <+> i.toString)
     case BagType(innerType)     => "bag" <> parens(tipe(innerType))
     case ListType(innerType)    => "list" <> parens(tipe(innerType))
     case SetType(innerType)     => "set" <> parens(tipe(innerType))
