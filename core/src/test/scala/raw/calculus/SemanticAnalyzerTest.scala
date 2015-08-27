@@ -124,9 +124,9 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 //    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
-    success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
+    success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(SymbolTable.next(), Set(AttrType("age", IntType()))), IntType()))
     // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
-    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(AnyType(), None, None), AnyType()))
+    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(SymbolTable.next(), AnyType(), None, None), AnyType()))
   }
 
   test("patterns") {

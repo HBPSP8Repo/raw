@@ -5,8 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 import org.kiama.rewriting.Rewriter._
 
-import scala.Predef
-import scala.collection.immutable.{Map, Seq}
+case class SemanticAnalyzerError(err: String) extends RawException(err)
 
 /** Analyzes the semantics of an AST.
   * This includes the type checker/inference as well as monoid compatibility.
@@ -18,6 +17,7 @@ import scala.collection.immutable.{Map, Seq}
   */
 class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attribution with LazyLogging {
 
+  import scala.collection.immutable.{Map, Seq}
   import org.kiama.==>
   import org.kiama.attribution.Decorators
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}
@@ -172,7 +172,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case tree.parent.pair(e, p) => p match {
       // Record projection must be over a record type that contains the identifier to project
       case RecordProj(_, idn) =>
-        Set(ConstraintRecordType(Set(AttrType(idn, AnyType()))))
+        Set(ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, AnyType()))))
 
       // If condition must be a boolean
       case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
@@ -269,8 +269,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case SetType(innerType)     => SetType(walk(innerType))
         case BagType(innerType)     => BagType(walk(innerType))
         case FunType(t1, t2)        => FunType(walk(t1), walk(t2))
-        case ConstraintRecordType(atts) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
-        case ConstraintCollectionType(innerType, c, i) => ConstraintCollectionType(walk(innerType), c, i)
+        case ConstraintRecordType(idn, atts) => ConstraintRecordType(idn, atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
+        case ConstraintCollectionType(idn, innerType, c, i) => ConstraintCollectionType(idn, walk(innerType), c, i)
       }
 
       // Walk through type variables until the root type
@@ -292,7 +292,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           case Bind(p1, e) =>
             unify(patternType(p1), pass1(e))
           case Gen(p1, e) =>
-            unify(ConstraintCollectionType(patternType(p1), None, None), pass1(e))
+            unify(ConstraintCollectionType(SymbolTable.next(), patternType(p1), None, None), pass1(e))
           case _: FunAbs =>
         }
       }
@@ -330,7 +330,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case RecordProj(e, idn) =>
       val v = SymbolTable.next()
       val inner = TypeVariable(SymbolTable.next())
-      variableMap.update(v, ConstraintRecordType(Set(AttrType(idn, inner))))
+      variableMap.update(v, ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, inner))))
       unify(pass1(e), TypeVariable(v))
       inner
 
@@ -447,11 +447,11 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case (FunType(a1, a2), FunType(b1, b2)) => FunType(unify(a1, b1), unify(a2, b2))
       case (RecordType(atts1, name1), RecordType(atts2, name2)) if atts1.map(_.idn) == atts2.map(_.idn) && name1 == name2 =>
         RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, name1)
-      case (t1 @ ConstraintRecordType(atts1), t2 @ ConstraintRecordType(atts2)) =>
+      case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ ConstraintRecordType(idn2, atts2)) =>
         val common = atts1.map(_.idn).intersect(atts2.map(_.idn))
         val commonAttr = common.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head)) }
-        ConstraintRecordType(atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttr)
-      case (t1@ConstraintRecordType(atts1), t2@RecordType(atts2, name)) =>
+        ConstraintRecordType(SymbolTable.next(), atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttr)
+      case (t1@ConstraintRecordType(idn1, atts1), t2@RecordType(atts2, name)) =>
         if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet))
           NothingType()
         else
@@ -463,7 +463,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case (t1: RecordType, t2: ConstraintRecordType) =>
         unify(t2, t1)
 
-      case (ConstraintCollectionType(a1, c1, i1), ConstraintCollectionType(b1, c2, i2)) =>
+      case (ConstraintCollectionType(idn1, a1, c1, i1), ConstraintCollectionType(idn2, b1, c2, i2)) =>
         if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
           NothingType()
         } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
@@ -471,24 +471,24 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         } else {
           val nc = if (c1.isDefined) c1 else c2
           val ni = if (i1.isDefined) i1 else i2
-          ConstraintCollectionType(unify(a1, b1), nc, ni)
+          ConstraintCollectionType(SymbolTable.next(), unify(a1, b1), nc, ni)
         }
 
-      case (ConstraintCollectionType(a1, c1, i1), t2: SetType) =>
+      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: SetType) =>
         if (((c1.isDefined && c1.get) || c1.isEmpty) &&
           ((i1.isDefined && i1.get) || i1.isEmpty))
           SetType(unify(a1, t2.innerType))
         else
           NothingType()
 
-      case (ConstraintCollectionType(a1, c1, i1), t2: BagType) =>
+      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: BagType) =>
         if (((c1.isDefined && c1.get) || c1.isEmpty) &&
           ((i1.isDefined && !i1.get) || i1.isEmpty))
           BagType(unify(a1, t2.innerType))
         else
           NothingType()
 
-      case (ConstraintCollectionType(a1, c1, i1), t2: ListType) =>
+      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: ListType) =>
         if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
           ((i1.isDefined && !i1.get) || i1.isEmpty))
           ListType(unify(a1, t2.innerType))
@@ -563,9 +563,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   lazy val expType: Exp => Type = attr {
 
     // Rule 1
+    case c: BoolConst   => tipeWithPos(BoolType(), c)
     case c: IntConst => tipeWithPos(IntType(), c)
+    case c: FloatConst  => tipeWithPos(FloatType(), c)
     case c: StringConst => tipeWithPos(StringType(), c)
-    // TODO: Add missing Rule1s
 
     // Rule 2: is type variable
 
@@ -580,16 +581,41 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     // Rile 6: is type variable
 
     // Rule 7
-      // TODO: figure it out w/ Ben
-    //case f @ FunAbs(p, _) => tipeWithPos(FunType(patternType(p), ))
+    case FunAbs(p, e) => FunType(patternType(p), expType(e))
+
+    // Rule 8: is type variable
+
+    // Rule 9
+    case z @ ZeroCollectionMonoid(_: BagMonoid)  => tipeWithPos(BagType(TypeVariable(SymbolTable.next())), z)
+    case z @ ZeroCollectionMonoid(_: ListMonoid) => tipeWithPos(ListType(TypeVariable(SymbolTable.next())), z)
+    case z @ ZeroCollectionMonoid(_: SetMonoid)  => tipeWithPos(SetType(TypeVariable(SymbolTable.next())), z)
+
+    // Rule 10
+    case n @ ConsCollectionMonoid(_: BagMonoid, e)  => tipeWithPos(BagType(expType(e)), n)
+    case n @ ConsCollectionMonoid(_: ListMonoid, e) => tipeWithPos(ListType(expType(e)), n)
+    case n @ ConsCollectionMonoid(_: SetMonoid, e)  => tipeWithPos(SetType(expType(e)), n)
+
+      // Rule 11: is type variable
+
+    // Rule 14
+    case n @ Comp(_: BagMonoid, _, e)  => tipeWithPos(BagType(expType(e)), n)
+    case n @ Comp(_: ListMonoid, _, e) => tipeWithPos(ListType(expType(e)), n)
+    case n @ Comp(_: SetMonoid, _, e)  => tipeWithPos(SetType(expType(e)), n)
+
+    case UnaryExp(_: Not, _)      => BoolType()
+    case UnaryExp(_: ToBool, _)   => BoolType()
+    case UnaryExp(_: ToInt, _)    => IntType()
+    case UnaryExp(_: ToFloat, _)  => FloatType()
+    case UnaryExp(_: ToString, _) => StringType()
 
     case n => tipeWithPos(TypeVariable(SymbolTable.next()), n)
   }
 
+  type VarMap = Map[String, Type]
 
-  def solve(c: Constraint, world: World): Either[String, Seq[Map[String, Type]]] = {
+  def solve(c: Constraint, world: World): Either[String, Seq[VarMap]] = {
 
-    def recurse(c: Constraint, m: Map[String, Type]): Either[String, Seq[Map[String, Type]]] = {
+    def recurse(c: Constraint, m: VarMap): Either[String, Seq[VarMap]] = {
 
       /** Hindley-Milner unification algorithm.
         * If unification fails, returns an error string.
@@ -623,15 +649,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
             Right(RecordType(
               atts1.zip(atts2).map {
                 case (att1, att2) => unify(att1.tipe, att2.tipe) match {
-                  case Left(err) => return Left(err)
                   case Right(t) => AttrType(att1.idn, t)
+                  case Left(err) => return Left(err)
                 }
               }, name1))
-          case (t1 @ ConstraintRecordType(atts1), t2 @ ConstraintRecordType(atts2)) =>
-            val common = atts1.map(_.idn).intersect(atts2.map(_.idn))
-            val commonAttrs = common.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head) match { case Left(err) => return Left(err) case Right(t) => t }) }
-            Right(ConstraintRecordType(atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttrs))
-          case (t1@ConstraintRecordType(atts1), t2@RecordType(atts2, name)) =>
+          case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ ConstraintRecordType(idn2, atts2)) =>
+            val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
+            val commonAttrs = commonIdns.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head) match { case Right(t) => t case Left(err) => return Left(err) }) }
+            Right(ConstraintRecordType(SymbolTable.next(), atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs))
+          case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ RecordType(atts2, name)) =>
             if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet))
               Left(s"Constraints record types incompatible idns")
             else
@@ -647,7 +673,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                 }, name))
           case (t1: RecordType, t2: ConstraintRecordType) =>
             unify(t2, t1)
-          case (ConstraintCollectionType(a1, c1, i1), ConstraintCollectionType(b1, c2, i2)) =>
+          case (ConstraintCollectionType(idn1, a1, c1, i1), ConstraintCollectionType(idn2, b1, c2, i2)) =>
             if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
               Left("err1")
             } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
@@ -655,24 +681,24 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
             } else {
               val nc = if (c1.isDefined) c1 else c2
               val ni = if (i1.isDefined) i1 else i2
-              Right(ConstraintCollectionType(unify(a1, b1) match { case Left(err) => return Left(err) case Right(t) => t}, nc, ni))
+              Right(ConstraintCollectionType(SymbolTable.next(), unify(a1, b1) match { case Right(t) => t case Left(err) => return Left(err) }, nc, ni))
             }
-          case (ConstraintCollectionType(a1, c1, i1), t2: SetType) =>
+          case (ConstraintCollectionType(idn1, a1, c1, i1), t2: SetType) =>
             if (((c1.isDefined && c1.get) || c1.isEmpty) &&
               ((i1.isDefined && i1.get) || i1.isEmpty))
-              Right(SetType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+              Right(SetType(unify(a1, t2.innerType) match { case Right(t) => t case Left(err) => return Left(err) }))
             else
               Left("err4")
-          case (ConstraintCollectionType(a1, c1, i1), t2: BagType) =>
+          case (ConstraintCollectionType(idn1, a1, c1, i1), t2: BagType) =>
             if (((c1.isDefined && c1.get) || c1.isEmpty) &&
               ((i1.isDefined && !i1.get) || i1.isEmpty))
-              Right(BagType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+              Right(BagType(unify(a1, t2.innerType) match { case Right(t) => t case Left(err) => return Left(err) }))
             else
               Left("err5")
-          case (ConstraintCollectionType(a1, c1, i1), t2: ListType) =>
+          case (ConstraintCollectionType(idn1, a1, c1, i1), t2: ListType) =>
             if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
               ((i1.isDefined && !i1.get) || i1.isEmpty))
-              Right(ListType(unify(a1, t2.innerType) match { case Left(err) => return Left(err) case Right(t) => t}))
+              Right(ListType(unify(a1, t2.innerType) match { case Right(t) => t case Left(err) => return Left(err) }))
             else
               Left("err6")
           case (t1: CollectionType, t2: ConstraintCollectionType) =>
@@ -699,25 +725,25 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case And(c1, c2) =>
           (recurse(c1, m), recurse(c2, m)) match {
             case (Right(ms1), Right(ms2)) => {
-              val unifiedMaps = scala.collection.mutable.MutableList[Map[String, Type]]()
+              val unifiedMaps = scala.collection.mutable.MutableList[VarMap]()
 
               for (m1 <- ms1; m2 <- ms2) {
 
                 // Unify maps m1 and m2 and return a new map (or None if unification not possible)
-                def unifyMaps(): Option[Map[String, Type]] = {
+                def unifyMaps(): Option[VarMap] = {
                   val m = scala.collection.mutable.HashMap[String, Type]()  // New unified map
                   val commonIdns = m1.keys.toSet.intersect(m2.keys.toSet)
                   for (idn <- commonIdns) {
-                    // Find representative
+                    // Find representative of group
                     val nt1 = find(TypeVariable(idn), m1)
                     val nt2 = find(TypeVariable(idn), m2)
                     // Unify representatives
                     unify(nt1, nt2) match {
                       case Right(t) =>
                         (nt1, nt2) match {
-                          case (nt1: TypeVariable, nt2: TypeVariable) => m += (nt2.idn -> nt1, nt1.idn -> t)
-                          case (nt1: TypeVariable, _) => m += (nt1.idn -> t)
-                          case (_, nt2: TypeVariable) => m += (nt2.idn -> t)
+                          case (nt1: VariableType, nt2: VariableType) => m += (nt2.idn -> nt1, nt1.idn -> t)
+                          case (nt1: VariableType, _) => m += (nt1.idn -> t)
+                          case (_, nt2: VariableType) => m += (nt2.idn -> t)
                           case (_, _) =>
                             // Nothing to do right now, since it is not a type variable
                         }
@@ -755,9 +781,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           unify(nt1, nt2) match {
             case Right(t) =>
               val nm = (nt1, nt2) match {
-                case (nt1: TypeVariable, nt2: TypeVariable) => m + (nt2.idn -> nt1, nt1.idn -> t)
-                case (nt1: TypeVariable, _) => m + (nt1.idn -> t)
-                case (_, nt2: TypeVariable) => m + (nt2.idn -> t)
+                case (nt1: VariableType, nt2: VariableType) => m + (nt2.idn -> nt1, nt1.idn -> t)
+                case (nt1: VariableType, _) => m + (nt1.idn -> t)
+                case (_, nt2: VariableType) => m + (nt2.idn -> t)
                 case (_, _) => m
               }
               Right(Seq(nm))
@@ -786,10 +812,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // walk up the type tree if it is a type variable until we get to the root type and return that
   def find(t: Type, m: Map[String, Type]): Type = t match {
     case UserType(name) => find(world.userTypes(name), m)
-    case t: TypeVariable => if (m.contains(t.idn)) find(m(t.idn), m) else t
+    case t: VariableType => if (m.contains(t.idn)) find(m(t.idn), m) else t
     case _ => t
   }
-
   def tipe2(e: Exp): Type = {
     solutions match {
       case Right(m) if m.length > 1 => NothingType()
@@ -798,26 +823,92 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
   }
 
-
   lazy val constraint: Exp => Constraint.Constraint = {
     import Constraint._
     attr {
-      case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
-        and(
-          expType(e1) := expType(e2),
-          or(
-            expType(e1) := IntType(),
-            expType(e1) := FloatType()),
-          expType(n) := expType(e1))
+      // Rule 4
+      case n @ RecordProj(e, idn) =>
+        expType(e) === ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, expType(n))))
 
-      case n@RecordProj(e, idn) =>
-        expType(e) := ConstraintRecordType(Set(AttrType(idn, expType(n))))
-
+      // Rule 6
       case n @ IfThenElse(e1, e2, e3) =>
         and(
-          expType(e1) := BoolType(),
-          expType(e2) := expType(e3),
-          expType(n) := expType(e2))
+          expType(e1) === BoolType(),
+          expType(e2) === expType(e3),
+          expType(n) === expType(e2))
+
+      // Rule 8
+      case n @ FunApp(f, e) =>
+        expType(f) === FunType(expType(e), expType(n))
+
+      // Rule 11
+      case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
+        and(
+          expType(n) === BoolType(),
+          expType(e1) === expType(n),
+          expType(e1) === expType(e2)
+        )
+      case n @ MergeMonoid(_: PrimitiveMonoid, e1, e2) =>
+        and(
+          // TODO: Refactor to add a constraint saying it is primitive
+          or(
+            BoolType() === expType(n),
+            IntType() === expType(n),
+            FloatType() === expType(n)
+          ),
+          expType(n) === expType(e1),
+          expType(e1) === expType(e2)
+        )
+
+      // Rule 12
+      case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
+        and(
+          expType(n) === expType(e1),
+          expType(e1) === expType(e2),
+          expType(e2) === ConstraintCollectionType(SymbolTable.next(), TypeVariable(SymbolTable.next()), None, None)
+          // TODO: This is not strong enough. Add constraints to specify the inner types and commutative/idempotent properties
+        )
+
+      // Rule 13
+      case n @ Comp(m: PrimitiveMonoid, _, e) =>
+        expType(n) === expType(e)
+        // TODO: Add constraint saying it is primitive :)
+
+      // Binary Expression type
+      case n@BinaryExp(_: EqualityOperator, e1, e2) =>
+        and(
+          expType(n) === BoolType(),
+          expType(e1) === expType(e2))
+
+      case n@BinaryExp(_: ComparisonOperator, e1, e2) =>
+        and(
+          expType(n) === BoolType(),
+          expType(e1) === expType(e2),
+          or(
+            expType(e2) === IntType(),
+            expType(e2) === FloatType())
+        )
+
+      case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
+        and(
+          expType(n) === expType(e1),
+          expType(e1) === expType(e2),
+          or(
+            expType(e2) === IntType(),
+            expType(e2) === FloatType())
+          )
+
+      // Unary Expression type
+      case n @ UnaryExp(_: Neg, e) =>
+        and(
+          expType(n) === expType(e),
+          or(
+            expType(e) === IntType(),
+            expType(e) === FloatType()))
+
+      // Expression block type
+      case n @ ExpBlock(_, e) =>
+        expType(n) === expType(e)
 
       case _ => NoConstraint
     }

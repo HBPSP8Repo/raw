@@ -31,7 +31,7 @@ case class RecordType(atts: Seq[AttrType], name: Option[String]) extends Type {
 
 /** Collection Types
   */
-abstract class CollectionType extends Type {
+sealed abstract class CollectionType extends Type {
   def innerType: Type
 }
 
@@ -47,20 +47,6 @@ case class UserType(idn: String) extends Type
   */
 case class FunType(t1: Type, t2: Type) extends Type
 
-/** Type Variable
-  */
-case class TypeVariable(idn: String) extends Type
-
-/** Constraint Record Type
-  */
-case class ConstraintRecordType(atts: Set[AttrType]) extends Type {
-  def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
-}
-
-/** Constraint Collection Type
-  */
-case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean]) extends Type
-
 /** Any Type
   * The top type.
   */
@@ -70,3 +56,25 @@ case class AnyType() extends Type
   * The bottom type.
   */
 case class NothingType() extends Type
+
+/** Abstract class representing all types that vary: TypeVariable, constrainted/partial types, etc.
+  */
+
+sealed abstract class VariableType extends Type {
+  def idn: String   // The identifier is used internally by VarMap
+}
+
+/** Type Variable
+  */
+case class TypeVariable(idn: String) extends VariableType
+
+/** Constraint Record Type
+  */
+case class ConstraintRecordType(idn: String, atts: Set[AttrType]) extends VariableType {
+  def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
+}
+
+/** Constraint Collection Type
+  */
+case class ConstraintCollectionType(idn: String, innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean]) extends VariableType
+

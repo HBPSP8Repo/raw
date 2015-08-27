@@ -26,7 +26,7 @@ object Constraint extends LazyLogging {
   import scala.language.implicitConversions
 
   implicit class EqConstraint(val t1: Type) {
-    def :=(t2: Type) = Eq(t1, t2)
+    def ===(t2: Type) = Eq(t1, t2)
   }
 
 }
@@ -40,7 +40,7 @@ object Foo extends App {
   val professors = ListType(professor)
   val world = new World(sources = Map("students" -> students, "professors" -> professors))
 
-  SyntaxAnalyzer("""if true then 1 - 1 else 4""") match {
+  SyntaxAnalyzer("""\(x, y) -> x.age = y""") match {
     case Right(ast) =>
       val t = new Calculus.Calculus(ast)
       val analyzer = new SemanticAnalyzer(t, world)
