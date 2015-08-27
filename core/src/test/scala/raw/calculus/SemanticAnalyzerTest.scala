@@ -26,12 +26,16 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("cern") {
-    success(
-      "for (e <- Events) yield set e", TestWorlds.cern,
-      //"for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern,
-      //"for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set m", TestWorlds.cern,
-      //"for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern,
-      SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
+    success("for (e <- Events) yield list e", TestWorlds.cern, TestWorlds.cern.sources("Events"))
+    success("for (e <- Events) yield set e", TestWorlds.cern, SetType(TestWorlds.cern.sources("Events").asInstanceOf[ListType].innerType))
+    success("for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern, SetType(RecordType(List(AttrType("pt",FloatType()), AttrType("eta",FloatType())),None)))
+    success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern,
+         SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
+    //    success(
+//      //"for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern,
+//        "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set m", TestWorlds.cern,
+////      "for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern,
+//      SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
   }
 
   test("departments1") {
