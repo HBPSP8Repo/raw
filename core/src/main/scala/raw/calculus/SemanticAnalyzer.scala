@@ -815,10 +815,30 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case t: VariableType => if (m.contains(t.idn)) find(m(t.idn), m) else t
     case _ => t
   }
+
+
+
   def tipe2(e: Exp): Type = {
+
     solutions match {
       case Right(m) if m.length > 1 => NothingType()
-      case Right(m) => find(expType(e), m.head)
+      case Right(m) => {
+        def walk(t: Type): Type = t match {
+          case _: AnyType             => t
+          case _: PrimitiveType       => t
+          case _: UserType            => t
+          case v: VariableType         => if (m.head.contains(v.idn) && m.head(v.idn) != t) walk(m.head(v.idn)) else t
+          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) }, name)
+          case ListType(innerType)    => ListType(walk(innerType))
+          case SetType(innerType)     => SetType(walk(innerType))
+          case BagType(innerType)     => BagType(walk(innerType))
+          case FunType(t1, t2)        => FunType(walk(t1), walk(t2))
+          case ConstraintRecordType(idn, atts) => ConstraintRecordType(idn, atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
+          case ConstraintCollectionType(idn, innerType, c, i) => ConstraintCollectionType(idn, walk(innerType), c, i)
+        }
+
+        walk(expType(e))
+      }
       case Left(err) => NothingType()
     }
   }
