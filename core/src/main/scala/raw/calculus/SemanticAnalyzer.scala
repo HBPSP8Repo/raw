@@ -799,16 +799,16 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           Left(m)
       }
     }
-//    logger.debug(s"ENTER unify(${PrettyPrinter(t1)}, ${PrettyPrinter(t2)})")
+    logger.debug(s"ENTER unify(${PrettyPrinter(t1)}, ${PrettyPrinter(t2)})")
     val r = recurse(t1, t2, Map())
-//    logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}\n=> $r")
+    logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}\n=> $r")
     r
   }
 
     def solve(c: Constraint, m: VarMap = Map()): Either[VarMap, Seq[VarMap]] = {
 
-      //logger.debug(s"Processing constraint\n$c\nMap is\n")
-      //logger.debug("VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
+      logger.debug(s"Processing constraint\n$c\nMap is\n")
+      logger.debug("VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
 
       c match {
         case Or(c1, c2) =>
@@ -893,13 +893,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         }
         case HasAttr(t, attr) =>
           val nt = walk(t, m)
-          unify(nt, ConstraintRecordType(SymbolTable.next(), Set(attr))) match {
+          val ct = walk(ConstraintRecordType(SymbolTable.next(), Set(attr)), m)
+          unify(nt, ct)  match {
             case Right(nm) => Right(Seq(m ++ nm))
             case Left(nm) => Left(m ++ nm)
           }
         case IsCollection(t, inner, c, i) =>
           val nt = walk(t, m)
-          unify(nt, ConstraintCollectionType(SymbolTable.next(), inner, c, i)) match {
+          val ct = walk(ConstraintCollectionType(SymbolTable.next(), inner, c, i), m)
+          unify(nt, ct) match {
             case Right(nm) => Right(Seq(m ++ nm))
             case Left(nm) => Left(m ++ nm)
           }
