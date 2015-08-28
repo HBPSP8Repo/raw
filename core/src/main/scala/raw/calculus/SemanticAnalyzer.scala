@@ -896,7 +896,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           val ct = walk(ConstraintRecordType(SymbolTable.next(), Set(attr)), m)
           unify(nt, ct)  match {
             case Right(nm) => Right(Seq(m ++ nm))
-            case Left(nm) => Left(m ++ nm)
+            case Left(nm) =>
+              logger.debug(s"FAILED HERE WITH\nt ${PrettyPrinter(t)} attribute ${attr.idn}: ${PrettyPrinter(attr.tipe)}\nnt ${PrettyPrinter(nt)}\nct ${PrettyPrinter(ct)}")
+              Left(m ++ nm)
           }
         case IsCollection(t, inner, c, i) =>
           val nt = walk(t, m)
@@ -945,7 +947,17 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           logger.debug(s"**** ON THE LEFT $c")
           c match {
             case HasAttr(t, a) =>
-              List(ErrorMessage(c, s"expected record with attribute $a"))
+              val nt = walk(t, m)
+              val texpected = walk(a.tipe, m)
+              nt match {
+                case RecordType(atts, _) =>
+                  val tactual = atts.collectFirst { case AttrType(idn, t) if idn == a.idn => walk(t, m) }
+                  tactual match {
+                    case Some(t) => List(ErrorMessage(c, s"expected ${PrettyPrinter(texpected)} in attribute ${a.idn} but got ${PrettyPrinter(t)}"))
+                    case None => List(ErrorMessage(c, s"expected attribute ${a.idn}"))
+                  }
+                case _ => List(ErrorMessage(c, s"expected record but got ${PrettyPrinter(nt)}"))
+              }
             case IsCollection(t, inner, c, i) => {
               val properties = scala.collection.mutable.MutableList[String]()
               if (c.isDefined) {
@@ -955,15 +967,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
                 if (i.get) properties += "idempotent" else properties += "non-idempotent"
               }
               if (properties.nonEmpty)
-                List(ErrorMessage(t, s"expected ${properties.mkString(" and ")} collection of ${PrettyPrinter(inner)} but got ${PrettyPrinter(t)}"))
+                List(ErrorMessage(t, s"expected ${properties.mkString(" and ")} collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
               else
-                List(ErrorMessage(t, s"expected collection of ${PrettyPrinter(inner)} but got ${PrettyPrinter(t)}"))
+                List(ErrorMessage(t, s"expected collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
             }
             case IsType(t, texpected) =>
-              List(ErrorMessage(t, s"1expected ${PrettyPrinter(texpected)} but got ${PrettyPrinter(t)}"))
+              List(ErrorMessage(t, s"1expected ${PrettyPrinter(walk(texpected, m))} but got ${PrettyPrinter(walk(t, m))}"))
             case Eq(t1, t2) =>
               logger.debug(s"t1.pos ${t1.pos} t2.pos ${t2.pos} c.pos ${c.pos}")
-              List(ErrorMessage(t2, s"2expected ${PrettyPrinter(t1)} but got ${PrettyPrinter(t2)}"))
+              List(ErrorMessage(t2, s"2expected ${PrettyPrinter(walk(t1, m))} but got ${PrettyPrinter(walk(t2, m))}"))
             case And(c1, c2) =>
               reportError(c1, m) ++ reportError(c2, m)
 //              val messages = reportError(c1, m)
