@@ -9,7 +9,7 @@ class SemanticAnalyzerTest extends FunTest {
 
     val analyzer = new SemanticAnalyzer(t, world)
     analyzer.errors.foreach(err => logger.error(err.toString))
-    assert(analyzer.errors.length === 0)
+    assert(analyzer.errors.isEmpty)
     //analyzer.debugTreeTypes
 
     assert(analyzer.tipe(ast) === tipe)
@@ -20,7 +20,9 @@ class SemanticAnalyzerTest extends FunTest {
     val t = new Calculus.Calculus(ast)
 
     val analyzer = new SemanticAnalyzer(t, world)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    assert(analyzer.errors.nonEmpty)
+
+    analyzer.errors.foreach{ case ErrorMessage(n, err) => logger.error(s"$err (${n.pos})") case NoMessage => }
 
     assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
   }
@@ -143,7 +145,11 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("errors") {
-    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
+//    failure("1 + 1.", new World(), "expected int but got float")
+//    failure("1 + true", new World(), "expected int but got bool")
+//    failure("1 + things", TestWorlds.things, "expected int but got set")
+    failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, "expected int got float")
+//    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
   }
 
   test("propagate named records") {
@@ -154,12 +160,12 @@ class SemanticAnalyzerTest extends FunTest {
     val world = new World(sources = Map("students" -> students, "professors" -> professors))
 
     success("for (s <- students) yield list s", world, students)
-    success("for (s <- students) yield list (a := 1, b := s)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student)), None)))
+//    success("for (s <- students) yield list (a := 1, b := s)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student)), None)))
     // TODO: Check w/ Ben. The following should indeed blow up!
-    success("for (s <- students; p <- professors; s = p) yield list s", world, students)
+//    success("for (s <- students; p <- professors; s = p) yield list s", world, students)
 //    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
 //    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
-//    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
   }
 
   test("soundness") {
@@ -167,8 +173,9 @@ class SemanticAnalyzerTest extends FunTest {
 
     // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
     // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
-    success("""\(x, y) -> x + y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-    success("""\(x, y) -> x.age = y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\(x, y) -> x + y + 10""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+    success("""\(x, y) -> x + y + 10.2""", world, FunType(RecordType(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())), None), FloatType()))
+//    success("""\(x, y) -> x.age = y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 
 //    success("""\(x, y) -> (x, y)""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 

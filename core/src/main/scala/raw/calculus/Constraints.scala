@@ -5,13 +5,21 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Constraint extends LazyLogging {
 
-  sealed abstract class Constraint
+  sealed abstract class Constraint extends RawNode
 
   case class And(c1: Constraint, c2: Constraint) extends Constraint
 
   case class Or(c1: Constraint, c2: Constraint) extends Constraint
 
   case class Eq(t1: Type, t2: Type) extends Constraint
+
+  case class HasAttr(t: Type, a: AttrType) extends Constraint
+
+  case class IsCollection(t: Type, innerType: Type, commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None) extends Constraint
+
+  // TODO: IsCommutative? IsIdempotent?
+
+  case class IsType(t: Type, texpected: Type) extends Constraint
 
   case object NoConstraint extends Constraint
 
