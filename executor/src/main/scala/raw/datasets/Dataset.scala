@@ -1,6 +1,8 @@
 package raw.datasets
 
 
+import java.nio.file.Paths
+
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import raw.datasets.patients.Patients
@@ -27,7 +29,7 @@ import scala.reflect.runtime.universe._
 
 //case class FunkyAccessPath[T<: Product, PathType[T]](name: String, path: PathType[T])(implicit tag:TypeTag[PathType])
 
-case class AccessPath[T <: Product](name: String, path: Either[List[T], RDD[T]])(implicit val tag: TypeTag[T])
+case class AccessPath[T](name: String, path: Either[List[T], RDD[T]])(implicit val tag: TypeTag[T])
 
 case class Dataset[T <: Product](name: String, file: String, tag: TypeTag[T])
 
@@ -40,6 +42,13 @@ object AccessPath {
 
   def toScalaAcessPath[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): AccessPath[T] = {
     val data: List[T] = JsonLoader.load[List[T]](dataset.file)
+    new AccessPath[T](dataset.name, Left(data))
+  }
+
+  def toScalaAcessPathAbs[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): AccessPath[T] = {
+//    val t = implicitly[TypeTag[T]]
+//    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(typeTag[List[T]])
+    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(manifest[List[T]])
     new AccessPath[T](dataset.name, Left(data))
   }
 

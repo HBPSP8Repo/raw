@@ -24,8 +24,8 @@ object Dependencies {
 
   val guava = "com.google.guava" % "guava" % "18.0"
 
-  val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.5.2"
-  val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.5.2"
+  val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.6.1"
+  val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.6.1"
 
   val sprayDeps = Seq(
     "io.spray" %% "spray-routing" % "1.3.3",

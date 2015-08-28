@@ -27,7 +27,7 @@ trait ResultConverter {
   def prettyPrintTree(tree:String): String ={
     val json = mapper.readValue(tree, classOf[Any])
     val sw = new StringWriter()
-    mapper.writerWithDefaultPrettyPrinter[ObjectWriter]().writeValue(sw, json)
+    mapper.writerWithDefaultPrettyPrinter().writeValue(sw, json)
     sw.toString
   }
 

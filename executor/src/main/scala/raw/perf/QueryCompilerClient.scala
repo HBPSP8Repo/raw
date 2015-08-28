@@ -1,15 +1,13 @@
 package raw.perf
 
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import raw.datasets.AccessPath
-import raw.executionserver.RawMutableURLClassLoader
+import raw.executionserver.{Loader, RawMutableURLClassLoader}
 import raw.{QueryLogger, RawQuery}
 
 import scala.tools.nsc.reporters.StoreReporter
@@ -28,7 +26,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
   {
     val dir = baseOutputDir.resolve("macro-generated")
     if (!Files.exists(dir)) {
-      Files.createDirectory(dir)
+      Files.createDirectories(dir)
     }
     QueryLogger.setOutputDirectory(baseOutputDir.resolve("macro-generated"))
   }
@@ -58,8 +56,9 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     settings.embeddedDefaults[QueryCompilerClient]
 
     // Needed for macro annotations
-    val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
-    val p = Paths.get(mpPlugin.toURI)
+//    val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
+//    val p = Paths.get(mpPlugin.toURI)
+    val p = Paths.get("C:\\cygwin64\\home\\nuno\\code\\raw\\executor\\src\\main\\resources\\paradise_2.11.7-2.1.0-M5.jar")
     logger.info("Loading plugin: " + p)
     settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))
@@ -78,12 +77,12 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
    * @return An instance of the query
    * @throws RuntimeException If compilation fails
    */
-  def compileOQL(oql: String, accessPaths: List[AccessPath[_]]): RawQuery = {
+  def compileOQL(oql: String, accessPaths: Seq[AccessPath[_]]): RawQuery = {
     compile("oql", oql, accessPaths)
   }
 
 
-  def compileLogicalPlan(plan: String, accessPaths: List[AccessPath[_]]): RawQuery = {
+  def compileLogicalPlan(plan: String, accessPaths: Seq[AccessPath[_]]): RawQuery = {
     compile("plan", plan, accessPaths)
   }
 
@@ -101,10 +100,10 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     }
   }
 
-  private[this] def compile(queryFieldName: String, query: String, accessPaths: List[AccessPath[_]]): RawQuery = {
+  private[this] def compile(queryFieldName: String, query: String, accessPaths: Seq[AccessPath[_]]): RawQuery = {
     //    logger.info("Access paths: " + accessPaths)
     val queryName = QueryCompilerClient.newClassName()
-    val aps: List[String] = accessPaths.map(ap => ap.tag.tpe.typeSymbol.fullName)
+    val aps: Seq[String] = accessPaths.map(ap => ap.tag.tpe.typeSymbol.fullName)
     logger.info(s"Access paths: $aps")
 
     /* For every top level type argument of the access path, import the containing package. The is, for the following
@@ -123,6 +122,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
     //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
     val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.name}]").mkString(", ")
+//    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
     val code = s"""
 package raw.query
@@ -162,11 +162,43 @@ class $queryName($args) extends RawQuery {
     val clazz = rawClassloader.loadClass(queryClass)
 
     // Find the constructor
-    val ctorTypeArgs: List[Class[_]] = accessPaths.map(ap => getContainerClass(ap))
+    val ctorTypeArgs: Seq[Class[_]] = accessPaths.map(ap => getContainerClass(ap))
     val ctor = clazz.getConstructor(ctorTypeArgs: _*)
 
     // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
-    val ctorArgs: List[Object] = accessPaths.map(ap => getAccessPaths(ap))
+    val ctorArgs: Seq[Object] = accessPaths.map(ap => getAccessPaths(ap))
     ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
+  }
+
+
+  def compileLoader(code:String, className:String): Loader = {
+    logger.info(s"Source code:\n$code")
+    val srcFile: Path = sourceOutputDir.resolve("MyLoader.scala")
+    Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
+    logger.info(s"Wrote source file: ${srcFile.toAbsolutePath}")
+
+    // Compile the query
+    val run = new compiler.Run()
+    run.compile(List(srcFile.toString))
+    if (compileReporter.hasErrors) {
+      // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
+      // compilation runs are not falsely reported in the subsequent runs
+      val message = "Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
+      compileReporter.reset()
+      return throw new RuntimeException(message)
+    }
+
+    // Load the main query class
+    val queryClass = s"raw.query.${className}"
+    logger.info("Creating new instance of: " + queryClass)
+    val clazz = rawClassloader.loadClass(queryClass)
+
+    // Find the constructor
+    val ctorTypeArgs: List[Class[_]] = List()
+    val ctor = clazz.getConstructor(ctorTypeArgs: _*)
+
+    // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
+    val ctorArgs: List[Object] = List()
+    ctor.newInstance(ctorArgs: _*).asInstanceOf[Loader]
   }
 }
