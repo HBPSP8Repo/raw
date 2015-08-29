@@ -34,7 +34,7 @@ object DefaultSparkConfiguration extends StrictLogging {
     // gets copied as a new file to the TMP directory every time an instance of Spark is run.
     // http://spark.apache.org/docs/1.3.1/configuration.html#compression-and-serialization
     .set("spark.broadcast.compress", "false")
-    .set("spark.shuffle.compress", "true")
+    .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
 
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")

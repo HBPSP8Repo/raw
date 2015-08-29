@@ -30,8 +30,9 @@ object Dependencies {
   val sprayDeps = Seq(
     "io.spray" %% "spray-routing" % "1.3.3",
     "io.spray" %% "spray-can" % "1.3.3",
-    "com.typesafe.akka" %% "akka-actor" % "2.3.11",
-    "com.typesafe.akka" %% "akka-slf4j" % "2.3.11")
+    "io.spray" %% "spray-json" % "1.3.2",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.12",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.3.12")
 
   val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
 

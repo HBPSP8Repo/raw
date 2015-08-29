@@ -1,9 +1,11 @@
 package raw.perf
 
+import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import raw.datasets.AccessPath
@@ -56,9 +58,8 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     settings.embeddedDefaults[QueryCompilerClient]
 
     // Needed for macro annotations
-//    val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
-//    val p = Paths.get(mpPlugin.toURI)
-    val p = Paths.get("C:\\cygwin64\\home\\nuno\\code\\raw\\executor\\src\\main\\resources\\paradise_2.11.7-2.1.0-M5.jar")
+    val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
+    val p = Paths.get(mpPlugin.toURI)
     logger.info("Loading plugin: " + p)
     settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))
@@ -80,7 +81,6 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
   def compileOQL(oql: String, accessPaths: Seq[AccessPath[_]]): RawQuery = {
     compile("oql", oql, accessPaths)
   }
-
 
   def compileLogicalPlan(plan: String, accessPaths: Seq[AccessPath[_]]): RawQuery = {
     compile("plan", plan, accessPaths)
@@ -122,7 +122,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
     //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
     val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.name}]").mkString(", ")
-//    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
+    //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
     val code = s"""
 package raw.query
@@ -171,7 +171,7 @@ class $queryName($args) extends RawQuery {
   }
 
 
-  def compileLoader(code:String, className:String): Loader = {
+  def compileLoader(code: String, className: String): Loader = {
     logger.info(s"Source code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve("MyLoader.scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
@@ -193,11 +193,8 @@ class $queryName($args) extends RawQuery {
     logger.info("Creating new instance of: " + queryClass)
     val clazz = rawClassloader.loadClass(queryClass)
 
-    // Find the constructor
-    val ctorTypeArgs: List[Class[_]] = List()
-    val ctor = clazz.getConstructor(ctorTypeArgs: _*)
+    val ctor = clazz.getConstructor()
 
-    // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
     val ctorArgs: List[Object] = List()
     ctor.newInstance(ctorArgs: _*).asInstanceOf[Loader]
   }
