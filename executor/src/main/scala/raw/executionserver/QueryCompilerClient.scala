@@ -1,4 +1,4 @@
-package raw.perf
+package raw.executionserver
 
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -7,9 +7,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.io.FileUtils
 import org.apache.spark.rdd.RDD
 import raw.datasets.AccessPath
-import raw.executionserver.{Loader, RawMutableURLClassLoader}
 import raw.{QueryLogger, RawQuery}
 
 import scala.tools.nsc.reporters.StoreReporter
@@ -25,12 +25,20 @@ object QueryCompilerClient {
 }
 
 class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging {
+
+  try {
+    FileUtils.cleanDirectory(baseOutputDir.toFile)
+  } catch {
+    // Directory does not exist. Create it.
+    case ex: IllegalArgumentException => Files.createDirectory(baseOutputDir)
+  }
+
   {
     val dir = baseOutputDir.resolve("macro-generated")
     if (!Files.exists(dir)) {
       Files.createDirectories(dir)
     }
-    QueryLogger.setOutputDirectory(baseOutputDir.resolve("macro-generated"))
+    QueryLogger.setOutputDirectory(dir)
   }
 
   // Where the server saves the generated scala source for each query

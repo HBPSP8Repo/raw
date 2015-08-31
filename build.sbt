@@ -72,30 +72,9 @@ lazy val executor = (project in file("executor")).
     fork := true,
 
     // Alternative to start SBT with -D...=... Applies to tasks launched within the VM which runs SBT
-    // No longer needed, done by LDBDockerContainer.scala
 //    initialize ~= { _ =>
-//      val dockerAddress = System.getenv().get("DOCKER_HOST")
-//      val ldbServerAddress = if (dockerAddress == null) {
-//        println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
-//        "http://localhost:5001/raw-plan"
-//      } else {
-//        println("Docker host: " + dockerAddress)
-//        val uri = new URI(dockerAddress)
-//        s"http://${uri.getHost}:5001/raw-plan"
-//      }
-//      println(s"RAW compilation server at $ldbServerAddress")
-//      System.setProperty("raw.compile.server.host", ldbServerAddress)
 //    },
 
-    testOptions in Test += Tests.Setup(() => {
-      val path = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
-      try {
-        FileUtils.cleanDirectory(path.toFile)
-      } catch {
-        // Directory does not exist. Create it.
-        case ex: IllegalArgumentException => Files.createDirectory(path)
-      }
-    }),
     //        testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
@@ -145,25 +124,6 @@ java -classpath "%s" %s "$@"
       out.setExecutable(true)
       out
     }
-    //    startDocker := {
-    //      println("Starting docker")
-    //      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
-    //      println(s"Started container: $cID")
-    //      cID
-    //    },
-    //    stopDocker := {
-    //      val cID = startDocker.value
-    //      println(s"Stopping docker container: $cID")
-    //      val separator = "== Docker container logs =="
-    //      println(separator)
-    //      s"docker stop -t 0 ${cID}".!!
-    //      s"docker logs ${cID}".!
-    //      s"docker rm $cID".!!
-    //      println(separator)
-    //    },
-    //    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
-    //      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
-    //    }
   )
 
 lazy val core = (project in file("core")).

@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.StrictLogging
 import raw.datasets.AccessPath
-import raw.perf.QueryCompilerClient
+import raw.executionserver.QueryCompilerClient
 
 import scala.collection.mutable
 
@@ -38,23 +38,23 @@ object RawServer extends StrictLogging with ResultConverter {
     val loaderClassName = s"Loader${ai.getAndIncrement()}__${name}"
 
     val sourceCode = s"""
-      package raw.query
+package raw.query
 
-      import java.nio.file.Paths
-      import raw.datasets.AccessPath
-      import raw.executionserver.{JsonLoader, Loader}
+import java.nio.file.Paths
+import raw.datasets.AccessPath
+import raw.executionserver.{JsonLoader, Loader}
 
-      ${caseClassesSource}
+${caseClassesSource}
 
-      class ${loaderClassName} extends Loader {
-        def loadAccessPaths(path: String): AccessPath[_] = {
-          val listManifest = manifest[List[${innerType}]]
-          val p = Paths.get(path)
-          val data = JsonLoader.loadAbsolute(p)(listManifest)
-          AccessPath("$name", Left(data))
-        }
-      }
-    """
+class ${loaderClassName} extends Loader {
+  def loadAccessPaths(path: String): AccessPath[_] = {
+    val listManifest = manifest[List[${innerType}]]
+    val p = Paths.get(path)
+    val data = JsonLoader.loadAbsolute(p)(listManifest)
+    AccessPath("$name", Left(data))
+  }
+}
+"""
 
     val obj = queryCompiler.compileLoader(sourceCode, loaderClassName)
     val accessPath = obj.loadAccessPaths(fileLocation)

@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.datasets.AccessPath
-import raw.perf.QueryCompilerClient
+import raw.executionserver.QueryCompilerClient
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 

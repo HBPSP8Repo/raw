@@ -2,13 +2,12 @@ package raw.executionserver
 
 import java.io.StringReader
 import java.net.{URI, URL}
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.perf.QueryCompilerClient
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
@@ -76,9 +75,26 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
           headerValueByName("Raw-Schema-Name") { schemaName =>
             headerValueByName("Raw-File") { fileURI =>
               entity(as[String]) { xmlSchema =>
-                logger.info(s"Registering schema: $schemaName, file: $fileURI")
-                RawServer.registerSchema(schemaName, new StringReader(xmlSchema), Paths.get(new URI(fileURI)).toString)
-                complete("OK")
+                try {
+                  logger.info(s"Registering schema: $schemaName, file: $fileURI")
+                  val uri = new URI(fileURI)
+                  val localFile = if (uri.getScheme().startsWith("http")) {
+                    val localPath = Files.createTempFile(schemaName, ".json")
+                    val is = uri.toURL.openStream()
+                    logger.info("Downloading file to " + localPath)
+                    Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
+                    is.close()
+                    localPath
+                  } else {
+                    Paths.get(uri)
+                  }
+                  RawServer.registerSchema(schemaName, new StringReader(xmlSchema), localFile.toString)
+                  complete("OK")
+                } catch {
+                  case ex: RuntimeException =>
+                    logger.warn(s"Failed to process request: $ex")
+                    complete(StatusCodes.BadRequest, ex.getMessage)
+                }
               }
             }
           }
@@ -99,7 +115,6 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
 
     val res = RawServer.query(cleanedQuery)
-    logger.info("Result: " + res)
     res
   }
 }

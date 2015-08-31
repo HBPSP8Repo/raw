@@ -9,7 +9,6 @@ import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.executionserver._
-import raw.perf.QueryCompilerClient
 
 import scala.collection.JavaConversions
 

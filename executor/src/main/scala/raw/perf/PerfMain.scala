@@ -14,7 +14,7 @@ import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
 import raw.datasets.AccessPath
-import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
+import raw.executionserver.{QueryCompilerClient, DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
 import raw.utils.{DockerUtils, RawUtils}
 
 import scala.collection.TraversableLike
