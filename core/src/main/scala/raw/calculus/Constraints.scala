@@ -7,15 +7,13 @@ object Constraint extends LazyLogging {
 
   sealed abstract class Constraint extends RawNode
 
-  case class And(c1: Constraint, c2: Constraint) extends Constraint
+  case class And(cs: Constraint*) extends Constraint
 
-  case class Or(c1: Constraint, c2: Constraint) extends Constraint
+  case class Or(cs: Constraint*) extends Constraint
 
   case class Eq(t1: Type, t2: Type) extends Constraint
 
-  case class HasAttr(t: Type, a: AttrType) extends Constraint
-
-  case class IsCollection(t: Type, innerType: Type, commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None) extends Constraint
+//  case class HasAttr(t: Type, a: AttrType) extends Constraint
 
   // TODO: IsCommutative? IsIdempotent?
 
@@ -24,12 +22,6 @@ object Constraint extends LazyLogging {
   case object NoConstraint extends Constraint
 
   //    case class Collection(t: Type) extends Constraint
-
-  def or(cs: Constraint*) =
-    cs.tail.foldLeft(cs.head)((a, b) => Or(a, b))
-
-  def and(cs: Constraint*) =
-    cs.tail.foldLeft(cs.head)((a, b) => And(a, b))
 
   import scala.language.implicitConversions
 
