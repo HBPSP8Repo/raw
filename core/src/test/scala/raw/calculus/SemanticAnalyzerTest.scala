@@ -3,27 +3,24 @@ package calculus
 
 class SemanticAnalyzerTest extends FunTest {
 
-  def success(query: String, world: World, tipe: Type) = {
+  def go(query: String, world: World) = {
     val ast = parse(query)
     val t = new Calculus.Calculus(ast)
 
     val analyzer = new SemanticAnalyzer(t, world)
-    analyzer.errors.foreach(err => logger.error(err.toString))
-    assert(analyzer.errors.isEmpty)
-    //analyzer.debugTreeTypes
+    analyzer.errors.foreach(e => logger.error(ErrorsPrettyPrinter(e)))
+    analyzer
+  }
 
-    assert(analyzer.tipe(ast) === tipe)
+  def success(query: String, world: World, tipe: Type) = {
+    val analyzer = go(query, world)
+    assert(analyzer.errors.isEmpty)
+    assert(analyzer.tipe(analyzer.tree.root) === tipe)
   }
 
   def failure(query: String, world: World, error: String) = {
-    val ast = parse(query)
-    val t = new Calculus.Calculus(ast)
-
-    val analyzer = new SemanticAnalyzer(t, world)
+    val analyzer = go(query, world)
     assert(analyzer.errors.nonEmpty)
-
-    analyzer.errors.foreach{ case ErrorMessage(n, err) => logger.error(s"$err (${n.pos})") case NoMessage => }
-
     assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
   }
 
@@ -149,6 +146,9 @@ class SemanticAnalyzerTest extends FunTest {
 //    failure("1 + things", TestWorlds.things, "expected int but got set")
     failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, "attribute a is int but got float")
 //    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
+
+
+//    failure("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d)")
   }
 
   test("propagate named records") {
