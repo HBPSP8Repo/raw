@@ -75,43 +75,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   private lazy val treeErrors = collectTreeErrors(tree.root).collect { case e: ErrorMessage => e }
 
-  //
-//
-//  lazy val treeErrors: List[Message] =
-//    collectmessages(tree) {
-//      case n => check(n) {
-//
-//        // Identifier declared more than once in the same scope
-//        case d@IdnDef(i) if entity(d) == MultipleEntity() =>
-//          message(d, s"$i is declared more than once")
-//
-//        // Identifier used without being declared
-//        case u@IdnUse(i) if entity(u) == UnknownEntity() =>
-//          message(u, s"$i is not declared")
-//
-//        // Identifier declared has no inferred type
-//        case d@IdnDef(i) if entityType(entity(d)) == NothingType() =>
-//          message(d, s"$i has no type")
-//
-//        // Identifier used has no inferred type
-//        case u@IdnUse(i) if entityType(entity(u)) == NothingType() =>
-//          message(u, s"$i has no type")
-//
-//        case e: Exp =>
-//          //          // Mismatch between type expected and actual type
-//          //          message(e, s"expected ${expectedType(e).map{ case p => PrettyPrinter(p) }.mkString(" or ")} got ${PrettyPrinter(tipe(e))}",
-//          //            !typesCompatible(e)) ++
-//          check(e) {
-//            // Semantic error in monoid composition
-//            case c@Comp(m, qs, _) =>
-//              qs.flatMap {
-//                case Gen(_, g) => monoidsCompatible(m, g)
-//                case _ => noMessages
-//              }.toVector
-//          }
-//      }
-//    }
-
   /** Check whether monoid is compatible with the generator expression.
     */
   private def monoidsCompatible(m: Monoid, g: Exp): Option[Message] = {
@@ -209,252 +172,13 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case e: Exp => env.in(e)
   }
 
-  //  /** The expected type of an expression.
-  //    */
-  //  private lazy val expectedType: Exp => Set[Type] = attr {
-  //
-  //    case tree.parent.pair(e, p) => p match {
-  //      // Record projection must be over a record type that contains the identifier to project
-  //      case RecordProj(_, idn) =>
-  //        Set(ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, AnyType()))))
-  //
-  //      // If condition must be a boolean
-  //      case IfThenElse(e1, _, _) if e eq e1 => Set(BoolType())
-  //
-  //      // Arithmetic operation must be over Int or Float
-  //      case BinaryExp(_: ArithmeticOperator, e1, _) if e eq e1 => Set(IntType(), FloatType())
-  //
-  //      // The type of the right-hand-side of a binary expression must match the type of the left-hand-side
-  //      case BinaryExp(_, e1, e2) if e eq e2 => Set(tipe(e1))
-  //
-  //      // Function application must be on a function type
-  //      case FunApp(f, _) if e eq f => Set(FunType(AnyType(), AnyType()))
-  //
-  //      // Mismatch in function application
-  //      case FunApp(f, e1) if e eq e1 => tipe(f) match {
-  //        case FunType(t1, _) => Set(t1)
-  //        case _              => Set(NothingType())
-  //      }
-  //
-  //      // Merging number monoids requires a number type
-  //      case MergeMonoid(_: NumberMonoid, e1, _) if e eq e1 => Set(IntType(), FloatType())
-  //
-  //      // Merging boolean monoids requires a bool type
-  //      case MergeMonoid(_: BoolMonoid, e1, _)   if e eq e1 => Set(BoolType())
-  //
-  //      // Merge of collections must be with same monoid collection types
-  //      case MergeMonoid(_: BagMonoid, e1, _)  if e eq e1 => Set(BagType(AnyType()))
-  //      case MergeMonoid(_: ListMonoid, e1, _) if e eq e1 => Set(ListType(AnyType()))
-  //      case MergeMonoid(_: SetMonoid, e1, _)  if e eq e1 => Set(SetType(AnyType()))
-  //
-  //      // The type of the right-hand-side of a merge expression must match the type of the left-hand-side
-  //      case MergeMonoid(_, e1, e2) if e eq e2 => Set(tipe(e1))
-  //
-  //      // Comprehension with a primitive monoid must have compatible projection type
-  //      case Comp(_: NumberMonoid, _, e1) if e eq e1 => Set(IntType(), FloatType())
-  //      case Comp(_: BoolMonoid, _, e1)   if e eq e1 => Set(BoolType())
-  //
-  //      // Qualifiers that are expressions must be predicates
-  //      case Comp(_, qs, _) if qs.contains(e) => Set(BoolType())
-  //
-  //      // Expected types of unary expressions
-  //      case UnaryExp(_: Neg, _)      => Set(IntType(), FloatType())
-  //      case UnaryExp(_: Not, _)      => Set(BoolType())
-  //      case UnaryExp(_: ToBool, _)   => Set(IntType(), FloatType())
-  //      case UnaryExp(_: ToInt, _)    => Set(BoolType(), FloatType())
-  //      case UnaryExp(_: ToFloat, _)  => Set(BoolType(), IntType())
-  //      case UnaryExp(_: ToString, _) => Set(BoolType(), IntType(), FloatType())
-  //
-  //      case _ => Set(AnyType())
-  //    }
-  //    case _ => Set(AnyType()) // There is no parent, i.e. the root node.
-  //  }
-
-  //  /** Checks for type compatibility between expected and actual types of an expression.
-  //    * Uses type unification but overrides it to handle the special case of record projections.
-  //    */
-  //  private def typesCompatible(e: Exp): Boolean = {
-  //    val actual = tipe(e)
-  //    // Type checker keeps quiet on nothing types because the actual error will be signalled in one of its children
-  //    // through the `expectedType` comparison.
-  //    if (actual == NothingType())
-  //      return true
-  //    for (expected <- expectedType(e)) {
-  //      if (expected == NothingType() || unify(expected, actual) != NothingType())
-  //        return true
-  //    }
-  //    false
-  //  }
-
-  //  // TODO: Move it into a separate class to isolate its behavior with an interface!
-  //  private var variableMap = scala.collection.mutable.Map[String, Type]()
-
-
-  //  def VMapToStr(): String = {
-  //    return variableMap.map{case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}")
-  //  }
-  // TODO: Call pass1(tree.root) from a private non-lay val, to trigger the pass1 at startup.
-
-  //  lazy val tipe: Exp => Type = {
-  //    case e => {
-  //      // Run `pass1` from the root for its side-effect, which is to type the nodes and build the `variableMap`.
-  //      // Subsequent runs are harmless since they hit the cached value.
-  //      pass1(tree.root)
-  //
-  //      logger.debug(VMapToStr())
-  //
-  //      def walk(t: Type): Type = t match {
-  //        case _: AnyType             => t
-  //        case _: PrimitiveType       => t
-  //        case _: UserType            => t
-  //        case TypeVariable(v)        => if (variableMap.contains(v) && variableMap(v) != t) walk(variableMap(v)) else t
-  //        case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) }, name)
-  //        case ListType(innerType)    => ListType(walk(innerType))
-  //        case SetType(innerType)     => SetType(walk(innerType))
-  //        case BagType(innerType)     => BagType(walk(innerType))
-  //        case FunType(t1, t2)        => FunType(walk(t1), walk(t2))
-  //        case ConstraintRecordType(idn, atts) => ConstraintRecordType(idn, atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1)) })
-  //        case ConstraintCollectionType(idn, innerType, c, i) => ConstraintCollectionType(idn, walk(innerType), c, i)
-  //      }
-  //
-  //      // Walk through type variables until the root type
-  //      walk(pass1(e))
-  //    }
-  //  }
-
-  //  private lazy val patternDef: Pattern => CalculusNode = attr {
-  //    case tree.parent(b: Bind)   => b
-  //    case tree.parent(g: Gen)    => g
-  //    case tree.parent(f: FunAbs) => f
-  //    case tree.parent(p: Pattern) => patternDef(p)
-  //  }
-
   private lazy val entityType: Entity => Type = attr {
-    case VariableEntity(idn, t) => {
-      //      idn match {
-      //        case tree.parent(p: Pattern) => patternDef(p) match {
-      //          case Bind(p1, e) =>
-      //            unify(patternType(p1), pass1(e))
-      //          case Gen(p1, e) =>
-      //            unify(ConstraintCollectionType(SymbolTable.next(), patternType(p1), None, None), pass1(e))
-      //          case _: FunAbs =>
-      //        }
-      //      }
-      t
-    }
+    case VariableEntity(idn, t) => t
     case DataSourceEntity(name) => world.sources(name)
     case _: UnknownEntity => NothingType()
   }
 
   private def idnType(idn: IdnNode): Type = entityType(entity(idn))
-
-  //  private def pass1(n: Exp): Type = realPass1(n) match {
-  //    case UserType(name) => world.userTypes.get(name) match {
-  //      case Some(t) => t
-  //      case _       => NothingType()
-  //    }
-  //    case t => t
-  //  }
-
-  //  private lazy val realPass1: Exp => Type = attr {
-  //
-  //    // Rule 1
-  //    case _: BoolConst   => BoolType()
-  //    case _: IntConst    => IntType()
-  //    case _: FloatConst  => FloatType()
-  //    case _: StringConst => StringType()
-  //
-  //    // Rule 2
-  //    case _: Null => TypeVariable(SymbolTable.next())
-  //
-  //    // Rule 3
-  //    case IdnExp(idn) => idnType(idn)
-  //
-  //    // Rule 4
-  //    case RecordProj(e, idn) =>
-  //      val v = SymbolTable.next()
-  //      val inner = TypeVariable(SymbolTable.next())
-  //      variableMap.update(v, ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, inner))))
-  //      unify(pass1(e), TypeVariable(v))
-  //      inner
-  //
-  //    // Rule 5
-  //    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, pass1(att.e))), None)
-  //
-  //    // Rule 6
-  //    case IfThenElse(_, e2, e3) => unify(pass1(e2), pass1(e3))
-  //
-  //    // Rule 7
-  //    case FunAbs(p, e) => FunType(patternType(p), pass1(e))
-  //
-  //    // Rule 8
-  //    case FunApp(f, _) => pass1(f) match {
-  //      case FunType(_, t2) => t2
-  //      case _ => TypeVariable(SymbolTable.next()) //??? // TODO: Add a fancy contraint that it is a FunAbs?
-  //    }
-  //
-  //    // Rule 9
-  //    case ZeroCollectionMonoid(_: BagMonoid)  => BagType(TypeVariable(SymbolTable.next()))
-  //    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(SymbolTable.next()))
-  //    case ZeroCollectionMonoid(_: SetMonoid)  => SetType(TypeVariable(SymbolTable.next()))
-  //
-  //    // Rule 10
-  //    case ConsCollectionMonoid(_: BagMonoid, e)  => BagType(pass1(e))
-  //    case ConsCollectionMonoid(_: ListMonoid, e) => ListType(pass1(e))
-  //    case ConsCollectionMonoid(_: SetMonoid, e)  => SetType(pass1(e))
-  //
-  //    // Rule 11
-  //    case MergeMonoid(_: BoolMonoid, e1, e2) =>
-  //      unify(pass1(e1), pass1(e2))
-  //      BoolType()
-  //    case MergeMonoid(_: PrimitiveMonoid, e1, e2) =>
-  //      unify(pass1(e1), pass1(e2))
-  //
-  //    // Rule 12
-  //    case MergeMonoid(_: CollectionMonoid, e1, e2) => unify(pass1(e1), pass1(e2))
-  //
-  //    // Rule 13
-  //    case Comp(m: PrimitiveMonoid, Nil, e) => pass1(e)
-  //
-  //    // Rule 14
-  //    case Comp(_: BagMonoid, Nil, e)  => BagType(pass1(e))
-  //    case Comp(_: ListMonoid, Nil, e) => ListType(pass1(e))
-  //    case Comp(_: SetMonoid, Nil, e)  => SetType(pass1(e))
-  //
-  //    // Rule 15
-  //    case Comp(m, (_: Gen) :: r, e1) => pass1(Comp(m, r, e1))
-  //
-  //    // Rule 16
-  //    case Comp(m, (_: Exp) :: r, e1) => pass1(Comp(m, r, e1))
-  //
-  //    // Skip Binds
-  //    case Comp(m, (_: Bind) :: r, e1) => pass1(Comp(m, r, e1))
-  //
-  //    // Binary Expression type
-  //    case BinaryExp(_: EqualityOperator, e1, e2) =>
-  //      unify(pass1(e1), pass1(e2))
-  //      BoolType()
-  //
-  //    case BinaryExp(_: ComparisonOperator, e1, e2) =>
-  //      unify(pass1(e1), pass1(e2))
-  //      BoolType()
-  //
-  //    case BinaryExp(_: ArithmeticOperator, e1, e2) =>
-  //      unify(pass1(e1), pass1(e2))
-  //
-  //    // Unary Expression type
-  //    case UnaryExp(_: Not, _)      => BoolType()
-  //    case UnaryExp(_: Neg, e)      => pass1(e)
-  //    case UnaryExp(_: ToBool, _)   => BoolType()
-  //    case UnaryExp(_: ToInt, _)    => IntType()
-  //    case UnaryExp(_: ToFloat, _)  => FloatType()
-  //    case UnaryExp(_: ToString, _) => StringType()
-  //
-  //    // Expression block type
-  //    case ExpBlock(_, e) => pass1(e)
-  //
-  //    case _ => NothingType()
-  //  }
 
   /** The type corresponding to a given pattern.
     */
@@ -465,134 +189,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
     case PatternProd(ps) => RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
   }
-
-  //  /** Hindley-Milner unification algorithm.
-  //    */
-  //  private def unify(t1: Type, t2: Type): Type = {
-  //    logger.debug(s"t1 is ${PrettyPrinter(t1)} and t2 is ${PrettyPrinter(t2)}")
-  //    val nt1 = t1 match {
-  //      case UserType(t) => world.userTypes(t)
-  //      case t => t
-  //    }
-  //    val nt2 = t2 match {
-  //      case UserType(t) => world.userTypes(t)
-  //      case t => t
-  //    }
-  //
-  //    (nt1, nt2) match {
-  //      case (n: NothingType, _) => n
-  //      case (_, n: NothingType) => n
-  //      case (_: AnyType, t) => t
-  //      case (t, _: AnyType) => t
-  //      case (t1: PrimitiveType, t2: PrimitiveType) if t1 == t2 => t1
-  //      case (SetType(a), SetType(b)) => SetType(unify(a, b))
-  //      case (BagType(a), BagType(b)) => BagType(unify(a, b))
-  //      case (ListType(a), ListType(b)) => ListType(unify(a, b))
-  //      case (FunType(a1, a2), FunType(b1, b2)) => FunType(unify(a1, b1), unify(a2, b2))
-  //      case (RecordType(atts1, name1), RecordType(atts2, name2)) if atts1.map(_.idn) == atts2.map(_.idn) && name1 == name2 =>
-  //        RecordType(atts1.zip(atts2).map { case (att1, att2) => AttrType(att1.idn, unify(att1.tipe, att2.tipe)) }, name1)
-  //      case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ ConstraintRecordType(idn2, atts2)) =>
-  //        val common = atts1.map(_.idn).intersect(atts2.map(_.idn))
-  //        val commonAttr = common.map { case idn => AttrType(idn, unify(t1.getType(idn).head, t2.getType(idn).head)) }
-  //        ConstraintRecordType(SymbolTable.next(), atts1.filter { case att => !common.contains(att.idn) } ++ atts2.filter { case att => !common.contains(att.idn) } ++ commonAttr)
-  //      case (t1@ConstraintRecordType(idn1, atts1), t2@RecordType(atts2, name)) =>
-  //        if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet))
-  //          NothingType()
-  //        else
-  //          RecordType(atts2.map { case att => t1.getType(att.idn) match {
-  //            case Some(t) => AttrType(att.idn, unify(t, att.tipe))
-  //            case None => att
-  //          }
-  //          }, name)
-  //      case (t1: RecordType, t2: ConstraintRecordType) =>
-  //        unify(t2, t1)
-  //
-  //      case (ConstraintCollectionType(idn1, a1, c1, i1), ConstraintCollectionType(idn2, b1, c2, i2)) =>
-  //        if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
-  //          NothingType()
-  //        } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
-  //          NothingType()
-  //        } else {
-  //          val nc = if (c1.isDefined) c1 else c2
-  //          val ni = if (i1.isDefined) i1 else i2
-  //          ConstraintCollectionType(SymbolTable.next(), unify(a1, b1), nc, ni)
-  //        }
-  //
-  //      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: SetType) =>
-  //        if (((c1.isDefined && c1.get) || c1.isEmpty) &&
-  //          ((i1.isDefined && i1.get) || i1.isEmpty))
-  //          SetType(unify(a1, t2.innerType))
-  //        else
-  //          NothingType()
-  //
-  //      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: BagType) =>
-  //        if (((c1.isDefined && c1.get) || c1.isEmpty) &&
-  //          ((i1.isDefined && !i1.get) || i1.isEmpty))
-  //          BagType(unify(a1, t2.innerType))
-  //        else
-  //          NothingType()
-  //
-  //      case (ConstraintCollectionType(idn1, a1, c1, i1), t2: ListType) =>
-  //        if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
-  //          ((i1.isDefined && !i1.get) || i1.isEmpty))
-  //          ListType(unify(a1, t2.innerType))
-  //        else
-  //          NothingType()
-  //
-  //      case (t1: CollectionType, t2: ConstraintCollectionType) =>
-  //        unify(t2, t1)
-  //
-  //      case (t1 @ TypeVariable(a), t2 @ TypeVariable(b)) =>
-  //        if (t1 == t2)
-  //          t1
-  //        else if (variableMap.contains(a) && variableMap.contains(b)) {
-  //          val ta = variableMap(a)
-  //          val tb = variableMap(b)
-  //          val nt = unify(ta, tb)
-  //          nt match {
-  //            case _: NothingType =>
-  //              nt
-  //            case _ =>
-  //              variableMap.update(a, nt)
-  //              variableMap.update(b, t1)
-  //              t1
-  //          }
-  //        } else if (variableMap.contains(a)) {
-  //          variableMap.update(b, t1)
-  //          t1
-  //        } else if (variableMap.contains(b)) {
-  //          unify(t2, t1)
-  //        } else {
-  //          val nt = TypeVariable(SymbolTable.next())
-  //          variableMap.update(a, nt)
-  //          variableMap.update(b, t1)
-  //          t1
-  //        }
-  //      case (t1 @ TypeVariable(a), t2) =>
-  //        logger.debug(s"* t1 is ${PrettyPrinter(t1)} and t2 is ${PrettyPrinter(t2)}")
-  //        if (variableMap.contains(a)) {
-  //          logger.debug("**")
-  //          val ta = variableMap(a)
-  //          val nt = unify(ta, t2)
-  //          nt match {
-  //            case _: NothingType => nt
-  //            case _ =>
-  //              variableMap.update(a, nt)
-  //              logger.debug(s"nt is ${PrettyPrinter(nt)}")
-  //              nt
-  //          }
-  //        } else {
-  //          logger.debug("**|")
-  //          variableMap.update(a, t2)
-  //          t2
-  //        }
-  //      case (t1, t2: TypeVariable) =>
-  //        unify(t2, t1)
-  //      case _ => NothingType()
-  //    }
-  //  }
-  //
-  //
 
   /** Annotate the type with the (parser) position of the expression.
     */
@@ -806,41 +402,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}\n=> $r")
     r
   }
-//
-//  def getTypeVariables(t: Type, m: VarMap): Set[TypeVariable] =
-//    t match {
-//      case _: AnyType => Set()
-//      case _: PrimitiveType => Set()
-//      case UserType(idn) => getTypeVariables(world.userTypes(idn), m)
-//      case RecordType(atts, _) =>
-//        atts.flatMap { case att => getTypeVariables(att.tipe, m) }.toSet
-//      case ListType(innerType) => getTypeVariables(innerType, m)
-//      case SetType(innerType) => getTypeVariables(innerType, m)
-//      case BagType(innerType) => getTypeVariables(innerType, m)
-//      case FunType(t1, t2) => getTypeVariables(t1, m) ++ getTypeVariables(t2, m)
-//      case ConstraintRecordType(_, atts) =>
-//        atts.flatMap { case att => getTypeVariables(att.tipe, m) }.toSet
-//      case ConstraintCollectionType(_, innerType, _, _) =>
-//        getTypeVariables(innerType, m)
-//      case t: TypeVariable if m.contains(t.idn) => getTypeVariables(m(t.idn), m)
-//      case t: TypeVariable => Set(t)
-//    }
-//
-//  def getConstraintTypeVariables(c: Constraint, m: VarMap): Set[TypeVariable] = c match {
-//    case Or(cs @ _*) =>
-//      cs.flatMap(c => getConstraintTypeVariables(c, m)).toSet
-//    case And(cs @ _*) =>
-//      cs.flatMap(c => getConstraintTypeVariables(c, m)).toSet
-//    case Eq(t1, t2) =>
-//      getTypeVariables(t1, m) ++ getTypeVariables(t2, m)
-//    case HasAttr(t, attr) =>
-//      getTypeVariables(t, m) ++ getTypeVariables(attr.tipe, m)
-//    case IsCollection(t, inner, _, _) =>
-//      getTypeVariables(t, m) ++ getTypeVariables(inner, m)
-//    case IsType(t, texpected) =>
-//      getTypeVariables(t, m) ++ getTypeVariables(texpected, m)
-//    case NoConstraint => Set()
-//  }
 
   def getTypeVariables(t: Type, m: VarMap): Set[TypeVariable] =
   t match {
@@ -867,10 +428,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       cs.flatMap(c => getConstraintTypeVariables(c, m)).toSet
     case SameType(e1, e2, _) =>
       getTypeVariables(expType(e1), m) ++ getTypeVariables(expType(e2), m)
-//    case HasAttr(t, attr) =>
-//      getTypeVariables(t, m) ++ getTypeVariables(attr.tipe, m)
-//    case IsCollection(t, inner, _, _) =>
-//      getTypeVariables(t, m) ++ getTypeVariables(inner, m)
     case HasType(e, texpected, _) =>
       getTypeVariables(expType(e), m) ++ getTypeVariables(texpected, m)
     case NoConstraint => Set()
@@ -915,114 +472,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
               val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
               if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
           }
-//
-//
-//          for (c <- cs) {
-//            val ts = getConstraintTypeVariables(c, m)
-//            val idns = ts.map(_.idn).toSet
-//            if (idns.intersect(m.keySet))
-//
-//          }
-//
-//          //cs.map(c => val ts = getConstraintTypeVariables(c, m); (ts.size, ts))
-//          val groups = cs.groupBy(c => getConstraintTypeVariables(c, m).size)
-//          val smallests = groups(groups.keys.min)
-//          solve(smallests.head, m) match {
-//            case Left(m) => Left(m)
-//            case Right(ms1) =>
-//              val rest = And(cs.filterNot(c => c == smallests.head):_*)
-//              val all_ms = for (m1 <- ms1) yield solve(rest, m1)
-//              val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
-//              if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
-//          }
-
-
-        //          //cs.map(c => val ts = getConstraintTypeVariables(c, m); (ts.size, ts))
-//          val groups = cs.groupBy(c => getConstraintTypeVariables(c, m).size)
-//          val smallests = groups(groups.keys.min)
-//          solve(smallests.head, m) match {
-//            case Left(m) => Left(m)
-//            case Right(ms1) =>
-//              val rest = And(cs.filterNot(c => c == smallests.head):_*)
-//              val all_ms = for (m1 <- ms1) yield solve(rest, m1)
-//              val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
-//              if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
-//          }
         case _: And => // Empty And
           Right(Seq(m))
-//
-//          get the type variables in the constraint
-//          walk all these type variables and remove the ones that resolve to non-type variables
-//          see how many type variables are left
-//          put in a dict mapping nr of type variables to constraint
-//          keep the user order of expressions
-//
-//          sort
-//
-//
-//
-
-//        case And(c1, c2) if true =>
-//          solve(c1, m) match {
-//            case Left(m) => return Left(m)
-//            case Right(ms1) =>
-//              val all_ms = for (m1 <- ms1) yield solve(c2, m1)
-//              val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
-//              if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
-//          }
-//        case And(c1, c2) if false =>
-//          (solve(c1, m), solve(c2, m)) match {
-//            case (Right(ms1), Right(ms2)) => {
-//              val unifiedMaps = scala.collection.mutable.MutableList[VarMap]()
-//              val failedMaps = scala.collection.mutable.MutableList[VarMap]()
-//
-//              for (m1 <- ms1; m2 <- ms2) {
-////                logger.debug(s"merging m1 and m2\n$m1\n$m2")
-//
-//                // Unify maps m1 and m2
-//                def unifyMaps(): Either[VarMap, VarMap] = {
-//                  val m = scala.collection.mutable.HashMap[String, Type]() // New unified map
-//                  val commonIdns = m1.keys.toSet.intersect(m2.keys.toSet)
-//                  for (idn <- commonIdns) {
-//                    // Find representative of group
-//                    val nt1 = walk(TypeVariable(idn), m2 ++ m1)
-//                    val nt2 = walk(TypeVariable(idn), m1++m2)
-//
-//                    // Unify representatives
-//                    unify(nt1, nt2) match {
-//                      case Right(nm) => m ++= nm
-//                      case Left(m) => return Left(m2 ++ m1 ++ m)
-//                    }
-//                  }
-//                  // If we got this far, then the common variables unify.
-//                  // Let's add all the remaining variables.
-//                  for (idn <- m1.keys; if !m.contains(idn)) {
-//                    m += (idn -> m1(idn))
-//                  }
-//                  for (idn <- m2.keys; if !m.contains(idn)) {
-//                    m += (idn -> m2(idn))
-//                  }
-//
-//                  Right(m.toMap)
-//                }
-//
-//                unifyMaps() match {
-//                  case Right(m) => unifiedMaps += m
-//                  case Left(m) => failedMaps += m
-//                }
-//              }
-//
-//              if (unifiedMaps.isEmpty)
-//                Left(failedMaps.head)
-//              else {
-////                logger.debug(s"unified maps = $unifiedMaps")
-//                Right(unifiedMaps.to)
-//              }
-//            }
-//            case (Right(_), Left(m)) => Left(m)
-//            case (Left(m), Right(_)) => Left(m)
-//            case (Left(m), _) => Left(m)
-//          }
         case SameType(e1, e2, desc) => {
           val nt1 = walk(expType(e1), m)
           val nt2 = walk(expType(e2), m)
@@ -1039,22 +490,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
               Left(em, List(err))
           }
         }
-//        case HasAttr(t, attr) =>
-//          val nt = walk(t, m)
-//          val ct = walk(ConstraintRecordType(SymbolTable.next(), Set(attr)), m)
-//          unify(nt, ct)  match {
-//            case Right(nm) => Right(Seq(m ++ nm))
-//            case Left(nm) =>
-//              logger.debug(s"FAILED HERE WITH\nt ${PrettyPrinter(t)} attribute ${attr.idn}: ${PrettyPrinter(attr.tipe)}\nnt ${PrettyPrinter(nt)}\nct ${PrettyPrinter(ct)}")
-//              Left(m ++ nm)
-//          }
-//        case IsCollection(t, inner, c, i) =>
-//          val nt = walk(t, m)
-//          val ct = walk(ConstraintCollectionType(SymbolTable.next(), inner, c, i), m)
-//          unify(nt, ct) match {
-//            case Right(nm) => Right(Seq(m ++ nm))
-//            case Left(nm) => Left(m ++ nm)
-//          }
         case HasType(e, texpected, desc) =>
           val nt = walk(expType(e), m)
           val ntexpected = walk(texpected, m)
@@ -1125,14 +560,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     case c => c
   }
 
-//
-//  And(List(Eq(TypeVariable($0),BoolType()),
-//    IsCollection(SetType(RecordType(List(AttrType(a,IntType()), AttrType(b,IntType()), AttrType(set_a,SetType(FloatType())), AttrType(set_b,SetType(FloatType()))),None)),TypeVariable($2),None,None),
-//    IsType(TypeVariable($4),BoolType()),
-//    Eq(FloatType(),TypeVariable($5)),
-//    Or(WrappedArray(IsType(TypeVariable($5),IntType()), IsType(TypeVariable($5),FloatType()))),
-//    HasAttr(TypeVariable($2),AttrType(a,TypeVariable($5)))))
-
   logger.debug("Constraints are " + rootConstraint)
 
     private lazy val solutions: Either[(VarMap, Seq[Message]), Seq[VarMap]] = solve(rootConstraint)
@@ -1147,93 +574,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       case Right(m) => treeErrors
       case Left((m, errs)) => errs
     }
-
-  // TODO: To solve:
-  // Why Right(resp) map is !=?
-  // Why And has to sum both sides?
-  // then.. the issue w/ constraints in the wrong order
-  // do we want to report multiple unrelated errors?
-
-//  // TURN INTO A List
-//    def reportError(c: Constraint, m: VarMap): List[Message] = {
-//      logger.debug(s"reportError: $m")
-//      val r = solve(c, m) match {
-//        case Right(resp) if m == resp.head =>
-//          logger.debug(s"**** OK: $resp")
-//          List()
-//        case Right(resp) if m != resp.head =>
-//          List(ErrorMessage(c, s"expected the thing to type but go figure:\n$m\n${resp.head}\n${m.keys.toSet &~ (resp.head.keys.toSet)}"))
-//        case Left(_) =>
-//          logger.debug(s"**** ON THE LEFT $c")
-//          c match {
-////            case HasAttr(t, a) =>
-////              val nt = walk(t, m)
-////              val texpected = walk(a.tipe, m)
-////              nt match {
-////                case RecordType(atts, _) =>
-////                  atts.collectFirst { case AttrType(idn, t) if idn == a.idn => walk(t, m) } match {
-////                    case Some(t) =>
-////                      logger.debug("HASATTR VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
-////                      List(ErrorMessage(c, s"attribute ${a.idn} is ${PrettyPrinter(texpected)} but got ${PrettyPrinter(t)}"))
-////                    case None => List(ErrorMessage(c, s"expected attribute ${a.idn}"))
-////                  }
-////                case _ => List(ErrorMessage(c, s"expected record but got ${PrettyPrinter(nt)}"))
-////              }
-////            case IsCollection(t, inner, c, i) => {
-////              val properties = scala.collection.mutable.MutableList[String]()
-////              if (c.isDefined) {
-////                if (c.get) properties += "commutative" else properties += "non-commutative"
-////              }
-////              if (i.isDefined) {
-////                if (i.get) properties += "idempotent" else properties += "non-idempotent"
-////              }
-////              if (properties.nonEmpty)
-////                List(ErrorMessage(t, s"expected ${properties.mkString(" and ")} collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
-////              else
-////                List(ErrorMessage(t, s"expected collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
-////            }
-//            case IsType(t, texpected) =>
-//              List(ErrorMessage(t, s"1expected ${PrettyPrinter(walk(texpected, m))} but got ${PrettyPrinter(walk(t, m))}"))
-//            case Eq(t1, t2) =>
-//              logger.debug(s"t1.pos ${t1.pos} t2.pos ${t2.pos} c.pos ${c.pos}")
-//              List(ErrorMessage(t2, s"2expected ${PrettyPrinter(walk(t1, m))} but got ${PrettyPrinter(walk(t2, m))}"))
-//            case And(cs @ _*) =>
-//              for (c <- cs) {
-//                val msgs = reportError(c, m)
-//                if (msgs.nonEmpty)
-//                  return msgs
-//              }
-//              List()
-//
-////              cs.flatMap(c => reportError(c, m)).toList
-//
-////              // Why doesn't the below code work - it seems to 'eat' errors...
-////              val messages = reportError(c1, m)
-////              if (messages.isEmpty)
-////                reportError(c2, m)
-////              else
-////                messages
-//            case Or(cs @ _*) =>
-//              cs.flatMap(c => reportError(c, m)).toList
-//            case NoConstraint =>
-//              List()
-//          }
-//      }
-//      logger.debug(s"reportError OUTPUT is $r")
-//      r
-//    }
-
-
-    //  // walk up the type tree if it is a type variable until we get to the root type and return that
-    //  def find(t: Type, m: Map[String, Type]): Type = {
-    //    logger.debug(s"Input is ${PrettyPrinter(t)}")
-    //    logger.debug("VarMap\n" + m.map{case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}"))
-    //    t match {
-    //      case UserType(name) => find(world.userTypes(name), m)
-    //      case t: VariableType => if (m.contains(t.idn)) find(m(t.idn), m) else t
-    //      case _ => t
-    //    }
-    //  }
 
     def walk(t: Type, m: VarMap): Type =
       t match {
@@ -1376,9 +716,3 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
     }
 
   }
-
-// i think we are applying constraints in a bit random order (it's a depth-first search but the constraints for a node are in somewhat random order)
-// this may mean we unify things (type variables) with e.g. constant types,
-// but then we see user-defined entities and we say: hey, you are not what you should be based on what we found so far.
-// this is counter-intuitive though; because it's the other thing that is not based on what the user entities were.
-// it's as if we should be populating instead the map with user-defined stuff, and then let everything else break based on that.
