@@ -865,18 +865,18 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
       cs.flatMap(c => getConstraintTypeVariables(c, m)).toSet
     case And(cs @ _*) =>
       cs.flatMap(c => getConstraintTypeVariables(c, m)).toSet
-    case Eq(t1, t2) =>
-      getTypeVariables(t1, m) ++ getTypeVariables(t2, m)
+    case SameType(e1, e2, _) =>
+      getTypeVariables(expType(e1), m) ++ getTypeVariables(expType(e2), m)
 //    case HasAttr(t, attr) =>
 //      getTypeVariables(t, m) ++ getTypeVariables(attr.tipe, m)
 //    case IsCollection(t, inner, _, _) =>
 //      getTypeVariables(t, m) ++ getTypeVariables(inner, m)
-    case IsType(t, texpected) =>
-      getTypeVariables(t, m) ++ getTypeVariables(texpected, m)
+    case HasType(e, texpected, _) =>
+      getTypeVariables(expType(e), m) ++ getTypeVariables(texpected, m)
     case NoConstraint => Set()
   }
 
-    def solve(c: Constraint, m: VarMap = Map()): Either[VarMap, Seq[VarMap]] = {
+    def solve(c: Constraint, m: VarMap = Map()): Either[(VarMap, Seq[Message]), Seq[VarMap]] = {
 
       logger.debug(s"Processing constraint\n$c\nMap is\n")
       logger.debug("VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
@@ -889,15 +889,15 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
             case (Right(m1), Right(m2)) => Right(m1 ++ m2)
             case (Right(m1), _) => Right(m1)
             case (_, Right(m2)) => Right(m2)
-            case (Left(m), _) =>
+            case (Left((m, errs)), _) =>
               // In case of failure, we take the 1st map that failed
-              Left(m)
+              Left((m, errs))
           }
         case _: Or => // Empty Or
-          Left(m)
+          Left((m, Nil))
         case And(cs @ _*) if cs.nonEmpty =>
           // ....
-
+          // TODO: Handle 1st the constants that are really known? e.g 2 = "blah" : we should set type of = first?
 
           // ....
           val g = cs.groupBy(c => getConstraintTypeVariables(c, m).map(_.idn).intersect(m.keySet).nonEmpty)
@@ -1023,14 +1023,20 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 //            case (Left(m), Right(_)) => Left(m)
 //            case (Left(m), _) => Left(m)
 //          }
-        case Eq(t1, t2) => {
-          val nt1 = walk(t1, m)
-          val nt2 = walk(t2, m)
+        case SameType(e1, e2, desc) => {
+          val nt1 = walk(expType(e1), m)
+          val nt2 = walk(expType(e2), m)
           unify(nt1, nt2) match {
             case Right(nm) =>
               Right(Seq(m ++ nm))
             case Left(nm) =>
-              Left(m ++ nm)
+              val em = m ++ nm
+              val err = desc match {
+                case Some(desc) => ???
+                  // TODO: Add IncompatibleTypes message taking 2 positions
+                case None => ErrorMessage(e1, s"incompatible types: ${expectedTypePrettyPrinter(nt1)} and ${expectedTypePrettyPrinter(nt2)}")
+              }
+              Left(em, List(err))
           }
         }
 //        case HasAttr(t, attr) =>
@@ -1049,15 +1055,51 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 //            case Right(nm) => Right(Seq(m ++ nm))
 //            case Left(nm) => Left(m ++ nm)
 //          }
-        case IsType(t, texpected) =>
-          val nt = walk(t, m)
-          unify(nt, texpected) match {
+        case HasType(e, texpected, desc) =>
+          val nt = walk(expType(e), m)
+          val ntexpected = walk(texpected, m)
+          unify(nt, ntexpected) match {
             case Right(nm) => Right(Seq(m ++ nm))
-            case Left(nm) => Left(m ++ nm)
+            case Left(nm) =>
+              val em = m ++ nm
+              val err = desc match {
+                case Some(desc) => ErrorMessage(e, s"$desc but got ${expectedTypePrettyPrinter(nt)}")
+                case None => ErrorMessage(e, s"expected ${expectedTypePrettyPrinter(ntexpected)} but got ${expectedTypePrettyPrinter(nt)}")
+              }
+              Left(em, List(err))
           }
         case NoConstraint => Right(Seq(m))
       }
     }
+
+  private def expectedTypePrettyPrinter(t: Type): String = {
+    def p(v: Option[Boolean], s: String) =
+      v match {
+        case Some(true) => Some(s)
+        case Some(false) => Some(s"non-$s")
+        case _ => None
+      }
+
+    t match {
+      case ConstraintCollectionType(_, inner, c, i) =>
+        val prefix = List(p(c, "commutative"), p(i, "idempotent")).filter(_.isDefined).mkString(" and ")
+        if (prefix.nonEmpty)
+          prefix + " collection of " + expectedTypePrettyPrinter(inner)
+        else
+          "collection of " + expectedTypePrettyPrinter(inner)
+      case ConstraintRecordType(idn, atts) =>
+        val satts = atts.map { case att => s"attribute ${att.idn} of type ${expectedTypePrettyPrinter(att.tipe)}" }.mkString(" and ")
+        if (satts.nonEmpty)
+          s"record with $satts"
+        else
+          s"record"
+      case FunType(t1, t2) =>
+        s"function taking ${expectedTypePrettyPrinter(t1)} and returning ${expectedTypePrettyPrinter(t2)}"
+      case _: TypeVariable => "unknown" // TODO: or should be any?
+      case t => PrettyPrinter(t)
+    }
+  }
+
 
     private lazy val applyConstraints =
       collect[List, Constraint] {
@@ -1093,12 +1135,17 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
 
   logger.debug("Constraints are " + rootConstraint)
 
-    private lazy val solutions = solve(rootConstraint)
+    private lazy val solutions: Either[(VarMap, Seq[Message]), Seq[VarMap]] = solve(rootConstraint)
 
-    lazy val errors: List[Message] = solutions match {
-      case Right(m) if m.length > 1 => List(ErrorMessage(tree.root, "too many solutions"))
+    lazy val errors: Seq[Message] = solutions match {
+      case Right(ms) if ms.length > 1 =>
+        logger.debug("TOO MANY SOLUTIONS");
+        for (m <- ms)
+          logger.debug("VarMap\n" + m.map{case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}"}.mkString("{\n",",\n", "}"))
+
+        List(ErrorMessage(tree.root, "too many solutions"))
       case Right(m) => treeErrors
-      case Left(m) => logger.debug("****HERE****"); reportError(rootConstraint, m)
+      case Left((m, errs)) => errs
     }
 
   // TODO: To solve:
@@ -1107,74 +1154,74 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
   // then.. the issue w/ constraints in the wrong order
   // do we want to report multiple unrelated errors?
 
-  // TURN INTO A List
-    def reportError(c: Constraint, m: VarMap): List[Message] = {
-      logger.debug(s"reportError: $m")
-      val r = solve(c, m) match {
-        case Right(resp) if m == resp.head =>
-          logger.debug(s"**** OK: $resp")
-          List()
-        case Right(resp) if m != resp.head =>
-          List(ErrorMessage(c, s"expected the thing to type but go figure:\n$m\n${resp.head}\n${m.keys.toSet &~ (resp.head.keys.toSet)}"))
-        case Left(_) =>
-          logger.debug(s"**** ON THE LEFT $c")
-          c match {
-//            case HasAttr(t, a) =>
-//              val nt = walk(t, m)
-//              val texpected = walk(a.tipe, m)
-//              nt match {
-//                case RecordType(atts, _) =>
-//                  atts.collectFirst { case AttrType(idn, t) if idn == a.idn => walk(t, m) } match {
-//                    case Some(t) =>
-//                      logger.debug("HASATTR VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
-//                      List(ErrorMessage(c, s"attribute ${a.idn} is ${PrettyPrinter(texpected)} but got ${PrettyPrinter(t)}"))
-//                    case None => List(ErrorMessage(c, s"expected attribute ${a.idn}"))
-//                  }
-//                case _ => List(ErrorMessage(c, s"expected record but got ${PrettyPrinter(nt)}"))
+//  // TURN INTO A List
+//    def reportError(c: Constraint, m: VarMap): List[Message] = {
+//      logger.debug(s"reportError: $m")
+//      val r = solve(c, m) match {
+//        case Right(resp) if m == resp.head =>
+//          logger.debug(s"**** OK: $resp")
+//          List()
+//        case Right(resp) if m != resp.head =>
+//          List(ErrorMessage(c, s"expected the thing to type but go figure:\n$m\n${resp.head}\n${m.keys.toSet &~ (resp.head.keys.toSet)}"))
+//        case Left(_) =>
+//          logger.debug(s"**** ON THE LEFT $c")
+//          c match {
+////            case HasAttr(t, a) =>
+////              val nt = walk(t, m)
+////              val texpected = walk(a.tipe, m)
+////              nt match {
+////                case RecordType(atts, _) =>
+////                  atts.collectFirst { case AttrType(idn, t) if idn == a.idn => walk(t, m) } match {
+////                    case Some(t) =>
+////                      logger.debug("HASATTR VarMap\n" + m.map { case (v: String, t: Type) => s"$v => ${PrettyPrinter(t)}" }.mkString("{\n", ",\n", "}"))
+////                      List(ErrorMessage(c, s"attribute ${a.idn} is ${PrettyPrinter(texpected)} but got ${PrettyPrinter(t)}"))
+////                    case None => List(ErrorMessage(c, s"expected attribute ${a.idn}"))
+////                  }
+////                case _ => List(ErrorMessage(c, s"expected record but got ${PrettyPrinter(nt)}"))
+////              }
+////            case IsCollection(t, inner, c, i) => {
+////              val properties = scala.collection.mutable.MutableList[String]()
+////              if (c.isDefined) {
+////                if (c.get) properties += "commutative" else properties += "non-commutative"
+////              }
+////              if (i.isDefined) {
+////                if (i.get) properties += "idempotent" else properties += "non-idempotent"
+////              }
+////              if (properties.nonEmpty)
+////                List(ErrorMessage(t, s"expected ${properties.mkString(" and ")} collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
+////              else
+////                List(ErrorMessage(t, s"expected collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
+////            }
+//            case IsType(t, texpected) =>
+//              List(ErrorMessage(t, s"1expected ${PrettyPrinter(walk(texpected, m))} but got ${PrettyPrinter(walk(t, m))}"))
+//            case Eq(t1, t2) =>
+//              logger.debug(s"t1.pos ${t1.pos} t2.pos ${t2.pos} c.pos ${c.pos}")
+//              List(ErrorMessage(t2, s"2expected ${PrettyPrinter(walk(t1, m))} but got ${PrettyPrinter(walk(t2, m))}"))
+//            case And(cs @ _*) =>
+//              for (c <- cs) {
+//                val msgs = reportError(c, m)
+//                if (msgs.nonEmpty)
+//                  return msgs
 //              }
-//            case IsCollection(t, inner, c, i) => {
-//              val properties = scala.collection.mutable.MutableList[String]()
-//              if (c.isDefined) {
-//                if (c.get) properties += "commutative" else properties += "non-commutative"
-//              }
-//              if (i.isDefined) {
-//                if (i.get) properties += "idempotent" else properties += "non-idempotent"
-//              }
-//              if (properties.nonEmpty)
-//                List(ErrorMessage(t, s"expected ${properties.mkString(" and ")} collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
-//              else
-//                List(ErrorMessage(t, s"expected collection of ${PrettyPrinter(walk(inner, m))} but got ${PrettyPrinter(walk(t, m))}"))
-//            }
-            case IsType(t, texpected) =>
-              List(ErrorMessage(t, s"1expected ${PrettyPrinter(walk(texpected, m))} but got ${PrettyPrinter(walk(t, m))}"))
-            case Eq(t1, t2) =>
-              logger.debug(s"t1.pos ${t1.pos} t2.pos ${t2.pos} c.pos ${c.pos}")
-              List(ErrorMessage(t2, s"2expected ${PrettyPrinter(walk(t1, m))} but got ${PrettyPrinter(walk(t2, m))}"))
-            case And(cs @ _*) =>
-              for (c <- cs) {
-                val msgs = reportError(c, m)
-                if (msgs.nonEmpty)
-                  return msgs
-              }
-              List()
-
+//              List()
+//
+////              cs.flatMap(c => reportError(c, m)).toList
+//
+////              // Why doesn't the below code work - it seems to 'eat' errors...
+////              val messages = reportError(c1, m)
+////              if (messages.isEmpty)
+////                reportError(c2, m)
+////              else
+////                messages
+//            case Or(cs @ _*) =>
 //              cs.flatMap(c => reportError(c, m)).toList
-
-//              // Why doesn't the below code work - it seems to 'eat' errors...
-//              val messages = reportError(c1, m)
-//              if (messages.isEmpty)
-//                reportError(c2, m)
-//              else
-//                messages
-            case Or(cs @ _*) =>
-              cs.flatMap(c => reportError(c, m)).toList
-            case NoConstraint =>
-              List()
-          }
-      }
-      logger.debug(s"reportError OUTPUT is $r")
-      r
-    }
+//            case NoConstraint =>
+//              List()
+//          }
+//      }
+//      logger.debug(s"reportError OUTPUT is $r")
+//      r
+//    }
 
 
     //  // walk up the type tree if it is a type variable until we get to the root type and return that
@@ -1219,120 +1266,93 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
         case n @ RecordProj(e, idn) =>
           //val c = HasAttr(expType(e), AttrType(idn, expType(n)))
           //val c = expType(e) === ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, expType(n))))
-          val c = IsType(expType(e), ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, expType(n)))))
-          c.pos = e.pos
-          c
+          HasType(e, ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, expType(n)))))
 
         // Rule 6
         case n @ IfThenElse(e1, e2, e3) =>
-          val c = And(
-            IsType(expType(e1), BoolType()),
-            expType(e2) === expType(e3),
-            expType(n) === expType(e2))
-          c.pos = n.pos
-          c
+          And(
+            HasType(e1, BoolType(), Some("if condition must be a boolean")),
+            SameType(e2, e3, Some("then and else must be of the same type")),
+            SameType(n, e2))
 
         // Rule 8
         case n @ FunApp(f, e) =>
-          val c = expType(f) === FunType(expType(e), expType(n))
-          c.pos = n.pos
-          c
+          HasType(f, FunType(expType(e), expType(n)))
 
         // Rule 11
         case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
-          val c = And(
-            IsType(expType(n), BoolType()),
-            expType(e1) === expType(n),
-            expType(e1) === expType(e2))
-          c.pos = n.pos
-          c
+          And(
+            HasType(n, BoolType()),
+            HasType(e1, BoolType()),
+            HasType(e2, BoolType()))
 
         case n@MergeMonoid(_: PrimitiveMonoid, e1, e2) =>
-          val c = And(
+          And(
             // TODO: Refactor to add a constraint saying it is primitive
             Or(
-              IsType(expType(n), BoolType()),
-              IsType(expType(n), IntType()),
-              IsType(expType(n), FloatType())
+              HasType(n, BoolType()),
+              HasType(n, IntType()),
+              HasType(n, FloatType())
             ),
-            expType(n) === expType(e1),
-            expType(e1) === expType(e2)
+            SameType(n, e1),
+            SameType(e1, e2)
           )
-          logger.debug(s"\n\n\nN pos is ${n.pos}\n\n\n")
-          logger.debug(s"\n\n\nexpType(n) pos is ${expType(n).pos}\n\n\n")
-          logger.debug(s"\n\n\nexpType(e1) pos is ${expType(e1).pos}\n\n\n")
-          logger.debug(s"\n\n\nexpType(e2) pos is ${expType(e2).pos}\n\n\n")
-
-          c.pos = n.pos
-          c
+//          logger.debug(s"\n\n\nN pos is ${n.pos}\n\n\n")
+//          logger.debug(s"\n\n\nexpType(n) pos is ${expType(n).pos}\n\n\n")
+//          logger.debug(s"\n\n\nexpType(e1) pos is ${expType(e1).pos}\n\n\n")
+//          logger.debug(s"\n\n\nexpType(e2) pos is ${expType(e2).pos}\n\n\n")
 
         // Rule 12
         case n@MergeMonoid(_: CollectionMonoid, e1, e2) =>
-          val c = And(
-            expType(n) === expType(e1),
-            expType(e1) === expType(e2),
+          And(
+            SameType(n, e1),
+            SameType(e1, e2),
           // TODO: This should rather be AreSameCollections(e1, e2) that checks if they are both collections and whether they have the same inner type - w/o caring what that is
           // TODO: and the same collection properties (idempotent, commutative).
           // TODO: That also replaces expType(e1) === expType(e2)
           // TODO: Or, we just say IsCollection(...) and that only checks that exptType(e2) is a collection & nothing else - no checks on inner type or collection properties.
           //  IsCollection(expType(e2), TypeVariable(SymbolTable.next()))
-            IsType(expType(e2), ConstraintCollectionType(SymbolTable.next(), TypeVariable(SymbolTable.next()), None, None))
-
-
+            HasType(e2, ConstraintCollectionType(SymbolTable.next(), TypeVariable(SymbolTable.next()), None, None))
           )
-          c.pos = n.pos
-          c
 
         // Rule 13
         case n@Comp(m: PrimitiveMonoid, _, e) =>
-          val c = expType(n) === expType(e)
-          c.pos = n.pos
-          c
+          SameType(n, e)
           // TODO: Add constraint saying it is primitive :)
 
         // Binary Expression type
         case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
-          val c = And(
-            IsType(expType(n), BoolType()),
-            expType(e1) === expType(e2))
-          c.pos = n.pos
-          c
+          And(
+            HasType(n, BoolType()),
+            SameType(e1, e2))
 
         case n@BinaryExp(_: ComparisonOperator, e1, e2) =>
-          val c = And(
-            IsType(expType(n), BoolType()),
-            expType(e2) === expType(e1),
+          And(
+            HasType(n, BoolType()),
+            SameType(e2, e1),
             Or(
-              IsType(expType(e1), IntType()),
-              IsType(expType(e1), FloatType())))
-          c.pos = n.pos
-          c
+              HasType(e1, IntType()),
+              HasType(e1, FloatType())))
 
         case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
-          val c = And(
-            expType(n) === expType(e1),
-            expType(e1) === expType(e2),
+          And(
+            SameType(n, e1),
+            SameType(e1, e2),
             Or(
-              IsType(expType(e2), IntType()),    // TODO: Not === constraint but a domain of a expression
-              IsType(expType(e2), FloatType())))
-          c.pos = n.pos
-          c
+              HasType(e2, IntType()),    // TODO: SameType(Not, constraint) but a domain of a expression
+              HasType(e2, FloatType())))
 
         // Unary Expression type
         case n@UnaryExp(_: Neg, e) =>
-          val c = And(
-            expType(n) === expType(e),
+          And(
+            SameType(n, e),
             Or(
-              IsType(expType(e), IntType()),
-              IsType(expType(e), FloatType())))
-          c.pos = n.pos
-          c
+              HasType(e, IntType()),
+              HasType(e, FloatType())))
 
         // Expression block type
         case n@ExpBlock(_, e) =>
-          val c = expType(n) === expType(e)
-          c.pos = n.pos
-          c
+          SameType(n, e)
 
         // Generator
         case n@Gen(p, e) =>
@@ -1340,18 +1360,14 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World) extends Attributio
           // TODO: Maybe replace by a new constraint IsInner instead, saying that p is inner of e?
           //val c = IsCollection(expType(e), patternType(p))
           //val c = ConstraintCollectionType(SymbolTable.next(), patternType(p), None, None) === expType(e)
-          val c = IsType(expType(e), ConstraintCollectionType(SymbolTable.next(), patternType(p), None, None))
-          c.pos = n.pos
-          c
+          HasType(e, ConstraintCollectionType(SymbolTable.next(), patternType(p), None, None))
 
         // Bind
         case n @ Bind(p, e) =>
           // sounds too weak
 //          val c = patternType(p) === expType(e)
           // TODO: Check with Ben
-          val c = IsType(expType(e), patternType(p))
-          c.pos = n.pos
-          c
+          HasType(e, patternType(p))
 
         case n =>
 //          logger.debug(s"NOT HANDLED IS $n")

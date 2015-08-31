@@ -5,19 +5,21 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Constraint extends LazyLogging {
 
+  import raw.calculus.Calculus.Exp
+
   sealed abstract class Constraint extends RawNode
 
   case class And(cs: Constraint*) extends Constraint
 
   case class Or(cs: Constraint*) extends Constraint
 
-  case class Eq(t1: Type, t2: Type) extends Constraint
+  case class SameType(e1: Exp, e2: Exp, desc: Option[String] = None) extends Constraint
 
 //  case class HasAttr(t: Type, a: AttrType) extends Constraint
 
   // TODO: IsCommutative? IsIdempotent?
 
-  case class IsType(t: Type, texpected: Type) extends Constraint
+  case class HasType(e: Exp, texpected: Type, desc: Option[String] = None) extends Constraint
 
   case object NoConstraint extends Constraint
 
@@ -25,8 +27,8 @@ object Constraint extends LazyLogging {
 
   import scala.language.implicitConversions
 
-  implicit class EqConstraint(val t1: Type) {
-    def ===(t2: Type) = Eq(t1, t2)
+  implicit class EqConstraint(val e1: Exp) {
+    def ===(e2: Exp) = SameType(e1, e2)
   }
 
 }

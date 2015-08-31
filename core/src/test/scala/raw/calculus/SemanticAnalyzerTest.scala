@@ -34,13 +34,15 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern, SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
   }
 
-  test("departments1") {
+  ignore("departments1") {
+    // TODO: Uses recursive data types
     success(
       """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
   }
 
-  test("departments2") {
+  ignore("departments2") {
+    // TODO: Uses recursive data types
     success(
       """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("deptName", StringType())), None)))
@@ -62,6 +64,7 @@ class SemanticAnalyzerTest extends FunTest {
       "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
       "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
+      success("for (r <- integers) yield max r", world, IntType())
     success("for (r <- integers) yield set r + 1", world, SetType(IntType()))
     success("for (r <- unknown) yield set r + 1", world, SetType(IntType()))
     success("for (r <- unknown) yield set r + 1.0", world, SetType(FloatType()))
@@ -70,7 +73,9 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (r <- unknown; x <- floats; r + x = x) yield set r", world, SetType(FloatType()))
     success("for (r <- unknown; x <- booleans; r and x) yield set r", world, SetType(BoolType()))
     success("for (r <- unknown; x <- strings; r = x) yield set r", world, SetType(StringType()))
+
     success("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", world, IntType())
+
     success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
     // TODO: What do we want exactly to be the behaviour of 'v' in the following? Could be int or float. Or force it?
     //success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
@@ -194,6 +199,9 @@ class SemanticAnalyzerTest extends FunTest {
         }
 
       """, world, AnyType())
+    //FunType(RecordType(List(AttrType("_1",students), AttrType(_2,FunType(RecordType(List(AttrType(name,StringType()), AttrType(age,IntType())),Some(Student)),IntType()))),None),IntType())
+//
+//      FunType(RecordType(List(AttrType("_1", students), AttrType("_2")  ))
   }
 }
 
