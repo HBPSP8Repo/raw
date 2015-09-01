@@ -31,18 +31,28 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     super.pretty(show(e)).layout
 
   def show(e: Error): Doc = e match {
-    case MultipleDecl(i) => s"$i is declared more than once (${i.idn})"
-    case UnknownDecl(i) => s"$i is not declared (${i.idn})"
-    case CollectionRequired(t) => s"expected collection but got ${TypesPrettyPrinter(t)}} (${t.pos})"
-    case CommutativeIdempotentRequired(t) => s"expected commutative and idempotent collection but got non-commutative type ${TypesPrettyPrinter(t)}} (${t.pos})"
-    case CommutativeRequired(t) => s"expected commutative collection but got non-commutative type ${TypesPrettyPrinter(t)}} (${t.pos})"
-    case IdempotentRequired(t) => s"expected idempotent collection but got non-idempotent type ${TypesPrettyPrinter(t)}} (${t.pos})"
+    case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
+    case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
+    case CollectionRequired(t) => s"expected collection but got ${TypesPrettyPrinter(t)} (${t.pos})"
+    case CommutativeIdempotentRequired(t) => s"expected commutative and idempotent collection but got non-commutative type ${TypesPrettyPrinter(t)} (${t.pos})"
+    case CommutativeRequired(t) => s"expected commutative collection but got non-commutative type ${TypesPrettyPrinter(t)} (${t.pos})"
+    case IdempotentRequired(t) => s"expected idempotent collection but got non-idempotent type ${TypesPrettyPrinter(t)} (${t.pos})"
     case IncompatibleTypes(t1, t2) =>
-      s"incompatible types: ${TypesPrettyPrinter(t1)}} (${t1.pos}) and ${TypesPrettyPrinter(t2)}} (${t2.pos})"
+      if (t2.pos.line < t1.pos.line || (t1.pos.line == t2.pos.line && t2.pos.column < t1.pos.column))
+        show(IncompatibleTypes(t2, t1))
+      else
+        (t1, t2) match {
+          case (RecordType(_, name1), RecordType(_, name2)) if name1 != name2 =>
+            s"records from different sources"
+          case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
+            s"records with different attributes"
+          case _ =>
+            s"incompatible types: ${TypesPrettyPrinter(t1)} (${t1.pos}) and ${TypesPrettyPrinter(t2)} (${t2.pos})"
+        }
     case UnexpectedType(t, _, Some(desc)) =>
-      s"$desc but got ${TypesPrettyPrinter(t)}} (${t.pos})"
+      s"$desc but got ${TypesPrettyPrinter(t)} (${t.pos})"
     case UnexpectedType(t, expected, None) =>
-      s"expected ${TypesPrettyPrinter(expected)} but got ${TypesPrettyPrinter(t)}} (${t.pos})"
+      s"expected ${TypesPrettyPrinter(expected)} but got ${TypesPrettyPrinter(t)} (${t.pos})"
     case TooManySolutions =>
       s"could not type check: too many solutions found"
   }

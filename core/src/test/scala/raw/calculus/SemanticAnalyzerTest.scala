@@ -3,6 +3,8 @@ package calculus
 
 class SemanticAnalyzerTest extends FunTest {
 
+  import raw.calculus.Calculus.{IdnDef, IdnUse}
+
   def go(query: String, world: World) = {
     val ast = parse(query)
     val t = new Calculus.Calculus(ast)
@@ -18,10 +20,35 @@ class SemanticAnalyzerTest extends FunTest {
     assert(analyzer.tipe(analyzer.tree.root) === tipe)
   }
 
-  def failure(query: String, world: World, error: String) = {
+  def failure(query: String, world: World, error: Error) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.nonEmpty)
-    assert(analyzer.errors.count{ case e => e.toString.contains(error) } > 0, s"Error '$error' not contained in errors")
+    logger.debug(analyzer.errors.toString)
+    error match {
+      //
+      // Test case helpers
+      //
+
+      // Incompatible types can be t1,t2 or t2, t1
+      case IncompatibleTypes(t1, t2) =>
+        assert(analyzer.errors.exists{
+          case IncompatibleTypes(`t1`, `t2`) => true
+          case IncompatibleTypes(`t2`, `t1`) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+
+      // Ignore text description in expected types, even if defined
+      case UnexpectedType(t, expected, _) =>
+        assert(analyzer.errors.exists{
+          case UnexpectedType(`t`, `expected`, _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+
+      case _ =>
+        assert(analyzer.errors.exists{
+          case `error` => true
+          case _ => false }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+    }
   }
 
   test("cern") {
@@ -141,14 +168,22 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("errors") {
-//    failure("1 + 1.", new World(), "expected int but got float")
-//    failure("1 + true", new World(), "expected int but got bool")
-//    failure("1 + things", TestWorlds.things, "expected int but got set")
-    failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, "attribute a is int but got float")
-//    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, "expected int got float")
-
-
-//    failure("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d)")
+    failure("1 + 1.", new World(), IncompatibleTypes(IntType(), FloatType()))
+    failure("1 - 1.", new World(), IncompatibleTypes(IntType(), FloatType()))
+    failure("1 + true", new World(), IncompatibleTypes(IntType(), BoolType()))
+    failure("1 - true", new World(), IncompatibleTypes(IntType(), BoolType()))
+    failure("1 + things", TestWorlds.things, IncompatibleTypes(IntType(), TestWorlds.things.sources("things")))
+    failure("1 - things", TestWorlds.things, IncompatibleTypes(IntType(), TestWorlds.things.sources("things")))
+    failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, IncompatibleTypes(IntType(), FloatType()))
+    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, IncompatibleTypes(IntType(), FloatType()))
+    failure("a + 1", new World(), UnknownDecl(IdnUse("a")))
+    failure("{ a := 1; a := 2; a }", new World(), MultipleDecl(IdnDef("a")))
+    failure("for (a <- blah) yield set a", new World(), UnknownDecl(IdnUse("blah")))
+    failure("for (a <- things) yield set b", TestWorlds.things, UnknownDecl(IdnUse("b")))
+    failure("for (a <- things; a <- things) yield set a", TestWorlds.things, MultipleDecl(IdnDef("a")))
+    failure("if 1 then 1 else 0", new World(), UnexpectedType(IntType(), BoolType(), None))
+    failure("if true then 1 else 1.", new World(), IncompatibleTypes(IntType(), FloatType()))
+    //    failure("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d)")
   }
 
   test("propagate named records") {
