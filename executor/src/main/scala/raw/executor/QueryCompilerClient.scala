@@ -1,4 +1,4 @@
-package raw.executionserver
+package raw.executor
 
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -7,16 +7,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.FileUtils
 import org.apache.spark.rdd.RDD
 import raw.datasets.AccessPath
+import raw.utils.RawUtils
 import raw.{QueryLogger, RawQuery}
 
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.{Global, Settings}
 
 object QueryCompilerClient {
-  val defaultTargetDirectory = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
+  val defaultTargetDirectory = RawUtils.getTemporaryDirectory("rawqueries")
   private[this] val ai = new AtomicInteger()
 
   private def newClassName(): String = {
@@ -24,40 +24,33 @@ object QueryCompilerClient {
   }
 }
 
-class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging {
+class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader,
+                          val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging {
 
-  try {
-    FileUtils.cleanDirectory(baseOutputDir.toFile)
-  } catch {
-    // Directory does not exist. Create it.
-    case ex: IllegalArgumentException => Files.createDirectory(baseOutputDir)
-  }
-
-  {
-    val dir = baseOutputDir.resolve("macro-generated")
-    if (!Files.exists(dir)) {
-      Files.createDirectories(dir)
-    }
-    QueryLogger.setOutputDirectory(dir)
-  }
+  RawUtils.cleanOrCreateDirectory(baseOutputDir)
 
   // Where the server saves the generated scala source for each query
   private[this] val sourceOutputDir: Path = {
     val dir = baseOutputDir.resolve("src")
-    if (!Files.exists(dir)) {
-      Files.createDirectory(dir)
-    }
+    Files.createDirectory(dir)
     dir
   }
 
   // Where the compiler writes the generated classes that implement the queries.
   private[this] val classOutputDir: Path = {
     val dir = baseOutputDir.resolve("classes")
-    if (!Files.exists(dir)) {
-      Files.createDirectory(dir)
-    }
+    Files.createDirectory(dir)
     // Point the classloader to the directory with the query classes.
     this.rawClassloader.addURL(dir.toUri.toURL)
+    dir
+  }
+
+  private[this] val macroGenerated = {
+    val dir = baseOutputDir.resolve("macro-generated")
+    //    if (!Files.exists(dir)) {
+    Files.createDirectory(dir)
+    //    }
+    QueryLogger.setOutputDirectory(dir)
     dir
   }
 
@@ -78,6 +71,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader, val base
     settings.d.tryToSet(List(classOutputDir.toString))
     settings
   }
+
   private[this] val compileReporter = new StoreReporter()
 
   private[this] val compiler = new Global(compilerSettings, compileReporter)
@@ -179,7 +173,7 @@ class $queryName($args) extends RawQuery {
   }
 
 
-  def compileLoader(code: String, className: String): Loader = {
+  def compileLoader(code: String, className: String): AnyRef = {
     logger.info(s"Source code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve("MyLoader.scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
@@ -204,6 +198,6 @@ class $queryName($args) extends RawQuery {
     val ctor = clazz.getConstructor()
 
     val ctorArgs: List[Object] = List()
-    ctor.newInstance(ctorArgs: _*).asInstanceOf[Loader]
+    ctor.newInstance(ctorArgs: _*).asInstanceOf[AnyRef]
   }
 }

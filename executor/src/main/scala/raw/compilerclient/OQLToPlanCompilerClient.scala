@@ -13,7 +13,11 @@ import raw.algebra.LogicalAlgebraParser
 
 import scala.io.Source
 
-
+/**
+ * Compiles an OQL string into a LogicalAlgebraNode. Performs two tasks:
+ * - Query the LDB C backend to convert the OQL to a logical plan string.
+ * - Parses the logical plan into a LogicalAlgebraNode
+ */
 object OQLToPlanCompilerClient extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
   val compileServerUrlProperty = "raw.compile.server.host"

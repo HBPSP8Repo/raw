@@ -5,9 +5,9 @@ import java.nio.file.{Files, Paths}
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
-import raw.executionserver.RawServer
+import raw.{SharedSparkContext, AbstractRawTest, AbstractSparkTest}
 
-class SchemaParserTest extends FunSuite with StrictLogging {
+class CodeGenerationExecutorTest extends AbstractRawTest with SharedSparkContext {
   val plan = """
     Reduce(SumMonoid(),
        IntConst(1),
@@ -35,11 +35,17 @@ class SchemaParserTest extends FunSuite with StrictLogging {
                                       """
   val patientsFile = "C:\\cygwin64\\home\\nuno\\code\\raw\\executor\\src\\main\\resources\\data\\patients\\patients.json"
 
-  test("parse schema") {
+  test("scala") {
     val p = Paths.get(Resources.getResource("rawschema.xml").toURI)
-    RawServer.registerSchema("patients", Files.newBufferedReader(p), patientsFile)
+    CodeGenerationExecutor.registerAccessPath("patients", Files.newBufferedReader(p), Paths.get(patientsFile))
+    val result = CodeGenerationExecutor.query(plan)
+    assert(result === "500")
+  }
 
-    val result = RawServer.query(plan, List("patients"))
-    logger.info("Result: " + result)
+  test("spark") {
+    val p = Paths.get(Resources.getResource("rawschema.xml").toURI)
+    CodeGenerationExecutor.registerAccessPath("patients", Files.newBufferedReader(p), Paths.get(patientsFile), sc)
+    val result = CodeGenerationExecutor.query(plan)
+    assert(result === "500")
   }
 }

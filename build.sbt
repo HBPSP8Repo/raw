@@ -118,7 +118,7 @@ lazy val executor = (project in file("executor")).
       val template = """#!/bin/sh
 java -classpath "%s" %s "$@"
 """
-      val mainStr = "raw.executionserver.PubsAuthorsRestServerMain"
+      val mainStr = "raw.rest.PubsAuthorsRestServerMain"
       val contents = template.format(cp.files.absString, mainStr)
       val out = base / "../bin/run-pubs-authors-rest-server.sh"
       IO.write(out, contents)
@@ -130,7 +130,7 @@ java -classpath "%s" %s "$@"
       val template = """#!/bin/sh
 java -classpath "%s" %s "$@"
 """
-      val mainStr = "raw.executionserver.RawRestServerMain"
+      val mainStr = "raw.rest.RawRestServerMain"
       val contents = template.format(cp.files.absString, mainStr)
       val out = base / "../bin/run-rest-server.sh"
       IO.write(out, contents)
@@ -146,9 +146,3 @@ lazy val core = (project in file("core")).
       kiama)
 
   )
-
-initialCommands in console := """
-                                |import raw.repl._
-                                |import raw.repl.RawContext._
-                                |val rc = new RawContext()
-                                | """.stripMargin

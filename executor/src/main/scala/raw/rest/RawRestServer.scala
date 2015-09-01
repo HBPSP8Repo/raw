@@ -1,23 +1,22 @@
-package raw.executionserver
+package raw.rest
 
 import java.io.StringReader
-import java.net.{URI, URL}
+import java.net.URI
 import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
+import raw.executor.CodeGenerationExecutor
+import raw.spark._
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
 import spray.routing.SimpleRoutingApp
 
-sealed trait Executor
-case object ScalaExecutor extends Executor
-case class SparkExecutor(sc: SparkContext) extends Executor
-
 case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
+
 object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   implicit val PortofolioFormats = jsonFormat3(RegisterRequest)
 }
@@ -61,30 +60,24 @@ object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupp
  * }}}
  * @param executorArg scala or spark executor. Currently, on Scala executor is implemented.
  */
-class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLogging with ResultConverter {
-  // Do not do any unnecessary initialization until command line arguments (dataset) is validated.
-  lazy val rawClassLoader = {
-    val cl = new RawMutableURLClassLoader(new Array[URL](0), PubsAuthorsRestServerMain.getClass.getClassLoader)
-    logger.info("Created raw class loader: " + cl)
-    cl
-  }
+class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLogging {
 
-  val executor = executorArg match {
-    case "scala" => ScalaExecutor
+  val sc: Option[SparkContext] = executorArg match {
+    case "scala" => logger.info("Using Scala-only executor"); None
     case "spark" =>
+      logger.info("Using Spark")
       lazy val sc: SparkContext = {
-        Thread.currentThread().setContextClassLoader(rawClassLoader)
+        Thread.currentThread().setContextClassLoader(CodeGenerationExecutor.rawClassloader)
         logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
         new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
       }
-      SparkExecutor(sc)
+      Some(sc)
     case exec@_ =>
       throw new IllegalArgumentException(s"Invalid executor: $exec. Valid options: [scala, spark]")
   }
 
   final val port = 54321
   implicit val system = ActorSystem("simple-routing-app")
-  val executionServer = new QueryCompilerClient(rawClassLoader)
 
   def start(): Unit = {
     import RegisterRequestJsonSupport._
@@ -95,7 +88,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
       (path(queryPath) & post) {
         entity(as[String]) { query =>
           try {
-            val result = returnValue(query)
+            val result = doQuery(query)
             logger.info("Query succeeded. Returning result: " + result.take(30))
             respondWithMediaType(MediaTypes.`application/json`) {
               complete(result)
@@ -112,22 +105,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
             headerValueByName("Raw-File") { fileURI =>
               entity(as[String]) { xmlSchema =>
                 try {
-                  logger.info(s"Registering schema: $schemaName, file: $fileURI")
-                  val uri = new URI(fileURI)
-                  val localFile = if (uri.getScheme().startsWith("http")) {
-                    logger.info("toURL: " + uri.toURL)
-                    logger.info("toURL.getFile: " + uri.toURL.getFile)
-                    val localPath = Files.createTempFile(schemaName, schemaName + ".json")
-                    val is = uri.toURL.openStream()
-                    logger.info(s"Downloading file $fileURI to $localPath")
-                    Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
-                    is.close()
-                    localPath
-                  } else {
-                    Paths.get(uri)
-                  }
-                  logger.info(s"Registering file: $localFile with schema: $schemaName")
-                  RawServer.registerSchema(schemaName, new StringReader(xmlSchema), localFile.toString)
+                  doRegisterRequest(schemaName, xmlSchema, fileURI)
                   respondWithMediaType(MediaTypes.`application/json`) {
                     complete(""" {"success" = True } """)
                   }
@@ -148,15 +126,33 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     system.shutdown()
   }
 
-  def returnValue(query: String): String = {
+
+  def doQuery(query: String): String = {
     // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
+    CodeGenerationExecutor.query(cleanedQuery)
+  }
 
-    val res = RawServer.query(cleanedQuery)
-    res
+  def doRegisterRequest(schemaName: String, xmlSchema: String, fileURI: String) = {
+    logger.info(s"Registering schema: $schemaName, file: $fileURI")
+    val uri = new URI(fileURI)
+    val localFile = if (uri.getScheme().startsWith("http")) {
+      logger.info("toURL: " + uri.toURL)
+      logger.info("toURL.getFile: " + uri.toURL.getFile)
+      val localPath = Files.createTempFile(schemaName, schemaName + ".json")
+      val is = uri.toURL.openStream()
+      logger.info(s"Downloading file $fileURI to $localPath")
+      Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
+      is.close()
+      localPath
+    } else {
+      Paths.get(uri)
+    }
+    logger.info(s"Registering file: $localFile with schema: $schemaName")
+    CodeGenerationExecutor.registerAccessPath(schemaName, new StringReader(xmlSchema), localFile)
   }
 }
 

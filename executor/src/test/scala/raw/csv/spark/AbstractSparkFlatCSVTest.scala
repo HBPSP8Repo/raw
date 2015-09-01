@@ -5,7 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.SharedSparkContext
 import raw.csv.{Department, Professor, Student}
-import raw.executionserver.RawClassLoader
+import raw.executor.RawClassLoader
 import raw.util.CSVToRDDParser
 
 abstract class AbstractSparkFlatCSVTest extends FunSuite

@@ -1,13 +1,12 @@
-package raw.executionserver
+package raw.executor
 
-import java.io.{File, StringWriter}
+import java.io.StringWriter
 import java.lang.reflect.Field
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectWriter, JsonNode, ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
-import com.google.common.io.Resources
 import org.slf4j.LoggerFactory
 
 import scala.collection.{Bag, JavaConversions}
@@ -24,7 +23,7 @@ trait ResultConverter {
     om
   }
 
-  def prettyPrintTree(tree:String): String ={
+  def prettyPrintTree(tree: String): String = {
     val json = mapper.readValue(tree, classOf[Any])
     val sw = new StringWriter()
     mapper.writerWithDefaultPrettyPrinter().writeValue(sw, json)
@@ -72,7 +71,7 @@ trait ResultConverter {
   }
 
   def convertToString(res: Any): String = {
-    val result:String =
+    val result: String =
       if (res.isInstanceOf[Array[_]]) {
         resultsToString(res.asInstanceOf[Array[_]].toList)
       } else {

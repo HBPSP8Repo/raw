@@ -7,7 +7,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import raw.datasets.patients.Patients
 import raw.datasets.publications.Publications
-import raw.executionserver.{DefaultSparkConfiguration, JsonLoader}
+import raw.executor.JsonLoader
+import raw.spark.DefaultSparkConfiguration
 
 import scala.reflect._
 import scala.reflect.runtime.universe._

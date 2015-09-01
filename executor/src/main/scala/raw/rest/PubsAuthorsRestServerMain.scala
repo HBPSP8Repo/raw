@@ -1,4 +1,4 @@
-package raw.executionserver
+package raw.rest
 
 import java.net.URL
 
@@ -7,6 +7,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.datasets.AccessPath
+import raw.spark.DefaultSparkConfiguration
+import raw.executor.{ResultConverter, RawMutableURLClassLoader, QueryCompilerClient}
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 
@@ -26,7 +28,7 @@ object PubsAuthorsRestServerMain extends SimpleRoutingApp with StrictLogging wit
 
     // Do not do any unnecessary initialization until command line arguments (dataset) is validated.
     lazy val rawClassLoader = {
-      val cl = new RawMutableURLClassLoader(new Array[URL](0), PubsAuthorsRestServerMain.getClass.getClassLoader)
+      val cl = new RawMutableURLClassLoader(PubsAuthorsRestServerMain.getClass.getClassLoader)
       logger.info("Created raw class loader: " + cl)
       cl
     }

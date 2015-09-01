@@ -8,7 +8,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.executionserver._
+import raw.spark._
+import raw.executor.{ResultConverter, RawClassLoader, QueryCompilerClient}
 
 import scala.collection.JavaConversions
 

@@ -14,7 +14,8 @@ import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Row}
 import org.rogach.scallop.ScallopConf
 import raw.datasets.AccessPath
-import raw.executionserver.{QueryCompilerClient, DefaultSparkConfiguration, RawMutableURLClassLoader, ResultConverter}
+import raw.spark.DefaultSparkConfiguration
+import raw.executor.{ResultConverter, RawMutableURLClassLoader, QueryCompilerClient}
 import raw.utils.{DockerUtils, RawUtils}
 
 import scala.collection.TraversableLike
@@ -77,7 +78,7 @@ object PerfMain extends StrictLogging with ResultConverter {
   // This custom classloader must be created and set as the context classloader
   // for the main thread before the Spark context is created.
   val rawClassLoader = {
-    val tmp = new RawMutableURLClassLoader(new Array[URL](0), PerfMain.getClass.getClassLoader)
+    val tmp = new RawMutableURLClassLoader(PerfMain.getClass.getClassLoader)
     Thread.currentThread().setContextClassLoader(tmp)
     tmp
   }

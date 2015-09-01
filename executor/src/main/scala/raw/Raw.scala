@@ -14,7 +14,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 
 
-//class queryAnnotation(query: String, catalog: HList) extends StaticAnnotation {
 class rawQueryAnnotation extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
 }

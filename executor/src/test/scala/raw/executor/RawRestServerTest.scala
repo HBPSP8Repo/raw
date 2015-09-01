@@ -10,7 +10,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{StringEntity, FileEntity}
 import org.apache.http.impl.client.HttpClients
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.executionserver.RawRestServer
+import raw.rest.RawRestServer
 
 class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterAll {
 

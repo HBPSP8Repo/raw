@@ -6,7 +6,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 import org.scalatest.{BeforeAndAfterAll, Suite}
-import raw.executionserver.{RawClassLoader, DefaultSparkConfiguration, RawMutableURLClassLoader}
+import raw.spark.DefaultSparkConfiguration
+import raw.executor.RawClassLoader
 
 
 /* Create a new Spark context for every test suite.

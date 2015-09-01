@@ -1,4 +1,4 @@
-package raw.executionserver
+package raw.executor
 
 import java.net.{URL, URLClassLoader}
 
@@ -8,7 +8,7 @@ import java.net.{URL, URLClassLoader}
  * the same instance of RawMutableURLClassLoader should be used as a parent to the classloader that Spark creates
  * internally (by setting it as Thread.contextClassloader) and by the execution server.
  */
-class RawMutableURLClassLoader(urls: Array[URL], parent: ClassLoader)
+class RawMutableURLClassLoader(parent: ClassLoader, urls: Array[URL] = new Array(0))
   extends URLClassLoader(urls, parent) {
 
   override def addURL(url: URL): Unit = {
@@ -21,5 +21,5 @@ class RawMutableURLClassLoader(urls: Array[URL], parent: ClassLoader)
 }
 
 trait RawClassLoader {
-  val rawClassLoader = new RawMutableURLClassLoader(new Array[URL](0), this.getClass.getClassLoader)
+  val rawClassLoader = new RawMutableURLClassLoader(this.getClass.getClassLoader)
 }
