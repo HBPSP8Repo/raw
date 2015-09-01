@@ -17,7 +17,7 @@ class SemanticAnalyzerTest extends FunTest {
   def success(query: String, world: World, tipe: Type) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.isEmpty)
-    assert(analyzer.tipe(analyzer.tree.root) === tipe)
+    compare(TypesPrettyPrinter(analyzer.tipe(analyzer.tree.root)), TypesPrettyPrinter(tipe))
   }
 
   def failure(query: String, world: World, error: Error) = {
@@ -80,7 +80,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("simple type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(TypeVariable(SymbolTable.next())),
+      "unknown" -> SetType(TypeVariable()),
       "integers" -> SetType(IntType()),
       "floats" -> SetType(FloatType()),
       "booleans" -> SetType(BoolType()),
@@ -88,7 +88,8 @@ class SemanticAnalyzerTest extends FunTest {
       "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
       "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
-      success("for (r <- integers) yield max r", world, IntType())
+
+    success("for (r <- integers) yield max r", world, IntType())
     success("for (r <- integers) yield set r + 1", world, SetType(IntType()))
     success("for (r <- unknown) yield set r + 1", world, SetType(IntType()))
     success("for (r <- unknown) yield set r + 1.0", world, SetType(FloatType()))
@@ -101,8 +102,10 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", world, IntType())
 
     success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
-    // TODO: What do we want exactly to be the behaviour of 'v' in the following? Could be int or float. Or force it?
-    //success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
+
+//     TODO: What do we want exactly to be the behaviour of 'v' in the following? Could be int or float. Or force it?
+//    success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
+
     success("for (r <- unknown; v := r) yield set (r + 0)", world, SetType(IntType()))
     success("for (r <- unknownrecords) yield set r.dead or r.alive", world, SetType(BoolType()))
     success("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", world, SetType(IntType()))
@@ -125,8 +128,8 @@ class SemanticAnalyzerTest extends FunTest {
 
   ignore("complex type inference") {
     val world = new World(sources=Map(
-      "unknown" -> SetType(TypeVariable(SymbolTable.next())),
-      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable(SymbolTable.next())), AttrType("alive", TypeVariable(SymbolTable.next()))), None))))
+      "unknown" -> SetType(TypeVariable()),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
 
     // TODO: Data source record type is not inferred
     success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)))
@@ -156,9 +159,12 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 //    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
-    success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(SymbolTable.next(), Set(AttrType("age", IntType()))), IntType()))
+    success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
     // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
-    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world, FunType(ConstraintCollectionType(SymbolTable.next(), AnyType(), None, None), AnyType()))
+    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
+      FunType(
+        ConstraintCollectionType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("name", TypeVariable()))), None, None),
+        BagType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable())), None))))
   }
 
   test("patterns") {
@@ -223,6 +229,8 @@ class SemanticAnalyzerTest extends FunTest {
     val professors = ListType(professor)
     val world = new World(sources = Map("students" -> students, "professors" -> professors))
 
+    // TODO: Aren't we binding too much? students to sum1?
+
     success(
       """
         {
@@ -233,10 +241,32 @@ class SemanticAnalyzerTest extends FunTest {
         sum1
         }
 
-      """, world, AnyType())
-    //FunType(RecordType(List(AttrType("_1",students), AttrType(_2,FunType(RecordType(List(AttrType(name,StringType()), AttrType(age,IntType())),Some(Student)),IntType()))),None),IntType())
-//
-//      FunType(RecordType(List(AttrType("_1", students), AttrType("_2")  ))
+      """, world,
+      FunType(
+        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
+        IntType()))
+
+
+    /// Issue above is that we are binding too much
+    // Issue below is that we return a too broad type (TypeVariable) to represent int/float and that will blow up at runtime with the wrong types
+    // even though the program type checked. So, it's unsound.
+    // For reference, issue nr 3 is that we don't return unrelated errors.
+    // recursive functions.
+
+    // if we add a semantic check that if smtg is TypeVariable, we make it sound, but we then must indeed bind 'too much'
+    // otherwise funabs cannot return type variables.
+
+    success(
+      """
+        {
+        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+        sum1
+        }
+
+      """, world,
+      FunType(
+        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
+        IntType()))
   }
 }
 

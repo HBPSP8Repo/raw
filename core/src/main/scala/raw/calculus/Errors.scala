@@ -73,13 +73,13 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
   }
 
   def show(t: Type): Doc = t match {
-    case ConstraintCollectionType(_, inner, c, i) =>
+    case ConstraintCollectionType(inner, c, i, _) =>
       val prefix = List(p(c, "commutative"), p(i, "idempotent")).filter(_.isDefined).mkString(" and ")
       if (prefix.nonEmpty)
         prefix + " collection of " + TypesPrettyPrinter(inner)
       else
         "collection of " + TypesPrettyPrinter(inner)
-    case ConstraintRecordType(idn, atts) =>
+    case ConstraintRecordType(atts, _) =>
       val satts = atts.map { case att => s"attribute ${att.idn} of type ${TypesPrettyPrinter(att.tipe)}" }.mkString(" and ")
       if (satts.nonEmpty)
         s"record with $satts"

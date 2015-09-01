@@ -98,7 +98,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
-        VariableEntity(n, TypeVariable(SymbolTable.next()))
+        VariableEntity(n, TypeVariable())
     case n @ IdnUse(idn) =>
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
@@ -191,9 +191,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case FunAbs(p, e1) => FunType(patternType(p), expType(e1))
 
     // Rule 9
-    case ZeroCollectionMonoid(_: BagMonoid) => BagType(TypeVariable(SymbolTable.next()))
-    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable(SymbolTable.next()))
-    case ZeroCollectionMonoid(_: SetMonoid) => SetType(TypeVariable(SymbolTable.next()))
+    case ZeroCollectionMonoid(_: BagMonoid) => BagType(TypeVariable())
+    case ZeroCollectionMonoid(_: ListMonoid) => ListType(TypeVariable())
+    case ZeroCollectionMonoid(_: SetMonoid) => SetType(TypeVariable())
 
     // Rule 10
     case ConsCollectionMonoid(_: BagMonoid, e1) => BagType(expType(e1))
@@ -212,7 +212,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case UnaryExp(_: ToFloat, _) => FloatType()
     case UnaryExp(_: ToString, _) => StringType()
 
-    case n => TypeVariable(SymbolTable.next())
+    case n => TypeVariable()
   }
 
   type VarMap = Map[String, Type]
@@ -256,7 +256,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
             }
           }
           Right(curm)
-        case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ ConstraintRecordType(idn2, atts2)) =>
+        case (t1 @ ConstraintRecordType(atts1, _), t2 @ ConstraintRecordType(atts2, _)) =>
           val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
           var curm = m
           for (idn <- commonIdns) {
@@ -268,9 +268,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
             }
           }
           val commonAttrs = commonIdns.map { case idn => AttrType(idn, t1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
-          val nt = ConstraintRecordType(SymbolTable.next(), atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
-          Right(curm +(t1.idn -> t2, t2.idn -> nt))
-        case (t1 @ ConstraintRecordType(idn1, atts1), t2 @ RecordType(atts2, name)) =>
+          val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
+          Right(curm +(t1.sym -> t2, t2.sym -> nt))
+        case (t1 @ ConstraintRecordType(atts1, _), t2 @ RecordType(atts2, name)) =>
           if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
             Left(m)
           } else {
@@ -281,11 +281,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
                 case Left(nm) => return Left(nm)
               }
             }
-            Right(curm + (t1.idn -> t2))
+            Right(curm + (t1.sym -> t2))
           }
         case (t1: RecordType, t2: ConstraintRecordType) =>
           recurse(t2, t1, m)
-        case (t1 @ ConstraintCollectionType(idn1, inner1, c1, i1), t2 @ ConstraintCollectionType(idn2, inner2, c2, i2)) =>
+        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2 @ ConstraintCollectionType(inner2, c2, i2, _)) =>
           if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
             Left(m)
           } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
@@ -295,34 +295,34 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
               case Right(nm) =>
                 val nc = if (c1.isDefined) c1 else c2
                 val ni = if (i1.isDefined) i1 else i2
-                val nt = ConstraintCollectionType(SymbolTable.next(), inner1, nc, ni)
-                Right(nm +(t1.idn -> t2, t2.idn -> nt))
+                val nt = ConstraintCollectionType(inner1, nc, ni)
+                Right(nm +(t1.sym -> t2, t2.sym -> nt))
               case Left(nm) => Left(nm)
             }
           }
-        case (t1 @ ConstraintCollectionType(idn1, inner1, c1, i1), t2: SetType) =>
+        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: SetType) =>
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && i1.get) || i1.isEmpty))
             recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(nm + (t1.idn -> t2))
+              case Right(nm) => Right(nm + (t1.sym -> t2))
               case Left(nm) => Left(nm)
             }
           else
             Left(m)
-        case (t1 @ ConstraintCollectionType(idn1, inner1, c1, i1), t2: BagType) =>
+        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: BagType) =>
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
             recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(nm + (t1.idn -> t2))
+              case Right(nm) => Right(nm + (t1.sym -> t2))
               case Left(nm) => Left(nm)
             }
           else
             Left(m)
-        case (t1 @ ConstraintCollectionType(idn1, inner1, c1, i1), t2: ListType) =>
+        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: ListType) =>
           if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
             recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(nm + (t1.idn -> t2))
+              case Right(nm) => Right(nm + (t1.sym -> t2))
               case Left(nm) => Left(nm)
             }
           else
@@ -330,15 +330,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         case (t1: CollectionType, t2: ConstraintCollectionType) =>
           recurse(t2, t1, m)
         case (t1: TypeVariable, t2: TypeVariable) =>
-          Right(m + (t2.idn -> t1))
+          Right(m + (t2.sym -> t1))
         case (t1: TypeVariable, t2: VariableType) =>
-          Right(m + (t1.idn -> t2))
+          Right(m + (t1.sym -> t2))
         case (t1: VariableType, t2: TypeVariable) =>
-          Right(m + (t2.idn -> t1))
+          Right(m + (t2.sym -> t1))
         case (t1: TypeVariable, _) =>
-          Right(m + (t1.idn -> t2))
+          Right(m + (t1.sym -> t2))
         case (_, t2: TypeVariable) =>
-          Right(m + (t2.idn -> t1))
+          Right(m + (t2.sym -> t1))
         case _ =>
           Left(m)
       }
@@ -361,9 +361,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case SetType(innerType) => getTypeVariables(innerType)
     case BagType(innerType) => getTypeVariables(innerType)
     case FunType(t1, t2) => getTypeVariables(t1) ++ getTypeVariables(t2)
-    case ConstraintRecordType(_, atts) => atts.flatMap { case att => getTypeVariables(att.tipe) }
-    case ConstraintCollectionType(_, innerType, _, _) => getTypeVariables(innerType)
-    case t: TypeVariable => Set(t)
+    case ConstraintRecordType(atts, _) => atts.flatMap { case att => getTypeVariables(att.tipe) }
+    case ConstraintCollectionType(innerType, _, _, _) => getTypeVariables(innerType)
+    case t1: TypeVariable => Set(t1)
   }
 
   /** Return a set with all type variables in a constraint.
@@ -412,7 +412,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         // TODO: Describe heuristic in DETAIL here
 
         // ....
-        val g = cs.groupBy(c => getConstraintTypeVariables(c).map(_.idn).intersect(m.keySet).nonEmpty)
+        val g = cs.groupBy(c => getConstraintTypeVariables(c).map(_.sym).intersect(m.keySet).nonEmpty)
         val next =
           if (g.contains(true)) {
           g(true).head
@@ -528,9 +528,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       case SetType(innerType) => SetType(walk(innerType, m))
       case BagType(innerType) => BagType(walk(innerType, m))
       case FunType(t1, t2) => FunType(walk(t1, m), walk(t2, m))
-      case ConstraintRecordType(idn, atts) => ConstraintRecordType(idn, atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m)) })
-      case ConstraintCollectionType(idn, innerType, c, i) => ConstraintCollectionType(idn, walk(innerType, m), c, i)
-      case TypeVariable(idn) => if (m.contains(idn) && m(idn) != t) walk(m(idn), m) else t
+      case t1 @ ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m)) }, sym)
+      case t1 @ ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(walk(innerType, m), c, i, sym)
+      case t1: TypeVariable => if (m.contains(t1.sym) && m(t1.sym) != t) walk(m(t1.sym), m) else t
     }
 
   /** Return the type of an expression.
@@ -549,7 +549,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     attr {
       // Rule 4
       case n @ RecordProj(e, idn) =>
-        HasType(e, ConstraintRecordType(SymbolTable.next(), Set(AttrType(idn, expType(n)))))
+        HasType(e, ConstraintRecordType(Set(AttrType(idn, expType(n)))))
 
       // Rule 6
       case n @ IfThenElse(e1, e2, e3) =>
@@ -584,7 +584,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         And(
           SameType(n, e1),
           SameType(e1, e2),
-          HasType(e2, ConstraintCollectionType(SymbolTable.next(), TypeVariable(SymbolTable.next()), None, None))
+          HasType(e2, ConstraintCollectionType(TypeVariable(), None, None))
         )
 
       // Rule 13
@@ -628,7 +628,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
 
       // Generator
       case n @ Gen(p, e) =>
-        HasType(e, ConstraintCollectionType(SymbolTable.next(), patternType(p), None, None))
+        HasType(e, ConstraintCollectionType(patternType(p), None, None))
 
       // Bind
       case n @ Bind(p, e) =>

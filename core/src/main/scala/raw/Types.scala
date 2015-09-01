@@ -2,6 +2,7 @@ package raw
 
 import scala.collection.immutable.Seq
 import scala.collection.immutable.Set
+import calculus.SymbolTable
 
 /** Types
   */
@@ -61,20 +62,20 @@ case class NothingType() extends Type
   */
 
 sealed abstract class VariableType extends Type {
-  def idn: String   // The identifier is used internally by VarMap
+  def sym: String   // The identifier is used internally by VarMap
 }
 
 /** Type Variable
   */
-case class TypeVariable(idn: String) extends VariableType
+case class TypeVariable(sym: String = SymbolTable.next()) extends VariableType
 
 /** Constraint Record Type
   */
-case class ConstraintRecordType(idn: String, atts: Set[AttrType]) extends VariableType {
+case class ConstraintRecordType(atts: Set[AttrType], sym: String = SymbolTable.next()) extends VariableType {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
 /** Constraint Collection Type
   */
-case class ConstraintCollectionType(idn: String, innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean]) extends VariableType
+case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean], sym: String = SymbolTable.next()) extends VariableType
 
