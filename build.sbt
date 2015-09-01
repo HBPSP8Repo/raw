@@ -105,7 +105,7 @@ lazy val executor = (project in file("executor")).
         _.data.getName == "spark-assembly-1.3.1-hadoop2.6.0.jar"
       }
     },
-    mainClass in Runtime := Some("raw.executionserver.Main"),
+    mainClass in Runtime := Some("raw.executionserver.PubsAuthorsRestServerMain"),
     /*
       Create a shell script that launches the rest service directly from the shell, thereby bypassing SBT.
       This avoids the overhead of starting SBT (which is considerable) and allows killing the process by simply using
@@ -113,13 +113,26 @@ lazy val executor = (project in file("executor")).
       as a forked process.)
       http://stackoverflow.com/questions/7449312/create-script-with-classpath-from-sbt
       */
-    TaskKey[File]("mkrun") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+//    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
       val template = """#!/bin/sh
 java -classpath "%s" %s "$@"
 """
-      val mainStr = main.getOrElse(sys.error("No main class specified"))
+      val mainStr = "raw.executionserver.PubsAuthorsRestServerMain"
       val contents = template.format(cp.files.absString, mainStr)
-      val out = base / "../bin/run-server.sh"
+      val out = base / "../bin/run-pubs-authors-rest-server.sh"
+      IO.write(out, contents)
+      out.setExecutable(true)
+      out
+    },
+
+    TaskKey[File]("mk-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
+      val template = """#!/bin/sh
+java -classpath "%s" %s "$@"
+"""
+      val mainStr = "raw.executionserver.RawRestServerMain"
+      val contents = template.format(cp.files.absString, mainStr)
+      val out = base / "../bin/run-rest-server.sh"
       IO.write(out, contents)
       out.setExecutable(true)
       out

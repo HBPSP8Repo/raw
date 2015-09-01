@@ -7,11 +7,16 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.datasets.AccessPath
-import raw.executionserver.QueryCompilerClient
 import spray.http.{MediaTypes, StatusCodes}
 import spray.routing.SimpleRoutingApp
 
-object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
+/**
+ * Exposes a /execute service which takes a logical plan and executes it locally.
+ * The access paths must be pre-loaded and match the ones referenced in the logical plan.
+ * This was partially made obsolete by RawRestServerMain, which exposes /register and /query 
+ * services, so does not assume a static dataset
+ */
+object PubsAuthorsRestServerMain extends SimpleRoutingApp with StrictLogging with ResultConverter {
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
       banner("Scala/Spark OQL execution server")
@@ -21,7 +26,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
 
     // Do not do any unnecessary initialization until command line arguments (dataset) is validated.
     lazy val rawClassLoader = {
-      val cl = new RawMutableURLClassLoader(new Array[URL](0), Main.getClass.getClassLoader)
+      val cl = new RawMutableURLClassLoader(new Array[URL](0), PubsAuthorsRestServerMain.getClass.getClassLoader)
       logger.info("Created raw class loader: " + cl)
       cl
     }
@@ -37,7 +42,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
         }
         AccessPath.loadSparkDataset(Conf.dataset(), sc)
 
-      case exec @ _ =>
+      case exec@_ =>
         println(s"Invalid executor: $exec. Valid options: [scala, spark]")
         return
     }
@@ -53,7 +58,7 @@ object Main extends SimpleRoutingApp with StrictLogging with ResultConverter {
         entity(as[String]) { query =>
           try {
             val result = returnValue(query)
-            logger.info("Query succeeded. Returning result: " + result.take(10))
+            logger.info("Query succeeded. Returning result: " + result.take(30))
             respondWithMediaType(MediaTypes.`application/json`) {
               complete(result)
             }
