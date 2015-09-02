@@ -66,6 +66,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         None
       case _: ConstraintCollectionType =>
         None
+      case UserType(sym) =>
+        errors(world.tipes(sym))
       case _: TypeVariable =>
         None
       case _ =>
@@ -373,8 +375,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           recurse(t2, t1, m)
         case (t1: TypeVariable, t2: TypeVariable) =>
           Right(union(m, t2, t1))
+        case (t1: TypeVariable, t2: UserType) =>
+          Right(union(m, t1, t2))
         case (t1: TypeVariable, t2: VariableType) =>
           Right(union(m, t1, t2))
+        case (t1: UserType, t2: TypeVariable) =>
+          recurse(t2, t1, m)
         case (t1: VariableType, t2: TypeVariable) =>
           recurse(t2, t1, m)
 //          Right(union(m, t2, t1))
@@ -404,6 +410,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case _: NothingType => Set()
     case _: AnyType => Set()
     case _: PrimitiveType => Set()
+    case _: UserType => Set()   // TODO: Is this correct? Does it matter? Does getTypeVariables/getConstraintTypeVariables even matter anyway???
     case RecordType(atts, _) => atts.flatMap { case att => getTypeVariables(att.tipe) }.toSet
     case ListType(innerType) => getTypeVariables(innerType)
     case SetType(innerType) => getTypeVariables(innerType)
@@ -501,6 +508,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         }
       case IsFunApp(e, expected) =>
 
+        // TODO
+        // TODO
+        // TODO
+        // does it make sense on Left(...) in all this code to still do m ++ nm ???
+        // TODO
+
+        // TODO
+        // TODO
+        // does the re-ordering of And csontraints still matter, or does the new grouping stuff help solve it>
+        // TODO
+        // TODO
+
         /* we were chatting about cloning nt and also cloning in the map the type variables uniquely defined within nt with their relative pointers.
         the issue is that if we have smtg like \(x,y) => x + y, we would have in the map the noition that x and y are the same type, but
         the map is not expressive enough to say that they are ALSO either int or float.
@@ -593,6 +612,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
 
   private def find(t: Type, m: VarMap, occursCheck: Set[Symbol] = Set()): Type = {
     t match {
+      case v: UserType => if (m.contains(v.sym)) m(v.sym).root else t
       case v: VariableType => if (m.contains(v.sym)) m(v.sym).root else t
       case _ => t
     }
@@ -625,6 +645,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       case _: NothingType => t
       case _: AnyType => t
       case _: PrimitiveType => t
+      case _: UserType => t
       case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m, occursCheck)) }, name)
       case ListType(innerType) => ListType(walk(innerType, m, occursCheck))
       case SetType(innerType) => SetType(walk(innerType, m, occursCheck))

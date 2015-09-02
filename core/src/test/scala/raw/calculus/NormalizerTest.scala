@@ -49,17 +49,17 @@ class NormalizerTest extends FunTest {
   test("rule2") {
     compare(
       process(
-        """for (e <- Events; e.RunNumber > ((\v: int -> v + 2)(40))) yield set e""", TestWorlds.cern),
+        """for (e <- Events; e.RunNumber > ((\v -> v + 2)(40))) yield set e""", TestWorlds.cern),
         "for ($0 <- Events; $0.RunNumber > 40 + 2) yield set $0")
 
     compare(
       process(
-        """for (e <- Events; f := (\v: int -> v + 2); e.RunNumber > f(40)) yield set e""", TestWorlds.cern),
+        """for (e <- Events; f := (\v -> v + 2); e.RunNumber > f(40)) yield set e""", TestWorlds.cern),
         "for ($0 <- Events; $0.RunNumber > 40 + 2) yield set $0")
 
     compare(
       process(
-        """for (e <- Events; e1 := e; (for (a <- Events; a1 := a; f := (\v: int -> v + 2); a1.RunNumber > f(40)) yield max a1.RunNumber) < 300; f2 := (\v: int -> v + 4); e1.RunNumber > f2(100)) yield set (muons := e1.muons)""", TestWorlds.cern),
+        """for (e <- Events; e1 := e; (for (a <- Events; a1 := a; f := (\v -> v + 2); a1.RunNumber > f(40)) yield max a1.RunNumber) < 300; f2 := (\v -> v + 4); e1.RunNumber > f2(100)) yield set (muons := e1.muons)""", TestWorlds.cern),
         "for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 40 + 2) yield max $1.RunNumber < 300; $0.RunNumber > 100 + 4) yield set (muons := $0.muons)")
   }
 

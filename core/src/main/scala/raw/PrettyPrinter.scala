@@ -70,6 +70,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case TypeVariable(sym)      => s"<${sym.idn}>"
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"
+    case UserType(sym)          => sym.idn
   }
 
 }

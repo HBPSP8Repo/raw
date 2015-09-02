@@ -64,20 +64,20 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("linkedList") {
     //success("for (i <- Items) yield set i", TestWorlds.linkedList, SetType(TypeVariable(Symbol("Item"))))
-    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, SetType(TypeVariable(Symbol("Item"))))
+    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, SetType(UserType(Symbol("Item"))))
   }
 
   test("departments1") {
     success(
       """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
-      SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType())), None))), None)))
+      SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
   }
 
   test("departments2") {
-    success("""for (d <- Departments) yield set d""", TestWorlds.departments, SetType(TypeVariable(Symbol("Department"))))
+    success("""for (d <- Departments) yield set d""", TestWorlds.departments, SetType(UserType(Symbol("Department"))))
     success(
       """for ( d <- Departments; d.name = "CSE") yield set d""", TestWorlds.departments,
-      SetType(TypeVariable(Symbol("Department"))))
+      SetType(UserType(Symbol("Department"))))
     success(
       """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("deptName", StringType())), None)))
@@ -114,8 +114,7 @@ class SemanticAnalyzerTest extends FunTest {
 
     success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
 
-//     TODO: What do we want exactly to be the behaviour of 'v' in the following? Could be int or float. Or force it?
-//    success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
+    success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
 
     success("for (r <- unknown; v := r) yield set (r + 0)", world, SetType(IntType()))
     success("for (r <- unknownrecords) yield set r.dead or r.alive", world, SetType(BoolType()))
@@ -137,17 +136,13 @@ class SemanticAnalyzerTest extends FunTest {
     success("{ z := 42; x := for (i <- integers; i = z) yield set i; for (y <- x) yield set y }", world, SetType(IntType()))
   }
 
-  ignore("complex type inference") {
+  test("complex type inference") {
     val world = new World(sources=Map(
       "unknown" -> SetType(TypeVariable()),
       "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
 
-    // TODO: Data source record type is not inferred
-    success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(RecordType(List(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())), None)))
-    // TODO: Missing record type inference
-//    success("for (r <- unknown; (for (x <- records) yield set (r.value > x.f)) = true) yield set r", world, SetType(RecordType(List(AttrType("value", FloatType())), None)))
-    // TODO: Data source record type is not inferred
-//    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", world, SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)))
+    success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", world, SetType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
+    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", world, SetType(RecordType(List(AttrType("dead", BoolType()), AttrType("alive", BoolType())), None)))
   }
 
   test("expression block with multiple comprehensions") {
@@ -172,8 +167,7 @@ class SemanticAnalyzerTest extends FunTest {
     val a = TypeVariable()
     success("""\a -> a""", world, FunType(a, a))
     success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
-
-    success("""\(x, y) -> x + y""", world, AnyType())
+    failure("""\(x, y) -> x + y""", world, TooManySolutions)
 
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
@@ -293,13 +287,14 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("recursive lambda function") {
     // TODO: Add syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
-    // TODO: and we really showed that it should type to FunType(IntType(), IntType()
+    // TODO: and we really showed that it should simply type to FunType(IntType(), IntType().
+    // TODO: The rest is just code generation gymnics
 
     success(
       """
          {
-        recursive := \(f, arg) -> f(arg);
-        factorial := \n -> recursive( (\(rec, v) -> if (v = 0) then 1 else rec(v - 1) * v), n);
+        recursive := (\(f, arg) -> f(arg));
+        factorial := (\n -> recursive( (\(rec, v) -> if (v = 0) then 1 else rec(v - 1) * v), n));
         factorial
         }
       """, new World(), FunType(IntType(), IntType()))

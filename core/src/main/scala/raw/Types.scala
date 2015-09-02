@@ -54,6 +54,11 @@ case class AnyType() extends Type
   */
 case class NothingType() extends Type
 
+/** User Type.
+  * User-defined data type.
+  */
+case class UserType(sym: Symbol) extends Type
+
 /** Abstract class representing all types that vary: TypeVariable, constrainted/partial types, etc.
   */
 

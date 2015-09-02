@@ -6,11 +6,11 @@ object TestWorlds {
 
   def linkedList = {
     val tipes = Map(
-      Symbol{"Item"} -> RecordType(List(AttrType("value", IntType()), AttrType("next", TypeVariable(Symbol("Item")))), Some("item"))
+      Symbol{"Item"} -> RecordType(List(AttrType("value", IntType()), AttrType("next", UserType(Symbol("Item")))), Some("item"))
     )
 
     val sources = Map(
-      "Items" -> ListType(TypeVariable(Symbol("Item")))
+      "Items" -> ListType(UserType(Symbol("Item")))
     )
 
     new World(sources, tipes)
@@ -26,40 +26,40 @@ object TestWorlds {
           AttrType("address", RecordType(List(
             AttrType("street", StringType()),
             AttrType("zipcode", StringType())),
-            Some("address"))),
+            None)),
           AttrType("salary", IntType()),
           AttrType("rank", StringType()),
           AttrType("degrees", SetType(StringType())),
-          AttrType("dept", TypeVariable(Symbol("Department"))),
-          AttrType("teaches", SetType(TypeVariable(Symbol("Course"))))),
+          AttrType("dept", UserType(Symbol("Department"))),
+          AttrType("teaches", SetType(UserType(Symbol("Course"))))),
           Some("instructor")),
       Symbol("Instructors") ->
-        SetType(TypeVariable(Symbol("Instructor"))),
+        SetType(UserType(Symbol("Instructor"))),
       Symbol("Department") ->
         RecordType(List(
           AttrType("dno", IntType()),
           AttrType("name", StringType()),
-          AttrType("head", TypeVariable(Symbol("Instructor"))),
-          AttrType("instructors", TypeVariable(Symbol("Instructors"))),
-          AttrType("courses", TypeVariable(Symbol("Courses")))),
+          AttrType("head", UserType(Symbol("Instructor"))),
+          AttrType("instructors", UserType(Symbol("Instructors"))),
+          AttrType("courses", UserType(Symbol("Courses")))),
           Some("department")),
       Symbol("Departments") ->
-        BagType(TypeVariable(Symbol("Department"))),
+        BagType(UserType(Symbol("Department"))),
       Symbol("Course") ->
         RecordType(List(
           AttrType("code", StringType()),
           AttrType("name", StringType()),
-          AttrType("offered_by", TypeVariable(Symbol("Department"))),
-          AttrType("taught_by", TypeVariable(Symbol("Instructor"))),
-          AttrType("is_prerequisite_for", TypeVariable(Symbol("Courses"))),
-          AttrType("has_prerequisites", SetType(TypeVariable(Symbol("Course"))))),
+          AttrType("offered_by", UserType(Symbol("Department"))),
+          AttrType("taught_by", UserType(Symbol("Instructor"))),
+          AttrType("is_prerequisite_for", UserType(Symbol("Courses"))),
+          AttrType("has_prerequisites", SetType(UserType(Symbol("Course"))))),
           Some("course")),
       Symbol("Courses") ->
-        SetType(TypeVariable(Symbol("Course")))
+        SetType(UserType(Symbol("Course")))
     )
 
     val sources = Map(
-      "Departments" -> TypeVariable(Symbol("Departments"))
+      "Departments" -> UserType(Symbol("Departments"))
     )
 
     new World(sources, tipes)
