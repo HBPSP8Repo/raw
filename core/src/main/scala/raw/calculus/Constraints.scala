@@ -17,6 +17,8 @@ object Constraint extends LazyLogging {
 
   case class HasType(e: Exp, expected: Type, desc: Option[String] = None) extends Constraint
 
+  case class IsFunApp(e: Exp, expected: Type) extends Constraint
+
   case object NoConstraint extends Constraint
 
 }

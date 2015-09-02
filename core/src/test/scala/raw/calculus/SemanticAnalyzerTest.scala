@@ -8,6 +8,7 @@ class SemanticAnalyzerTest extends FunTest {
   def go(query: String, world: World) = {
     val ast = parse(query)
     val t = new Calculus.Calculus(ast)
+    logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
     val analyzer = new SemanticAnalyzer(t, world)
     analyzer.errors.foreach(e => logger.error(ErrorsPrettyPrinter(e)))
@@ -17,6 +18,8 @@ class SemanticAnalyzerTest extends FunTest {
   def success(query: String, world: World, tipe: Type) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.isEmpty)
+    logger.debug(s"Actual type: ${TypesPrettyPrinter(analyzer.tipe(analyzer.tree.root))}")
+    logger.debug(s"Expected type: ${TypesPrettyPrinter(tipe)}")
     compare(TypesPrettyPrinter(analyzer.tipe(analyzer.tree.root)), TypesPrettyPrinter(tipe))
   }
 
@@ -25,6 +28,7 @@ class SemanticAnalyzerTest extends FunTest {
     assert(analyzer.errors.nonEmpty)
     logger.debug(analyzer.errors.toString)
     error match {
+
       //
       // Test case helpers
       //
@@ -158,13 +162,17 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\a -> a + 2""", world, FunType(IntType(), IntType()))
     success("""\a -> a + a + 2""", world, FunType(IntType(), IntType()))
     success("""\(a, b) -> a + b + 2""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-//    success("""\a -> a""", world, FunType(AnyType(), AnyType()))
+    val a = TypeVariable()
+    success("""\a -> a""", world, FunType(a, a))
     success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
-    // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
-    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
-      FunType(
-        ConstraintCollectionType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("name", TypeVariable()))), None, None),
-        BagType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable())), None))))
+
+    success("""\(x, y) -> x + y""", world, AnyType())
+
+//     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
+//    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
+//      FunType(
+//        ConstraintCollectionType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("name", TypeVariable()))), None, None),
+//        BagType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable())), None))))
   }
 
   test("patterns") {
@@ -230,43 +238,65 @@ class SemanticAnalyzerTest extends FunTest {
     val world = new World(sources = Map("students" -> students, "professors" -> professors))
 
     // TODO: Aren't we binding too much? students to sum1?
-
-    success(
-      """
-        {
-        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
-        age := (students, \x -> x.age);
-
-        v := sum1(age);
-        sum1
-        }
-
-      """, world,
+    val z = TypeVariable()
+    val yz = TypeVariable()
+    success("""\(x,y) -> for (z <- x) yield sum y(z)""", world,
       FunType(
-        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
-        IntType()))
+        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z,yz))), None),
+        yz))
 
+//    success(
+//      """
+//        {
+//        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+//        age := (students, \x -> x.age);
+//
+//        v := sum1(age);
+//        sum1
+//        }
+//
+//      """, world,
 
-    /// Issue above is that we are binding too much
-    // Issue below is that we return a too broad type (TypeVariable) to represent int/float and that will blow up at runtime with the wrong types
-    // even though the program type checked. So, it's unsound.
-    // For reference, issue nr 3 is that we don't return unrelated errors.
-    // recursive functions.
+    // List of issues left:
+    // 1) Issue above is that we are binding too much. Causes problems in libraries
+    // 2) Issue below is that we return a too broad type (TypeVariable) to represent int/float and that will blow up at runtime with the wrong types
+    // even though the program type checked. So, it's unsound. NO. This is NOT AN ISSUE. We return multiple solutions and that is correct.
+    // 3) We don't return unrelated errors.
+    // 4) We don't support recursive types.
+    // 5) Do we support recursive functions? YES, in the solver, but we need new parser nodes to represent it and their chain/scoping rules.
+
+    // whenever we have a function application,
+    // we need to copy its constraints
 
     // if we add a semantic check that if smtg is TypeVariable, we make it sound, but we then must indeed bind 'too much'
     // otherwise funabs cannot return type variables.
 
+//    success(
+//      """
+//        {
+//        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+//        sum1
+//        }
+//
+//      """, world,
+//      FunType(
+//        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
+//        IntType()))
+  }
+
+  test("recursive lambda function") {
+    // TODO: Add syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
+    // TODO: and we really showed that it should type to FunType(IntType(), IntType()
+
     success(
       """
-        {
-        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
-        sum1
+         {
+        recursive := \(f, arg) -> f(arg);
+        factorial := \n -> recursive( (\(rec, v) -> if (v = 0) then 1 else rec(v - 1) * v), n);
+        factorial
         }
+      """, new World(), FunType(IntType(), IntType()))
 
-      """, world,
-      FunType(
-        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
-        IntType()))
   }
-}
 
+}

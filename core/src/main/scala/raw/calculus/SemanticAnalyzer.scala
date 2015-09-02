@@ -36,11 +36,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     */
   private lazy val collectSemanticErrors = collect[List, Error] {
 
-    // TODO: Add check that final types are all inferred.
-    // TODO: No type variables?
-    // TODO: Certainly no NothingType
-
-    // Semantic error in monoid composition
     // The parent of a generator is a comprehension with incompatble monoid properties
     case tree.parent.pair(g: Gen, c: Comp) if monoidsIncompatible(c.m, g).isDefined =>
       monoidsIncompatible(c.m, g).head
@@ -163,14 +158,41 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case PatternProd(ps) => RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
   }
 
+  private def typeWithPos(t: Type, e: Exp): Type = {
+    t.pos = e.pos
+    t
+  }
+
+  def cloneType(t: Type): Type = {
+    val m = scala.collection.mutable.Map[String, TypeVariable]()
+
+    def recurse(t: Type): Type = t match {
+      case _: NothingType => t
+      case _: AnyType => t
+      case _: PrimitiveType => t
+      case _: UserType => t
+      case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, cloneType(t1)) }, name)
+      case ListType(innerType) => ListType(cloneType(innerType))
+      case SetType(innerType) => SetType(cloneType(innerType))
+      case BagType(innerType) => BagType(cloneType(innerType))
+      case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
+      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, cloneType(t1)) }, sym)
+      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(cloneType(innerType), c, i, sym)
+      case t1: TypeVariable =>
+        if (!m.contains(t1.sym)) {    // Clone the type variable
+          m += (t1.sym -> TypeVariable())
+        }
+        m(t1.sym)
+    }
+
+    recurse(t)
+  }
+
   /** The type of an expression.
     * If the type cannot be immediately derived from the expression itself, then type variables are used for unification.
     */
   private lazy val expType: Exp => Type = attr {
-    case e =>
-      val t = expType1(e)
-      t.pos = e.pos
-      t
+    case e => typeWithPos(expType1(e), e)
   }
 
   private def expType1(e: Exp): Type = e match {
@@ -377,6 +399,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       getTypeVariables(expType(e1)) ++ getTypeVariables(expType(e2))
     case HasType(e, expected, _) =>
       getTypeVariables(expType(e)) ++ getTypeVariables(expected)
+    case IsFunApp(e, expected) =>
+      getTypeVariables(expType(e)) ++ getTypeVariables(expected)
     case NoConstraint => Set()
   }
 
@@ -449,6 +473,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
             nt.pos = e.pos
             Left(m ++ nm, List(UnexpectedType(nt, nexpected, desc)))
         }
+      case IsFunApp(e, expected) =>
+
+        /* we were chatting about cloning nt and also cloning in the map the type variables uniquely defined within nt with their relative pointers.
+        the issue is that if we have smtg like \(x,y) => x + y, we would have in the map the noition that x and y are the same type, but
+        the map is not expressive enough to say that they are ALSO either int or float.
+         */
+        val nt = walk(expType(e), m)
+        val nexpected = walk(expected, m)
+        unify(nt, nexpected) match {
+          case Right(nm) => Right(Seq(m))
+          case Left(nm) =>
+            nt.pos = e.pos
+            Left(m ++ nm, List(UnexpectedType(nt, nexpected, None)))
+        }
       case NoConstraint => Right(Seq(m))
     }
   }
@@ -503,6 +541,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       logger.debug("Root constraint:")
       logger.debug(rootConstraint.toString)
 
+      // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
+      // TODO: And certainly no NothingType if we still need it.
+
       solutions match {
         // Found too many alternative solutions, which all type check
         case Right(ms) if ms.length > 1 => Seq(TooManySolutions)
@@ -528,8 +569,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       case SetType(innerType) => SetType(walk(innerType, m))
       case BagType(innerType) => BagType(walk(innerType, m))
       case FunType(t1, t2) => FunType(walk(t1, m), walk(t2, m))
-      case t1 @ ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m)) }, sym)
-      case t1 @ ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(walk(innerType, m), c, i, sym)
+      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m)) }, sym)
+      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(walk(innerType, m), c, i, sym)
       case t1: TypeVariable => if (m.contains(t1.sym) && m(t1.sym) != t) walk(m(t1.sym), m) else t
     }
 
@@ -560,7 +601,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
 
       // Rule 8
       case n @ FunApp(f, e) =>
-        HasType(f, FunType(expType(e), expType(n)))
+        IsFunApp(f, FunType(expType(e), expType(n)))
 
       // Rule 11
       case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
