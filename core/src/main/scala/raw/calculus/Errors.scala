@@ -87,7 +87,7 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
         s"record"
     case FunType(t1, t2) =>
       s"function taking ${TypesPrettyPrinter(t1)} and returning ${TypesPrettyPrinter(t2)}"
-    case _: TypeVariable => "unknown" // TODO: or should be any?
+    case v: TypeVariable => v.sym.idn // TODO: or should be any?
     case _ => PrettyPrinter(t)
   }
 }

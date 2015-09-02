@@ -39,6 +39,7 @@ class FunTest extends FunSuite with LazyLogging {
       r.replaceAllIn(q, _ match { case m => s"\\$$${map(m.matched)}" })
     }
 
-    assert(rewritten(actual) === rewritten(expected))
+    if (rewritten(actual) != rewritten(expected))
+      assert(false, s"Incompatible!!\nActual: $actual\nExpected: $expected")
   }
 }

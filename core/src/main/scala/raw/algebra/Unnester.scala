@@ -12,7 +12,7 @@ case class UnnesterError(err: String) extends RawException(err)
 // TODO: Remove Pattern and reuse RecordCons
 sealed abstract class Pattern
 case class PairPattern(fst: Pattern, snd: Pattern) extends Pattern
-case class IdnPattern(idn: String, t: Type) extends Pattern
+case class IdnPattern(sym: String, t: Type) extends Pattern
 
 /** Terms used during query unnesting.
   */
@@ -50,7 +50,7 @@ object Unnester extends LazyLogging {
       object Scan {
         def unapply(e: Calculus.Exp): Option[LogicalAlgebra.Scan] = e match {
           case Calculus.IdnExp(idn) => entities(idn.idn) match {
-            case e@SymbolTable.DataSourceEntity(name) => Some(LogicalAlgebra.Scan(name, world.sources(name))) // TODO: Use more precise type if one was inferred
+            case e@SymbolTable.DataSourceEntity(sym) => Some(LogicalAlgebra.Scan(sym.idn, world.sources(sym.idn))) // TODO: Use more precise type if one was inferred
             case _ => None
           }
           case _                    => None
@@ -109,7 +109,7 @@ object Unnester extends LazyLogging {
         */
       def getInnerType(t: Type): Type = t match {
         case c: CollectionType => c.innerType
-        case UserType(idn)     => getInnerType(world.userTypes(idn))
+//        case UserType(idn)     => getInnerType(world.userTypes(idn))
         case _                 => throw UnnesterError(s"Expected collection type but got $t")
       }
 
@@ -220,7 +220,7 @@ object Unnester extends LazyLogging {
       def getNestedComp(ps: List[Calculus.Exp]) =
         ps.collectFirst { case NestedComp(c) => c }.head
 
-      def freshIdn = SymbolTable.next()
+      def freshIdn = SymbolTable.next().idn
 
       def apply(t: Term): Term =
         t match {

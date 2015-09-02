@@ -62,15 +62,22 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern, SetType(RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
   }
 
-  ignore("departments1") {
-    // TODO: Uses recursive data types
-    success(
-      """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
-      SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
+  test("linkedList") {
+    //success("for (i <- Items) yield set i", TestWorlds.linkedList, SetType(TypeVariable(Symbol("Item"))))
+    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, SetType(TypeVariable(Symbol("Item"))))
   }
 
-  ignore("departments2") {
-    // TODO: Uses recursive data types
+  test("departments1") {
+    success(
+      """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
+      SetType(RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType())), None))), None)))
+  }
+
+  test("departments2") {
+    success("""for (d <- Departments) yield set d""", TestWorlds.departments, SetType(TypeVariable(Symbol("Department"))))
+    success(
+      """for ( d <- Departments; d.name = "CSE") yield set d""", TestWorlds.departments,
+      SetType(TypeVariable(Symbol("Department"))))
     success(
       """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments,
       SetType(RecordType(List(AttrType("deptName", StringType())), None)))

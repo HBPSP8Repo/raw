@@ -31,7 +31,7 @@ trait Transformer extends LazyLogging {
   protected def rewriteIdns[T <: RawNode](n: T): T = {
     var ids = scala.collection.mutable.Map[String, String]()
 
-    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next()); ids(idn) }
+    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn) }
 
     rewrite(
       everywhere(rule[IdnNode] {

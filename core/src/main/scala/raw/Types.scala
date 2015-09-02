@@ -2,7 +2,7 @@ package raw
 
 import scala.collection.immutable.Seq
 import scala.collection.immutable.Set
-import calculus.SymbolTable
+import calculus.{Symbol, SymbolTable}
 
 /** Types
   */
@@ -40,10 +40,6 @@ case class BagType(innerType: Type) extends CollectionType
 case class ListType(innerType: Type) extends CollectionType
 case class SetType(innerType: Type) extends CollectionType
 
-/** User Type
-  */
-case class UserType(idn: String) extends Type
-
 /** Function Type `t2` -> `t1`
   */
 case class FunType(t1: Type, t2: Type) extends Type
@@ -62,20 +58,20 @@ case class NothingType() extends Type
   */
 
 sealed abstract class VariableType extends Type {
-  def sym: String   // The identifier is used internally by VarMap
+  def sym: Symbol
 }
 
 /** Type Variable
   */
-case class TypeVariable(sym: String = SymbolTable.next()) extends VariableType
+case class TypeVariable(sym: Symbol = SymbolTable.next()) extends VariableType
 
 /** Constraint Record Type
   */
-case class ConstraintRecordType(atts: Set[AttrType], sym: String = SymbolTable.next()) extends VariableType {
+case class ConstraintRecordType(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends VariableType {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
 /** Constraint Collection Type
   */
-case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean], sym: String = SymbolTable.next()) extends VariableType
+case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean], sym: Symbol = SymbolTable.next()) extends VariableType
 

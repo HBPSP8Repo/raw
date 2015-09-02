@@ -60,15 +60,14 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case RecordType(atts, None) =>
       "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
     case ConstraintRecordType(atts, sym) =>
-      "constraint_record" <> parens(sym) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
+      "constraint_record" <> parens(sym.idn) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
     case ConstraintCollectionType(innerType, c, i, sym) =>
-      "constraint_collection" <> parens(sym) <> parens(tipe(innerType) <+> c.toString <+> i.toString)
+      "constraint_collection" <> parens(sym.idn) <> parens(tipe(innerType) <+> c.toString <+> i.toString)
     case BagType(innerType)     => "bag" <> parens(tipe(innerType))
     case ListType(innerType)    => "list" <> parens(tipe(innerType))
     case SetType(innerType)     => "set" <> parens(tipe(innerType))
-    case UserType(idn)          => idn
     case FunType(t1, t2)        => tipe(t1) <+> "->" <+> tipe(t2)
-    case TypeVariable(sym)      => s"<${sym}>"
+    case TypeVariable(sym)      => s"<${sym.idn}>"
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"
   }

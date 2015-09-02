@@ -4,6 +4,8 @@ package calculus
 import org.kiama.util.Environments
 import raw.calculus.Calculus.{Idn, IdnDef}
 
+case class Symbol(idn: String)
+
 object SymbolTable extends Environments {
 
   import org.kiama.util.{Counter, Entity}
@@ -12,10 +14,10 @@ object SymbolTable extends Environments {
 
   /** Return the next unique identifier.
     */
-  def next(): String = {
+  def next(): Symbol = {
     val n = counter.value
     counter.next()
-    s"$$$n"
+    Symbol(s"$$$n")
   }
 
   /** Reset the symbol table.
@@ -36,5 +38,5 @@ object SymbolTable extends Environments {
 
   /** Entity for a data source.
     */
-  case class DataSourceEntity(name: String) extends RawEntity
+  case class DataSourceEntity(sym: Symbol) extends RawEntity
 }

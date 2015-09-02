@@ -26,7 +26,7 @@ trait Desugarer extends Transformer {
   private lazy val rulePatternFunAbs = rule[Exp] {
     case FunAbs(PatternProd(ps), e) =>
       logger.debug("Applying desugar rulePatternFunAbs")
-      val idn = SymbolTable.next()
+      val idn = SymbolTable.next().idn
       FunAbs(
         PatternIdn(IdnDef(idn)),
         ExpBlock(ps.zipWithIndex.map { case (p, idx) => Bind(p, RecordProj(IdnExp(IdnUse(idn)), s"_${idx + 1}")) }, e))
@@ -43,7 +43,7 @@ trait Desugarer extends Transformer {
   private lazy val rulePatternGen = rule[Comp] {
     case Comp(m, RulePatternGen(r, Gen(p, u), s), e) =>
       logger.debug("Applying desugar rulePatternGen")
-      val idn = SymbolTable.next()
+      val idn = SymbolTable.next().idn
       Comp(m, r ++ Seq(Gen(PatternIdn(IdnDef(idn)), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
   }
 
