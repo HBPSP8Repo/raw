@@ -292,6 +292,36 @@ object TestWorlds {
     new World(sources)
   }
 
+  def simple = {
+    new World(sources = Map(
+      "unknown" -> SetType(TypeVariable()),
+      "integers" -> SetType(IntType()),
+      "floats" -> SetType(FloatType()),
+      "booleans" -> SetType(BoolType()),
+      "strings" -> SetType(StringType()),
+      "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None))))
+  }
+
+  def unknown = {
+    new World(sources = Map(
+      "unknown" -> SetType(TypeVariable()),
+      "unknownrecords" -> SetType(RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
+  }
+
+  def professors_students = {
+    val tipes = Map(
+      Symbol("student") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student")),
+      Symbol("students") -> ListType(UserType(Symbol("student"))),
+      Symbol("professor") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors")),
+      Symbol("professors") -> ListType(UserType(Symbol("professor"))))
+
+    val sources = Map(
+      "students" -> UserType(Symbol("students")),
+      "professors" -> UserType(Symbol("professors")))
+
+    new World(sources, tipes)
+  }
+
   def empty = new World()
 
 }

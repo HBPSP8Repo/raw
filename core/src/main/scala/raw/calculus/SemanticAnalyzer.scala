@@ -733,11 +733,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
 }
 
-// test funapp first
-
-// TODO: Fix lambda recursive test case
-// TODO: Make sure we then support recursive functions by adding more tests
-// TODO: Infering FunAbs in the context of a FunApp
+// TODO: Inferring FunAbs in the context of a FunApp. Add simple FunApp tests first!
 // TODO: Make one SemanticAnalyzer test per function.
 // TODO: Sort out the SemanticAnalyzer tests: there are useful tests there that are commented out since we didn't match properly (e.g. on errors)
 // TODO: Add more tests to the SemanticAnalyzer with the intuit of testing the error reporting: the error messages may not yet be the most clear.
@@ -747,3 +743,4 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 // TODO: Consider adding syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
 //       It should just type to FunType(IntType(), IntType().
 //       It is not strictly needed but the notion of a NamedFunction may help code-generation because these are things we don't inline/consider inlining,
+// TODO: Do we need to add a closure check, or is that executor-specific?

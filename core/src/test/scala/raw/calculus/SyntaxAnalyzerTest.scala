@@ -76,24 +76,6 @@ class SyntaxAnalyzerTest extends FunTest {
       """for ((a, b) <- list((_1 := 1, _2 := 2)) append list((_1 := 3, _2 := 4))) yield set a + b""")
   }
 
-  /*
-    Primitive Types:      bool, int, float, string,
-    Collection Types:     set, bag, list,
-    Record Types:         record
-    Class Type: ???
-
-    Unary operators:      -, not, to_bool, to_int, to_float, to_string
-    Binary operators:     -, /, %
-    Monoids Boolean:      or, and
-    Monoids Number:       +, *, max
-
-    Container operators:  union, bag_union, append, max, sum,
-
-    Constants:            null, true, false,
-
-    Control:              for, yield, if, then, else,
-   */
-
   /** Parentheses and operator precedence:
     * http://en.wikipedia.org/wiki/Order_of_operations#Programming_languages
     */
@@ -239,5 +221,29 @@ class SyntaxAnalyzerTest extends FunTest {
   test("#52 (chained logical operators)") {
     equals("""(a < b) = c""", """a < b = c""")
     equals("""(2 < 4) = false""", """2 < 4 = false""")
+  }
+
+  test("f g x") {
+    equals("f g x", "f(g(x))")
+  }
+
+  test("f g x.foo") {
+    equals("f g x.foo", "f(g(x.foo))")
+  }
+
+  test("""\x -> f x""") {
+    equals("""\x -> f x""", """\x -> f(x)""")
+  }
+
+  test("""\x -> x * 1""") {
+    equals("""\x -> x * 1""", """\x -> (x * 1)""")
+  }
+
+  test("""\x -> 1 * x""") {
+    equals("""\x -> 1 * x""", """\x -> (1 * x)""")
+  }
+
+  test("""\x -> f g x * 1""") {
+    equals("""\x -> f g x * 1""", """\x -> f(g(x)) * 1""")
   }
 }
