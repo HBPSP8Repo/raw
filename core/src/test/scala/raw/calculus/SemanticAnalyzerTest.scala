@@ -63,8 +63,9 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("linkedList") {
-    //success("for (i <- Items) yield set i", TestWorlds.linkedList, SetType(TypeVariable(Symbol("Item"))))
-    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, SetType(UserType(Symbol("Item"))))
+    success("for (i <- Items) yield set i", TestWorlds.linkedList, SetType(UserType(Symbol("Item"))))
+//    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, SetType(UserType(Symbol("Item"))))
+//    success("for (i <- Items; x := i; x.value = 10; x.next != x) yield set x", TestWorlds.linkedList, SetType(UserType(Symbol("Item"))))
   }
 
   test("departments1") {

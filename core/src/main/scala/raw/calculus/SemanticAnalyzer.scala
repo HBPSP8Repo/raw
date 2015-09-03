@@ -267,7 +267,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     */
   private def unify(t1: Type, t2: Type, m: VarMap): Either[VarMap, VarMap] = {
 
-    def recurse(t1: Type, t2: Type, m: VarMap): Either[VarMap, VarMap] = {
+    def recurse(t1: Type, t2: Type, m: VarMap, occursCheck: Set[(Type, Type)]): Either[VarMap, VarMap] = {
+      logger.debug(s"recurse t1 ${TypesPrettyPrinter(t1)} t2 ${TypesPrettyPrinter(t2)} occursCheck ${occursCheck}")
+      if (occursCheck.contains((t1, t2)))
+        return Right(m)
       val nt1 = find(t1, m)
       val nt2 = find(t2, m)
       (nt1, nt2) match {
@@ -275,137 +278,133 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           Right(m)
         case (t, _: AnyType) =>
           Right(m)
-        case (t1: PrimitiveType, t2: PrimitiveType) if t1 == t2 =>
+        case (p1: PrimitiveType, p2: PrimitiveType) if p1 == p2 =>
           Right(m)
         case (SetType(inner1), SetType(inner2)) =>
-          Right(recurse(inner1, inner2, m) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
+          Right(recurse(inner1, inner2, m, occursCheck + ((t1, t2))) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
         case (BagType(inner1), BagType(inner2)) =>
-          Right(recurse(inner1, inner2, m) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
+          Right(recurse(inner1, inner2, m, occursCheck + ((t1, t2))) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
         case (ListType(inner1), ListType(inner2)) =>
-          Right(recurse(inner1, inner2, m) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
+          Right(recurse(inner1, inner2, m, occursCheck + ((t1, t2))) match { case Right(nm) => nm case Left(nm) => return Left(nm) })
         case (FunType(a1, a2), FunType(b1, b2)) =>
-          recurse(a1, b1, m) match {
-            case Right(nm) => recurse(a2, b2, nm) match {
+          recurse(a1, b1, m, occursCheck + ((t1, t2))) match {
+            case Right(nm) => recurse(a2, b2, nm, occursCheck + ((t1, t2))) match {
               case Right(nm1) => Right(nm1)
               case Left(nm1) => Left(nm1)
             }
             case Left(nm) => Left(nm)
           }
-        case (t1 @ RecordType(atts1, name1), t2 @ RecordType(atts2, name2)) if name1 == name2 && atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn) =>
+        case (RecordType(atts1, name1), RecordType(atts2, name2)) if name1 == name2 && atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn) =>
           var curm = m
           for ((att1, att2) <- atts1.zip(atts2)) {
-            recurse(att1.tipe, att2.tipe, curm) match {
+            recurse(att1.tipe, att2.tipe, curm, occursCheck + ((t1, t2))) match {
               case Right(nm) => curm = nm
               case Left(nm) => return Left(nm)
             }
           }
           Right(curm)
-        case (t1 @ ConstraintRecordType(atts1, _), t2 @ ConstraintRecordType(atts2, _)) =>
+        case (r1 @ ConstraintRecordType(atts1, _), r2 @ ConstraintRecordType(atts2, _)) =>
           val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
           var curm = m
           for (idn <- commonIdns) {
-            val att1 = t1.getType(idn).head
-            val att2 = t2.getType(idn).head
-            recurse(att1, att2, curm) match {
+            val att1 = r1.getType(idn).head
+            val att2 = r2.getType(idn).head
+            recurse(att1, att2, curm, occursCheck + ((t1, t2))) match {
               case Right(nm) => curm = nm
               case Left(nm) => return Left(nm)
             }
           }
-          val commonAttrs = commonIdns.map { case idn => AttrType(idn, t1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
+          val commonAttrs = commonIdns.map { case idn => AttrType(idn, r1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
           val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
-          Right(union(union(curm, t1, t2), t2, nt))
-        case (t1 @ ConstraintRecordType(atts1, _), t2 @ RecordType(atts2, name)) =>
+          Right(union(union(curm, r1, r2), r2, nt))
+        case (r1 @ ConstraintRecordType(atts1, _), r2 @ RecordType(atts2, name)) =>
           if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
             Left(m)
           } else {
             var curm = m
             for (att1 <- atts1) {
-              recurse(att1.tipe, t2.getType(att1.idn).get, curm) match {
+              recurse(att1.tipe, r2.getType(att1.idn).get, curm, occursCheck + ((t1, t2))) match {
                 case Right(nm) => curm = nm
                 case Left(nm) => return Left(nm)
               }
             }
-            Right(union(curm, t1, t2))
+            Right(union(curm, r1, r2))
           }
-        case (t1: RecordType, t2: ConstraintRecordType) =>
-          recurse(t2, t1, m)
-        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2 @ ConstraintCollectionType(inner2, c2, i2, _)) =>
+        case (r1: RecordType, r2: ConstraintRecordType) =>
+          recurse(r2, r1, m, occursCheck + ((t1, t2)))
+        case (col1 @ ConstraintCollectionType(inner1, c1, i1, _), col2 @ ConstraintCollectionType(inner2, c2, i2, _)) =>
           if (c1.isDefined && c2.isDefined && (c1.get != c2.get)) {
             Left(m)
           } else if (i1.isDefined && i2.isDefined && (i1.get != i2.get)) {
             Left(m)
           } else {
-            recurse(inner1, inner2, m) match {
+            recurse(inner1, inner2, m, occursCheck + ((t1, t2))) match {
               case Right(nm) =>
                 val nc = if (c1.isDefined) c1 else c2
                 val ni = if (i1.isDefined) i1 else i2
                 val nt = ConstraintCollectionType(inner1, nc, ni)
-                Right(union(union(nm, t1, t2), t2, nt))
+                Right(union(union(nm, col1, col2), col2, nt))
               case Left(nm) => Left(nm)
             }
           }
-        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: SetType) =>
+        case (col1 @ ConstraintCollectionType(inner1, c1, i1, _), col2: SetType) =>
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && i1.get) || i1.isEmpty))
-            recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(union(nm, t1, t2))
+            recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
+              case Right(nm) => Right(union(nm, col1, col2))
               case Left(nm) => Left(nm)
             }
           else
             Left(m)
-        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: BagType) =>
+        case (col1 @ ConstraintCollectionType(inner1, c1, i1, _), col2: BagType) =>
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
-            recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(union(nm, t1, t2))
+            recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
+              case Right(nm) => Right(union(nm, col1, col2))
               case Left(nm) => Left(nm)
             }
           else
             Left(m)
-        case (t1 @ ConstraintCollectionType(inner1, c1, i1, _), t2: ListType) =>
+        case (col1 @ ConstraintCollectionType(inner1, c1, i1, _), col2: ListType) =>
           if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
-            recurse(inner1, t2.innerType, m) match {
-              case Right(nm) => Right(union(nm, t1, t2))
+            recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
+              case Right(nm) => Right(union(nm, col1, col2))
               case Left(nm) => Left(nm)
             }
           else
             Left(m)
-        case (t1: CollectionType, t2: ConstraintCollectionType) =>
-          recurse(t2, t1, m)
-        case (t1: TypeVariable, t2: TypeVariable) =>
-          Right(union(m, t2, t1))
-        case (t1: TypeVariable, t2: UserType) =>
-          Right(union(m, t1, t2))
-        case (t1: TypeVariable, t2: VariableType) =>
-          Right(union(m, t1, t2))
-        case (t1: UserType, t2: TypeVariable) =>
-          recurse(t2, t1, m)
-        case (t1: VariableType, t2: TypeVariable) =>
-          recurse(t2, t1, m)
-//          Right(union(m, t2, t1))
-        case (t1: TypeVariable, _) =>
-          Right(union(m, t1, t2))
-        case (_, t2: TypeVariable) =>
-          recurse(t2, t1, m)
-//          Right(union(m, t2, t1))
+        case (col1: CollectionType, col2: ConstraintCollectionType) =>
+          recurse(col2, col1, m, occursCheck + ((t1, t2)))
+        case (UserType(sym1), UserType(sym2)) if sym1 == sym2 =>
+          Right(m)
+        case (v1: TypeVariable, v2: TypeVariable) =>
+          Right(union(m, v2, v1))
+        case (v1: TypeVariable, v2: VariableType) =>
+          Right(union(m, v1, v2))
+        case (v1: VariableType, v2: TypeVariable) =>
+          recurse(v2, v1, m, occursCheck + ((t1, t2)))
+        case (v1: TypeVariable, _) =>
+          Right(union(m, v1, nt2))
+        case (_, v2: TypeVariable) =>
+          recurse(v2, nt1, m, occursCheck + ((t1, t2)))
         case _ =>
           Left(m)
       }
     }
     logger.debug(s"ENTER unify(${PrettyPrinter(t1)}, ${PrettyPrinter(t2)})")
-    val r = recurse(t1, t2, m)
-    logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}\n=>")
+    val r = recurse(t1, t2, m, Set())
+    logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}")
     r match {
-      case Right(m) => logger.debug("RIGHT"); printVarMap(m)
-      case Left(m) => logger.debug("LEFT"); printVarMap(m)
+      case Right(m) => logger.debug("RESULT is Right"); printVarMap(m)
+      case Left(m) => logger.debug("RESULT is Left"); printVarMap(m)
     }
 
     r
   }
 
-  /** Return a set with all type variables within a type.
-    */
+//  /** Return a set with all type variables within a type.
+//    */
   private def getTypeVariables(t: Type): Set[TypeVariable] = t match {
     case _: NothingType => Set()
     case _: AnyType => Set()
@@ -469,21 +468,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         // TODO: Describe heuristic in DETAIL here
 
         // ....
-        val g = cs.groupBy(c => getConstraintTypeVariables(c).map(_.sym).intersect(m.keySet).nonEmpty)
-        val next =
-          if (g.contains(true)) {
-          g(true).head
-        } else {
-          g(false).head
-        }
-        solve(next, m) match {
+//        val g = cs.groupBy(c => getConstraintTypeVariables(c).map(_.sym).intersect(m.keySet).nonEmpty)
+//        val next =
+//          if (g.contains(true)) {
+//          g(true).head
+//        } else {
+//          g(false).head
+//        }
+//        solve(next, m) match {
+//          case Left(nm) => Left(nm)
+//          case Right(nms) =>
+//            val rest = And(cs.filterNot(c => c == next):_*)
+//            val all_ms = for (m1 <- nms) yield solve(rest, m1)
+//            val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
+//            if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
+//        }
+
+        solve(cs.head, m) match {
           case Left(nm) => Left(nm)
           case Right(nms) =>
-            val rest = And(cs.filterNot(c => c == next):_*)
+            val rest = And(cs.tail:_*)
             val all_ms = for (m1 <- nms) yield solve(rest, m1)
             val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
             if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
         }
+
       case _: And => // Empty And
         Right(Seq(m))
       case SameType(e1, e2, desc) =>
@@ -519,6 +528,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         // does the re-ordering of And csontraints still matter, or does the new grouping stuff help solve it>
         // TODO
         // TODO
+        // what about occurs check? is it only needed at the end-end now?
+        // TODO
+        // TODO
+        // i didnt make user type descent from VariableType. Does this screw up the union?
+        // no, because i never narrow more a user type.
 
         /* we were chatting about cloning nt and also cloning in the map the type variables uniquely defined within nt with their relative pointers.
         the issue is that if we have smtg like \(x,y) => x + y, we would have in the map the noition that x and y are the same type, but
@@ -612,7 +626,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
 
   private def find(t: Type, m: VarMap, occursCheck: Set[Symbol] = Set()): Type = {
     t match {
-      case v: UserType => if (m.contains(v.sym)) m(v.sym).root else t
+      case UserType(sym) => world.userTypes(sym).root // if (m.contains(v.sym)) m(v.sym).root else t
       case v: VariableType => if (m.contains(v.sym)) m(v.sym).root else t
       case _ => t
     }
