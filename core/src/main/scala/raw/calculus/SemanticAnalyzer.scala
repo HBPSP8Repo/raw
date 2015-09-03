@@ -235,34 +235,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     case n => TypeVariable()
   }
 
-  private def union(m: VarMap, t1: VariableType, t2: Type): VarMap = {
-    val g1 = m.getOrElse(t1.sym, new Group(t1, Set(t1)))
-    t2 match {
-      case t2: VariableType =>
-        val g2 = m.getOrElse(t2.sym, new Group(t2, Set(t2)))
-        if (g1 eq g2) {
-          assert(g1.tipes.contains(t1))
-          assert(g2.tipes.contains(t2))
-          m
-        } else {
-          val ntipes = g1.tipes union g2.tipes
-          val ng = new Group(t2, ntipes)
-          assert(ng.tipes.contains(t1))
-          assert(ng.tipes.contains(t2))
-          logger.debug(s"m is $m")
-          logger.debug(s"n is ${ntipes.collect { case v: VariableType => v.sym }.map(_ -> ng).toMap}")
-          val t =
-          m ++ ntipes.collect { case v: VariableType => v.sym }.map(_ -> ng).toMap
-          t
-        }
-      case _ =>
-        val ng = new Group(t2, g1.tipes + t2)
-        assert(ng.tipes.contains(t1))
-        assert(ng.tipes.contains(t2))
-        m ++ g1.tipes.collect { case v: VariableType => v.sym }.map(_ -> ng).toMap
-    }
-  }
-
   /** Hindley-Milner unification algorithm.
     */
   private def unify(t1: Type, t2: Type, m: VarMap): Either[VarMap, VarMap] = {
@@ -316,7 +288,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           }
           val commonAttrs = commonIdns.map { case idn => AttrType(idn, r1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
           val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
-          Right(union(union(curm, r1, r2), r2, nt))
+          Right(curm.union(r1, r2).union(r2, nt))
         case (r1 @ ConstraintRecordType(atts1, _), r2 @ RecordType(atts2, name)) =>
           if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
             Left(m)
@@ -328,7 +300,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
                 case Left(nm) => return Left(nm)
               }
             }
-            Right(union(curm, r1, r2))
+            Right(curm.union(r1, r2))
           }
         case (r1: RecordType, r2: ConstraintRecordType) =>
           recurse(r2, r1, m, occursCheck + ((t1, t2)))
@@ -343,7 +315,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
                 val nc = if (c1.isDefined) c1 else c2
                 val ni = if (i1.isDefined) i1 else i2
                 val nt = ConstraintCollectionType(inner1, nc, ni)
-                Right(union(union(nm, col1, col2), col2, nt))
+                Right(nm.union(col1, col2).union(col2, nt))
               case Left(nm) => Left(nm)
             }
           }
@@ -351,7 +323,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && i1.get) || i1.isEmpty))
             recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
-              case Right(nm) => Right(union(nm, col1, col2))
+              case Right(nm) => Right(nm.union(col1, col2))
               case Left(nm) => Left(nm)
             }
           else
@@ -360,7 +332,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           if (((c1.isDefined && c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
             recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
-              case Right(nm) => Right(union(nm, col1, col2))
+              case Right(nm) => Right(nm.union(col1, col2))
               case Left(nm) => Left(nm)
             }
           else
@@ -369,7 +341,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
           if (((c1.isDefined && !c1.get) || c1.isEmpty) &&
             ((i1.isDefined && !i1.get) || i1.isEmpty))
             recurse(inner1, col2.innerType, m, occursCheck + ((t1, t2))) match {
-              case Right(nm) => Right(union(nm, col1, col2))
+              case Right(nm) => Right(nm.union(col1, col2))
               case Left(nm) => Left(nm)
             }
           else
@@ -379,13 +351,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         case (UserType(sym1), UserType(sym2)) if sym1 == sym2 =>
           Right(m)
         case (v1: TypeVariable, v2: TypeVariable) =>
-          Right(union(m, v2, v1))
+          Right(m.union(v2, v1))
         case (v1: TypeVariable, v2: VariableType) =>
-          Right(union(m, v1, v2))
+          Right(m.union(v1, v2))
         case (v1: VariableType, v2: TypeVariable) =>
           recurse(v2, v1, m, occursCheck + ((t1, t2)))
         case (v1: TypeVariable, _) =>
-          Right(union(m, v1, nt2))
+          Right(m.union(v1, nt2))
         case (_, v2: TypeVariable) =>
           recurse(v2, nt1, m, occursCheck + ((t1, t2)))
         case _ =>
@@ -403,8 +375,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     r
   }
 
-//  /** Return a set with all type variables within a type.
-//    */
+  /** Return a set with all type variables within a type.
+    */
   private def getTypeVariables(t: Type): Set[TypeVariable] = t match {
     case _: NothingType => Set()
     case _: AnyType => Set()
@@ -441,7 +413,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     * - a new map, if a solution to the constraint was found;
     * - or a map of the solution found so far plus a list of error messages, if the constraint could not be resolved.
     */
-  private def solve(c: Constraint, m: VarMap = Map()): Either[(VarMap, Seq[Error]), Seq[VarMap]] = {
+  private def solve(c: Constraint, m: VarMap): Either[(VarMap, Seq[Error]), Seq[VarMap]] = {
 
     logger.debug(s"Processing constraint: $c")
     logger.debug("Input map:")
@@ -462,75 +434,45 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       case _: Or => // Empty Or
         Left((m, Nil))
       case And(cs @ _*) if cs.nonEmpty =>
-        // ....
-        // TODO: Handle 1st the constants that are really known? e.g 2 = "blah" : we should set type of = first?
-
-        // TODO: Describe heuristic in DETAIL here
-
-        // ....
-//        val g = cs.groupBy(c => getConstraintTypeVariables(c).map(_.sym).intersect(m.keySet).nonEmpty)
-//        val next =
-//          if (g.contains(true)) {
-//          g(true).head
-//        } else {
-//          g(false).head
-//        }
-//        solve(next, m) match {
-//          case Left(nm) => Left(nm)
-//          case Right(nms) =>
-//            val rest = And(cs.filterNot(c => c == next):_*)
-//            val all_ms = for (m1 <- nms) yield solve(rest, m1)
-//            val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
-//            if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
-//        }
-
-        solve(cs.head, m) match {
+        // TODO: Handle 1st constraint of basic types (e.g. 1 = 1.1)
+        // Group constraints into two groups: those that have type variables and those that do not.
+        val g = cs.groupBy(c => getConstraintTypeVariables(c).intersect(m.typeVariables).nonEmpty)
+        // The next constraint to solve is always a constraint with type variables, if it exists.
+        // TODO: Prefer constraints with more type variables?
+        val next = if (g.contains(true)) g(true).head else g(false).head
+        // Solve that constraint and call ourselves recursively with the rest of the And constraints
+        solve(next, m) match {
           case Left(nm) => Left(nm)
           case Right(nms) =>
-            val rest = And(cs.tail:_*)
+            val rest = And(cs.filterNot(c => c == next):_*)
             val all_ms = for (m1 <- nms) yield solve(rest, m1)
             val ms: Seq[VarMap] = all_ms.filter(_.isRight).flatMap(_.right.get)
             if (ms.isEmpty) all_ms.filter(_.isLeft).head else Right(ms)
         }
-
       case _: And => // Empty And
         Right(Seq(m))
       case SameType(e1, e2, desc) =>
-        val nt1 = find(expType(e1), m)
-        val nt2 = find(expType(e2), m)
+        val nt1 = expType(e1)
+        val nt2 = expType(e2)
         unify(nt1, nt2, m) match {
           case Right(nm) =>
             Right(Seq(nm))
           case Left(nm) =>
             nt1.pos = e1.pos
             nt2.pos = e2.pos
-            Left(m ++ nm, List(IncompatibleTypes(nt1, nt2)))
+            Left(nm, List(IncompatibleTypes(walk(nt1, nm), walk(nt2, nm))))
         }
       case HasType(e, expected, desc) =>
-        val nt = find(expType(e), m)
-        val nexpected = find(expected, m)
+        val nt = expType(e)
+        val nexpected = expected
         unify(nt, nexpected, m) match {
           case Right(nm) => Right(Seq(nm))
           case Left(nm) =>
             nt.pos = e.pos
-            Left(m ++ nm, List(UnexpectedType(nt, nexpected, desc)))
+            Left(nm, List(UnexpectedType(walk(nt, nm), walk(nexpected, nm), desc)))
         }
       case IsFunApp(e, expected) =>
-
-        // TODO
-        // TODO
-        // TODO
-        // does it make sense on Left(...) in all this code to still do m ++ nm ???
-        // TODO
-
-        // TODO
-        // TODO
-        // does the re-ordering of And csontraints still matter, or does the new grouping stuff help solve it>
-        // TODO
-        // TODO
-        // what about occurs check? is it only needed at the end-end now?
-        // TODO
-        // TODO
+        // TODO: Is this needed?
         // i didnt make user type descent from VariableType. Does this screw up the union?
         // no, because i never narrow more a user type.
 
@@ -538,13 +480,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
         the issue is that if we have smtg like \(x,y) => x + y, we would have in the map the noition that x and y are the same type, but
         the map is not expressive enough to say that they are ALSO either int or float.
          */
-        val nt = find(expType(e), m)
-        val nexpected = find(expected, m)
+        val nt = expType(e)
+        val nexpected = expected
         unify(nt, nexpected, m) match {
           case Right(nm) => Right(Seq(nm))
           case Left(nm) =>
             nt.pos = e.pos
-            Left(m ++ nm, List(UnexpectedType(nt, nexpected, None)))
+            Left(nm, List(UnexpectedType(walk(nt, nm), walk(nexpected, nm), None)))
         }
       case NoConstraint => Right(Seq(m))
     }
@@ -591,7 +533,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
 
   private lazy val badEntities = collectBadEntities(tree.root)
 
-  private lazy val solutions: Either[(VarMap, Seq[Error]), Seq[VarMap]] = solve(rootConstraint, world.userTypes)
+  private lazy val solutions: Either[(VarMap, Seq[Error]), Seq[VarMap]] = {
+    var m = new VarMap()
+    for ((sym, t) <- world.tipes) {
+      m = m.union(UserType(sym), t)
+    }
+    solve(rootConstraint, m)
+  }
 
   lazy val errors: Seq[Error] =
     if (badEntities.nonEmpty)
@@ -618,42 +566,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
   /** Given a type, returns a new type that replaces type variables as much as possible, given the map m.
     * This is the type representing the group of types.
     */
+  private def find(t: Type, m: VarMap): Type =
+    if (m.contains(t)) m(t).root else t
 
-  // find the group that contains type t
-  // if it doesnt exist create a single group for it
-  // return the root of that group, plus the mapping of all groups (since we may have create a new mapping)
-
-
-  private def find(t: Type, m: VarMap, occursCheck: Set[Symbol] = Set()): Type = {
-    t match {
-      case UserType(sym) => world.userTypes(sym).root // if (m.contains(v.sym)) m(v.sym).root else t
-      case v: VariableType => if (m.contains(v.sym)) m(v.sym).root else t
-      case _ => t
-    }
-
-//    t match {
-//      case _: NothingType => t
-//      case _: AnyType => t
-//      case _: PrimitiveType => t
-//      case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, find(t1, m, occursCheck)) }, name)
-//      case ListType(innerType) => ListType(find(innerType, m, occursCheck))
-//      case SetType(innerType) => SetType(find(innerType, m, occursCheck))
-//      case BagType(innerType) => BagType(find(innerType, m, occursCheck))
-//      case FunType(t1, t2) => FunType(find(t1, m, occursCheck), find(t2, m, occursCheck))
-//      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, find(t1, m, occursCheck)) }, sym)
-//      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(find(innerType, m, occursCheck), c, i, sym)
-//      case t1: TypeVariable =>
-//        if (occursCheck.contains(t1.sym) ||     // Occurs check (for detecting recursive types)
-//            !m.contains(t1.sym))                // First time: still not in the map
-//          t
-//        else
-//          find(m(t1.sym).root, m, occursCheck + t1.sym)
-////        else if (m.contains(t1.sym) && m(t1.sym) != t)
-////          walk(m(t1.sym), m, occursCheck + t1.sym)
-////        else
-////          t
-    }
-
+  /** Return a user-friendly type description.
+    */
   private def walk(t: Type, m: VarMap, occursCheck: Set[Symbol] = Set()): Type =
     t match {
       case _: NothingType => t
@@ -667,56 +584,28 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
       case FunType(t1, t2) => FunType(walk(t1, m, occursCheck), walk(t2, m, occursCheck))
       case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m, occursCheck)) }, sym)
       case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(walk(innerType, m, occursCheck), c, i, sym)
-      //case t1: TypeVariable if world.userTypes.contains(t1.sym) => t1   // Report user-defined types back to the user as they were
       case t1: TypeVariable =>
-        if (occursCheck.contains(t1.sym) || !m.contains(t1.sym))
+        // If we are recursing ourselves, or we cannot resolve the type variable further, return it to the user.
+        if (occursCheck.contains(t1.sym) || !m.contains(t1))
           t1
         else {
-        val g = m(t1.sym)
-        val userType = g.tipes.collectFirst { case t: TypeVariable if world.userTypes.contains(t.sym) => t }
-        userType match {
-          case Some(ut) => ut
-          case None =>
-            val ts = g.tipes.filter { case _: VariableType => false case _ => true }
-            logger.debug(s"GOT HERE with $ts")
-            val nt = if (ts.nonEmpty) ts.head else g.root
-            walk(nt, m, occursCheck + t1.sym)
-        }
-        }
-
-//
-//        if (occursCheck.contains(t1.sym) ||   // Occurs check (for detecting recursive types)
-//          !m.contains(t1.sym))                // First time: still not in the map
-//          t
-//        else
-//          walk(m(t1.sym).root, m, occursCheck + t1.sym)
-//      //        else if (m.contains(t1.sym) && m(t1.sym) != t)
-//      //          walk(m(t1.sym), m, occursCheck + t1.sym)
-//      //        else
-//      //          t
+          // Otherwise, go into our group, and collect a UserType definition if it exists.
+          // We assume the UserType is the most friendly one to return to the user.
+          val g = m(t1)
+          val userType = g.tipes.collectFirst { case u: UserType => u }
+          userType match {
+            case Some(ut) => ut
+            case None =>
+              // If we could not find a UserType, try to return anything that is not a VariableType if it exists.
+              // Otherwise, we are forced to return the VariableType (e.g. TypeVariable, Constraint, ...) to the user.
+              val ts = g.tipes.filter { case _: VariableType => false case _ => true }
+              val nt = if (ts.nonEmpty) ts.head else g.root
+              walk(nt, m, occursCheck + t1.sym)
+            }
+          }
     }
 
-  def printVarMap(m: VarMap) = {
-//    logger.debug("\nVarmap")
-    var s = ""
-    for (k <- m.keys.toList.sortBy(_.idn)) {
-      val v = m(k)
-      s += s"${k.idn} => ${TypesPrettyPrinter(v.root)} (${
-        v.tipes.map {
-          case t: VariableType => s"[${t.sym.idn}] ${TypesPrettyPrinter(t)}"
-          case t => TypesPrettyPrinter(t)
-        }.mkString(", ")
-      })\n"
-    }
-    logger.debug("\nVarMap\n" + s)
-//    logger.debug("\nVarmap\n" + m.map { x => s"${x._1.idn} => ${TypesPrettyPrinter(x._2.root)} (${
-//      x._2.tipes.map {
-//        case t: VariableType => s"[${t.sym.idn}] ${TypesPrettyPrinter(t)}"
-//        case t => TypesPrettyPrinter(t)
-//      }.mkString(", ")
-//    })"
-//    }.mkString("\n"))
-  }
+  def printVarMap(m: VarMap) = logger.debug(m.toString())
 
   /** Return the type of an expression.
     */
