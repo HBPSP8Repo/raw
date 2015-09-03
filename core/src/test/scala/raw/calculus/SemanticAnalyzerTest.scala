@@ -100,7 +100,6 @@ class SemanticAnalyzerTest extends FunTest {
       "records" -> SetType(RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None)),
       "unknownrecords" -> SetType(RecordType(List(AttrType("dead", AnyType()), AttrType("alive", AnyType())), None))))
 
-
     success("for (r <- integers) yield max r", world, IntType())
     success("for (r <- integers) yield set r + 1", world, SetType(IntType()))
     success("for (r <- unknown) yield set r + 1", world, SetType(IntType()))
@@ -110,13 +109,9 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (r <- unknown; x <- floats; r + x = x) yield set r", world, SetType(FloatType()))
     success("for (r <- unknown; x <- booleans; r and x) yield set r", world, SetType(BoolType()))
     success("for (r <- unknown; x <- strings; r = x) yield set r", world, SetType(StringType()))
-
     success("for (r <- unknown) yield max (r + (for (i <- integers) yield max i))", world, IntType())
-
     success("for (r <- unknown; (for (x <- integers) yield and r > x) = true) yield set r", world, SetType(IntType()))
-
     success("""for (r <- unknown; f := (\v -> v + 2)) yield set f(r)""", world, SetType(IntType()))
-
     success("for (r <- unknown; v := r) yield set (r + 0)", world, SetType(IntType()))
     success("for (r <- unknownrecords) yield set r.dead or r.alive", world, SetType(BoolType()))
     success("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", world, SetType(IntType()))
@@ -259,20 +254,6 @@ class SemanticAnalyzerTest extends FunTest {
 //
 //      """, world,
 
-    // List of issues left:
-    // 1) Issue above is that we are binding too much. Causes problems in libraries
-    // 2) Issue below is that we return a too broad type (TypeVariable) to represent int/float and that will blow up at runtime with the wrong types
-    // even though the program type checked. So, it's unsound. NO. This is NOT AN ISSUE. We return multiple solutions and that is correct.
-    // 3) We don't return unrelated errors.
-    // 4) We don't support recursive types.
-    // 5) Do we support recursive functions? YES, in the solver, but we need new parser nodes to represent it and their chain/scoping rules.
-
-    // whenever we have a function application,
-    // we need to copy its constraints
-
-    // if we add a semantic check that if smtg is TypeVariable, we make it sound, but we then must indeed bind 'too much'
-    // otherwise funabs cannot return type variables.
-
 //    success(
 //      """
 //        {
@@ -287,10 +268,6 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("recursive lambda function") {
-    // TODO: Add syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
-    // TODO: and we really showed that it should simply type to FunType(IntType(), IntType().
-    // TODO: The rest is just code generation gymnics
-
     success(
       """
          {

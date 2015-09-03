@@ -729,4 +729,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
     }
   }
 
-  }
+}
+
+// TODO: Fix lambda recursive test case
+// TODO: Make sure we then support recursive functions by adding more tests
+// TODO: Infering FunAbs in the context of a FunApp
+// TODO: Make one SemanticAnalyzer test per function.
+// TODO: Sort out the SemanticAnalyzer tests: there are useful tests there that are commented out since we didn't match properly (e.g. on errors)
+// TODO: Add more tests to the SemanticAnalyzer with the intuit of testing the error reporting: the error messages may not yet be the most clear.
+// TODO: Report unrelated errors by returning multiple Lefts - likely setting things to NothingType and letting them propagate.
+//       Related with ths one, is the notion of whether Left(...) on solve should bother to return the bad map, since all we
+//       actually need are the error messages.
+// TODO: Consider adding syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
+//       It should just type to FunType(IntType(), IntType().
+//       It is not strictly needed but the notion of a NamedFunction may help code-generation because these are things we don't inline/consider inlining,
