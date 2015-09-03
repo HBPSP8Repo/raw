@@ -744,3 +744,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 //       It should just type to FunType(IntType(), IntType().
 //       It is not strictly needed but the notion of a NamedFunction may help code-generation because these are things we don't inline/consider inlining,
 // TODO: Do we need to add a closure check, or is that executor-specific?
+// TODO: Add check to forbit polymorphic recursion (page 377 or 366 of ML Impl book)
+// TODO: Add issue regarding polymorphic code generation:
+//       e.g. if Int, Bool on usage generate 2 versions of the method;
+//       more interestingly, if ConstraintRecordType, find out the actual records used and generate versions for those.
+// TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
+// TODO: Re-do Unnester to use the same tree. Refactor code into new package raw.core
+// TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
