@@ -715,7 +715,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
       // Expression block type
       case n @ ExpBlock(_, e) =>
-        logger.debug(s"My type is ${TypesPrettyPrinter(expType(n))}")
         SameType(n, e)
 
       // Generator

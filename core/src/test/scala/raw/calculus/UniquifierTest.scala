@@ -29,16 +29,12 @@ class UniquifierTest extends FunTest {
         """for ($0 <- things) yield set (a := $0, b := for ($1 <- things) yield set $1)""")
   }
 
-  test("PatternFunAbs 1") {
-    compare(process("""\(a, b) -> a + b"""), """\($0, $1) -> $0 + $1""")
+  test("""\(a, b) -> a + b + 1""") {
+    compare(process("""\(a, b) -> a + b + 1"""), """\($0, $1) -> $0 + $1 + 1""")
   }
 
-  test("PatternFunAbs 2") {
-    compare(
-      process(
-        """\(a: int, b: int) -> a + b + 2"""),
-        """\($0 : int, $1 : int) -> $0 + $1 + 2""")
+  test("""\(a, b) -> a + b + 2""") {
+    compare(process("""\(a, b) -> a + b + 2"""), """\($0, $1) -> $0 + $1 + 2""")
   }
-
 
 }

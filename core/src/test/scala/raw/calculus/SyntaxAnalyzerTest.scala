@@ -176,11 +176,11 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("#63 (support for !=)") {
-    matches("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
+    equals("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
   }
 
-  ignore("source code comments") {
-    matches(
+  test("source code comments") {
+    equals(
       """
         // compute the max of values
         for (v <- values) // yield set v
