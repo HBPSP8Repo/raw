@@ -569,41 +569,54 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
   private def find(t: Type, m: VarMap): Type =
     if (m.contains(t)) m(t).root else t
 
-  /** Return a user-friendly type description.
+  /** Reconstruct the type into a user-friendly type: in practice this means resolving any "inner" type variables
+    * and giving preference to UserType when they exist.
     */
-  private def walk(t: Type, m: VarMap, occursCheck: Set[Symbol] = Set()): Type =
-    t match {
-      case _: NothingType => t
-      case _: AnyType => t
-      case _: PrimitiveType => t
-      case _: UserType => t
-      case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m, occursCheck)) }, name)
-      case ListType(innerType) => ListType(walk(innerType, m, occursCheck))
-      case SetType(innerType) => SetType(walk(innerType, m, occursCheck))
-      case BagType(innerType) => BagType(walk(innerType, m, occursCheck))
-      case FunType(t1, t2) => FunType(walk(t1, m, occursCheck), walk(t2, m, occursCheck))
-      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, walk(t1, m, occursCheck)) }, sym)
-      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(walk(innerType, m, occursCheck), c, i, sym)
-      case t1: TypeVariable =>
-        // If we are recursing ourselves, or we cannot resolve the type variable further, return it to the user.
-        if (occursCheck.contains(t1.sym) || !m.contains(t1))
-          t1
-        else {
-          // Otherwise, go into our group, and collect a UserType definition if it exists.
-          // We assume the UserType is the most friendly one to return to the user.
-          val g = m(t1)
-          val userType = g.tipes.collectFirst { case u: UserType => u }
-          userType match {
-            case Some(ut) => ut
-            case None =>
-              // If we could not find a UserType, try to return anything that is not a VariableType if it exists.
-              // Otherwise, we are forced to return the VariableType (e.g. TypeVariable, Constraint, ...) to the user.
-              val ts = g.tipes.filter { case _: VariableType => false case _ => true }
-              val nt = if (ts.nonEmpty) ts.head else g.root
-              walk(nt, m, occursCheck + t1.sym)
-            }
-          }
-    }
+  private def walk(t: Type, m: VarMap): Type = {
+
+    def pickMostRepresentativeType(t: Type): Type =
+      if (m.contains(t)) {
+        // Collect a UserType definition if it exists.
+        // We assume the UserType is the most friendly one to return to the user.
+        val g = m(t)
+        val userType = g.tipes.collectFirst { case u: UserType => u }
+        userType match {
+          case Some(ut) =>
+            // We found a UserType, so let's return it
+            ut
+          case None =>
+            // If we could not find a UserType, try to return anything that is not a VariableType if it exists.
+            // Otherwise, we are forced to return the VariableType (e.g. TypeVariable, Constraint, ...).
+            val ts = g.tipes.filter { case _: VariableType => false case _ => true }
+            val nt = if (ts.nonEmpty) ts.head else g.root
+            nt
+        }
+      } else
+        t
+
+    def reconstructType(ot: Type, occursCheck: Set[Type]): Type =
+      if (occursCheck.contains(ot)) {
+        ot
+      } else {
+        val t = pickMostRepresentativeType(ot)
+        t match {
+          case _: NothingType => t
+          case _: AnyType => t
+          case _: PrimitiveType => t
+          case _: UserType => t
+          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
+          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + t))
+          case SetType(innerType) => SetType(reconstructType(innerType, occursCheck + t))
+          case BagType(innerType) => BagType(reconstructType(innerType, occursCheck + t))
+          case FunType(t1, t2) => FunType(reconstructType(t1, occursCheck + t), reconstructType(t2, occursCheck + t))
+          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
+          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + t), c, i, sym)
+          case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + t1)
+        }
+      }
+
+    reconstructType(t, Set())
+  }
 
   def printVarMap(m: VarMap) = logger.debug(m.toString())
 
