@@ -3,6 +3,9 @@ package raw
 import scala.collection.immutable.Map
 import raw.calculus.{TypesPrettyPrinter, Symbol}
 
+import scala.util.parsing.input.Position
+import com.typesafe.scalalogging.LazyLogging
+
 class Group(val root: Type, val tipes: Set[Type])
 
 
@@ -11,13 +14,15 @@ class Group(val root: Type, val tipes: Set[Type])
 class World(val sources: Map[String, Type] = Map(),
             val tipes: Map[Symbol, Type] = Map())
 
-object World {
+object World extends LazyLogging {
+
+  import calculus.Calculus.Exp
 
   //type VarMap = Map[Symbol, Type]
 
   //type VarMap = Map[Meta, Group]
 
-  class VarMap(val m: List[(Type, Group)] = List()) {
+  class VarMap(val m: List[(Type, Group)] = List(), val query: Option[String] = None) {
 
     def typeVariables: Set[TypeVariable] =
       m.collect { case (v: TypeVariable, _) => v }.toSet
@@ -42,21 +47,6 @@ object World {
 
     def apply(t: Type): Group = get(t).head
 
-//    def ++(other: List[(Type, Group)]): VarMap = {
-//      val nm = scala.collection.mutable.MutableList[(Type, Group)]()
-//      for ((k, g) <- other) {
-//        nm += ((k, g))
-//      }
-//      for ((k, g) <- this.m) {
-//        if (!nm.contains(k)) {
-//          nm += ((k, g))
-//        }
-//      }
-//      new VarMap(nm.toList)
-//    }
-//
-//    def ++(other: VarMap): VarMap = ++(other.m)
-
     def union(t1: Type, t2: Type): VarMap = {
       val g1 = getOrElse(t1, new Group(t1, Set(t1)))
       val g2 = getOrElse(t2, new Group(t2, Set(t2)))
@@ -69,10 +59,6 @@ object World {
         val ng = new Group(t2, ntipes)
         assert(ng.tipes.contains(t1))
         assert(ng.tipes.contains(t2))
-        //        logger.debug(s"m is $m")
-        //        logger.debug(s"n is ${ntipes.collect { case v: VariableType => v.sym }.map(_ -> ng).toMap}")
-//        m ++ ntipes.collect { case v: VariableType => v }.map(_ -> ng).toList
-
         val nm = scala.collection.mutable.MutableList[(Type, Group)]()
         for ((k, g) <- m) {
           var found = false
@@ -88,20 +74,16 @@ object World {
         for (k <- ntipes) {
           nm += ((k, ng))
         }
-        new VarMap(nm.toList)
+
+        // Pretty-print changes to the map
+        query match {
+          case Some(q) => logger.debug("Map change\n" + printMap(q, ntipes.map(_.pos), ng.root))
+          case None =>
+        }
+
+        new VarMap(nm.toList, query=query)
       }
     }
-//      t2 match {
-//        case t2: VariableType =>
-//          else {
-//          }
-//        case _ =>
-//          val ng = new Group(t2, g1.tipes + t2)
-//          assert(ng.tipes.contains(t1))
-//          assert(ng.tipes.contains(t2))
-//          m ++ g1.tipes.collect { case v: VariableType => v }.map(_ -> ng).toList
-//      }
-//    }
 
     override def toString: String = {
       var s = "\n"
@@ -117,29 +99,26 @@ object World {
       }
       s
     }
+
+    def printMap(q: String, pos: Set[Position], t: Type) = {
+      val posPerLine = pos.groupBy(_.line)
+      var output = s"New Type: ${TypesPrettyPrinter(t)}\n"
+      for ((line, lineno) <- q.split("\n").zipWithIndex) {
+        output += line + "\n"
+        if (posPerLine.contains(lineno + 1)) {
+          val cols = posPerLine(lineno + 1).map(_.column).toList.sortWith(_ < _)
+          var c = 0
+          for (col <- cols) {
+            output += " " * (col - c - 1)
+            output += "^"
+            c = col
+          }
+          output += "\n"
+        }
+      }
+      output
+    }
+
   }
 
-//  class VarMap {
-//
-//    make a list and go through it and do eq to every object ????
-//    slowest thing ever
-//
-//    or make a map that points to a list of objects that have different eqs?
-//
-//    def contains(t: Type): Boolean = ???
-//
-//    def getOrElse(t: Type, g: Group): Group = ???
-//
-//    def apply(t: Type): Group = ???
-//
-//    def ++(other: VarMap) =
-//      new VarMap()
-//
-//  }
-
-//  class VarMap extends scala.collection.immutable.HashMap[Type, Group] {
-//    protected override def elemHashCode(k: Type) = System.identityHashCode(k)
-//
-//    override def ++(other: VarMap): VarMap = super.++(other)
-//  }
 }

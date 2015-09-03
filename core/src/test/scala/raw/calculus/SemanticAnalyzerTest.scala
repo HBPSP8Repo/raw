@@ -8,9 +8,10 @@ class SemanticAnalyzerTest extends FunTest {
   def go(query: String, world: World) = {
     val ast = parse(query)
     val t = new Calculus.Calculus(ast)
+    logger.debug(s"AST: ${t.root}")
     logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
-    val analyzer = new SemanticAnalyzer(t, world)
+    val analyzer = new SemanticAnalyzer(t, world, Some(query))
     analyzer.errors.foreach(e => logger.error(ErrorsPrettyPrinter(e)))
     analyzer
   }
@@ -165,6 +166,11 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\x -> x.age + 2""", world, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
     failure("""\(x, y) -> x + y""", world, TooManySolutions)
 
+    var arg = TypeVariable()
+    val out = TypeVariable()
+    val f = FunType(arg, out)
+    success("""{ recursive := \(f, arg) -> f(arg); recursive } """, new World(), FunType(RecordType(List(AttrType("_1", f), AttrType("_2", arg)), None), out))
+
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 //      FunType(
@@ -267,15 +273,32 @@ class SemanticAnalyzerTest extends FunTest {
 //        IntType()))
   }
 
+  test("function application") {
+//    success("""(\x -> x + 1)(1)""", new World(), IntType())
+//    success("""(\y -> (\x -> x + 1)(y))(1)""", new World(), IntType())
+
+  }
+
+
   test("recursive lambda function") {
     success(
       """
          {
-        recursive := (\(f, arg) -> f(arg));
-        factorial := (\n -> recursive( (\(rec, v) -> if (v = 0) then 1 else rec(v - 1) * v), n));
-        factorial
+         fact1 := \(f, n1) -> if (n1 = 0) then 1 else n1 * (f(f, n1 - 1));
+         fact := \n -> fact1(fact1, n);
+         fact
         }
       """, new World(), FunType(IntType(), IntType()))
+    success(
+      """
+      {
+        F := \f -> (\x -> f(f,x));
+        fact1 := \(f, n1) -> if (n1 = 0) then 1 else n1 * (f(f, n1 - 1));
+        fact := F(fact1);
+        fact
+      }
+      """, new World(), FunType(IntType(), IntType())
+    )
 
   }
 

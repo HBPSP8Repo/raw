@@ -13,8 +13,10 @@ case class SemanticAnalyzerError(err: String) extends RawException(err)
   * User types are the type definitions available to the user.
   * Class entities are the data sources available to the user.
   * e.g., in expression `e <- Events` the class entity is `Events`.
+  *
+  * The original user query is passed optionally for debugging purposes.
   */
-class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attribution with LazyLogging {
+class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Option[String] = None) extends Attribution with LazyLogging {
 
   import scala.collection.immutable.{Map, Seq}
   import org.kiama.==>
@@ -534,7 +536,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
   private lazy val badEntities = collectBadEntities(tree.root)
 
   private lazy val solutions: Either[(VarMap, Seq[Error]), Seq[VarMap]] = {
-    var m = new VarMap()
+    var m: VarMap = new VarMap(query = query)
     for ((sym, t) <- world.tipes) {
       m = m.union(UserType(sym), t)
     }
@@ -730,6 +732,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World) extends Attrib
   }
 
 }
+
+// test funapp first
 
 // TODO: Fix lambda recursive test case
 // TODO: Make sure we then support recursive functions by adding more tests
