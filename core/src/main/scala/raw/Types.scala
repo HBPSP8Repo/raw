@@ -18,9 +18,9 @@ case class IntType() extends Type
 
 case class FloatType() extends Type
 
-case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends Type
+case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
 
-case class NumberType(sym: Symbol = SymbolTable.next()) extends Type
+case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 /** Record Type
   */

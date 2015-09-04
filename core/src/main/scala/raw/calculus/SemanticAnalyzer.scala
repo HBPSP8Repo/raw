@@ -659,31 +659,34 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
       } else
         t
 
-    def reconstructType(ot: Type, occursCheck: Set[Type]): Type =
+    def reconstructType(ot: Type, occursCheck: Set[Type]): Type = {
+      logger.debug(s"ot is $ot");
       if (occursCheck.contains(ot)) {
         ot
       } else {
         val t = pickMostRepresentativeType(ot)
         t match {
-          case _: NothingType => t
-          case _: AnyType => t
-          case _: IntType => t
-          case _: BoolType => t
-          case _: FloatType => t
-          case _: StringType => t
-          case _: PrimitiveType => t
-          case _: NumberType => t
-          case _: UserType => t
-          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
-          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + t))
-          case SetType(innerType) => SetType(reconstructType(innerType, occursCheck + t))
-          case BagType(innerType) => BagType(reconstructType(innerType, occursCheck + t))
-          case FunType(p, e, cs) => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t), cs)
-          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
-          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + t), c, i, sym)
-          case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + t1)
+          case _: NothingType   => t
+          case _: AnyType       => t
+          case _: IntType       => t
+          case _: BoolType      => t
+          case _: FloatType     => t
+          case _: StringType    => t
+          case _: PrimitiveType => if (!m.contains(t)) t else reconstructType(m(t).root, occursCheck + ot)
+          case _: NumberType    => if (!m.contains(t)) t else reconstructType(m(t).root, occursCheck + ot)
+          case _: UserType      => t
+          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + ot)) }, name)
+          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + ot))
+          case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + ot))
+          case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + ot))
+          case FunType(p, e, cs)   => FunType(reconstructType(p, occursCheck + ot), reconstructType(e, occursCheck + ot), cs)
+          // TODO: Shouldn't I walk ALL Variable types?
+          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + ot)) }, sym)
+          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + ot), c, i, sym)
+          case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + ot)
         }
       }
+    }
 
     reconstructType(t, Set())
   }
