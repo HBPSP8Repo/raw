@@ -51,6 +51,10 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
 
   def tipe(t: Type): Doc = t match {
+
+    case PrimitiveType(sym) => "primitive" <> parens(sym.idn)
+    case NumberType(sym) => "number" <> parens(sym.idn)
+
     case _: BoolType   => "bool"
     case _: StringType => "string"
     case _: IntType    => "int"
@@ -66,7 +70,8 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case BagType(innerType)     => "bag" <> parens(tipe(innerType))
     case ListType(innerType)    => "list" <> parens(tipe(innerType))
     case SetType(innerType)     => "set" <> parens(tipe(innerType))
-    case FunType(t1, t2)        => tipe(t1) <+> "->" <+> tipe(t2)
+      // TODO: Print FunType constraints?
+    case FunType(p, e, _)        => tipe(p) <+> "->" <+> tipe(e)
     case TypeVariable(sym)      => s"<${sym.idn}>"
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"

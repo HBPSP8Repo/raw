@@ -21,8 +21,6 @@ case class IncompatibleTypes(t1: Type, t2: Type) extends Error
 
 case class UnexpectedType(t: Type, expected: Type, desc: Option[String]) extends Error
 
-case object TooManySolutions extends Error
-
 /** ErrorPrettyPrinter
   */
 object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
@@ -53,8 +51,6 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
       s"$desc but got ${TypesPrettyPrinter(t)} (${t.pos})"
     case UnexpectedType(t, expected, None) =>
       s"expected ${TypesPrettyPrinter(expected)} but got ${TypesPrettyPrinter(t)} (${t.pos})"
-    case TooManySolutions =>
-      s"could not type check: too many solutions found"
   }
 }
 
@@ -73,6 +69,8 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
   }
 
   def show(t: Type): Doc = t match {
+    case _: NumberType => "number"
+    case _: PrimitiveType => "primitive"
     case ConstraintCollectionType(inner, c, i, _) =>
       val prefix = List(p(c, "commutative"), p(i, "idempotent")).filter(_.isDefined).mkString(" and ")
       if (prefix.nonEmpty)
@@ -85,8 +83,9 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
         s"record with $satts"
       else
         s"record"
-    case FunType(t1, t2) =>
-      s"function taking ${TypesPrettyPrinter(t1)} and returning ${TypesPrettyPrinter(t2)}"
+    case FunType(p, e, _) =>
+      // TODO: Pretty print the FunType constraints?
+      s"function taking ${TypesPrettyPrinter(p)} and returning ${TypesPrettyPrinter(e)}"
     case v: TypeVariable => v.sym.idn // TODO: or should be any?
     case _ => PrettyPrinter(t)
   }
