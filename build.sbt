@@ -2,8 +2,9 @@ import java.nio.file.{Files, Paths}
 
 import Dependencies._
 import Resolvers._
-import org.apache.commons.io.FileUtils
 import sbt.Keys._
+import sbt.dsl._
+
 
 lazy val buildSettings = Seq(
   homepage := Some(url("http://dias.epfl.ch/")),
@@ -42,6 +43,16 @@ val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
+  enablePlugins(JavaAppPackaging, DockerPlugin).
+  settings(
+    version in Docker := "latest",
+    dockerBaseImage := "nimmis/java:oracle-8-jdk",
+    dockerRepository in Docker := Some("nfsantos"),
+    dockerExposedPorts in Docker := Seq(54321),
+    maintainer in Docker := "Nuno Santos <nuno@raw-labs.com>",
+    dockerExposedVolumes in Docker := Seq("/opt/docker/logs")
+  ).
+
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
   settings(resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven").
   settings(

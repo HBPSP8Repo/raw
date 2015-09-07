@@ -59,8 +59,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader,
     settings.embeddedDefaults[QueryCompilerClient]
 
     // Needed for macro annotations
-    val mpPlugin: URL = Resources.getResource("paradise_2.11.7-2.1.0-M5.jar")
-    val p = Paths.get(mpPlugin.toURI)
+    val p  = RawUtils.extractResource("paradise_2.11.7-2.1.0-M5.jar")
     logger.info("Loading plugin: " + p)
     settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))

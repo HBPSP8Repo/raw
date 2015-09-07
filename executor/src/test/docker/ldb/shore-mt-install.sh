@@ -8,3 +8,5 @@ cd shore-mt
 ./configure --enable-dbgsymbols --prefix=/raw/shoremt
 make -j4
 make install
+cd ..
+rm -rf shore-mt

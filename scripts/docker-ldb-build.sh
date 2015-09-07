@@ -18,4 +18,4 @@ else
     git clone git://github.com/raw-db/ldb.git ${LSB_SRC_RELATIVE_DIR}
 fi
 
-docker build -t raw/ldb .
+docker build -t nfsantos/ldb .

@@ -16,8 +16,10 @@ object Dependencies {
   val kiama = "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing()
 
   //  val shapeless = "com.chuusai" %% "shapeless" % "2.1.0"
-  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
-  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
+  val spark = "org.apache.spark" %% "spark-core" % sparkVersion exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
+  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
+//  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
+//  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
 
   val commonsMath = "org.apache.commons" % "commons-math3" % "3.5"
   val commonsIO = "commons-io" % "commons-io" % "2.4"

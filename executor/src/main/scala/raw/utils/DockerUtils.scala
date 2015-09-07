@@ -26,7 +26,7 @@ object DockerUtils extends StrictLogging {
 
   def startDocker(): Unit = {
     logger.info("Starting docker")
-    dockerCID = ("docker run -d --name=ldb -p 5001:5000 --entrypoint=//usr/bin/python raw/ldb server.py --schema=//raw/schema.odl".!!).trim
+    dockerCID = ("docker run -d --name=ldb -p 5001:5000 --workdir=//raw/ldb/utils/pyserver --entrypoint=//usr/bin/python nfsantos/ldb-data server.py --schema=//raw/schema.odl".!!).trim
     logger.info(s"Started container: $dockerCID")
 
     (1 to 20).foreach(i => {
