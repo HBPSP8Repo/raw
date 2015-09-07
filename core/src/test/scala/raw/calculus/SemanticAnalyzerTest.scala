@@ -273,9 +273,9 @@ class SemanticAnalyzerTest extends FunTest {
     success( """\x -> x.age + 2""", TestWorlds.empty, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
   }
 
-  // TODO: Fix
-  ignore( """\(x, y) -> x + y""") {
-    failure( """\(x, y) -> x + y""", TestWorlds.empty, ???)
+  test( """\(x, y) -> x + y""") {
+    val n = NumberType()
+    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", n), AttrType("_2", n)), None), n))
   }
 
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {

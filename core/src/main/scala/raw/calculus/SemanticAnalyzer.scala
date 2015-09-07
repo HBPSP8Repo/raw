@@ -18,7 +18,7 @@ case class SemanticAnalyzerError(err: String) extends RawException(err)
   */
 class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Option[String] = None) extends Attribution with LazyLogging {
 
-  import scala.collection.immutable.{Seq}
+  import scala.collection.immutable.Seq
   import org.kiama.==>
   import org.kiama.attribution.Decorators
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}
@@ -183,23 +183,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
       df match {
         case Some(b: Bind)      =>
 
-//
-//
-//          so here i have a "global" environment
-//          i solve the bind on the rhs
-//          which i can solve completely
-//          after i solve it, i walk the type i wanted
-//          and the things inside
-//
-//          z := x
-//
-//          well, x came from funabs, so its type is a type variable
-//
-//          so as i solve the bind co/nstraint, i should say 'z' is whatever 'x' is
-//          ok; what is the issue then?
-
-
-
           logger.debug(s"Here in idn $idn with pre-mappings $mappings and bind $b")
 
           val origMappings = mappings
@@ -207,50 +190,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
           logger.debug(s"post-mappings $mappings")
           val t1 = walk(t, mappings)
           logger.debug(s"walked type $t1")
-
-//          assert(mappings != origMappings)
-
-          // the vars of interest are all not in the current environment
-          // so maybe i should have saved it 1st
-          // and then walk t1
-          // and then get those in t1 not in the mappings already
-
           TypeScheme(t1, getVariableTypes(t1).filter { case tv: TypeVariable => !origMappings.contains(tv) && (tv != t1) case _ => true }.map(_.sym))
         case Some(g: Gen)       =>
           val origMappings = mappings
           solution(g)
           val t1 = walk(t, mappings)
           TypeScheme(t1, getVariableTypes(t1).filter { case tv: TypeVariable => !origMappings.contains(tv) && (tv != t1) case _ => true }.map(_.sym))
-//        case Some(FunAbs(p, e)) =>
-//          // TODO: Change map to add parameters to the map to prevent recursion
-//
-////
-////          when i type, i should obtain a type and a set of consraints
-////          cant i just "type" "e" ? it's gonna find things on 'e'
-////          if we add it to the map - as we did with say, user types at bootstrap time,
-////          what is the issue?
-//
-//          // Get types from the parameters
-//
-//          for (tv <- getVariableTypes(patternType(p))) {
-//            mappings = mappings.union(tv, tv)
-//          }
-//
-//          solution(e)
-//          val t1 = walk(t, mappings)
-//          TypeScheme(t1, getVariableTypes(t1).map(_.sym))
         case Some(FunAbs(_, e))                  =>
-
-//          ok; so i need to type 'e'
-//          but the way things are done, this calls expType again
-//          and well, that doesn't work
-//
-//          if i short-cut the call back here to return 't' then it is ok
-//
-//
-
-//          mappings = mappings.union(t, t)
-//          solution(e)
           logger.debug(s"Passed here with idn $idn")
           t
       }
@@ -329,23 +275,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     // Rule 3
     case IdnExp(idn) =>
       logger.debug(s"We are in IdnExp of ${idn.idn} at ${idn.pos}")
-//      if (mappings.contains(TypeVariable(Symbol(idn.idn))))
-//        mappings(TypeVariable(Symbol(idn.idn))).root
-//      else {
+      idnType(idn) match {
+        case TypeScheme(t, vars) =>
+          if (vars.isEmpty)
+            t
+          else {
+            val nt = instantiateTypeScheme(t, vars)
+            logger.debug(s"This is a typescheme ${TypesPrettyPrinter(t)} with vars $vars")
+            logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
+            nt
+          }
+        case t                   => t
+      }
 
-        idnType(idn) match {
-          case TypeScheme(t, vars) =>
-            if (vars.isEmpty)
-              t
-            else {
-              val nt = instantiateTypeScheme(t, vars)
-              logger.debug(s"This is a typescheme ${TypesPrettyPrinter(t)} with vars $vars")
-              logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
-              nt
-            }
-          case t                   => t
-        }
-//      }
     // Rule 5
     case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(att.e))), None)
 
@@ -677,8 +619,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
   private var mappings: VarMap = {
     var m: VarMap = new VarMap(query = query)
+    // Add user types
     for ((sym, t) <- world.tipes) {
       m = m.union(UserType(sym), t)
+    }
+    // TODO: Ben???? With this, one of the unknownrecords test passes!
+    // Add type variables from user sources
+    for ((_, t) <- world.sources) {
+      for (tv <- getVariableTypes(t)) {
+        m = m.union(tv, tv)
+      }
     }
     m
   }
