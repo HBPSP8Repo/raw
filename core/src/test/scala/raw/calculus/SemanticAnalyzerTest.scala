@@ -419,6 +419,41 @@ class SemanticAnalyzerTest extends FunTest {
         None))
   }
 
+  test("""let-polymorphism #3""") {
+    val i = TypeVariable()
+    success(
+    """ {
+      f := \x -> x;
+      g := \y -> y;
+      h := if (true) then f else g;
+      h
+}
+    """, TestWorlds.empty, FunType(i, i))
+  }
+
+  test("""let-polymorphism #5""") {
+    val x = TypeVariable()
+    val age = TypeVariable()
+    val rec = ConstraintRecordType(Set(AttrType("age", age)))
+    val rec2 = ConstraintRecordType(Set(AttrType("age", BoolType())))
+    success(
+      """
+        {
+        f := \x -> x = x;
+        g := \x -> x.age;
+        (f, g, if true then f else g)
+        }
+      """, TestWorlds.empty, RecordType(Seq(
+      AttrType("_1", FunType(x, BoolType())),
+      AttrType("_2", FunType(rec, age)),
+      AttrType("_3", FunType(rec2, BoolType()))), None))
+  }
+
+//  test("""\(x, y) -> x.age = y""") {
+//    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType))
+//
+//  }
+
   ignore("soundness") {
     val world = TestWorlds.empty
 
