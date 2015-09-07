@@ -75,6 +75,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"
     case UserType(sym)          => sym.idn
+    case TypeScheme(t, vars)    => "type_scheme" <> parens(tipe(t)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
   }
 
 }

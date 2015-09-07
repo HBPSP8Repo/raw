@@ -142,56 +142,124 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case e: Exp => env.in(e)
   }
 
+  /** Return a set with all type variables within a type.
+    */
+  private def getVariableTypes(t: Type): Set[VariableType] = t match {
+    case _: NothingType => Set()
+    case _: AnyType => Set()
+    case _: BoolType => Set()
+    case _: IntType => Set()
+    case _: FloatType => Set()
+    case _: StringType => Set()
+    case _: UserType => Set()
+    case RecordType(atts, _) => atts.flatMap { case att => getVariableTypes(att.tipe) }.toSet
+    case ListType(innerType) => getVariableTypes(innerType)
+    case SetType(innerType) => getVariableTypes(innerType)
+    case BagType(innerType) => getVariableTypes(innerType)
+    case FunType(p, e) => getVariableTypes(p) ++ getVariableTypes(e)
+    case t1: PrimitiveType => Set(t1)
+    case t1: NumberType => Set(t1)
+    case t1 @ ConstraintRecordType(atts, _) => atts.flatMap { case att => getVariableTypes(att.tipe) } ++ Set(t1)
+    case t1 @ ConstraintCollectionType(innerType, _, _, _) => getVariableTypes(innerType) ++ Set(t1)
+    case t1: TypeVariable => Set(t1)
+  }
+
   private lazy val entityType: Entity => Type = attr {
     case VariableEntity(idn, t) =>
 
       // Go up until we find the Bind
-      def getBind(n: RawNode): Option[Bind] = n match {
+      def getDef(n: RawNode): Option[RawNode] = n match {
         case b: Bind => Some(b)
-        case _: Gen => None
-        case _: FunAbs => None
-        case tree.parent.pair(_: Pattern, n1) => getBind(n1)
+        case g: Gen => Some(g)
+        case f: FunAbs => Some(f)
+        case tree.parent.pair(_: Pattern, n1) => getDef(n1)
       }
 
-      getBind(tree.parent(idn).head) match {
-        case Some(Bind(_, e)) =>
+      // TODO: Here, if them unresolved TypeVars come from UserType/Source, don't include them as free vars!!
+
+      val df = getDef(tree.parent(idn).head)
+      df match {
+        case Some(b: Bind) =>
           // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
-          val m = solve(Constraint.And(constraints(e):_*), new VarMap())
+          val m = solve(Constraint.And(constraints(b):_*), initialMap)
           m match {
             case Left((nm, err)) => NothingType()
             case Right(nm) =>
-              find(expType(e), nm) match {
-                case f @ FunType(t1, t2) =>
-
-
-                  // Model 1:
-                  // Collect all identifiers defined within e and
-                  // return the ones that are TypeVariable at the bottom.
-                  // Seems excessive ?
-
-                  // Walk t1 and find TypeVariables that, in the map, remain unresolved
-//
-                  val ts = getTypeVariables(f)
-                  val unresolved = scala.collection.mutable.MutableList[Symbol]()
-                  for (t <- ts) {
-                    find(t, nm) match {
-                      case _: TypeVariable => unresolved += t.sym
-                      case _ =>
-                    }
-                  }
-
-                  // TODO: THIS IS NOT CORRECT!!!!
-                  // TODO: IT DOESNT DISTINGUISH TYPE VARIABLES OF THINGS DEFINED INSIDE E AND THINGS THAT CAME UNDEFINED FROM OUTER SCOPES
-                  val x = TypeScheme(walk(f, nm), unresolved.toSet)
-
-                  logger.debug(s"\n\n\n\n***************\n\nx is ${TypesPrettyPrinter(x.t)}")
-                  x
-//                  TypeScheme(f, unresolved.toSet)
-                case _ => t
-              }
+              val t1 = walk(t, nm)
+              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
           }
-        case None => t
+        case Some(g: Gen) =>
+          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
+          val m = solve(Constraint.And(constraints(g):_*), initialMap)
+          m match {
+            case Left((nm, err)) => NothingType()
+            case Right(nm) =>
+              val t1 = walk(t, nm)
+              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+          }
+        case _ => t
       }
+//
+//      getDef(tree.parent(idn).head) match {
+//        case Some(b: Bind) =>
+//          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
+//          val m = solve(Constraint.And(constraints(b):_*), initialMap)
+//          m match {
+//            case Left((nm, err)) => NothingType()
+//            case Right(nm) =>
+//              val t1 = walk(t, nm)
+//              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+////
+////              find(expType(e), nm) match {
+////                case f @ FunType(t1, t2) =>
+////
+////                  // Model 1:
+////                  // Collect all identifiers defined within e and
+////                  // return the ones that are TypeVariable at the bottom.
+////                  // Seems excessive ?
+////
+////                  // Walk t1 and find TypeVariables that, in the map, remain unresolved
+//////
+////
+////                  def candidates(t: Type): Set[TypeVariable] = t match {
+////                    case RecordType(atts, _) => atts.flatMap { case att => candidates(att.tipe) }.toSet
+////                    case t1: TypeVariable => Set(t1)
+////                  }
+////                  val freeCandidates = candidates(t1)
+////                  val freeCandidatesSyms = freeCandidates.map(_.sym)
+////
+////                  val unresolved = freeCandidates.flatMap{ case tv => getVariableTypes(walk(tv, nm)) }.map(_.sym).filter { case sym => freeCandidatesSyms.contains(sym) }
+////
+////
+//////
+//////                  val ts = getVariableTypes(walk(t1, nm))
+//////                  logger.debug(s"Types vars are $ts")
+//////                  val unresolved = ts.map(_.sym).filter { case sym => !paramTVs.contains(sym) }
+//////
+//////                    scala.collection.mutable.MutableList[Symbol]()
+//////                  for (t <- ts) {
+//////                    logger.debug(s"t is ${TypesPrettyPrinter(t)}")
+//////                    val k = t //walk(t, nm)
+//////                    logger.debug(s"find is ${TypesPrettyPrinter(k)}")
+//////                    k match {
+//////                      case _: TypeVariable => unresolved += t.sym
+//////                      case _ =>
+//////                    }
+//////                  }
+////                  logger.debug(s"Unresolved are $unresolved")
+////
+////                  // TODO: THIS IS NOT CORRECT!!!!
+////                  // TODO: IT DOESNT DISTINGUISH TYPE VARIABLES OF THINGS DEFINED INSIDE E AND THINGS THAT CAME UNDEFINED FROM OUTER SCOPES
+////                  val x = TypeScheme(walk(f, nm), unresolved.toSet)
+////
+////                  logger.debug(s"\n\n\n\n***************\n\nx is ${TypesPrettyPrinter(x.t)}")
+////                  x
+//////                  TypeScheme(f, unresolved.toSet)
+////                case t1 => walk(t1, nm)
+////              }
+//          }
+//        case None => t
+//      }
     case DataSourceEntity(sym) => world.sources(sym.idn)
     case _: UnknownEntity => NothingType()
   }
@@ -200,29 +268,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     val polymorphic = t.vars
     val mappings = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
+    def getSym(sym: Symbol): Symbol = {
+      if (!mappings.contains(sym))
+        mappings += (sym -> SymbolTable.next())
+      mappings(sym)
+    }
+
     // TODO: Remember to copy over the positions as we reconstruct the type
     def recurse(t: Type): Type = t match {
-      case TypeVariable(sym) if polymorphic.contains(sym) =>
-        if (!mappings.contains(sym))
-          mappings += (sym -> SymbolTable.next())
-        TypeVariable(mappings(sym))
-      case _: TypeVariable => t
+      case TypeVariable(sym) => TypeVariable(getSym(sym))
+      case NumberType(sym) => NumberType(getSym(sym))
+      case PrimitiveType(sym) => PrimitiveType(getSym(sym))
+      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, getSym(sym))
+      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType), c, i, getSym(sym))
       case _: NothingType   => t
       case _: AnyType       => t
       case _: IntType       => t
       case _: BoolType      => t
       case _: FloatType     => t
       case _: StringType    => t
-      case _: PrimitiveType => t
-      case _: NumberType => t
       case _: UserType => t
       case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, name)
       case BagType(inner) => BagType(recurse(inner))
       case SetType(inner) => SetType(recurse(inner))
       case ListType(inner) => ListType(recurse(inner))
       case FunType(p, e)   => FunType(recurse(p), recurse(e))
-      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, sym)
-      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType), c, i, sym)
     }
 
     recurse(t.t)
@@ -286,10 +356,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case _: StringConst => StringType()
 
     // Rule 3
-    case IdnExp(idn) => idnType(idn) match {
-      case ts: TypeScheme =>
-        instantiateTypeScheme(ts)
+    case IdnExp(idn) =>
+      logger.debug(s"We are in IdnExp of ${idn.idn}")
+
+      idnType(idn) match {
+      case TypeScheme(t, vars) if vars.isEmpty => t
+      case ts @ TypeScheme(t, vars) =>
+        val nt = instantiateTypeScheme(ts)
+        logger.debug(s"This is a typescheme ${TypesPrettyPrinter(ts)}")
+        logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
+        nt
       case t => t
+//      case t =>
+//        logger.debug(s"Not a typescheme ${TypesPrettyPrinter(t)}")
+//        t
     }
 
     // Rule 5
@@ -587,36 +667,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     }
   }
 
-//
-  // maybe fix the code before to be in a state where things run: comment out new funtype-related code but don't delete it as we'll need it shortly.
-//we were talking about adding a PrimitiveType and a NumberType.
-//  Both are VariableTypes.
-//    In unify, they constrained to be more narrow in the obvious, left as an exercise to the implementor.
-//    We then drop the Or and change the constraints to use Primitive/Number type.
-//  Then we change the return type of solve to always return a single Map. Or goes away, And is trivial.
-//    Then run the tests and should work as today.
-//    Then, we implement the ConstraintFun unifying with Fun. It simply calls the solver itself,
-//  (after carefulyl replacing the types in the constraints - see notes on the unify code), and returns
-//  the map of the solve.
-//  Add a TODO for the future: if we ever want to sum a List[Int] with an Int,
-//  we could do multiple passes to the root. In that case, in the expType of the sum,
-//  we'd check the lhs and rhs; if they hve been resolved to final types (.e.g List[Int] and Int)
-//  then the expType would itself hardcode Int. The rest of the solver works as before; we just might need
-//  to run it in multiple passes until it converges, i.e. until types do not narrow any more.
-//
-
-
-
- //  and return a single map everywhere
-//
-
-//  private lazy val applyConstraints =
-//    collect[List, Constraint] {
-//      case b: Bind => constraint(b)
-//      case g: Gen => constraint(g)
-//      case e: Exp => constraint(e)
-//    }
-
   /** The root constraint is an And of all constraints imposed by each node in the expression.
     */
   private lazy val rootConstraint =
@@ -650,12 +700,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
   private lazy val badEntities = collectBadEntities(tree.root)
 
-  private lazy val solutions: Either[(VarMap, Seq[Error]), VarMap] = {
+  private lazy val initialMap = {
     var m: VarMap = new VarMap(query = query)
     for ((sym, t) <- world.tipes) {
       m = m.union(UserType(sym), t)
     }
-    solve(rootConstraint, m)
+    m
+  }
+
+  private lazy val solutions: Either[(VarMap, Seq[Error]), VarMap] = {
+    solve(rootConstraint, initialMap)
   }
 
   lazy val errors: Seq[Error] =
@@ -800,10 +854,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         )
 
       // Rule 13
-      case n @ Comp(m: PrimitiveMonoid, _, e) =>
-        // TODO: Add constraint saying it is primitive
-        SameType(expType(n), expType(e))
-
+      case n @ Comp(m: NumberMonoid, _, e) =>
+        And(
+          HasType(expType(e), NumberType()),
+          SameType(expType(n), expType(e))
+        )
+      case n @ Comp(m: BoolMonoid, _, e) =>
+        And(
+          HasType(expType(e), BoolType()),
+          SameType(expType(n), expType(e))
+        )
       // Binary Expression type
       case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
         And(
@@ -849,29 +909,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case n => constraints1(n)
   }
 
-
-
-
   def constraints1(n: RawNode): Seq[Constraint] = {
     val cs = collect[Seq, Constraint] {
       case n: RawNode => constraint(n)
     }
     cs(n)
   }
-
-
-//  i think the input is: for a given idn(def?), solve all its constraints
-//  that still means going to the rhs and collecting all constraints
-//  but we'll simply be generating type variables - a single type variable as now - per idnuse.
-//
-//  at the end of this, it's simply as if we run the current code, for starting from the rhs of a given Bind.
-//  we then have a map.
-//  that map contains unbound variables; those are the ones to be put as a type scheme.. now how exactly to plug tihs all together?
-//
-//  then, we make 'solve' takes as argument the "expType" to use.
-//    That's because in the 1st run it uses an expType that returns a unique type variable per idnuse,
-//  and in the 2nd run, it uses an expType that uses the type scheme inferred before (which is probably stored as some new attribute)
-
 
 }
 
@@ -893,123 +936,3 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 // TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
 // TODO: Re-do Unnester to use the same tree. Refactor code into new package raw.core
 // TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
-
-/*
-
-Bottom up:
-
-expType on idnUse checks if type is a type scheme. If so, instantiates new type variables for the things in the type scheme.
-Then, the type it returns uses those new types.
-
-constraint should return a sequence of constraints generated by the Node.
-
----
-
-this means we need to build the type scheme for the entity...
-
----
-
-entity contains the IdnDef attribute being bound to.
-
----
-
-add an attribute that, for a idn def, solves the constraint on the rhs.
-if it is a "single level", it's ok.
-then, expType, asks for entity, then for idn def, then for the solution of the consraint on the idndef's rhs.
-it obtains a map, whose variables are basically all the unbound things.
-
-[ THIS IS JUST A SINGLE LEVEL THOUGH; we don't recurse in tbe tree on the rhs; is this an issue? ]
-[ we may end up with a single type variable on the rhs; we'll make a type scheme on that one, but we loose all connection elsewhere.
-  so we do need to solve constraints recursively.
-
-  so maybe build first a recursive constraint solver.
-  that for every expression, collects the inner expressions and asks their constraints.
-  and makes a big AND of those.
-  and in the case of bind, goes to the expression being bound and asks ITS constraints
-
-----
-
-
-
-
-]
-
-it knows what it is bound to (can easily find it out).
-it goes to that expression, and asks the constraint to be solved.
-this means that there is an attribute that solves the constraint and stores the resulting map.
-that calls itself recursively
-
-
-it calls "solve" and stores the resulting map.
-
-do i need to solve the thing recursively?
-or it it enough to do a single pass thing?
-
----
-
-
-
-
- */
-
-
-
-//
-//the entity could ask the constraints on the rhs (i.e. on e) in case of a Bind
-//[ now, i dont exactly know where to do the following but: ]
-//we solve those constraints we collected: as a result, our map has a better type for the IdnDef
-//we build a type scheme from that better type we got; for this we generalize the type variables that were returned in the map (these were the output of solve in the previous step)
-//we add an entry to the map binding ourselvea (the idndef/entity) to that type scheme we just created
-//on every idnuse, we find the entity, its type scheme, and instantiate a new type from the type scheme
-//when instantiating, if the type scheme is not polymorphic, we turn the type directly w/o copying it. This is important so that we still unify in the "normal case"
-//
-//
-//how about:
-//for a Bind, we have an attribute that is the map solving the constraints of the rhs?
-//
-
-// or, I could attach to an entity, the constraints from the rhs ?
-// this I can CERTAINLY do.
-
-
-// on idnuse: solve the constraints: we have a better type for the IdnDef - for this IdnDef
-// NO...
-//
-
-//collect constraints on entity
-//when typing the expected type of an identifier, that is where we solve it:
-//we find its entity
-//if it is a variable entity, we solve its constraints (the constraints we collected)
-//and there, instead of putting TypeVariable, we build the type scheme
-
-//go through every entity
-//get the constraints, solve them and return a map
-//then AND these maps together
-//this map also has the idnUse already set to type schemes
-//
-//this is the bootstrap map
-//then on idn use of type scheme (i.e. on expTye) we instantiate new variables
-//
-//
-//i pobablu  should do this in phases ... as a preprocessing phase or so before solve but after entity checks
-//
-//
-//entities have been bootstrapped
-//
-//so now i could go over idndef - with a new lazy val - and
-
-//def entityType
-
-
-// go over all nodes in the tree
-// if idndef/idnuse, get its entity type, by resolving the constraints on the rhs
-// which we know by consulting the entity
-// this is a simple method
-// we call it for every idndef/idnuse in the system
-// but actually, we'll need to read it
-// during expType idnUse, we should call entityType, get back a type scheme, and instantiate a new type just there.
-
-//if we make entityType a method
-//that calls solve, which calls expType
-
-

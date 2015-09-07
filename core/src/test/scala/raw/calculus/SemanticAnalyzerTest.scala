@@ -18,12 +18,13 @@ class SemanticAnalyzerTest extends FunTest {
     analyzer
   }
 
-  def success(query: String, world: World, tipe: Type) = {
+  def success(query: String, world: World, expectedType: Type) = {
     val analyzer = go(query, world)
+    val inferredType = analyzer.tipe(analyzer.tree.root)
     assert(analyzer.errors.isEmpty)
-    logger.debug(s"Actual type: ${TypesPrettyPrinter(analyzer.tipe(analyzer.tree.root))}")
-    logger.debug(s"Expected type: ${TypesPrettyPrinter(tipe)}")
-    compare(TypesPrettyPrinter(analyzer.tipe(analyzer.tree.root)), TypesPrettyPrinter(tipe))
+    logger.debug(s"Actual type: ${TypesPrettyPrinter(inferredType)}")
+    logger.debug(s"Expected type: ${TypesPrettyPrinter(expectedType)}")
+    compare(inferredType.toString, expectedType.toString)
   }
 
   def failure(query: String, world: World, error: Error) = {
@@ -389,6 +390,11 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())), None), FloatType()))
   }
 
+  test("""\(x, y) -> { z := x; y + z }""") {
+    val n = NumberType()
+    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", n), AttrType("_2", n)), None), n))
+  }
+
   test("""let-polymorphism #1""") {
     success(
       """
@@ -425,6 +431,65 @@ class SemanticAnalyzerTest extends FunTest {
 //    success("""\(x, y) -> if (x = y) then x else y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
   }
 
+  test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
+    val z = TypeVariable()
+    val yz = NumberType()
+    success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
+      FunType(
+        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, yz))), None),
+        yz))
+  }
+
+  test("""let polymorphism - not binding into functions""") {
+    val z = TypeVariable()
+    val n = NumberType()
+    success(
+      """
+        {
+        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+        age := (students, \x -> x.age);
+        v := sum1(age);
+        sum1
+        }
+
+      """, TestWorlds.professors_students,
+      FunType(RecordType(List(AttrType("_1", ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, n))), None), n))
+  }
+
+  test("""let polymorphism #4""") {
+    val z = TypeVariable()
+    val n = NumberType()
+    success(
+      """
+        {
+        x := 1;
+        f := \v -> v = x;
+        v := f(10);
+        f
+        }
+
+      """, TestWorlds.empty,
+      FunType(IntType(), BoolType()))
+  }
+
+  test("""let polymorphism #3""") {
+    val z = TypeVariable()
+    val n = NumberType()
+    success(
+      """
+        {
+        x := set(1);
+        f := \v -> for (z <- x; z = v) yield set z;
+
+        v := f(10);
+        f
+        }
+
+      """, TestWorlds.empty,
+      FunType(IntType(), SetType(IntType())))
+  }
+
+
   test("coolness") {
     val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
     val students = ListType(student)
@@ -432,13 +497,6 @@ class SemanticAnalyzerTest extends FunTest {
     val professors = ListType(professor)
     val world = new World(sources = Map("students" -> students, "professors" -> professors))
 
-    // TODO: Aren't we binding too much? students to sum1?
-    val z = TypeVariable()
-    val yz = TypeVariable()
-    success("""\(x,y) -> for (z <- x) yield sum y(z)""", world,
-      FunType(
-        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z,yz))), None),
-        yz))
 
 //    success(
 //      """
