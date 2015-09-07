@@ -252,24 +252,24 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\a -> a + 2""") {
-    success( """\a -> a + 2""", TestWorlds.empty, FunType(IntType(), IntType(), Seq()))
+    success( """\a -> a + 2""", TestWorlds.empty, FunType(IntType(), IntType()))
   }
 
   test( """\a -> a + a + 2""") {
-    success( """\a -> a + a + 2""", TestWorlds.empty, FunType(IntType(), IntType(), Seq()))
+    success( """\a -> a + a + 2""", TestWorlds.empty, FunType(IntType(), IntType()))
   }
 
   test( """\(a, b) -> a + b + 2""") {
-    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType(), Seq()))
+    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
   }
 
   test( """\a -> a""") {
     val a = TypeVariable()
-    success( """\a -> a""", TestWorlds.empty, FunType(a, a, Seq()))
+    success( """\a -> a""", TestWorlds.empty, FunType(a, a))
   }
 
   test( """\x -> x.age + 2""") {
-    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType(), Seq()))
+    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(ConstraintRecordType(Set(AttrType("age", IntType()))), IntType()))
   }
 
   // TODO: Fix
@@ -280,8 +280,8 @@ class SemanticAnalyzerTest extends FunTest {
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {
     var arg = TypeVariable()
     val out = TypeVariable()
-    val f = FunType(arg, out, Seq())
-    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(RecordType(List(AttrType("_1", f), AttrType("_2", arg)), None), out, Seq()))
+    val f = FunType(arg, out)
+    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(RecordType(List(AttrType("_1", f), AttrType("_2", arg)), None), out))
   }
 
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
@@ -354,8 +354,8 @@ class SemanticAnalyzerTest extends FunTest {
     failure("if true then 1 else 1.", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
   }
 
-  test("{ a := 1; b := 1; c := 2,; (a + b) + c }") {
-    failure("{ a := 1; b := 1; c := 2,; (a + b) + c }", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
+  test("{ a := 1; b := 1; c := 2.; (a + b) + c }") {
+    failure("{ a := 1; b := 1; c := 2.; (a + b) + c }", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
   }
 
   test("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d) }") {
@@ -381,13 +381,43 @@ class SemanticAnalyzerTest extends FunTest {
 //    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
   }
 
-  test("soundness") {
+  test("""\(x, y) -> x + y + 10""") {
+    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
+  }
+
+  test("""\(x, y) -> x + y + 10.2""") {
+    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())), None), FloatType()))
+  }
+
+  test("""let-polymorphism #1""") {
+    success(
+      """
+        {
+          f := \x -> x;
+          (f(1), f(true))
+        }
+      """, TestWorlds.empty, RecordType(List(AttrType("_1", IntType()), AttrType("_2", BoolType())), None))
+  }
+
+  test("""let-polymorphism #2""") {
+    success(
+      """
+        {
+          f := \x -> (x, 12);
+          (f(1), f(true))
+        }
+      """, TestWorlds.empty,
+      RecordType(List(
+        AttrType("_1", RecordType(List(AttrType("_1",  IntType()), AttrType("_2", IntType())), None)),
+        AttrType("_2", RecordType(List(AttrType("_1",  BoolType()), AttrType("_2", IntType())), None))),
+        None))
+  }
+
+  ignore("soundness") {
     val world = TestWorlds.empty
 
     // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
     // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
-    success("""\(x, y) -> x + y + 10""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType(), Seq()))
-    success("""\(x, y) -> x + y + 10.2""", world, FunType(RecordType(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())), None), FloatType(), Seq()))
 //    success("""\(x, y) -> x.age = y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
 
 //    success("""\(x, y) -> (x, y)""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
@@ -407,9 +437,8 @@ class SemanticAnalyzerTest extends FunTest {
     val yz = TypeVariable()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", world,
       FunType(
-        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z,yz,Seq()))), None),
-        yz,
-      Seq()))
+        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z,yz))), None),
+        yz))
 
 //    success(
 //      """
@@ -452,7 +481,7 @@ class SemanticAnalyzerTest extends FunTest {
          fact := \n -> fact1(fact1, n);
          fact
         }
-      """, TestWorlds.empty, FunType(IntType(), IntType(), Seq()))
+      """, TestWorlds.empty, FunType(IntType(), IntType()))
   }
 
   test("recursive lambda #2") {
@@ -464,7 +493,7 @@ class SemanticAnalyzerTest extends FunTest {
         fact := F(fact1);
         fact
       }
-      """, TestWorlds.empty, FunType(IntType(), IntType(), Seq())
+      """, TestWorlds.empty, FunType(IntType(), IntType())
     )
 
   }

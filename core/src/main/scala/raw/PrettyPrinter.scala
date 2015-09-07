@@ -70,8 +70,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case BagType(innerType)     => "bag" <> parens(tipe(innerType))
     case ListType(innerType)    => "list" <> parens(tipe(innerType))
     case SetType(innerType)     => "set" <> parens(tipe(innerType))
-      // TODO: Print FunType constraints?
-    case FunType(p, e, _)        => tipe(p) <+> "->" <+> tipe(e)
+    case FunType(p, e)          => tipe(p) <+> "->" <+> tipe(e)
     case TypeVariable(sym)      => s"<${sym.idn}>"
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"

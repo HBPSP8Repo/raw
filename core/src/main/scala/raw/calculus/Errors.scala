@@ -83,9 +83,6 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
         s"record with $satts"
       else
         s"record"
-    case FunType(p, e, _) =>
-      // TODO: Pretty print the FunType constraints?
-      s"function taking ${TypesPrettyPrinter(p)} and returning ${TypesPrettyPrinter(e)}"
     case v: TypeVariable => v.sym.idn // TODO: or should be any?
     case _ => PrettyPrinter(t)
   }

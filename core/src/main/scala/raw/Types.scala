@@ -42,7 +42,7 @@ case class SetType(innerType: Type) extends CollectionType
 
 /** Function Type `t2` -> `t1`
   */
-//case class FunType(t1: Type, t2: Type) extends Type
+case class FunType(t1: Type, t2: Type) extends Type
 
 /** Any Type
   * The top type.
@@ -80,8 +80,4 @@ case class ConstraintRecordType(atts: Set[AttrType], sym: Symbol = SymbolTable.n
   */
 case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean], sym: Symbol = SymbolTable.next()) extends VariableType
 
-import calculus.Constraint.Constraint
-case class FunType(p: Type, e: Type, c: Seq[Constraint]) extends Type
-
-// Sequence of f -> e
-case class ConstraintFunType(apps: Seq[(Type, Type)], sym: Symbol = SymbolTable.next()) extends VariableType
+case class TypeScheme(t: Type, vars: Set[Symbol]) extends Type
