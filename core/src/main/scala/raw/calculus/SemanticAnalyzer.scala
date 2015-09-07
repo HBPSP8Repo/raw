@@ -164,108 +164,118 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case t1: TypeVariable => Set(t1)
   }
 
-  private lazy val entityType: Entity => Type = attr {
-    case VariableEntity(idn, t) =>
+  private lazy val entityType: VarMap => Entity => Type = paramAttr {
+    case m => {
+      case VariableEntity(idn, t) =>
 
-      // Go up until we find the Bind
-      def getDef(n: RawNode): Option[RawNode] = n match {
-        case b: Bind => Some(b)
-        case g: Gen => Some(g)
-        case f: FunAbs => Some(f)
-        case tree.parent.pair(_: Pattern, n1) => getDef(n1)
-      }
+        // Go up until we find the Bind
+        def getDef(n: RawNode): Option[RawNode] = n match {
+          case b: Bind                          => Some(b)
+          case g: Gen                           => Some(g)
+          case f: FunAbs                        => Some(f)
+          case tree.parent.pair(_: Pattern, n1) => getDef(n1)
+        }
 
-      // TODO: Here, if them unresolved TypeVars come from UserType/Source, don't include them as free vars!!
+        // TODO: Here, if them unresolved TypeVars come from UserType/Source, don't include them as free vars!!
 
-      val df = getDef(tree.parent(idn).head)
-      df match {
-        case Some(b: Bind) =>
-          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
-          val m = solve(Constraint.And(constraints(b):_*), initialMap)
-          m match {
-            case Left((nm, err)) => NothingType()
-            case Right(nm) =>
-              val t1 = walk(t, nm)
-              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
-          }
-        case Some(g: Gen) =>
-          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
-          val m = solve(Constraint.And(constraints(g):_*), initialMap)
-          m match {
-            case Left((nm, err)) => NothingType()
-            case Right(nm) =>
-              val t1 = walk(t, nm)
-              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
-          }
-        case _ => t
-      }
-//
-//      getDef(tree.parent(idn).head) match {
-//        case Some(b: Bind) =>
-//          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
-//          val m = solve(Constraint.And(constraints(b):_*), initialMap)
-//          m match {
-//            case Left((nm, err)) => NothingType()
-//            case Right(nm) =>
-//              val t1 = walk(t, nm)
-//              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
-////
-////              find(expType(e), nm) match {
-////                case f @ FunType(t1, t2) =>
-////
-////                  // Model 1:
-////                  // Collect all identifiers defined within e and
-////                  // return the ones that are TypeVariable at the bottom.
-////                  // Seems excessive ?
-////
-////                  // Walk t1 and find TypeVariables that, in the map, remain unresolved
-//////
-////
-////                  def candidates(t: Type): Set[TypeVariable] = t match {
-////                    case RecordType(atts, _) => atts.flatMap { case att => candidates(att.tipe) }.toSet
-////                    case t1: TypeVariable => Set(t1)
-////                  }
-////                  val freeCandidates = candidates(t1)
-////                  val freeCandidatesSyms = freeCandidates.map(_.sym)
-////
-////                  val unresolved = freeCandidates.flatMap{ case tv => getVariableTypes(walk(tv, nm)) }.map(_.sym).filter { case sym => freeCandidatesSyms.contains(sym) }
-////
-////
-//////
-//////                  val ts = getVariableTypes(walk(t1, nm))
-//////                  logger.debug(s"Types vars are $ts")
-//////                  val unresolved = ts.map(_.sym).filter { case sym => !paramTVs.contains(sym) }
-//////
-//////                    scala.collection.mutable.MutableList[Symbol]()
-//////                  for (t <- ts) {
-//////                    logger.debug(s"t is ${TypesPrettyPrinter(t)}")
-//////                    val k = t //walk(t, nm)
-//////                    logger.debug(s"find is ${TypesPrettyPrinter(k)}")
-//////                    k match {
-//////                      case _: TypeVariable => unresolved += t.sym
-//////                      case _ =>
-//////                    }
-//////                  }
-////                  logger.debug(s"Unresolved are $unresolved")
-////
-////                  // TODO: THIS IS NOT CORRECT!!!!
-////                  // TODO: IT DOESNT DISTINGUISH TYPE VARIABLES OF THINGS DEFINED INSIDE E AND THINGS THAT CAME UNDEFINED FROM OUTER SCOPES
-////                  val x = TypeScheme(walk(f, nm), unresolved.toSet)
-////
-////                  logger.debug(s"\n\n\n\n***************\n\nx is ${TypesPrettyPrinter(x.t)}")
-////                  x
-//////                  TypeScheme(f, unresolved.toSet)
-////                case t1 => walk(t1, nm)
-////              }
-//          }
-//        case None => t
-//      }
-    case DataSourceEntity(sym) => world.sources(sym.idn)
-    case _: UnknownEntity => NothingType()
+        val df = getDef(tree.parent(idn).head)
+        df match {
+          case Some(b: Bind)      =>
+            solution(m)(b) match {
+              case Left((nm, err)) => NothingType()
+              case Right(nm)       =>
+                val t1 = walk(t, nm)
+                TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+            }
+          case Some(g: Gen)       =>
+            solution(m)(g) match {
+              case Left((nm, err)) => NothingType()
+              case Right(nm)       =>
+                val t1 = walk(t, nm)
+                TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+            }
+          case Some(FunAbs(_, e)) =>
+            // TODO: Change map to add parameters to the map to prevent recursion
+            solution(m)(e) match {
+              case Left((nm, err)) => NothingType()
+              case Right(nm)       =>
+                val t1 = walk(t, nm)
+                TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+            }
+          case _                  => t
+          /*
+
+          Some(f: FunAbs) this thing is not recursing on the body (since it would loop)
+
+           */
+        }
+      //
+      //      getDef(tree.parent(idn).head) match {
+      //        case Some(b: Bind) =>
+      //          // TODO: Change type signature of solve to not have And but a sequence? Then remove AND constraint altogether
+      //          val m = solve(Constraint.And(constraints(b):_*), initialMap)
+      //          m match {
+      //            case Left((nm, err)) => NothingType()
+      //            case Right(nm) =>
+      //              val t1 = walk(t, nm)
+      //              TypeScheme(t1, getVariableTypes(t1).map(_.sym))
+      ////
+      ////              find(expType(e), nm) match {
+      ////                case f @ FunType(t1, t2) =>
+      ////
+      ////                  // Model 1:
+      ////                  // Collect all identifiers defined within e and
+      ////                  // return the ones that are TypeVariable at the bottom.
+      ////                  // Seems excessive ?
+      ////
+      ////                  // Walk t1 and find TypeVariables that, in the map, remain unresolved
+      //////
+      ////
+      ////                  def candidates(t: Type): Set[TypeVariable] = t match {
+      ////                    case RecordType(atts, _) => atts.flatMap { case att => candidates(att.tipe) }.toSet
+      ////                    case t1: TypeVariable => Set(t1)
+      ////                  }
+      ////                  val freeCandidates = candidates(t1)
+      ////                  val freeCandidatesSyms = freeCandidates.map(_.sym)
+      ////
+      ////                  val unresolved = freeCandidates.flatMap{ case tv => getVariableTypes(walk(tv, nm)) }.map(_.sym).filter { case sym => freeCandidatesSyms.contains(sym) }
+      ////
+      ////
+      //////
+      //////                  val ts = getVariableTypes(walk(t1, nm))
+      //////                  logger.debug(s"Types vars are $ts")
+      //////                  val unresolved = ts.map(_.sym).filter { case sym => !paramTVs.contains(sym) }
+      //////
+      //////                    scala.collection.mutable.MutableList[Symbol]()
+      //////                  for (t <- ts) {
+      //////                    logger.debug(s"t is ${TypesPrettyPrinter(t)}")
+      //////                    val k = t //walk(t, nm)
+      //////                    logger.debug(s"find is ${TypesPrettyPrinter(k)}")
+      //////                    k match {
+      //////                      case _: TypeVariable => unresolved += t.sym
+      //////                      case _ =>
+      //////                    }
+      //////                  }
+      ////                  logger.debug(s"Unresolved are $unresolved")
+      ////
+      ////                  // TODO: THIS IS NOT CORRECT!!!!
+      ////                  // TODO: IT DOESNT DISTINGUISH TYPE VARIABLES OF THINGS DEFINED INSIDE E AND THINGS THAT CAME UNDEFINED FROM OUTER SCOPES
+      ////                  val x = TypeScheme(walk(f, nm), unresolved.toSet)
+      ////
+      ////                  logger.debug(s"\n\n\n\n***************\n\nx is ${TypesPrettyPrinter(x.t)}")
+      ////                  x
+      //////                  TypeScheme(f, unresolved.toSet)
+      ////                case t1 => walk(t1, nm)
+      ////              }
+      //          }
+      //        case None => t
+      //      }
+      case DataSourceEntity(sym) => world.sources(sym.idn)
+      case _: UnknownEntity      => NothingType()
+    }
   }
 
-  private def instantiateTypeScheme(t: TypeScheme) = {
-    val polymorphic = t.vars
+  private def instantiateTypeScheme(t: Type, polymorphic: Set[Symbol]) = {
     val mappings = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getSym(sym: Symbol): Symbol = {
@@ -295,10 +305,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
       case FunType(p, e)   => FunType(recurse(p), recurse(e))
     }
 
-    recurse(t.t)
+    recurse(t)
   }
 
-  private def idnType(idn: IdnNode): Type = { logger.debug(s"Calling idnType with ${idn.idn}"); entityType(entity(idn)) }
+  private def idnType(m: VarMap, idn: IdnNode): Type = { logger.debug(s"Calling idnType with ${idn.idn}"); entityType(m)(entity(idn)) }
 
   /** The type corresponding to a given pattern.
     */
@@ -314,40 +324,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     t.pos = e.pos
     t
   }
-//
-//  def cloneType(t: Type): Type = {
-//    val m = scala.collection.mutable.Map[Symbol, TypeVariable]()
-//
-//    def recurse(t: Type): Type = t match {
-//      case _: NothingType => t
-//      case _: AnyType => t
-//      case _: PrimitiveType => t
-//      case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, cloneType(t1)) }, name)
-//      case ListType(innerType) => ListType(cloneType(innerType))
-//      case SetType(innerType) => SetType(cloneType(innerType))
-//      case BagType(innerType) => BagType(cloneType(innerType))
-//      case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
-//      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, cloneType(t1)) }, sym)
-//      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(cloneType(innerType), c, i, sym)
-//      case t1: TypeVariable =>
-//        if (!m.contains(t1.sym)) {    // Clone the type variable
-//          m += (t1.sym -> TypeVariable())
-//        }
-//        m(t1.sym)
-//    }
-//
-//    recurse(t)
-//  }
-
 
   /** The type of an expression.
     * If the type cannot be immediately derived from the expression itself, then type variables are used for unification.
     */
-  private lazy val expType: Exp => Type = attr {
-    case e => typeWithPos(expType1(e), e)
+  private lazy val expType: VarMap => Exp => Type = paramAttr {
+    case m => {
+      case e => typeWithPos(expType1(m, e), e)
+    }
   }
 
-  private def expType1(e: Exp): Type = e match {
+  private def expType1(m: VarMap, e: Exp): Type = e match {
 
     // Rule 1
     case _: BoolConst => BoolType()
@@ -358,25 +345,29 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     // Rule 3
     case IdnExp(idn) =>
       logger.debug(s"We are in IdnExp of ${idn.idn}")
-
-      idnType(idn) match {
-      case TypeScheme(t, vars) if vars.isEmpty => t
-      case ts @ TypeScheme(t, vars) =>
-        val nt = instantiateTypeScheme(ts)
-        logger.debug(s"This is a typescheme ${TypesPrettyPrinter(ts)}")
-        logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
-        nt
-      case t => t
-//      case t =>
-//        logger.debug(s"Not a typescheme ${TypesPrettyPrinter(t)}")
-//        t
-    }
+      // TODO: Fix this!
+      if (m.contains(TypeVariable(Symbol(idn.idn))))
+        m(TypeVariable(Symbol(idn.idn))).root
+      else {
+        idnType(m, idn) match {
+          case TypeScheme(t, vars) =>
+            if (vars.isEmpty)
+              t
+            else {
+              val nt = instantiateTypeScheme(t, vars)
+              logger.debug(s"This is a typescheme ${TypesPrettyPrinter(t)} with vars $vars")
+              logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
+              nt
+            }
+          case t => t
+        }
+      }
 
     // Rule 5
-    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(att.e))), None)
+    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(m)(att.e))), None)
 
     // Rule 7
-    case FunAbs(p, e1) => FunType(patternType(p), expType(e1))
+    case FunAbs(p, e1) => FunType(patternType(p), expType(m)(e1))
 
     // Rule 9
     case ZeroCollectionMonoid(_: BagMonoid) => BagType(TypeVariable())
@@ -384,14 +375,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case ZeroCollectionMonoid(_: SetMonoid) => SetType(TypeVariable())
 
     // Rule 10
-    case ConsCollectionMonoid(_: BagMonoid, e1) => BagType(expType(e1))
-    case ConsCollectionMonoid(_: ListMonoid, e1) => ListType(expType(e1))
-    case ConsCollectionMonoid(_: SetMonoid, e1) => SetType(expType(e1))
+    case ConsCollectionMonoid(_: BagMonoid, e1) => BagType(expType(m)(e1))
+    case ConsCollectionMonoid(_: ListMonoid, e1) => ListType(expType(m)(e1))
+    case ConsCollectionMonoid(_: SetMonoid, e1) => SetType(expType(m)(e1))
 
     // Rule 14
-    case Comp(_: BagMonoid, _, e1) => BagType(expType(e1))
-    case Comp(_: ListMonoid, _, e1) => ListType(expType(e1))
-    case Comp(_: SetMonoid, _, e1) => SetType(expType(e1))
+    case Comp(_: BagMonoid, _, e1) => BagType(expType(m)(e1))
+    case Comp(_: ListMonoid, _, e1) => ListType(expType(m)(e1))
+    case Comp(_: SetMonoid, _, e1) => SetType(expType(m)(e1))
 
     // Unary expressions
     case UnaryExp(_: Not, _) => BoolType()
@@ -408,7 +399,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   private def unify(t1: Type, t2: Type, m: VarMap): Either[VarMap, VarMap] = {
 
     def recurse(t1: Type, t2: Type, m: VarMap, occursCheck: Set[(Type, Type)]): Either[VarMap, VarMap] = {
-      logger.debug(s"recurse t1 ${TypesPrettyPrinter(t1)} t2 ${TypesPrettyPrinter(t2)} occursCheck ${occursCheck}")
+      logger.debug(s"recurse t1 ${TypesPrettyPrinter(t1)} t2 ${TypesPrettyPrinter(t2)} occursCheck $occursCheck")
       if (occursCheck.contains((t1, t2)))
         return Right(m)
       val nt1 = find(t1, m)
@@ -667,18 +658,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     }
   }
 
-  /** The root constraint is an And of all constraints imposed by each node in the expression.
-    */
-  private lazy val rootConstraint =
-    flattenAnds(
-      Constraint.And(
-        constraints(tree.root)
-          .filter {
-            case NoConstraint => false
-            case _ => true }:_*))
+//  /** The root constraint is an And of all constraints imposed by each node in the expression.
+//    */
+//  private lazy val rootConstraint =
+//    flattenAnds(
+//      Constraint.And(
+//        constraints(tree.root)
+//          .filter {
+//            case NoConstraint => false
+//            case _ => true }:_*))
 
   /** Flatten all occurrences on nested And constraints.
     */
+  // TODO: Refactor? Remove And constraint and turn it into Seq?
   private def flattenAnds(c: Constraint): Constraint = c match {
     case And(cs @ _*) => And(cs.map(flattenAnds).flatMap{
       case And(cs1 @ _*) => cs1
@@ -700,7 +692,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
   private lazy val badEntities = collectBadEntities(tree.root)
 
-  private lazy val initialMap = {
+  private var map: VarMap = {
     var m: VarMap = new VarMap(query = query)
     for ((sym, t) <- world.tipes) {
       m = m.union(UserType(sym), t)
@@ -708,19 +700,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     m
   }
 
-  private lazy val solutions: Either[(VarMap, Seq[Error]), VarMap] = {
-    solve(rootConstraint, initialMap)
-  }
+  private lazy val solutions: Either[(VarMap, Seq[Error]), VarMap] =
+    solution(initialMap)(tree.root)
 
+  // TODO: It's necessary to collect badEntities first, but I should still continue and report the rest of the unrelated errors,
+  //       which can be done by setting the types of the "bad entities" to NothingType
   lazy val errors: Seq[Error] =
     if (badEntities.nonEmpty)
       badEntities
     else {
-      logger.debug("Root constraint:")
-      logger.debug(rootConstraint.toString)
 
       // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
-      // TODO: And certainly no NothingType if we still need it.
+      // TODO: And certainly no NothingType as well...
 
       solutions match {
         // All is OK so check for semantic errors (i.e. run the error checking phase that requires final types)
@@ -800,120 +791,137 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     */
   def tipe(e: Exp): Type = solutions match {
     case Right(m) =>
+      logger.debug("FINAL FINAL FINAL VarMap is")
       printVarMap(m)
-      walk(expType(e), m)
-    case Left(m) => throw SemanticAnalyzerError("No solutions found")
+      logger.debug(s"expType of m $m of e $e is ${expType(m)(e)}")
+      walk(expType(m)(e), m)
+    case Left(m) =>
+      throw SemanticAnalyzerError("No solutions found")
   }
 
   /** Constraints of a node.
     * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
     */
-  lazy val constraint: RawNode => Constraint = {
-    case n => val c = constraint1(n); c.pos = n.pos; c
+  lazy val constraint: VarMap => RawNode => Constraint = paramAttr {
+    m => {
+      n => {
+        val c = constraint1(m)(n)
+        c.pos = n.pos
+        c
+      }
+    }
   }
 
-  lazy val constraint1: RawNode => Constraint = {
+  def constraint1: VarMap => RawNode => Constraint = {
     import Constraint._
-    attr {
+    paramAttr {
+      m => {
 
-      // Rule 4
-      case n @ RecordProj(e, idn) =>
-        HasType(expType(e), ConstraintRecordType(Set(AttrType(idn, expType(n)))))
+        // Rule 4
+        case n @ RecordProj(e, idn) =>
+          HasType(expType(m)(e), ConstraintRecordType(Set(AttrType(idn, expType(m)(n)))))
 
-      // Rule 6
-      case n @ IfThenElse(e1, e2, e3) =>
-        And(
-          HasType(expType(e1), BoolType(), Some("if condition must be a boolean")),
-          SameType(expType(e2), expType(e3), Some("then and else must be of the same type")),
-          SameType(expType(n), expType(e2)))
+        // Rule 6
+        case n @ IfThenElse(e1, e2, e3) =>
+          And(
+            HasType(expType(m)(e1), BoolType(), Some("if condition must be a boolean")),
+            SameType(expType(m)(e2), expType(m)(e3), Some("then and else must be of the same type")),
+            SameType(expType(m)(n), expType(m)(e2)))
 
-      // Rule 8
-      case n @ FunApp(f, e) =>
-        SameType(expType(f), FunType(expType(e), expType(n)))
+        // Rule 8
+        case n @ FunApp(f, e) =>
+          SameType(expType(m)(f), FunType(expType(m)(e), expType(m)(n)))
 
-      // Rule 11
-      case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
-        And(
-          HasType(expType(n), BoolType()),
-          HasType(expType(e1), BoolType()),
-          HasType(expType(e2), BoolType()))
+        // Rule 11
+        case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
+          And(
+            HasType(expType(m)(n), BoolType()),
+            HasType(expType(m)(e1), BoolType()),
+            HasType(expType(m)(e2), BoolType()))
 
-      case n @ MergeMonoid(_: NumberMonoid, e1, e2) =>
-        And(
-          HasType(expType(n), NumberType()),
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2))
-        )
+        case n @ MergeMonoid(_: NumberMonoid, e1, e2) =>
+          And(
+            HasType(expType(m)(n), NumberType()),
+            SameType(expType(m)(n), expType(m)(e1)),
+            SameType(expType(m)(e1), expType(m)(e2))
+          )
 
-      // Rule 12
-      case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
-        And(
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2)),
-          HasType(expType(e2), ConstraintCollectionType(TypeVariable(), None, None))
-        )
+        // Rule 12
+        case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
+          And(
+            SameType(expType(m)(n), expType(m)(e1)),
+            SameType(expType(m)(e1), expType(m)(e2)),
+            HasType(expType(m)(e2), ConstraintCollectionType(TypeVariable(), None, None))
+          )
 
-      // Rule 13
-      case n @ Comp(m: NumberMonoid, _, e) =>
-        And(
-          HasType(expType(e), NumberType()),
-          SameType(expType(n), expType(e))
-        )
-      case n @ Comp(m: BoolMonoid, _, e) =>
-        And(
-          HasType(expType(e), BoolType()),
-          SameType(expType(n), expType(e))
-        )
-      // Binary Expression type
-      case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
-        And(
-          HasType(expType(n), BoolType()),
-          SameType(expType(e1), expType(e2)))
+        // Rule 13
+        case n @ Comp(_: NumberMonoid, _, e) =>
+          And(
+            HasType(expType(m)(e), NumberType()),
+            SameType(expType(m)(n), expType(m)(e))
+          )
+        case n @ Comp(_: BoolMonoid, _, e) =>
+          And(
+            HasType(expType(m)(e), BoolType()),
+            SameType(expType(m)(n), expType(m)(e))
+          )
+        // Binary Expression type
+        case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
+          And(
+            HasType(expType(m)(n), BoolType()),
+            SameType(expType(m)(e1), expType(m)(e2)))
 
-      case n @ BinaryExp(_: ComparisonOperator, e1, e2) =>
-        And(
-          HasType(expType(n), BoolType()),
-          SameType(expType(e2), expType(e1)),
-          HasType(expType(e1), NumberType()))
+        case n @ BinaryExp(_: ComparisonOperator, e1, e2) =>
+          And(
+            HasType(expType(m)(n), BoolType()),
+            SameType(expType(m)(e2), expType(m)(e1)),
+            HasType(expType(m)(e1), NumberType()))
 
-      case n @ BinaryExp(_: ArithmeticOperator, e1, e2) =>
-        And(
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2)),
-          HasType(expType(e2), NumberType()))
+        case n @ BinaryExp(_: ArithmeticOperator, e1, e2) =>
+          And(
+            SameType(expType(m)(n), expType(m)(e1)),
+            SameType(expType(m)(e1), expType(m)(e2)),
+            HasType(expType(m)(e2), NumberType()))
 
-      // Unary Expression type
-      case n @ UnaryExp(_: Neg, e) =>
-        And(
-          SameType(expType(n), expType(e)),
-          HasType(expType(e), NumberType()))
+        // Unary Expression type
+        case n @ UnaryExp(_: Neg, e) =>
+          And(
+            SameType(expType(m)(n), expType(m)(e)),
+            HasType(expType(m)(e), NumberType()))
 
-      // Expression block type
-      case n @ ExpBlock(_, e) =>
-        SameType(expType(n), expType(e))
+        // Expression block type
+        case n @ ExpBlock(_, e) =>
+          SameType(expType(m)(n), expType(m)(e))
 
-      // Generator
-      case n @ Gen(p, e) =>
-        HasType(expType(e), ConstraintCollectionType(patternType(p), None, None))
+        // Generator
+        case n @ Gen(p, e) =>
+          HasType(expType(m)(e), ConstraintCollectionType(patternType(p), None, None))
 
-      // Bind
-      case n @ Bind(p, e) =>
-        HasType(expType(e), patternType(p))
+        // Bind
+        case n @ Bind(p, e) =>
+          HasType(expType(m)(e), patternType(p))
 
-      case n =>
-        NoConstraint
+        case n =>
+          NoConstraint
+      }
     }
   }
 
-  lazy val constraints: RawNode => Seq[Constraint] = attr {
-    case n => constraints1(n)
+  lazy val constraints: VarMap => RawNode => Seq[Constraint] = paramAttr {
+    m => {
+      n => {
+        val cs = collect[Seq, Constraint] {
+          case n: RawNode => constraint(m)(n)
+        }
+        cs(n)
+      }
+    }
   }
 
-  def constraints1(n: RawNode): Seq[Constraint] = {
-    val cs = collect[Seq, Constraint] {
-      case n: RawNode => constraint(n)
+  lazy val solution: VarMap => RawNode => Either[(VarMap, Seq[Error]), VarMap] = paramAttr {
+    m => {
+      n => solve(flattenAnds(Constraint.And(constraints(m)(n):_*)), m)
     }
-    cs(n)
   }
 
 }
