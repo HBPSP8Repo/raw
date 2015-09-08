@@ -372,14 +372,15 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (s <- students; p <- professors; s = p) yield list s") {
-    failure("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, UnexpectedType(UserType(Symbol("professors")), ConstraintCollectionType(UserType(Symbol("student")), None, None), None))
+    failure("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, IncompatibleTypes(UserType(Symbol("professor")), UserType(Symbol("student"))))
   }
 
-  test("foo") {
-//    success("for (s <- students; p <- professors; s = p) yield list p", world, professors)
-//    success("for (s <- students; p <- professors; s = p) yield list (name := s.name, age := p.age)", world, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+  test("for (s <- students; p <- professors) yield list (name := s.name, age := p.age)") {
+    success("for (s <- students; p <- professors) yield list (name := s.name, age := p.age)", TestWorlds.professors_students, ListType(RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+  }
 
-//    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", world, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", student), AttrType("c", professor)), None)))
+  test("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)") {
+    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", TestWorlds.professors_students, ListType(RecordType(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))), AttrType("c", UserType(Symbol("professor")))), None)))
   }
 
   test("""\(x, y) -> x + y + 10""") {
@@ -393,6 +394,22 @@ class SemanticAnalyzerTest extends FunTest {
   test("""\(x, y) -> { z := x; y + z }""") {
     val n = NumberType()
     success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", n), AttrType("_2", n)), None), n))
+  }
+
+  test("""let polymorphism - not binding into functions""") {
+    val z = TypeVariable()
+    val n = NumberType()
+    success(
+      """
+        {
+        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+        age := (students, \x -> x.age);
+        v := sum1(age);
+        sum1
+        }
+
+      """, TestWorlds.professors_students,
+      FunType(RecordType(List(AttrType("_1", ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, n))), None), n))
   }
 
   test("""let-polymorphism #1""") {
@@ -431,6 +448,22 @@ class SemanticAnalyzerTest extends FunTest {
     """, TestWorlds.empty, FunType(i, i))
   }
 
+  test("""let polymorphism #4""") {
+    val z = TypeVariable()
+    val n = NumberType()
+    success(
+      """
+        {
+        x := 1;
+        f := \v -> v = x;
+        v := f(10);
+        f
+        }
+
+      """, TestWorlds.empty,
+      FunType(IntType(), BoolType()))
+  }
+
   test("""let-polymorphism #5""") {
     val x = TypeVariable()
     val age = TypeVariable()
@@ -449,65 +482,7 @@ class SemanticAnalyzerTest extends FunTest {
       AttrType("_3", FunType(rec2, BoolType()))), None))
   }
 
-//  test("""\(x, y) -> x.age = y""") {
-//    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType))
-//
-//  }
-
-  ignore("soundness") {
-    val world = TestWorlds.empty
-
-    // TODO: The following is unsound, as x and y are inferred to be AnyType() - but not the same type - so things can break.
-    // TODO: The 'walk' tree has the variables pointing to the same thing, but we loose that, due to how we do/don't do constraints.
-//    success("""\(x, y) -> x.age = y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-
-//    success("""\(x, y) -> (x, y)""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-
-//    success("""\(x, y) -> if (x = y) then x else y""", world, FunType(RecordType(List(AttrType("_1", IntType()), AttrType("_2", IntType())), None), IntType()))
-  }
-
-  test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
-    val z = TypeVariable()
-    val yz = NumberType()
-    success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
-      FunType(
-        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, yz))), None),
-        yz))
-  }
-
-  test("""let polymorphism - not binding into functions""") {
-    val z = TypeVariable()
-    val n = NumberType()
-    success(
-      """
-        {
-        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
-        age := (students, \x -> x.age);
-        v := sum1(age);
-        sum1
-        }
-
-      """, TestWorlds.professors_students,
-      FunType(RecordType(List(AttrType("_1", ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, n))), None), n))
-  }
-
-  test("""let polymorphism #4""") {
-    val z = TypeVariable()
-    val n = NumberType()
-    success(
-      """
-        {
-        x := 1;
-        f := \v -> v = x;
-        v := f(10);
-        f
-        }
-
-      """, TestWorlds.empty,
-      FunType(IntType(), BoolType()))
-  }
-
-  test("""let polymorphism #3""") {
+  test("""let-polymorphism #6""") {
     val z = TypeVariable()
     val n = NumberType()
     success(
@@ -524,38 +499,37 @@ class SemanticAnalyzerTest extends FunTest {
       FunType(IntType(), SetType(IntType())))
   }
 
+  test("map") {
+    success(
+      """
+        {
+        map := \(col, f) -> for (el <- col) yield list f(el);
+        col1 := set(1,2,3);
+        col2 := list(1.0, 2.0, 3.0);
+        (map(col1, \x -> x + 1), map(col2, \x -> x + 1.1))
+        }
+      """, TestWorlds.empty, RecordType(List(AttrType("_1", ListType(IntType())), AttrType("_2", ListType(FloatType()))), None))
+  }
 
-  test("coolness") {
-    val student = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student"))
-    val students = ListType(student)
-    val professor = RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors"))
-    val professors = ListType(professor)
-    val world = new World(sources = Map("students" -> students, "professors" -> professors))
+  test("""\(x, y) -> x.age = y""") {
+    val y = TypeVariable()
+    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", ConstraintRecordType(Set(AttrType("age", y)))), AttrType("_2", y)), None), BoolType()))
+  }
 
+  test("""\(x, y) -> (x, y)""") {
+    val x = TypeVariable()
+    val y = TypeVariable()
+    val rec = RecordType(List(AttrType("_1", x), AttrType("_2", y)), None)
+    success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(rec, rec))
+  }
 
-//    success(
-//      """
-//        {
-//        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
-//        age := (students, \x -> x.age);
-//
-//        v := sum1(age);
-//        sum1
-//        }
-//
-//      """, world,
-
-//    success(
-//      """
-//        {
-//        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
-//        sum1
-//        }
-//
-//      """, world,
-//      FunType(
-//        RecordType(List(AttrType("_1",students), AttrType("_2", FunType(student,IntType()))), None),
-//        IntType()))
+  test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
+    val z = TypeVariable()
+    val yz = NumberType()
+    success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
+      FunType(
+        RecordType(List(AttrType("_1",ConstraintCollectionType(z, None, None)), AttrType("_2", FunType(z, yz))), None),
+        yz))
   }
 
   test("""(\x -> x + 1)(1)""") {

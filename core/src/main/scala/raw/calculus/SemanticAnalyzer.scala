@@ -4,8 +4,6 @@ package calculus
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 
-case class SemanticAnalyzerError(err: String) extends RawException(err)
-
 /** Analyzes the semantics of an AST.
   * This includes the type checker/inference as well as monoid compatibility.
   *
@@ -203,6 +201,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     }
     case DataSourceEntity(sym) => world.sources(sym.idn)
     case _: UnknownEntity      => NothingType()
+    case _: MultipleEntity     => NothingType()
   }
 
   private def instantiateTypeScheme(t: Type, polymorphic: Set[Symbol]) = {
@@ -214,25 +213,28 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
       mappings(sym)
     }
 
-    // TODO: Remember to copy over the positions as we reconstruct the type
-    def recurse(t: Type): Type = t match {
-      case TypeVariable(sym)               => TypeVariable(getSym(sym))
-      case NumberType(sym)                 => NumberType(getSym(sym))
-      case PrimitiveType(sym)              => PrimitiveType(getSym(sym))
-      case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, getSym(sym))
-      case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType), c, i, getSym(sym))
-      case _: NothingType         => t
-      case _: AnyType             => t
-      case _: IntType             => t
-      case _: BoolType            => t
-      case _: FloatType           => t
-      case _: StringType          => t
-      case _: UserType            => t
-      case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, name)
-      case BagType(inner)         => BagType(recurse(inner))
-      case SetType(inner)         => SetType(recurse(inner))
-      case ListType(inner)        => ListType(recurse(inner))
-      case FunType(p, e)          => FunType(recurse(p), recurse(e))
+    def recurse(t: Type): Type = {
+      val nt = t match {
+        case TypeVariable(sym)                              => TypeVariable(getSym(sym))
+        case NumberType(sym)                                => NumberType(getSym(sym))
+        case PrimitiveType(sym)                             => PrimitiveType(getSym(sym))
+        case ConstraintRecordType(atts, sym)                => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, getSym(sym))
+        case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType), c, i, getSym(sym))
+        case _: NothingType                                 => t
+        case _: AnyType                                     => t
+        case _: IntType                                     => t
+        case _: BoolType                                    => t
+        case _: FloatType                                   => t
+        case _: StringType                                  => t
+        case _: UserType                                    => t
+        case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, name)
+        case BagType(inner)                                 => BagType(recurse(inner))
+        case SetType(inner)                                 => SetType(recurse(inner))
+        case ListType(inner)                                => ListType(recurse(inner))
+        case FunType(p, e)                                  => FunType(recurse(p), recurse(e))
+      }
+      nt.pos = t.pos
+      nt
     }
 
     recurse(t)
@@ -513,7 +515,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     case _: StringType                 => Set()
     case _: PrimitiveType              => Set()
     case _: NumberType                 => Set()
-    case _: UserType                   => Set() // TODO: Is this correct? Does it matter? Does getTypeVariables/getConstraintTypeVariables even matter anyway???
+    case _: UserType                   => Set()
     case RecordType(atts, _)           => atts.flatMap { case att => getTypeVariables(att.tipe) }.toSet
     case ListType(innerType)           => getTypeVariables(innerType)
     case SetType(innerType)            => getTypeVariables(innerType)
@@ -583,16 +585,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     }
   }
 
-  //  /** The root constraint is an And of all constraints imposed by each node in the expression.
-  //    */
-  //  private lazy val rootConstraint =
-  //    flattenAnds(
-  //      Constraint.And(
-  //        constraints(tree.root)
-  //          .filter {
-  //            case NoConstraint => false
-  //            case _ => true }:_*))
-
   /** Flatten all occurrences on nested And constraints.
     */
   // TODO: Refactor? Remove And constraint and turn it into Seq?
@@ -633,35 +625,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     m
   }
 
-  private var unifyErrors = scala.collection.mutable.MutableList[Error]()
+  /** Stores unification errors.
+    */
+  private var unifyErrors =
+    scala.collection.mutable.MutableList[Error]()
 
-  // TODO: Pass to init all constraints and prevent loops later on
-  //  val x = constraints(tree.root)
+  /** Run for its side-effect.
+    */
+  solution(tree.root)
 
-//  val y = solution(tree.root)
-
-  // TODO: It's necessary to collect badEntities first, but I should still continue and report the rest of the unrelated errors,
-  //       which can be done by setting the types of the "bad entities" to NothingType
+  // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
+  // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] =
-    if (badEntities.nonEmpty)
-      badEntities
-    else {
-
-      constraints(tree.root)
-
-      solution(tree.root)
-
-      // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
-      // TODO: And certainly no NothingType as well...
-
-      if (unifyErrors.nonEmpty)
-        unifyErrors.to
-      else {
-
-        // All is OK so check for semantic errors (i.e. run the error checking phase that requires final types)
-        semanticErrors
-      }
-    }
+    badEntities ++ unifyErrors ++ semanticErrors
 
   /** Given a type, returns a new type that replaces type variables as much as possible, given the map m.
     * This is the type representing the group of types.
@@ -670,7 +646,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     if (m.contains(t)) m(t).root else t
 
   /** Reconstruct the type into a user-friendly type: in practice this means resolving any "inner" type variables
-    * and giving preference to UserType when they exist.
+    * and giving preference to UserType (instead of the root of the unification group) when it exists.
     */
   private def walk(t: Type, m: VarMap): Type = {
 
@@ -695,12 +671,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         t
 
     def reconstructType(ot: Type, occursCheck: Set[Type]): Type = {
-      logger.debug(s"ot is $ot");
       if (occursCheck.contains(ot)) {
         ot
       } else {
         val t = pickMostRepresentativeType(ot)
-        t match {
+        val nt = t match {
           case _: NothingType   => t
           case _: AnyType       => t
           case _: IntType       => t
@@ -715,11 +690,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
           case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + ot))
           case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + ot))
           case FunType(p, e)       => FunType(reconstructType(p, occursCheck + ot), reconstructType(e, occursCheck + ot))
-          // TODO: Shouldn't I walk ALL Variable types?
           case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + ot)) }, sym)
           case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + ot), c, i, sym)
           case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + ot)
         }
+        nt.pos = t.pos
+        nt
       }
     }
 
@@ -731,11 +707,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   /** Return the type of an expression.
     */
   def tipe(e: Exp): Type = {
-    // TODO: Fix this check!!! Must happen or smtg.. (or give back class w/o tipe method on error?)
-  //    if (errors.nonEmpty)
-  //      throw SemanticAnalyzerError("Type checker failed with errors")
-  //    else { {
-    logger.debug("FINAL FINAL FINAL VarMap is")
+    logger.debug("FINAL VarMap:")
     printVarMap(mappings)
     logger.debug(s"expType of e $e is ${expType(e)}")
     walk(expType(e), mappings)
@@ -867,9 +839,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 
 }
 
-// TODO: Inferring FunAbs in the context of a FunApp. Add simple FunApp tests first!
-// TODO: Make one SemanticAnalyzer test per function.
-// TODO: Sort out the SemanticAnalyzer tests: there are useful tests there that are commented out since we didn't match properly (e.g. on errors)
 // TODO: Add more tests to the SemanticAnalyzer with the intuit of testing the error reporting: the error messages may not yet be the most clear.
 // TODO: Report unrelated errors by returning multiple Lefts - likely setting things to NothingType and letting them propagate.
 //       Related with ths one, is the notion of whether Left(...) on solve should bother to return the bad map, since all we
@@ -878,10 +847,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 //       It should just type to FunType(IntType(), IntType().
 //       It is not strictly needed but the notion of a NamedFunction may help code-generation because these are things we don't inline/consider inlining,
 // TODO: Do we need to add a closure check, or is that executor-specific?
-// TODO: Add check to forbit polymorphic recursion (page 377 or 366 of ML Impl book)
+// TODO: Add check to forbid polymorphic recursion (page 377 or 366 of ML Impl book)
 // TODO: Add issue regarding polymorphic code generation:
 //       e.g. if Int, Bool on usage generate 2 versions of the method;
 //       more interestingly, if ConstraintRecordType, find out the actual records used and generate versions for those.
 // TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
 // TODO: Re-do Unnester to use the same tree. Refactor code into new package raw.core
 // TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
+
+// TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
+//       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
+// TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
+//       This should only happen for a single col I guess?. It helps write the map function.
