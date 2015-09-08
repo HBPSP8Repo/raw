@@ -166,7 +166,7 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
   def ident: Parser[Idn] =
     """[_a-zA-Z]\w*""".r into (s => {
       if (reservedWords contains s)
-        failure(s"""reserved keyword '${s}' found where identifier expected""")
+        failure(s"""reserved keyword '$s' found where identifier expected""")
       else
         success(s)
     })

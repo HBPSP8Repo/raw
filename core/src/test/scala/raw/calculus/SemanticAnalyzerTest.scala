@@ -499,6 +499,20 @@ class SemanticAnalyzerTest extends FunTest {
       FunType(IntType(), SetType(IntType())))
   }
 
+  test("""let-polymorphism #7""") {
+    success(
+      """
+      {
+        f := \x -> {
+          f1 := (\x1 -> (x1 = (x + x)));
+          f2 := (\x2 -> (x2 != (x + x)));
+          \z -> ((if true then f1 else f2)(z))
+        };
+        (f, f(1))
+      }
+      """, TestWorlds.empty, AnyType())
+  }
+
   test("map") {
     success(
       """

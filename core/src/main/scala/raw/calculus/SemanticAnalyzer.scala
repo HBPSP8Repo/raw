@@ -214,7 +214,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     }
 
     def recurse(t: Type): Type = {
-      val nt = t match {
+      t match {
         case TypeVariable(sym)                              => TypeVariable(getSym(sym))
         case NumberType(sym)                                => NumberType(getSym(sym))
         case PrimitiveType(sym)                             => PrimitiveType(getSym(sym))
@@ -233,8 +233,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         case ListType(inner)                                => ListType(recurse(inner))
         case FunType(p, e)                                  => FunType(recurse(p), recurse(e))
       }
-      nt.pos = t.pos
-      nt
     }
 
     recurse(t)
@@ -247,15 +245,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   /** The type corresponding to a given pattern.
     */
   private def patternType(p: Pattern): Type = p match {
-    case PatternIdn(idn) => entity(idn) match {
-      case VariableEntity(_, t) => t
-      case _ => NothingType()
-    }
-    case PatternProd(ps) => RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
+    case PatternIdn(idn) =>
+      entity(idn) match {
+        case VariableEntity(_, t) => t
+        case _ => typeWithPos(NothingType(), p)
+      }
+    case PatternProd(ps) =>
+      typeWithPos(RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None), p)
   }
 
-  private def typeWithPos(t: Type, e: Exp): Type = {
-    t.pos = e.pos
+  private def typeWithPos(t: Type, n: RawNode): Type = {
+    t.pos = n.pos
     t
   }
 
@@ -263,6 +263,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     * If the type cannot be immediately derived from the expression itself, then type variables are used for unification.
     */
   private lazy val expType: Exp => Type = attr {
+    // Place the type position in the operator
+    case e @ BinaryExp(op, _, _) => typeWithPos(expType1(e), op)
+    case e @ UnaryExp(op, _) => typeWithPos(expType1(e), op)
+
     case e => typeWithPos(expType1(e), e)
   }
 
@@ -287,7 +291,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
             logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
             nt
           }
-        case t                   => t
+        case t                   => logger.debug(s"and here with t.pos ${t.pos}"); t
       }
 
     // Rule 5
@@ -385,7 +389,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
             }
           }
           val commonAttrs = commonIdns.map { case idn => AttrType(idn, r1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
-        val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
+          val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
           Right(curm.union(r1, r2).union(r2, nt))
         case (r1 @ ConstraintRecordType(atts1, _), r2 @ RecordType(atts2, name))                                                                            =>
           if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
@@ -531,10 +535,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   private def getConstraintTypeVariables(c: Constraint): Set[TypeVariable] = c match {
     case And(cs @ _*)        =>
       cs.flatMap(c => getConstraintTypeVariables(c)).toSet
-    case SameType(t1, t2, _) =>
-      getTypeVariables(t1) ++ getTypeVariables(t2)
-    case HasType(t, expected, _) =>
-      getTypeVariables(t) ++ getTypeVariables(expected)
+    case SameType(e1, e2, _) =>
+      getTypeVariables(expType(e1)) ++ getTypeVariables(expType(e2))
+    case HasType(e, expected, _) =>
+      getTypeVariables(expType(e)) ++ getTypeVariables(expected)
     case NoConstraint => Set()
   }
 
@@ -567,14 +571,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         }
       case _: And                      => // Empty And
         Right(m)
-      case SameType(t1, t2, desc)      =>
+      case SameType(e1, e2, desc)      =>
+        val t1 = expType(e1)
+        val t2 = expType(e2)
         unify(t1, t2, m) match {
           case Right(nm) =>
             Right(nm)
           case Left(nm) =>
             Left(nm, List(IncompatibleTypes(walk(t1, nm), walk(t2, nm))))
         }
-      case HasType(t, expected, desc)  =>
+      case HasType(e, expected, desc)  =>
+        val t = expType(e)
         unify(t, expected, m) match {
           case Right(nm) =>
             Right(nm)
@@ -675,7 +682,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         ot
       } else {
         val t = pickMostRepresentativeType(ot)
-        val nt = t match {
+        t match {
           case _: NothingType   => t
           case _: AnyType       => t
           case _: IntType       => t
@@ -694,8 +701,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
           case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + ot), c, i, sym)
           case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + ot)
         }
-        nt.pos = t.pos
-        nt
       }
     }
 
@@ -707,9 +712,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   /** Return the type of an expression.
     */
   def tipe(e: Exp): Type = {
-    logger.debug("FINAL VarMap:")
-    printVarMap(mappings)
-    logger.debug(s"expType of e $e is ${expType(e)}")
+//    logger.debug("FINAL VarMap:")
+//    printVarMap(mappings)
+//    logger.debug(s"expType of e $e is ${expType(e)}")
+    logger.debug("Final map")
+    logger.debug(mappings.printAllMap())
     walk(expType(e), mappings)
   }
 
@@ -729,88 +736,88 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     n match {
       // Rule 4
       case n @ RecordProj(e, idn) =>
-        HasType(expType(e), ConstraintRecordType(Set(AttrType(idn, expType(n)))))
+        HasType(e, ConstraintRecordType(Set(AttrType(idn, expType(n)))))
 
       // Rule 6
       case n @ IfThenElse(e1, e2, e3) =>
         And(
-          HasType(expType(e1), BoolType(), Some("if condition must be a boolean")),
-          SameType(expType(e2), expType(e3), Some("then and else must be of the same type")),
-          SameType(expType(n), expType(e2)))
+          HasType(e1, BoolType(), Some("if condition must be a boolean")),
+          SameType(e2, e3, Some("then and else must be of the same type")),
+          SameType(n, e2))
 
       // Rule 8
       case n @ FunApp(f, e) =>
-        SameType(expType(f), FunType(expType(e), expType(n)))
+        HasType(f, FunType(expType(e), expType(n)))
 
       // Rule 11
       case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
         And(
-          HasType(expType(n), BoolType()),
-          HasType(expType(e1), BoolType()),
-          HasType(expType(e2), BoolType()))
+          HasType(n, BoolType()),
+          HasType(e1, BoolType()),
+          HasType(e2, BoolType()))
 
       case n @ MergeMonoid(_: NumberMonoid, e1, e2) =>
         And(
-          HasType(expType(n), NumberType()),
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2))
+          HasType(n, NumberType()),
+          SameType(n, e1),
+          SameType(e1, e2)
         )
 
       // Rule 12
       case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
         And(
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2)),
-          HasType(expType(e2), ConstraintCollectionType(TypeVariable(), None, None))
+          SameType(n, e1),
+          SameType(e1, e2),
+          HasType(e2, ConstraintCollectionType(TypeVariable(), None, None))
         )
 
       // Rule 13
       case n @ Comp(_: NumberMonoid, _, e) =>
         And(
-          HasType(expType(e), NumberType()),
-          SameType(expType(n), expType(e))
+          HasType(e, NumberType()),
+          SameType(n, e)
         )
       case n @ Comp(_: BoolMonoid, _, e)   =>
         And(
-          HasType(expType(e), BoolType()),
-          SameType(expType(n), expType(e))
+          HasType(e, BoolType()),
+          SameType(n, e)
         )
 
       // Binary Expression type
       case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
         And(
-          HasType(expType(n), BoolType()),
-          SameType(expType(e1), expType(e2)))
+          HasType(n, BoolType()),
+          SameType(e1, e2))
 
       case n @ BinaryExp(_: ComparisonOperator, e1, e2) =>
         And(
-          HasType(expType(n), BoolType()),
-          SameType(expType(e2), expType(e1)),
-          HasType(expType(e1), NumberType()))
+          HasType(n, BoolType()),
+          SameType(e2, e1),
+          HasType(e1, NumberType()))
 
       case n @ BinaryExp(_: ArithmeticOperator, e1, e2) =>
         And(
-          SameType(expType(n), expType(e1)),
-          SameType(expType(e1), expType(e2)),
-          HasType(expType(e2), NumberType()))
+          SameType(n, e1),
+          SameType(e1, e2),
+          HasType(e2, NumberType()))
 
       // Unary Expression type
       case n @ UnaryExp(_: Neg, e) =>
         And(
-          SameType(expType(n), expType(e)),
-          HasType(expType(e), NumberType()))
+          SameType(n, e),
+          HasType(e, NumberType()))
 
       // Expression block type
       case n @ ExpBlock(_, e) =>
-        SameType(expType(n), expType(e))
+        SameType(n, e)
 
       // Generator
       case n @ Gen(p, e) =>
-        HasType(expType(e), ConstraintCollectionType(patternType(p), None, None))
+        HasType(e, ConstraintCollectionType(patternType(p), None, None))
 
       // Bind
       case n @ Bind(p, e) =>
-        HasType(expType(e), patternType(p))
+        HasType(e, patternType(p))
 
       case n =>
         NoConstraint

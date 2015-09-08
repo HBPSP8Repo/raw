@@ -53,6 +53,10 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
       s"expected ${TypesPrettyPrinter(expected)} but got ${TypesPrettyPrinter(t)} (${t.pos})"
   }
 }
+//
+//change this to handle epressions and their positions; asks type here? or is it passed as well?
+//
+//in expType I set the positions; do I still need to do that?
 
 /** TypesPrettyPrinter
   * A more user-friendly representation of types, used for error reporting.

@@ -16,12 +16,6 @@ class World(val sources: Map[String, Type] = Map(),
 
 object World extends LazyLogging {
 
-  import calculus.Calculus.Exp
-
-  //type VarMap = Map[Symbol, Type]
-
-  //type VarMap = Map[Meta, Group]
-
   class VarMap(val m: List[(Type, Group)] = List(), val query: Option[String] = None) {
 
     def typeVariables: Set[TypeVariable] =
@@ -102,7 +96,11 @@ object World extends LazyLogging {
 
     def printMap(q: String, pos: Set[Position], t: Type) = {
       val posPerLine = pos.groupBy(_.line)
-      var output = s"New Type: ${TypesPrettyPrinter(t)}\n"
+      var output = s"Type: ${TypesPrettyPrinter(t)}\n"
+      logger.debug(s"pos are $pos")
+//      if (posPerLine.contains(0)) {
+//        assert(!posPerLine.contains(0))
+//      }
       for ((line, lineno) <- q.split("\n").zipWithIndex) {
         output += line + "\n"
         if (posPerLine.contains(lineno + 1)) {
@@ -117,6 +115,21 @@ object World extends LazyLogging {
         }
       }
       output
+    }
+
+    def printAllMap(): String = {
+      query match {
+        case None => "<query unknown>"
+        case Some(q) =>
+          var output = ""
+          val groups = m.map(_._2).toSet
+          for (g <- groups) {
+            val pos = g.tipes.map(_.pos).filter{ case _: UserType => false case _ => true } // UserTypes have no positions
+            val t = g.root
+            output += printMap(q, pos, t)
+          }
+          output
+      }
     }
 
   }
