@@ -23,26 +23,23 @@ RUN apt-get update && apt-get install -y \
     python-minimal \
     python-pandas \
     python-pip \
-    vim
+    vim && apt-get clean
 
-RUN mkdir /raw
+# Create all directories for shore and for LDB
+RUN mkdir /opt/shoremt && mkdir -p /var/opt/shoremt/log && mkdir -p /opt/ldb
 
+# Clone, compile and install shore.
 ADD shore-mt-install.sh /tmp/
 RUN bash /tmp/shore-mt-install.sh
 
-# LDB. Will copy the LDB source code from the host directory /tmp/ldb
-RUN mkdir /raw/ldb && mkdir /raw/ldbstore && mkdir /raw/ldbstore/log
-ADD Config ldbconfig /raw/ldb/
-ADD .src-ldb/ /raw/ldb
-RUN cd /raw/ldb && make
+# Copy the LDB source code from the host directory
+ADD Config ldbconfig /opt/ldb/
+ADD .src-ldb/ /opt/ldb
+RUN cd /opt/ldb && make
 
-EXPOSE 5000
+WORKDIR /opt
 
-# the server.py script must be executed from this directory, because it uses relative
-# paths to find other files.
-WORKDIR /raw/ldb
-
-RUN mkdir /raw/scripts
-ADD run-with-*-backend.sh /raw/scripts/
+RUN mkdir /opt/scripts
+ADD run-with-*-backend.sh /opt/scripts/
 
 RUN pip install flask-cors dropbox

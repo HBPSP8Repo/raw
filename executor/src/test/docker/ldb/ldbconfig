@@ -6,10 +6,10 @@
 #?.server.*.sm_diskrw: /home/miguel/shore-storage-manager-5.0.3/installed/bin/diskrw
 
 # the directory with the log files (must be created by administrator)
-?.server.*.sm_logdir: /raw/ldbstore/log
+?.server.*.sm_logdir: /var/opt/shoremt/log
 
 # the database volume (this file is created and formated automatically by 'odl -build')
-?.server.*.sm_volume: /raw/ldbstore/database
+?.server.*.sm_volume: /var/opt/shoremt/database
 
 # set the buffer pool size for server
 ?.server.*.sm_bufpoolsize: 320000
