@@ -3,6 +3,9 @@ package calculus
 
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
+import raw.World._
+
+import scala.util.parsing.input.Position
 
 /** Analyzes the semantics of an AST.
   * This includes the type checker/inference as well as monoid compatibility.
@@ -184,17 +187,81 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
           logger.debug(s"Here in idn $idn with pre-mappings $mappings and bind $b")
 
           val origMappings = mappings
+//          logger.debug(s"post-mappings $mappings")
+//
+          // walk new type
+          // find all its new variables
+          // remove the ones that are ..
+
+//          val t1 = tipe(b.e) // walk(t, mappings)
+
           solution(b)
-          logger.debug(s"post-mappings $mappings")
           val t1 = walk(t, mappings)
+
           logger.debug(s"walked type $t1")
+
+
+          // replace walk by a thing that gets ride of vars that point to each other.
+          // again, cant just be a find because we need to recurse inside the definition
+
+
+          // get all type variables
+          // for each type variable
+          //    get all other type variables in the group, in the new mapping
+          //    if any of those was contained in the original group, skip it altogether
+          //
+          // REMEMBER TO REPLACE THE NEW TYPE BY THE OLD TYPE SO THAT THE OLD TYPE KEPPS ON BEING CHANGED
+
+          // btw, also skip yourself
+
+
+          //
+
+          // for each type variable,
+          // that i cannot walk further - i.e. no in the map -
+          // check all other member of the map
+          // if any of those other is in the map, we replace it by the original one in the map (old root)
+
+          // now we end up only with either totally new things, or things that were in the map
+
+//          do test case with arg of funabs being a project attribute (constrained record) with polymorphism
+
+          def reconstructType(t: Type, occursCheck: Set[Type]): Type = {
+            if (occursCheck.contains(t)) {
+              t
+            } else {
+              t match {
+                case _: NothingType   => t
+                case _: AnyType       => t
+                case _: IntType       => t
+                case _: BoolType      => t
+                case _: FloatType     => t
+                case _: StringType    => t
+                case _: PrimitiveType => if (!mappings.contains(t)) t else reconstructType(mappings(t).root, occursCheck + t)
+                case _: NumberType    => if (!mappings.contains(t)) t else reconstructType(mappings(t).root, occursCheck + t)
+                case _: UserType      => t
+                case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
+                case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + t))
+                case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + t))
+                case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + t))
+                case FunType(p, e)       => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
+                case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
+                case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + t), c, i, sym)
+                case t1: TypeVariable => if (!mappings.contains(t1)) t1 else reconstructType(mappings(t1).root, occursCheck + t)
+              }
+            }
+          }
+
+
+          //
+
           TypeScheme(t1, getVariableTypes(t1).filter { case tv: TypeVariable => !origMappings.contains(tv) && (tv != t1) case _ => true }.map(_.sym))
         case Some(g: Gen)       =>
           val origMappings = mappings
           solution(g)
           val t1 = walk(t, mappings)
           TypeScheme(t1, getVariableTypes(t1).filter { case tv: TypeVariable => !origMappings.contains(tv) && (tv != t1) case _ => true }.map(_.sym))
-        case Some(FunAbs(_, e))                  =>
+        case Some(f: FunAbs)                  =>
           logger.debug(s"Passed here with idn $idn")
           t
       }
@@ -262,6 +329,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   /** The type of an expression.
     * If the type cannot be immediately derived from the expression itself, then type variables are used for unification.
     */
+
+  // TODO: DO we even need the position of types? If when I report errors I use the expression, this is no longer needed!!!
+
   private lazy val expType: Exp => Type = attr {
     // Place the type position in the operator
     case e @ BinaryExp(op, _, _) => typeWithPos(expType1(e), op)
@@ -622,7 +692,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     for ((sym, t) <- world.tipes) {
       m = m.union(UserType(sym), t)
     }
-    // TODO: Ben???? With this, one of the unknownrecords test passes!
     // Add type variables from user sources
     for ((_, t) <- world.sources) {
       for (tv <- getVariableTypes(t)) {
@@ -657,31 +726,48 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
     */
   private def walk(t: Type, m: VarMap): Type = {
 
-    def pickMostRepresentativeType(t: Type): Type =
-      if (m.contains(t)) {
-        // Collect a UserType definition if it exists.
-        // We assume the UserType is the most friendly one to return to the user.
-        val g = m(t)
-        val userType = g.tipes.collectFirst { case u: UserType => u }
-        userType match {
-          case Some(ut) =>
-            // We found a UserType, so let's return it
-            ut
-          case None =>
-            // If we could not find a UserType, try to return anything that is not a VariableType if it exists.
-            // Otherwise, we are forced to return the VariableType (e.g. TypeVariable, Constraint, ...).
-            val ts = g.tipes.filter { case _: VariableType => false case _ => true }
-            val nt = if (ts.nonEmpty) ts.head else g.root
-            nt
-        }
-      } else
-        t
+    def pickMostRepresentativeType(g: Group): Type = {
+      // Collect a UserType definition if it exists.
+      // We assume the UserType is the most friendly one to return to the user.
+      val userType = g.tipes.collectFirst { case u: UserType => u }
+      userType match {
+        case Some(ut) =>
+          ut
+        case None =>
+          val ct = g.tipes.find { case _: VariableType => false; case _ => true }
+          ct match {
+            case Some(t) => t
+            case None =>
+              val vt = g.tipes.find { case _: TypeVariable => false; case _ => true }
+              vt match {
+                case Some(t) => t
+                case None => g.tipes.head
+              }
+          }
+      }
+    }
+//
+//            .getOrElse(g.tipes))
+//
+//          // If we could not find a UserType, try to return anything that is not a VariableType if it exists.
+//          // Otherwise, we are forced to return the VariableType (e.g. TypeVariable, Constraint, ...).
+//          val ts = g.tipes.filter { case _: TypeVariable => false case _ => true }
+//          val nt =
+//            if (ts.nonEmpty)
+//              ts.head
+//            else
+//              g.root
+//
+//          // here narrow down to variable types
+//
+//          nt
+//      }
+//    }
 
-    def reconstructType(ot: Type, occursCheck: Set[Type]): Type = {
-      if (occursCheck.contains(ot)) {
-        ot
+    def reconstructType(t: Type, occursCheck: Set[Type]): Type = {
+      if (occursCheck.contains(t)) {
+        t
       } else {
-        val t = pickMostRepresentativeType(ot)
         t match {
           case _: NothingType   => t
           case _: AnyType       => t
@@ -689,17 +775,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
           case _: BoolType      => t
           case _: FloatType     => t
           case _: StringType    => t
-          case _: PrimitiveType => if (!m.contains(t)) t else reconstructType(m(t).root, occursCheck + ot)
-          case _: NumberType    => if (!m.contains(t)) t else reconstructType(m(t).root, occursCheck + ot)
+          case _: PrimitiveType => if (!m.contains(t)) t else reconstructType(pickMostRepresentativeType(m(t)), occursCheck + t)
+          case _: NumberType    => if (!m.contains(t)) t else reconstructType(pickMostRepresentativeType(m(t)), occursCheck + t)
           case _: UserType      => t
-          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + ot)) }, name)
-          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + ot))
-          case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + ot))
-          case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + ot))
-          case FunType(p, e)       => FunType(reconstructType(p, occursCheck + ot), reconstructType(e, occursCheck + ot))
-          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + ot)) }, sym)
-          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + ot), c, i, sym)
-          case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(m(t1).root, occursCheck + ot)
+          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
+          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + t))
+          case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + t))
+          case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + t))
+          case FunType(p, e)       => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
+          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
+          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + t), c, i, sym)
+          case t1: TypeVariable => if (!m.contains(t1)) t1 else reconstructType(pickMostRepresentativeType(m(t1)), occursCheck + t)
         }
       }
     }
@@ -715,8 +801,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
 //    logger.debug("FINAL VarMap:")
 //    printVarMap(mappings)
 //    logger.debug(s"expType of e $e is ${expType(e)}")
-    logger.debug("Final map")
-    logger.debug(mappings.printAllMap())
+//    logger.debug("Final map")
+//    logger.debug(mappings.printAllMap())
     walk(expType(e), mappings)
   }
 
@@ -834,6 +920,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
   }
 
   def solution(n: RawNode): Unit = {
+    logger.debug(s"CONSTRAINTS ARE ${constraints(n)}")
     solve(flattenAnds(Constraint.And(constraints(n): _*)), mappings) match {
       case Right(nm) => mappings = nm
       case Left((nm, err)) => {
@@ -842,6 +929,57 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val query: Opt
         unifyErrors = err.to
       }
     }
+  }
+
+  def printTypedTree(): Unit = {
+
+    if (query.isEmpty) {
+      return
+    }
+    val q = query.head
+
+    def printMap(pos: Set[Position], t: Type) = {
+      val posPerLine = pos.groupBy(_.line)
+      var output = s"Type: ${TypesPrettyPrinter(t)}\n"
+      logger.debug(s"pos are $pos")
+      for ((line, lineno) <- q.split("\n").zipWithIndex) {
+        output += line + "\n"
+        if (posPerLine.contains(lineno + 1)) {
+          val cols = posPerLine(lineno + 1).map(_.column).toList.sortWith(_ < _)
+          var c = 0
+          for (col <- cols) {
+            output += " " * (col - c - 1)
+            output += "^"
+            c = col
+          }
+          output += "\n"
+        }
+      }
+      output
+    }
+
+    // for each expression in the tree, on a dfs manner
+    // find the group it belongs to
+    // then find all the groups
+    // then print it all
+    // then remove the group
+    var groups = scala.collection.mutable.Set[Group]()
+
+    val collectMaps = collect[List, (Type, Position)] {
+      case e: Exp => {
+        val t = expType(e)
+        if (!mappings.contains(t)) {
+          t -> e.pos
+        } else {
+          walk(mappings(t).root, mappings) -> e.pos
+        }
+      }
+    }
+
+    for ((t, items) <- collectMaps(tree.root).groupBy(_._1)) {
+      logger.debug(printMap(items.map(_._2).toSet, t))
+    }
+
   }
 
 }

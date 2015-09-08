@@ -71,11 +71,11 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case ListType(innerType)    => "list" <> parens(tipe(innerType))
     case SetType(innerType)     => "set" <> parens(tipe(innerType))
     case FunType(p, e)          => tipe(p) <+> "->" <+> tipe(e)
-    case TypeVariable(sym)      => s"<${sym.idn}>"
+    case TypeVariable(sym)      => sym.idn
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"
     case UserType(sym)          => sym.idn
-    case TypeScheme(t, vars)    => "type_scheme" <> parens(tipe(t)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
+    case TypeScheme(t1, vars)    => "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
   }
 
 }

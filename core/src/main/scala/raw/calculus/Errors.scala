@@ -73,8 +73,6 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
   }
 
   def show(t: Type): Doc = t match {
-    case _: NumberType => "number"
-    case _: PrimitiveType => "primitive"
     case ConstraintCollectionType(inner, c, i, _) =>
       val prefix = List(p(c, "commutative"), p(i, "idempotent")).filter(_.isDefined).mkString(" and ")
       if (prefix.nonEmpty)
@@ -87,7 +85,6 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
         s"record with $satts"
       else
         s"record"
-    case v: TypeVariable => v.sym.idn // TODO: or should be any?
     case _ => PrettyPrinter(t)
   }
 }

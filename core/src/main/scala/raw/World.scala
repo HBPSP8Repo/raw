@@ -69,12 +69,6 @@ object World extends LazyLogging {
           nm += ((k, ng))
         }
 
-        // Pretty-print changes to the map
-        query match {
-          case Some(q) => logger.debug("Map change\n" + printMap(q, ntipes.map(_.pos), ng.root))
-          case None =>
-        }
-
         new VarMap(nm.toList, query=query)
       }
     }
@@ -94,43 +88,43 @@ object World extends LazyLogging {
       s
     }
 
-    def printMap(q: String, pos: Set[Position], t: Type) = {
-      val posPerLine = pos.groupBy(_.line)
-      var output = s"Type: ${TypesPrettyPrinter(t)}\n"
-      logger.debug(s"pos are $pos")
-//      if (posPerLine.contains(0)) {
-//        assert(!posPerLine.contains(0))
+//    def printMap(q: String, pos: Set[Position], t: Type) = {
+//      val posPerLine = pos.groupBy(_.line)
+//      var output = s"Type: ${TypesPrettyPrinter(t)}\n"
+//      logger.debug(s"pos are $pos")
+////      if (posPerLine.contains(0)) {
+////        assert(!posPerLine.contains(0))
+////      }
+//      for ((line, lineno) <- q.split("\n").zipWithIndex) {
+//        output += line + "\n"
+//        if (posPerLine.contains(lineno + 1)) {
+//          val cols = posPerLine(lineno + 1).map(_.column).toList.sortWith(_ < _)
+//          var c = 0
+//          for (col <- cols) {
+//            output += " " * (col - c - 1)
+//            output += "^"
+//            c = col
+//          }
+//          output += "\n"
+//        }
 //      }
-      for ((line, lineno) <- q.split("\n").zipWithIndex) {
-        output += line + "\n"
-        if (posPerLine.contains(lineno + 1)) {
-          val cols = posPerLine(lineno + 1).map(_.column).toList.sortWith(_ < _)
-          var c = 0
-          for (col <- cols) {
-            output += " " * (col - c - 1)
-            output += "^"
-            c = col
-          }
-          output += "\n"
-        }
-      }
-      output
-    }
-
-    def printAllMap(): String = {
-      query match {
-        case None => "<query unknown>"
-        case Some(q) =>
-          var output = ""
-          val groups = m.map(_._2).toSet
-          for (g <- groups) {
-            val pos = g.tipes.map(_.pos).filter{ case _: UserType => false case _ => true } // UserTypes have no positions
-            val t = g.root
-            output += printMap(q, pos, t)
-          }
-          output
-      }
-    }
+//      output
+//    }
+//
+//    def printAllMap(): String = {
+//      query match {
+//        case None => "<query unknown>"
+//        case Some(q) =>
+//          var output = ""
+//          val groups = m.map(_._2).toSet
+//          for (g <- groups) {
+//            val pos = g.tipes.map(_.pos).filter{ case _: UserType => false case _ => true } // UserTypes have no positions
+//            val t = g.root
+//            output += printMap(q, pos, t)
+//          }
+//          output
+//      }
+//    }
 
   }
 
