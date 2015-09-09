@@ -16,7 +16,9 @@ class World(val sources: Map[String, Type] = Map(),
 
 object World extends LazyLogging {
 
-  class VarMap(val m: List[(Type, Group)] = List(), val query: Option[String] = None) {
+  class VarMap(val query: Option[String] = None) {
+
+    private var m: List[(Type, Group)] = List()
 
     def typeVariables: Set[TypeVariable] =
       m.collect { case (v: TypeVariable, _) => v }.toSet
@@ -41,14 +43,10 @@ object World extends LazyLogging {
 
     def apply(t: Type): Group = get(t).head
 
-    def union(t1: Type, t2: Type): VarMap = {
+    def union(t1: Type, t2: Type) = {
       val g1 = getOrElse(t1, new Group(t1, Set(t1)))
       val g2 = getOrElse(t2, new Group(t2, Set(t2)))
-      if (g1 eq g2) {
-        assert(g1.tipes.contains(t1))
-        assert(g2.tipes.contains(t2))
-        this
-      } else {
+      if (!(g1 eq g2)) {
         val ntipes = g1.tipes union g2.tipes
         val ng = new Group(t2, ntipes)
         assert(ng.tipes.contains(t1))
@@ -69,8 +67,9 @@ object World extends LazyLogging {
           nm += ((k, ng))
         }
 
-        new VarMap(nm.toList, query=query)
+        m = nm.toList
       }
+      this
     }
 
     override def toString: String = {
