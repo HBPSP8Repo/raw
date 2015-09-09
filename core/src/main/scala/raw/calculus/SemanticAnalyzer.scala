@@ -73,6 +73,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
+  /** Type checker errors.
+    */
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
@@ -222,7 +224,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case t1: TypeVariable                                  => Set(t1)
   }
 
-  private lazy val bindType: Bind => Type = attr {
+  /** Type the rhs of a Bind declaration.
+    */
+  private lazy val tipeBind: Bind => Type = attr {
     case Bind(p, e) =>
       solve(constraints(e))
       val t = expType(e)
@@ -233,7 +237,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       t
   }
 
-  private lazy val genType: Gen => Type = attr {
+  /** Type the rhs of a Gen declaration.
+    */
+  private lazy val tipeGen: Gen => Type = attr {
     case Gen(p, e) =>
       solve(constraints(e))
       val t = expType(e)
@@ -244,6 +250,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       t
   }
 
+  /** Obtain sequence of indexes for a pattern identifier.
+    */
   private lazy val patternIndex: Pattern => Seq[Int] = attr {
     case tree.parent.pair(_, parent: PatternIdn) => patternIndex(parent)
     case tree.parent.pair(p, parent: PatternProd) => patternIndex(parent) :+ parent.ps.indexOf(p)
@@ -275,6 +283,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
+  /** Return the type of an entity.
+    * Implements let-polymorphism.
+    */
   private lazy val entityType: Entity => Type = attr {
     case VariableEntity(idn, t) => {
 
@@ -304,7 +315,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
           // This will be used to detect "new variables" created within, and not yet in the VarMap.
           val currentRoots = mappings.getRoots
           logger.debug(s"currentRoots $currentRoots")
-          val te = bindType(b)
+          val te = tipeBind(b)
           logger.debug(s"te $te")
           te match {
             case t: NothingType => t
@@ -329,7 +340,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
           }
         case Some(g: Gen)       =>
           idnTypes(g.p).foreach{ case t => mappings.union(t, t)}
-          val te = genType(g)
+          val te = tipeGen(g)
           // TODO: Implement TypeScheme support? Add test case that needs it first...
           t
         case Some(f: FunAbs)                  =>
@@ -342,6 +353,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case _: MultipleEntity     => NothingType()
   }
 
+  /** Instantiate a new type from a type scheme.
+    * Used for let-polymorphism.
+    */
   private def instantiateTypeScheme(t: Type, polymorphic: Set[Symbol]) = {
     val mappings = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
@@ -377,9 +391,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     recurse(t)
   }
 
-  private def idnType(idn: IdnNode): Type = {
-    logger.debug(s"Calling idnType with ${idn.idn}"); entityType(entity(idn))
-  }
+  private def idnType(idn: IdnNode): Type = entityType(entity(idn))
 
   /** The type corresponding to a given pattern.
     */
@@ -639,9 +651,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   }
 
   /** Type Checker constraint solver.
-    * Takes a constraint and a given map of variable types (e.g. type variables, constraint types), and returns either:
-    * - a new map, if a solution to the constraint was found;
-    * - or a map of the solution found so far plus a list of error messages, if the constraint could not be resolved.
+    * Solves a sequence of AND constraints.
     */
   private def solve(cs: Seq[Constraint]): Boolean = {
 
@@ -897,10 +907,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
 
 }
 
-// TODO: Add more tests to the SemanticAnalyzer with the intuit of testing the error reporting: the error messages may not yet be the most clear.
-// TODO: Report unrelated errors by returning multiple Lefts - likely setting things to NothingType and letting them propagate.
-//       Related with ths one, is the notion of whether Left(...) on solve should bother to return the bad map, since all we
-//       actually need are the error messages.
+// TODO: Add more tests to the SemanticAnalyzer:
+//        - let-polymorphism in combination with patterns;
+//        - polymorphism of Gen?
+//        - error messages (at least generate a test per error message/location in code where it is generated).
+// TODO: Report unrelated errors (by setting failed unifications to NothingType and letting them propagate.)
 // TODO: Consider adding syntax like: fun f(x) -> if (x = 0) then 1 else f(x - 1) * x)
 //       It should just type to FunType(IntType(), IntType().
 //       It is not strictly needed but the notion of a NamedFunction may help code-generation because these are things we don't inline/consider inlining,
@@ -912,7 +923,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
 // TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
 // TODO: Re-do Unnester to use the same tree. Refactor code into new package raw.core
 // TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
-
 // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 // TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
