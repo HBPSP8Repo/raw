@@ -10,7 +10,7 @@ import scala.collection.GenTraversableOnce
 import scala.util.parsing.input.Position
 
 /** Analyzes the semantics of an AST.
-  * This includes the type checker/inference as well as monoid compatibility.
+  * This includes the type checker, type inference and semantic checks (e.g. whether monoids compose correctly).
   *
   * The semantic analyzer reads the user types and the catalog of user-defined class entities from the World object.
   * User types are the type definitions available to the user.
@@ -37,6 +37,61 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   private lazy val decorators = new Decorators(tree)
 
   import decorators.{chain, Chain}
+
+  /** The map of variables.
+    * Updated during unification.
+    */
+  private val mappings: VarMap = {
+    val m: VarMap = new VarMap(query = queryString)
+    // Add user types
+    for ((sym, t) <- world.tipes) {
+      m.union(UserType(sym), t)
+    }
+    // Add type variables from user sources
+    for ((_, t) <- world.sources) {
+      for (tv <- getVariableTypes(t)) {
+        m.union(tv, tv)
+      }
+    }
+    m
+  }
+
+  /** Stores unification errors.
+    * Updated during unification.
+    */
+  private var unifyErrors =
+    scala.collection.mutable.MutableList[Error]()
+
+  /** Return the type of an expression.
+    */
+  lazy val tipe: Exp => Type = attr {
+    e => {
+      val cs = constraints(e)
+      logger.debug(s"e $e calling solve with constraints $cs")
+      solve(cs)
+      walk(expType(e))
+    }
+  }
+
+  // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
+  // TODO: And certainly no NothingType as well...
+  lazy val errors: Seq[Error] = {
+    tipe(tree.root)     // Must type the entire program before checking for errors
+    badEntities ++ unifyErrors ++ semanticErrors
+  }
+
+  private lazy val collectBadEntities =
+    collect[List, Error] {
+      // Identifier declared more than once in the same scope
+      case i: IdnDef if entity(i) == MultipleEntity() =>
+        MultipleDecl(i)
+
+      // Identifier used without being declared
+      case i: IdnUse if entity(i) == UnknownEntity() =>
+        UnknownDecl(i)
+    }
+
+  private lazy val badEntities = collectBadEntities(tree.root)
 
   /** The semantic errors for the tree.
     */
@@ -205,6 +260,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case Nil         => t
   }
 
+  /** Return the sequence of types in a pattern.
+    */
   private lazy val idnTypes: Pattern => Seq[Type] = attr {
     p => {
       def tipes(p: Pattern): Seq[Type] = p match {
@@ -330,32 +387,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case PatternIdn(idn) =>
       entity(idn) match {
         case VariableEntity(_, t) => t
-        case _ => typeWithPos(NothingType(), p)
+        case _ => NothingType()
       }
     case PatternProd(ps) =>
-      typeWithPos(RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None), p)
-  }
-
-  private def typeWithPos(t: Type, n: RawNode): Type = {
-    t.pos = n.pos
-    t
+      RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
   }
 
   /** The type of an expression.
     * If the type cannot be immediately derived from the expression itself, then type variables are used for unification.
     */
-
-  // TODO: DO we even need the position of types? If when I report errors I use the expression, this is no longer needed!!!
-
   private lazy val expType: Exp => Type = attr {
-    // Place the type position in the operator
-    case e @ BinaryExp(op, _, _) => typeWithPos(expType1(e), op)
-    case e @ UnaryExp(op, _) => typeWithPos(expType1(e), op)
-
-    case e => typeWithPos(expType1(e), e)
-  }
-
-  private def expType1(e: Exp): Type = e match {
 
     // Rule 1
     case _: BoolConst  => BoolType()
@@ -383,7 +424,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(att.e))), None)
 
     // Rule 7
-//    case FunAbs(p, e1) => FunType(patternType(p), expType(e1))
+    case FunAbs(p, e1) => FunType(patternType(p), expType(e1))
 
     // Rule 9
     case ZeroCollectionMonoid(_: BagMonoid) => BagType(TypeVariable())
@@ -594,17 +635,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
           false
       }
     }
-    logger.debug(s"ENTER unify(${PrettyPrinter(t1)}, ${PrettyPrinter(t2)})")
-    val r = recurse(t1, t2, Set())
-    logger.debug(s"EXIT unify ${PrettyPrinter(t1)}, ${PrettyPrinter(t2)}")
-    if (r) {
-      logger.debug("RESULT is Right");
-      printVarMap(mappings)
-    } else {
-      logger.debug("RESULT is Left"); printVarMap(mappings)
-    }
-
-    r
+    recurse(t1, t2, Set())
   }
 
   /** Type Checker constraint solver.
@@ -639,101 +670,61 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
 
   }
 
-  private lazy val collectBadEntities =
-    collect[List, Error] {
-      // Identifier declared more than once in the same scope
-      case i: IdnDef if entity(i) == MultipleEntity() =>
-        MultipleDecl(i)
-
-      // Identifier used without being declared
-      case i: IdnUse if entity(i) == UnknownEntity() =>
-        UnknownDecl(i)
-    }
-
-  private lazy val badEntities = collectBadEntities(tree.root)
-
-  private val mappings: VarMap = {
-    val m: VarMap = new VarMap(query = queryString)
-    // Add user types
-    for ((sym, t) <- world.tipes) {
-      m.union(UserType(sym), t)
-    }
-    // Add type variables from user sources
-    for ((_, t) <- world.sources) {
-      for (tv <- getVariableTypes(t)) {
-        m.union(tv, tv)
-      }
-    }
-    m
-  }
-
-  /** Stores unification errors.
-    */
-  private var unifyErrors =
-    scala.collection.mutable.MutableList[Error]()
-
-  // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
-  // TODO: And certainly no NothingType as well...
-  lazy val errors: Seq[Error] = {
-    tipe(tree.root)     // Must type the entire program before checking for errors
-    badEntities ++ unifyErrors ++ semanticErrors
-  }
-
   /** Given a type, returns a new type that replaces type variables as much as possible, given the map m.
     * This is the type representing the group of types.
     */
   private def find(t: Type): Type =
     if (mappings.contains(t)) mappings(t).root else t
 
-  /** Reconstruct the type into a user-friendly type: in practice this means resolving any "inner" type variables
-    * and giving preference to UserType (instead of the root of the unification group) when it exists.
+  /** Reconstruct the type by resolving all inner variable types as much as possible.
     */
   private def walk(t: Type): Type = {
 
     def pickMostRepresentativeType(g: Group): Type = {
-      // Collect a UserType definition if it exists.
-      // We assume the UserType is the most friendly one to return to the user.
-      val userType = g.tipes.collectFirst { case u: UserType => u }
-      userType match {
-        case Some(ut) =>
-          ut
+      val ut = g.tipes.collectFirst { case u: UserType => u }
+      ut match {
+        case Some(picked) =>
+          // Prefer user type
+          picked
         case None =>
           val ct = g.tipes.find { case _: VariableType => false; case _ => true }
           ct match {
-            case Some(t) => t
+            case Some(picked) =>
+              // Otherwise, prefer a final - i.e. non-variable - type
+              picked
             case None =>
               val vt = g.tipes.find { case _: TypeVariable => false; case _ => true }
               vt match {
-                case Some(t) => t
-                case None => g.root
+                case Some(picked) =>
+                  // Otherwise, prefer a variable type that is not a type variable (e.g. a number or constrainted record)
+                  picked
+                case None =>
+                  // Finally, prefer the root type variable
+                  g.root
               }
           }
       }
     }
 
     def reconstructType(t: Type, occursCheck: Set[Type]): Type = {
-
-      // TODO: here i should always pick the most representative, no?
-      //       i'm getting a partially constrainted thing, when i need more than that
-
       if (occursCheck.contains(t)) {
         t
       } else {
         t match {
-          case _: NothingType   => t
-          case _: AnyType       => t
-          case _: IntType       => t
-          case _: BoolType      => t
-          case _: FloatType     => t
-          case _: StringType    => t
-          case _: PrimitiveType => if (!mappings.contains(t)) t else reconstructType(pickMostRepresentativeType(mappings(t)), occursCheck + t)
-          case _: NumberType    => if (!mappings.contains(t)) t else reconstructType(pickMostRepresentativeType(mappings(t)), occursCheck + t)
-          case _: UserType      => t
-          case RecordType(atts, name) => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
-          case ListType(innerType) => ListType(reconstructType(innerType, occursCheck + t))
-          case SetType(innerType)  => SetType(reconstructType(innerType, occursCheck + t))
-          case BagType(innerType)  => BagType(reconstructType(innerType, occursCheck + t))
-          case FunType(p, e)       => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
+          case _: NothingType                  => t
+          case _: AnyType                      => t
+          case _: IntType                      => t
+          case _: BoolType                     => t
+          case _: FloatType                    => t
+          case _: StringType                   => t
+          case _: UserType                     => t
+          case _: PrimitiveType                => if (!mappings.contains(t)) t else reconstructType(pickMostRepresentativeType(mappings(t)), occursCheck + t)
+          case _: NumberType                   => if (!mappings.contains(t)) t else reconstructType(pickMostRepresentativeType(mappings(t)), occursCheck + t)
+          case RecordType(atts, name)          => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
+          case ListType(innerType)             => ListType(reconstructType(innerType, occursCheck + t))
+          case SetType(innerType)              => SetType(reconstructType(innerType, occursCheck + t))
+          case BagType(innerType)              => BagType(reconstructType(innerType, occursCheck + t))
+          case FunType(p, e)                   => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
           case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
           case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(reconstructType(innerType, occursCheck + t), c, i, sym)
           case t1: TypeVariable => if (!mappings.contains(t1)) t1 else reconstructType(pickMostRepresentativeType(mappings(t1)), occursCheck + t)
@@ -744,66 +735,38 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     reconstructType(t, Set())
   }
 
-  def printVarMap(m: VarMap) = logger.debug(m.toString())
-
-  /** Return the type of an expression.
-    */
-  lazy val tipe: Exp => Type = attr {
-    e => {
-      val cs = constraints(e)
-      logger.debug(s"e $e calling solve with constraints $cs")
-      solve(cs)
-      walk(expType(e))
-    }
-  }
-
   /** Constraints of a node.
     * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
     */
-  def constraint(e: Exp): Seq[Constraint] = {
-    val cs = constraint1(e)
-    for (c <- cs) {
-      // TODO: Must constraints be positioned? Is it still relevant?
-      c.pos = e.pos
-    }
-    cs
-  }
-
-  def constraint1(n: Exp): Seq[Constraint] = {
-
+  def constraint(n: Exp): Seq[Constraint] = {
     import Constraint._
 
     n match {
       // Rule 4
-      case n @ RecordProj(e, idn) =>
+      case RecordProj(e, idn) =>
         Seq(
           HasType(e, ConstraintRecordType(Set(AttrType(idn, expType(n))))))
 
       // Rule 6
-      case n @ IfThenElse(e1, e2, e3) =>
+      case IfThenElse(e1, e2, e3) =>
         Seq(
           HasType(e1, BoolType(), Some("if condition must be a boolean")),
           SameType(e2, e3, Some("then and else must be of the same type")),
           SameType(n, e2))
 
-      // Rule 7
-      case n @ FunAbs(p, e1) =>
-        Seq(
-          HasType(n, FunType(patternType(p), expType(e1))))
-
       // Rule 8
-      case n @ FunApp(f, e) =>
+      case FunApp(f, e) =>
         Seq(
           HasType(f, FunType(expType(e), expType(n))))
 
       // Rule 11
-      case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
+      case MergeMonoid(_: BoolMonoid, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           HasType(e1, BoolType()),
           HasType(e2, BoolType()))
 
-      case n @ MergeMonoid(_: NumberMonoid, e1, e2) =>
+      case MergeMonoid(_: NumberMonoid, e1, e2) =>
         Seq(
           HasType(n, NumberType()),
           SameType(n, e1),
@@ -811,7 +774,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
         )
 
       // Rule 12
-      case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
+      case MergeMonoid(_: CollectionMonoid, e1, e2) =>
         Seq(
           SameType(n, e1),
           SameType(e1, e2),
@@ -819,43 +782,43 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
         )
 
       // Rule 13
-      case n @ Comp(_: NumberMonoid, _, e) =>
+      case Comp(_: NumberMonoid, _, e) =>
         Seq(
           HasType(e, NumberType()),
           SameType(n, e)
         )
-      case n @ Comp(_: BoolMonoid, _, e)   =>
+      case Comp(_: BoolMonoid, _, e)   =>
         Seq(
           HasType(e, BoolType()),
           SameType(n, e)
         )
 
       // Binary Expression type
-      case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
+      case BinaryExp(_: EqualityOperator, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           SameType(e1, e2))
 
-      case n @ BinaryExp(_: ComparisonOperator, e1, e2) =>
+      case BinaryExp(_: ComparisonOperator, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           SameType(e2, e1),
           HasType(e1, NumberType()))
 
-      case n @ BinaryExp(_: ArithmeticOperator, e1, e2) =>
+      case BinaryExp(_: ArithmeticOperator, e1, e2) =>
         Seq(
           SameType(n, e1),
           SameType(e1, e2),
           HasType(e2, NumberType()))
 
       // Unary Expression type
-      case n @ UnaryExp(_: Neg, e) =>
+      case UnaryExp(_: Neg, e) =>
         Seq(
           SameType(n, e),
           HasType(e, NumberType()))
 
       // Expression block type
-      case n @ ExpBlock(_, e) =>
+      case ExpBlock(_, e) =>
         Seq(
           SameType(n, e))
 
@@ -864,27 +827,28 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
+  /** Collects the constraints of an expression.
+    * The constraints are returned in an "ordered sequence" (e.g. the child constraints are before the current constraints).
+    */
   lazy val constraints: Exp => Seq[Constraint] = attr {
-    n => {
-      def rec(n: Exp): Seq[Constraint] = n match {
-        case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => rec(e) case _ => Nil } ++ rec(e) ++ constraint(n)
-        case n @ FunAbs(_, e) => rec(e) ++ constraint(n)
-        case n @ ExpBlock(_, e) => rec(e) ++ constraint(n)
-        case n @ MergeMonoid(_, e1, e2) => rec(e1) ++ rec(e2) ++ constraint(n)
-        case n @ BinaryExp(_, e1, e2) => rec(e1) ++ rec(e2) ++ constraint(n)
-        case n @ UnaryExp(_, e) => rec(e) ++ constraint(n)
-        case _: IdnExp => constraint(n)
-        case n @ RecordProj(e, _) => rec(e) ++ constraint(n)
-        case _: Const => constraint(n)
-        case n @ RecordCons(atts) => atts.flatMap { case att => rec(att.e) } ++ constraint(n)
-        case n @ FunApp(f, e) => rec(f) ++ rec(e) ++ constraint(n)
-        case n @ ConsCollectionMonoid(_, e) => rec(e) ++ constraint(n)
-        case n @ IfThenElse(e1, e2, e3) => rec(e1) ++ rec(e2) ++ rec(e3) ++ constraint(n)
-      }
-      rec(n)
-    }
+    case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case _ => Nil } ++ constraints(e) ++ constraint(n)
+    case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
+    case n @ ExpBlock(_, e) => constraints(e) ++ constraint(n)
+    case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
+    case n @ BinaryExp(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
+    case n @ UnaryExp(_, e) => constraints(e) ++ constraint(n)
+    case n: IdnExp => constraint(n)
+    case n @ RecordProj(e, _) => constraints(e) ++ constraint(n)
+    case n: Const => constraint(n)
+    case n @ RecordCons(atts) => atts.flatMap { case att => constraints(att.e) } ++ constraint(n)
+    case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
+    case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
+    case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
   }
 
+  /** For debugging.
+    * Prints all the type groups.
+    */
   def printTypedTree(): Unit = {
 
     if (queryString.isEmpty) {
@@ -912,11 +876,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       output
     }
 
-    // for each expression in the tree, on a dfs manner
-    // find the group it belongs to
-    // then find all the groups
-    // then print it all
-    // then remove the group
     var groups = scala.collection.mutable.Set[Group]()
 
     val collectMaps = collect[List, (Type, Position)] {
