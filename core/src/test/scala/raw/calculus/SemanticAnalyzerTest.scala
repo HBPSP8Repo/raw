@@ -398,6 +398,10 @@ class SemanticAnalyzerTest extends FunTest {
     success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(List(AttrType("_1", n), AttrType("_2", n)), None), n))
   }
 
+  test("""{ x := { y := 1; z := y; z }; x }""") {
+    success("""{ x := { y := 1; z := y; z }; x }""", TestWorlds.empty, IntType())
+  }
+
   test("""let polymorphism - not binding into functions""") {
     val z = TypeVariable()
     val n = NumberType()

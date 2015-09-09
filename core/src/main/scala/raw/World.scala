@@ -72,6 +72,12 @@ object World extends LazyLogging {
       this
     }
 
+    def getSymbols: Set[Symbol] =
+      m.flatMap { case (v: VariableType, _) => List(v.sym) case _ => Nil }.toSet
+
+    def getRoots: Set[Type] =
+      m.map(_._2).map(_.root).toSet
+
     override def toString: String = {
       var s = "\n"
       val keys = m.map(_._1).sortBy(_.toString)
