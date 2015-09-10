@@ -41,19 +41,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   /** The map of variables.
     * Updated during unification.
     */
-  private val mappings: VarMap = {
-    val m: VarMap = new VarMap(query = queryString)
-    // Add user types
-    for ((sym, t) <- world.tipes) {
-      m.union(UserType(sym), t)
+  private val mappings = new VarMap(query = queryString)
+
+  /** Add user types to the map.
+    */
+  for ((sym, t) <- world.tipes) {
+    mappings.union(UserType(sym), t)
+  }
+
+  /** Add type variables from user sources.
+    */
+  for ((_, t) <- world.sources) {
+    for (tv <- getVariableTypes(t)) {
+      mappings.union(tv, tv)
     }
-    // Add type variables from user sources
-    for ((_, t) <- world.sources) {
-      for (tv <- getVariableTypes(t)) {
-        m.union(tv, tv)
-      }
-    }
-    m
   }
 
   /** Stores unification errors.
@@ -66,9 +67,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     */
   lazy val tipe: Exp => Type = attr {
     e => {
-      val cs = constraints(e)
-      logger.debug(s"e $e calling solve with constraints $cs")
-      solve(cs)
+      solve(constraints(e))
       walk(expType(e))
     }
   }
@@ -153,7 +152,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     */
   lazy val entity: IdnNode => Entity = attr {
     case n @ IdnDef(idn) =>
-      logger.debug(s"Called with idn $idn at pos ${n.pos}")
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
@@ -204,28 +202,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case e: Exp => env.in(e)
   }
 
-  /** Return a set with all type variables within a type.
-    */
-  private def getVariableTypes(t: Type): Set[VariableType] = t match {
-    case _: NothingType                                    => Set()
-    case _: AnyType                                        => Set()
-    case _: BoolType                                       => Set()
-    case _: IntType                                        => Set()
-    case _: FloatType                                      => Set()
-    case _: StringType                                     => Set()
-    case _: UserType                                       => Set()
-    case RecordType(atts, _)                               => atts.flatMap { case att => getVariableTypes(att.tipe) }.toSet
-    case ListType(innerType)                               => getVariableTypes(innerType)
-    case SetType(innerType)                                => getVariableTypes(innerType)
-    case BagType(innerType)                                => getVariableTypes(innerType)
-    case FunType(p, e)                                     => getVariableTypes(p) ++ getVariableTypes(e)
-    case t1: PrimitiveType                                 => Set(t1)
-    case t1: NumberType                                    => Set(t1)
-    case t1 @ ConstraintRecordType(atts, _)                => Set(t1) ++ atts.flatMap { case att => getVariableTypes(att.tipe) }
-    case t1 @ ConstraintCollectionType(innerType, _, _, _) => Set(t1) ++ getVariableTypes(innerType)
-    case t1: TypeVariable                                  => Set(t1)
-  }
-
   /** Type the rhs of a Bind declaration.
     */
   private lazy val tipeBind: Bind => Type = attr {
@@ -252,24 +228,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       t
   }
 
-  /** Obtain sequence of indexes for a pattern identifier.
-    */
-  private lazy val patternIndex: Pattern => Seq[Int] = attr {
-    case tree.parent.pair(_, parent: PatternIdn) => patternIndex(parent)
-    case tree.parent.pair(p, parent: PatternProd) => patternIndex(parent) :+ parent.ps.indexOf(p)
-    case _ => Nil
-  }
-
-  /** Given a type, return the projected type given list of pattern indexes.
-    */
-  private def projectedType(t: Type, idxs: Seq[Int]): Type = idxs match {
-    case idx :: rest => t match {
-      case RecordType(atts, _) if atts.length > idx => projectedType(atts(idx).tipe, rest)
-      case _                                        => NothingType()
-    }
-    case Nil         => t
-  }
-
   /** Return the sequence of types in a pattern.
     */
   private lazy val patternIdnTypes: Pattern => Seq[Type] = attr {
@@ -285,7 +243,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
-  private def getFinalVariableTypes(t: Type, occursCheck: Set[Type] = Set()): Set[VariableType] = {
+  private def getVariableTypes(t: Type, occursCheck: Set[Type] = Set()): Set[VariableType] = {
     if (occursCheck.contains(t))
       Set()
     else {
@@ -297,16 +255,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
         case _: FloatType                                      => Set()
         case _: StringType                                     => Set()
         case _: UserType                                       => Set()
-        case RecordType(atts, _)                               => atts.flatMap { case att => getFinalVariableTypes(att.tipe, occursCheck + t) }.toSet
-        case ListType(innerType)                               => getFinalVariableTypes(innerType, occursCheck + t)
-        case SetType(innerType)                                => getFinalVariableTypes(innerType, occursCheck + t)
-        case BagType(innerType)                                => getFinalVariableTypes(innerType, occursCheck + t)
-        case FunType(p, e)                                     => getFinalVariableTypes(p, occursCheck + t) ++ getFinalVariableTypes(e, occursCheck + t)
-        case t1: PrimitiveType                                 => if (mappings.contains(t1) && mappings(t1).root != t1) getFinalVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
-        case t1: NumberType                                    => if (mappings.contains(t1) && mappings(t1).root != t1) getFinalVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
-        case t1: TypeVariable                                  => if (mappings.contains(t1) && mappings(t1).root != t1) getFinalVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
-        case t1 @ ConstraintRecordType(atts, _)                => Set(t1) ++ atts.flatMap { case att => getFinalVariableTypes(att.tipe, occursCheck + t) }
-        case t1 @ ConstraintCollectionType(innerType, _, _, _) => Set(t1) ++ getFinalVariableTypes(innerType, occursCheck + t)
+        case RecordType(atts, _)                               => atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
+        case ListType(innerType)                               => getVariableTypes(innerType, occursCheck + t)
+        case SetType(innerType)                                => getVariableTypes(innerType, occursCheck + t)
+        case BagType(innerType)                                => getVariableTypes(innerType, occursCheck + t)
+        case FunType(p, e)                                     => getVariableTypes(p, occursCheck + t) ++ getVariableTypes(e, occursCheck + t)
+        case t1: PrimitiveType                                 => if (mappings.contains(t1) && mappings(t1).root != t1) getVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
+        case t1: NumberType                                    => if (mappings.contains(t1) && mappings(t1).root != t1) getVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
+        case t1: TypeVariable                                  => if (mappings.contains(t1) && mappings(t1).root != t1) getVariableTypes(mappings(t1).root, occursCheck + t) else Set(t1)
+        case t1 @ ConstraintRecordType(atts, _)                => Set(t1) ++ atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }
+        case t1 @ ConstraintCollectionType(innerType, _, _, _) => Set(t1) ++ getVariableTypes(innerType, occursCheck + t)
       }
     }
   }
@@ -316,8 +274,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     */
   private lazy val entityType: Entity => Type = attr {
     case VariableEntity(idn, t) => {
-
-      logger.debug(s"Here in entity $idn")
 
       // Go up until we find the declaration
       def getDecl(n: RawNode): Option[RawNode] = n match {
@@ -329,56 +285,45 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
 
       // TODO: If the unresolved TypeVariables come from UserType/Source, don't include them as free variables.
       //       Instead, leave them unresolved, unless we want a strategy that resolves them based on usage?
+
       val p = tree.parent(idn).head.asInstanceOf[Pattern] // Get the pattern
       val dcl = getDecl(p)
       dcl match {
         case Some(b: Bind)      =>
           // Add all pattern identifier types to the map before processing the rhs
-          // TODO: This call is repeated multiple times in case of a PatternProd...
-          patternIdnTypes(b.p).foreach{ case t => mappings.union(t, t)}
-
-          logger.debug(s"Bind is $b")
+          // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
+          patternIdnTypes(b.p).foreach{ case pt => mappings.union(pt, pt)}
 
           // Collect all the roots known in the VarMap.
           // This will be used to detect "new variables" created within, and not yet in the VarMap.
           val prevRoots = mappings.getRoots
-          logger.debug(s"currentRoots $prevRoots")
+
+          // Type the rhs body of the Bind
           val te = tipeBind(b)
-          logger.debug(s"te $te")
           te match {
             case t: NothingType => t
             case _ =>
-              // Resolve the type as much as possible
-              val tr = walk(te)
-              logger.debug(s"tr $tr")
-              // Find the set of variable types used in it
-//              val vars = getVariableTypes(tr)
-//              logger.debug(s"vars $vars")
-              val vars1 = getFinalVariableTypes(te)
-              logger.debug(s"vars1 $vars1")
-              //assert(vars == vars1)
+              // Find all type variables used in the type
+              val vars = getVariableTypes(te)
               // For all the "previous roots", get their new roots
               val prevRootsUpdated = prevRoots.map { case v => mappings(v).root }
-              logger.debug(s"currentRoots $prevRoots")
-              logger.debug(s"newCurrentRoots $prevRootsUpdated")
               // Collect all symbols from variable types that were not in VarMap before we started typing the body of the Bind.
-              val freeSyms = vars1.collect { case vt: VariableType => vt }.filter { case vt => !prevRootsUpdated.contains(vt) }.map(_.sym)
-              logger.debug(s"freeSyms $freeSyms")
-              val nt = projectedType(tr, patternIndex(p))
-              val ts = TypeScheme(nt, freeSyms)
-              logger.debug(s"type scheme $ts")
-              ts
-//              t
-              
-
+              val freeSyms = vars.collect { case vt: VariableType => vt }.filter { case vt => !prevRootsUpdated.contains(vt) }.map(_.sym)
+              TypeScheme(t, freeSyms)
           }
         case Some(g: Gen)       =>
-          patternIdnTypes(g.p).foreach{ case t => mappings.union(t, t)}
+          // Add all pattern identifier types to the map before processing the rhs
+          // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
+          patternIdnTypes(g.p).foreach{ case pt => mappings.union(pt, pt)}
+
+          // Type the rhs body of the Gen
           val te = tipeGen(g)
           // TODO: Implement TypeScheme support? Add test case that needs it first...
           t
         case Some(f: FunAbs)                  =>
-          patternIdnTypes(f.p).foreach{ case t => mappings.union(t, t)}
+          // Add all pattern identifier types to the map before processing the rhs
+          // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
+          patternIdnTypes(f.p).foreach{ case pt => mappings.union(pt, pt)}
           t
       }
     }
@@ -399,33 +344,38 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       newSyms(sym)
     }
 
-    def recurse(t: Type): Type = {
-      t match {
-//        case t1 @ TypeVariable(sym) if !polymorphic.contains(sym) => if (mappings.contains(t1)) recurse(mappings(t1).root) else t1
-//        case
-//
-        case v: VariableType if !polymorphic.contains(v.sym) => v
-        case TypeVariable(sym)                              => TypeVariable(getNewSym(sym))
-        case NumberType(sym)                                => NumberType(getNewSym(sym))
-        case PrimitiveType(sym)                             => PrimitiveType(getNewSym(sym))
-        case ConstraintRecordType(atts, sym)                => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, getNewSym(sym))
-        case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType), c, i, getNewSym(sym))
-        case _: NothingType                                 => t
-        case _: AnyType                                     => t
-        case _: IntType                                     => t
-        case _: BoolType                                    => t
-        case _: FloatType                                   => t
-        case _: StringType                                  => t
-        case _: UserType                                    => t
-        case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1)) }, name)
-        case BagType(inner)                                 => BagType(recurse(inner))
-        case SetType(inner)                                 => SetType(recurse(inner))
-        case ListType(inner)                                => ListType(recurse(inner))
-        case FunType(p, e)                                  => FunType(recurse(p), recurse(e))
+    def recurse(t: Type, occursCheck: Set[Type]): Type = {
+      if (occursCheck.contains(t))
+        t
+      else {
+        t match {
+          case t1 @ TypeVariable(sym) if !polymorphic.contains(sym)  => if (mappings.contains(t1) && mappings(t1).root != t1) recurse(mappings(t1).root, occursCheck + t) else t1
+          case t1 @ NumberType(sym) if !polymorphic.contains(sym)    => if (mappings.contains(t1) && mappings(t1).root != t1) recurse(mappings(t1).root, occursCheck + t) else t1
+          case t1 @ PrimitiveType(sym) if !polymorphic.contains(sym) => if (mappings.contains(t1) && mappings(t1).root != t1) recurse(mappings(t1).root, occursCheck + t) else t1
+          // TODO: We seem to be missing a strategy to reconstruct constraint record types.
+          //       We need to take care to only reconstruct if absolutely needed (if there is a polymorphic symbol somewhere inside?).
+          case TypeVariable(sym)                              => TypeVariable(getNewSym(sym))
+          case NumberType(sym)                                => NumberType(getNewSym(sym))
+          case PrimitiveType(sym)                             => PrimitiveType(getNewSym(sym))
+          case ConstraintRecordType(atts, sym)                => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, getNewSym(sym))
+          case ConstraintCollectionType(innerType, c, i, sym) => ConstraintCollectionType(recurse(innerType, occursCheck + t), c, i, getNewSym(sym))
+          case _: NothingType                                 => t
+          case _: AnyType                                     => t
+          case _: IntType                                     => t
+          case _: BoolType                                    => t
+          case _: FloatType                                   => t
+          case _: StringType                                  => t
+          case _: UserType                                    => t
+          case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, name)
+          case BagType(inner)                                 => BagType(recurse(inner, occursCheck + t))
+          case SetType(inner)                                 => SetType(recurse(inner, occursCheck + t))
+          case ListType(inner)                                => ListType(recurse(inner, occursCheck + t))
+          case FunType(p, e)                                  => FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
+        }
       }
     }
 
-    recurse(t)
+    recurse(t, Set())
   }
 
   private def idnType(idn: IdnNode): Type = entityType(entity(idn))
@@ -455,18 +405,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
 
     // Rule 3
     case IdnExp(idn) =>
-      logger.debug(s"We are in IdnExp of ${idn.idn} at ${idn.pos}")
       idnType(idn) match {
-        case TypeScheme(t, vars) =>
-          if (vars.isEmpty)
-            t
-          else {
-            val nt = instantiateTypeScheme(t, vars)
-            logger.debug(s"This is a typescheme ${TypesPrettyPrinter(t)} with vars $vars")
-            logger.debug(s"And the instance is ${TypesPrettyPrinter(nt)}")
-            nt
-          }
-        case t                   => logger.debug(s"and here with t.pos ${t.pos}"); t
+        case TypeScheme(t, vars) => if (vars.isEmpty) t else instantiateTypeScheme(t, vars)
+        case t                   => t
       }
 
     // Rule 5
@@ -505,9 +446,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   private def unify(t1: Type, t2: Type): Boolean = {
 
     def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
-      logger.debug(s"recurse t1 ${TypesPrettyPrinter(t1)} t2 ${TypesPrettyPrinter(t2)} occursCheck $occursCheck")
-      if (occursCheck.contains((t1, t2)))
+      if (occursCheck.contains((t1, t2))) {
         return true
+      }
       val nt1 = find(t1)
       val nt2 = find(t2)
       (nt1, nt2) match {
@@ -728,8 +669,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   private def walk(t: Type): Type = {
 
     def pickMostRepresentativeType(g: Group): Type = {
-//      logger.debug(s"cur map is ${mappings.toString}")
-//      logger.debug(s"group is ${g.root} tipes ${g.tipes}")
       val ut = g.tipes.collectFirst { case u: UserType => u }
       ut match {
         case Some(picked) =>
@@ -740,7 +679,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
           ct match {
             case Some(picked) =>
               // Otherwise, prefer a final - i.e. non-variable - type
-              logger.debug(s"we picked $picked")
               picked
             case None =>
               val vt = g.tipes.find { case _: TypeVariable => false; case _ => true }
@@ -757,7 +695,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
 
     def reconstructType(t: Type, occursCheck: Set[Type]): Type = {
-//      logger.debug(s"called with type $t occursCheck $occursCheck")
       if (occursCheck.contains(t)) {
         t
       } else {
@@ -910,7 +847,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     def printMap(pos: Set[Position], t: Type) = {
       val posPerLine = pos.groupBy(_.line)
       var output = s"Type: ${TypesPrettyPrinter(t)}\n"
-      logger.debug(s"pos are $pos")
       for ((line, lineno) <- q.split("\n").zipWithIndex) {
         output += line + "\n"
         if (posPerLine.contains(lineno + 1)) {
