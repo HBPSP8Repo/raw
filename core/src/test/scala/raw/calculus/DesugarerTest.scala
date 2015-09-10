@@ -26,7 +26,7 @@ class DesugarerTest extends FunTest {
   test("desugar PatternFunAbs") {
     compare(
       process(
-        """\(a: int, b: int) -> a + b + 2"""),
+        """\(a, b) -> a + b + 2"""),
       """\$0 -> $0._1 + $0._2 + 2""")
   }
 
