@@ -352,13 +352,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
               val tr = walk(te)
               logger.debug(s"tr $tr")
               // Find the set of variable types used in it
-              val vars = getVariableTypes(tr)
-              logger.debug(s"vars $vars")
+//              val vars = getVariableTypes(tr)
+//              logger.debug(s"vars $vars")
               val vars1 = getFinalVariableTypes(te)
               logger.debug(s"vars1 $vars1")
               //assert(vars == vars1)
-              // For all the "previous roots", walk to their new roots
-              val prevRootsUpdated = prevRoots.map { case v => walk(v) }
+              // For all the "previous roots", get their new roots
+              val prevRootsUpdated = prevRoots.map { case v => mappings(v).root }
               logger.debug(s"currentRoots $prevRoots")
               logger.debug(s"newCurrentRoots $prevRootsUpdated")
               // Collect all symbols from variable types that were not in VarMap before we started typing the body of the Bind.
@@ -368,6 +368,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
               val ts = TypeScheme(nt, freeSyms)
               logger.debug(s"type scheme $ts")
               ts
+//              t
+              
+
           }
         case Some(g: Gen)       =>
           patternIdnTypes(g.p).foreach{ case t => mappings.union(t, t)}
