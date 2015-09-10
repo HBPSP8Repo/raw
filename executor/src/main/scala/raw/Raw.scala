@@ -2,8 +2,7 @@ package raw
 
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.LoggerFactory
-import raw.algebra.LogicalAlgebra.{LogicalAlgebraNode, Reduce}
-import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
+import raw.algebra.{LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
@@ -166,7 +165,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   /** Build code-generated query plan from logical algebra tree.
     */
   def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
-    import algebra.Expressions._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
       //      logger.info(s"rawToScalaType: $t")

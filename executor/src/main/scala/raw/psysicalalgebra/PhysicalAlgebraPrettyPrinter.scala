@@ -1,7 +1,6 @@
 package raw.psysicalalgebra
 
-import raw.algebra.Expressions.Exp
-import raw.algebra.ExpressionsPrettyPrinter
+import .Exp
 import raw.{Monoid, PrettyPrinter}
 
 object PhysicalAlgebraPrettyPrinter extends PrettyPrinter {

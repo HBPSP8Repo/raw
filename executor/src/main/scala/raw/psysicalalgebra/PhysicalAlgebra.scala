@@ -1,9 +1,7 @@
 package raw.psysicalalgebra
 
-import raw.algebra.Expressions.Exp
-import raw.algebra.LogicalAlgebra._
+import .Exp
 import raw.{Type, Monoid, RawNode}
-import raw.algebra.AlgebraNode
 // Converters ScalaNode <-> SparkNode
 object PhysicalAlgebra {
 

@@ -8,7 +8,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.slf4j.LoggerFactory
-import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
+import .LogicalAlgebraNode
 import raw.algebra.LogicalAlgebraParser
 
 import scala.io.Source

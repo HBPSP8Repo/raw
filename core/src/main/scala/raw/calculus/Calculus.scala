@@ -133,4 +133,36 @@ object Calculus {
   case class PatternIdn(idn: IdnDef) extends Pattern
   case class PatternProd(ps: Seq[Pattern]) extends Pattern
 
+  /** Logical Algebra Nodes
+    */
+  sealed abstract class LogicalAlgebraNode extends Exp
+
+  /** Reduce
+    */
+  case class Reduce(m: Monoid, e: Exp, p: Exp, child: Exp) extends LogicalAlgebraNode
+
+  /** Nest
+    */
+  case class Nest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: Exp) extends LogicalAlgebraNode
+
+  /** Filter
+    */
+  case class Filter(p: Exp, child: Exp) extends LogicalAlgebraNode
+
+  /** Join
+    */
+  case class Join(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
+
+  /** Unnest
+    */
+  case class Unnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+
+  /** OuterJoin
+    */
+  case class OuterJoin(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
+
+  /** OuterUnnest
+    */
+  case class OuterUnnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+
 }

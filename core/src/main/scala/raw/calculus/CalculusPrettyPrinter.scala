@@ -51,6 +51,46 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
       case PatternIdn(idn)            => apply(idn)
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
+
+      case Reduce(m, e, p, child)         => softline <> "reduce" <> parens(nest(group(lsep(List(monoid(m), apply(e), apply(p), nest(apply(child))), comma))))
+      case Nest(m, e, f, p, g, child)     => softline <> "nest" <> parens(nest(group(lsep(List(monoid(m), apply(e), apply(f), apply(p), apply(g), nest(apply(child))), comma))))
+      case Filter(p, child)               => softline <> "filter" <> parens(nest(group(lsep(List(apply(p), nest(apply(child))), comma))))
+      case Join(p, left, right)           => softline <> "join" <> parens(nest(group(lsep(List(apply(p), nest(apply(left)), nest(apply(right))), comma))))
+      case Unnest(path, pred, child)      => softline <> "unnest" <> parens(nest(group(lsep(List(apply(path), apply(pred), nest(apply(child))), comma))))
+      case OuterJoin(p, left, right)      => softline <> "outer_join" <> parens(nest(group(lsep(List(apply(p), nest(apply(left)), nest(apply(right))), comma))))
+      case OuterUnnest(path, pred, child) => softline <> "outer_unnest" <> parens(group(nest(lsep(List(apply(path), apply(pred), nest(apply(child))), comma))))
+
+
+        /*
+        
+/** Reduce
+  */
+case class Reduce(m: Monoid, e: Exp, p: Exp, child: Exp) extends LogicalAlgebraNode
+
+/** Nest
+  */
+case class Nest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: Exp) extends LogicalAlgebraNode
+
+/** Filter
+  */
+case class Filter(p: Exp, child: Exp) extends LogicalAlgebraNode
+
+/** Join
+  */
+case class Join(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
+
+/** Unnest
+  */
+case class Unnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+
+/** OuterJoin
+  */
+case class OuterJoin(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
+
+/** OuterUnnest
+  */
+case class OuterUnnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+         */
     })
 
     apply(n)

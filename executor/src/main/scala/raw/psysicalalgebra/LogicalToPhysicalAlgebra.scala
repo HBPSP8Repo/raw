@@ -1,7 +1,5 @@
 package raw.psysicalalgebra
 
-import raw.algebra.LogicalAlgebra
-import raw.algebra.LogicalAlgebra._
 import raw.psysicalalgebra.PhysicalAlgebra._
 
 import scala.collection.mutable

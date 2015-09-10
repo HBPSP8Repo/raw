@@ -3,8 +3,8 @@ package raw
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
 import org.datanucleus.metadata.QueryLanguage
-import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-import raw.algebra.{LogicalAlgebra, LogicalAlgebraPrettyPrinter, Typer}
+import .LogicalAlgebraNode
+import raw.algebra.{LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
@@ -183,7 +183,6 @@ object RawCompileTime extends StrictLogging {
   /** Build code-generated query plan from logical algebra tree.
     */
   def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
-    import algebra.Expressions._
 
     def rawToScalaType(t: raw.Type): Tree = {
       logger.info(s"rawToScalaType: $t")

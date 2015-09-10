@@ -1,8 +1,8 @@
 package raw.repl
 
 import com.typesafe.scalalogging.StrictLogging
-import raw.algebra.LogicalAlgebra.LogicalAlgebraNode
-import raw.algebra.{LogicalAlgebra, LogicalAlgebraPrettyPrinter, Unnester}
+import .LogicalAlgebraNode
+import raw.algebra.{LogicalAlgebraPrettyPrinter, Unnester}
 import raw.calculus.Calculus.Exp
 import raw.calculus.{Calculus, CalculusPrettyPrinter, SemanticAnalyzer}
 import raw.util.Worlds

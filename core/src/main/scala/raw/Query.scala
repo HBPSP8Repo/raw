@@ -1,7 +1,6 @@
 package raw
 
 import org.kiama.util.Message
-import algebra.{Unnester, LogicalAlgebra}
 import calculus._
 
 sealed abstract class QueryError {
@@ -33,10 +32,10 @@ object Query {
 //      Some(SemanticErrors(analyzer.errors))
   }
 
-  def apply(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
+  def apply(query: String, world: World): Either[QueryError, Calculus.Exp] = {
     parse(query) match {
       case Right(tree) => analyze(tree, world) match {
-        case None        => Right(Unnester(tree, world))
+        case None        => Right(calculus.Unnester(tree, world).root)
         case Some(error) => Left(error)
       }
       case Left(error) => Left(error)
