@@ -11,7 +11,7 @@ trait Transformer extends LazyLogging {
 
   /** Splits a list using a partial function.
     */
-  protected def splitWith[A, B](xs: Seq[A], f: PartialFunction[A, B]): Option[Tuple3[Seq[A], B, Seq[A]]] = {
+  protected def splitWith[A, B](xs: Seq[A], f: PartialFunction[A, B]): Option[(Seq[A], B, Seq[A])] = {
     val begin = xs.takeWhile(x => if (!f.isDefinedAt(x)) true else false)
     if (begin.length == xs.length) {
       None
@@ -29,7 +29,7 @@ trait Transformer extends LazyLogging {
     * Takes care to only rewrite identifiers that are system generated, and not user-defined class extent names.
     */
   protected def rewriteIdns[T <: RawNode](n: T): T = {
-    var ids = scala.collection.mutable.Map[String, String]()
+    val ids = scala.collection.mutable.Map[String, String]()
 
     def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn) }
 

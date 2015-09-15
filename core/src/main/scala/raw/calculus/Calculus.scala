@@ -133,36 +133,52 @@ object Calculus {
   case class PatternIdn(idn: IdnDef) extends Pattern
   case class PatternProd(ps: Seq[Pattern]) extends Pattern
 
+  /** Canonical Comprehension
+    */
+  case class CanComp(m: Monoid, gs: Seq[Gen], ps: Seq[Exp], e: Exp) extends Exp
+
+  /** Algebra Nodes
+    */
+  sealed abstract class AlgebraNode extends Exp
+
   /** Logical Algebra Nodes
     */
-  sealed abstract class LogicalAlgebraNode extends Exp
+  sealed abstract class LogicalAlgebraNode extends AlgebraNode
 
   /** Reduce
     */
-  case class Reduce(m: Monoid, e: Exp, p: Exp, child: Exp) extends LogicalAlgebraNode
+  case class Reduce(m: Monoid, child: Gen, p: Exp, e: Exp) extends LogicalAlgebraNode
 
   /** Nest
     */
-  case class Nest(m: Monoid, e: Exp, f: Exp, p: Exp, g: Exp, child: Exp) extends LogicalAlgebraNode
+  case class Nest(m: Monoid, child: Gen, e: Exp, f: Exp, p: Exp) extends LogicalAlgebraNode
 
   /** Filter
     */
-  case class Filter(p: Exp, child: Exp) extends LogicalAlgebraNode
+  case class Filter(child: Gen, p: Exp) extends LogicalAlgebraNode
 
   /** Join
     */
-  case class Join(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
-
-  /** Unnest
-    */
-  case class Unnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+  case class Join(left: Gen, right: Gen, p: Exp) extends LogicalAlgebraNode
 
   /** OuterJoin
     */
-  case class OuterJoin(p: Exp, left: Exp, right: Exp) extends LogicalAlgebraNode
+  case class OuterJoin(left: Gen, right: Gen, p: Exp) extends LogicalAlgebraNode
+
+  /** Unnest
+    */
+  case class Unnest(child: Gen, path: Gen, pred: Exp) extends LogicalAlgebraNode
 
   /** OuterUnnest
     */
-  case class OuterUnnest(path: Exp, pred: Exp, child: Exp) extends LogicalAlgebraNode
+  case class OuterUnnest(child: Gen, path: Gen, pred: Exp) extends LogicalAlgebraNode
+
+  /** Physical Algebra Nodes
+    */
+  sealed abstract class PhysicalAlgebraNode extends AlgebraNode
+
+  /** HashJoin
+    */
+  case class HashJoin(left: Gen, right: Gen, es: Seq[Idn]) extends PhysicalAlgebraNode  // TODO: Fix signature
 
 }
