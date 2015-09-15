@@ -26,6 +26,14 @@ object RawUtils extends StrictLogging {
     Paths.get(System.getProperty("java.io.tmpdir"), dirname)
   }
 
+  def createDirectory(p: Path) = {
+    try {
+      Files.createDirectory(p)
+    } catch {
+      case ex: Exception => logger.info("Failed with exception: " + ex)
+    }
+  }
+
   /**
    * Extracts a resource from the classpath into the temporary directory.
    *

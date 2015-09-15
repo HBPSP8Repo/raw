@@ -1,14 +1,13 @@
 package raw.rest
 
-import java.io.StringReader
-import java.net.URI
-import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.nio.file.Files
 
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.executor.CodeGenerationExecutor
+import raw.datasets.AccessPath
+import raw.executor.{CodeGenerationExecutor, StorageManager}
 import raw.spark._
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
@@ -86,33 +85,40 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath}")
     startServer("0.0.0.0", port = port) {
       (path(queryPath) & post) {
-        entity(as[String]) { query =>
-          try {
-            val result = doQuery(query)
-            logger.info("Query succeeded. Returning result: " + result.take(30))
-            respondWithMediaType(MediaTypes.`application/json`) {
-              complete(result)
+        headerValueByName("Raw-User") { rawUser =>
+          entity(as[String]) { query =>
+            try {
+              val result = doQuery(query, rawUser)
+              logger.info("Query succeeded. Returning result: " + result.take(30))
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete(result)
+              }
+            } catch {
+              case ex: RuntimeException =>
+                logger.warn(s"Failed to process request: $ex")
+                complete(StatusCodes.BadRequest, ex.getMessage)
             }
-          } catch {
-            case ex: RuntimeException =>
-              logger.warn(s"Failed to process request: $ex")
-              complete(StatusCodes.BadRequest, ex.getMessage)
           }
         }
       } ~
         (path(registerPath) & post) {
           headerValueByName("Raw-Schema-Name") { schemaName =>
             headerValueByName("Raw-File") { fileURI =>
-              entity(as[String]) { xmlSchema =>
-                try {
-                  doRegisterRequest(schemaName, xmlSchema, fileURI)
-                  respondWithMediaType(MediaTypes.`application/json`) {
-                    complete(""" {"success" = True } """)
+              headerValueByName("Raw-User") { rawUser =>
+                entity(as[String]) { xmlSchema =>
+                  try {
+                    //                    doRegisterRequest(schemaName, xmlSchema, fileURI, rawUser)
+                    StorageManager.registerSchema(schemaName, xmlSchema, fileURI, rawUser)
+                    val schemas = StorageManager.listSchemas(rawUser)
+                    logger.info("Schemas: " + schemas)
+                    respondWithMediaType(MediaTypes.`application/json`) {
+                      complete(""" {"success" = True } """)
+                    }
+                  } catch {
+                    case ex: RuntimeException =>
+                      logger.warn(s"Failed to process request: $ex")
+                      complete(StatusCodes.BadRequest, ex.getMessage)
                   }
-                } catch {
-                  case ex: RuntimeException =>
-                    logger.warn(s"Failed to process request: $ex")
-                    complete(StatusCodes.BadRequest, ex.getMessage)
                 }
               }
             }
@@ -127,33 +133,40 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
   }
 
 
-  def doQuery(query: String): String = {
+  def doQuery(query: String, rawUser: String): String = {
     // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-    CodeGenerationExecutor.query(cleanedQuery)
+
+    val schemas = StorageManager.listSchemas(rawUser)
+    val accessPaths: Seq[AccessPath[_]] = schemas.map(name => {
+      val schema = StorageManager.getSchema(rawUser, name)
+      logger.info(s"Loading access path: ${schema.dataFile} with schema: ${schema.schemaFile}")
+      CodeGenerationExecutor.loadAccessPath(name, Files.newBufferedReader(schema.schemaFile), schema.dataFile)
+    })
+    CodeGenerationExecutor.query(cleanedQuery, accessPaths)
   }
 
-  def doRegisterRequest(schemaName: String, xmlSchema: String, fileURI: String) = {
-    logger.info(s"Registering schema: $schemaName, file: $fileURI")
-    val uri = new URI(fileURI)
-    val localFile = if (uri.getScheme().startsWith("http")) {
-      logger.info("toURL: " + uri.toURL)
-      logger.info("toURL.getFile: " + uri.toURL.getFile)
-      val localPath = Files.createTempFile(schemaName, schemaName + ".json")
-      val is = uri.toURL.openStream()
-      logger.info(s"Downloading file $fileURI to $localPath")
-      Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
-      is.close()
-      localPath
-    } else {
-      Paths.get(uri)
-    }
-    logger.info(s"Registering file: $localFile with schema: $schemaName")
-    CodeGenerationExecutor.registerAccessPath(schemaName, new StringReader(xmlSchema), localFile)
-  }
+  //  def doRegisterRequest(schemaName: String, xmlSchema: String, fileURI: String, rawUser: String) = {
+  //    logger.info(s"Registering schema: $schemaName, file: $fileURI, user: $rawUser")
+  //    val uri = new URI(fileURI)
+  //    val localFile = if (uri.getScheme().startsWith("http")) {
+  //      logger.info("toURL: " + uri.toURL)
+  //      logger.info("toURL.getFile: " + uri.toURL.getFile)
+  //      val localPath = Files.createTempFile(schemaName, schemaName + ".json")
+  //      val is = uri.toURL.openStream()
+  //      logger.info(s"Downloading file $fileURI to $localPath")
+  //      Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
+  //      is.close()
+  //      localPath
+  //    } else {
+  //      Paths.get(uri)
+  //    }
+  //    logger.info(s"Registering file: $localFile with schema: $schemaName")
+  //    CodeGenerationExecutor.registerAccessPath(schemaName, new StringReader(xmlSchema), localFile)
+  //  }
 }
 
 object RawRestServerMain extends StrictLogging {

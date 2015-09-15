@@ -60,6 +60,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     post.setHeader("Content-Type", "application/xml")
     post.setHeader("Raw-Schema-Name", "patients")
     post.setHeader("Raw-File", patientsURI)
+    post.setHeader("Raw-User", "joedoe")
     val p = Paths.get(Resources.getResource("rawschema.xml").toURI)
     post.setEntity(new FileEntity(p.toFile))
     logger.info("Sending request: " + post)
@@ -68,14 +69,17 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     logger.info(s"Response: $body")
   }
 
-  test("parse schema") {
-    registerSchema()
-
+  def query(): Unit = {
     val post = new HttpPost("http://localhost:54321/query")
+    post.setHeader("Raw-User", "joedoe")
     post.setEntity(new StringEntity(plan))
     val response = httpclient.execute(post)
     val body = IOUtils.toString(response.getEntity().getContent())
     logger.info(s"Response: $body")
+  }
 
+  test("parse schema") {
+    registerSchema()
+    query()
   }
 }
