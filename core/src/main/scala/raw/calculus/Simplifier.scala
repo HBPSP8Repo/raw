@@ -11,6 +11,7 @@ trait Simplifier extends Normalizer {
   override def strategy = attempt(super.strategy) <* simplify
 
   // TODO: Compute expressions like "if (true) then 1 else 2"
+  // TODO: Fold constants
 
   lazy val simplify = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +

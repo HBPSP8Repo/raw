@@ -46,6 +46,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: BagMonoid      => "bag"
     case _: SetMonoid      => "set"
     case _: ListMonoid     => "list"
+    case v: MonoidVariable => v.sym.idn
   }
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
@@ -65,17 +66,14 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
       "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
     case ConstraintRecordType(atts, sym) =>
       "constraint_record" <> parens(sym.idn) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
-    case ConstraintCollectionType(innerType, c, i, sym) =>
-      "constraint_collection" <> parens(sym.idn) <> parens(tipe(innerType) <+> c.toString <+> i.toString)
-    case BagType(innerType)     => "bag" <> parens(tipe(innerType))
-    case ListType(innerType)    => "list" <> parens(tipe(innerType))
-    case SetType(innerType)     => "set" <> parens(tipe(innerType))
+    case CollectionType(m, innerType)     => monoid(m) <> parens(tipe(innerType))
     case FunType(p, e)          => tipe(p) <+> "->" <+> tipe(e)
     case TypeVariable(sym)      => sym.idn
     case _: AnyType             => "any"
     case _: NothingType         => "nothing"
     case UserType(sym)          => sym.idn
-    case TypeScheme(t1, vars)    => "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
+    case TypeScheme(t1, vars)   => "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
+    case OptionType(t1)         => "?" <> tipe(t1)
   }
 
 }

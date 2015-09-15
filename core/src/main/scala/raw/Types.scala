@@ -8,6 +8,10 @@ import calculus.{Symbol, SymbolTable}
   */
 sealed abstract class Type extends RawNode
 
+/** Option Type
+  */
+case class OptionType(t: Type) extends Type
+
 /** Primitive Types
   */
 case class BoolType() extends Type
@@ -30,15 +34,9 @@ case class RecordType(atts: Seq[AttrType], name: Option[String]) extends Type {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
-/** Collection Types
+/** Collection Type
   */
-sealed abstract class CollectionType extends Type {
-  def innerType: Type
-}
-
-case class BagType(innerType: Type) extends CollectionType
-case class ListType(innerType: Type) extends CollectionType
-case class SetType(innerType: Type) extends CollectionType
+case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
 
 /** Function Type `t2` -> `t1`
   */
@@ -76,8 +74,9 @@ case class ConstraintRecordType(atts: Set[AttrType], sym: Symbol = SymbolTable.n
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
-/** Constraint Collection Type
+/** Type Scheme
+  * TODO: Describe.
   */
-case class ConstraintCollectionType(innerType: Type, commutative: Option[Boolean], idempotent: Option[Boolean], sym: Symbol = SymbolTable.next()) extends VariableType
-
 case class TypeScheme(t: Type, vars: Set[Symbol]) extends Type
+
+

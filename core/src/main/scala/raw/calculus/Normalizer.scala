@@ -65,7 +65,7 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule4 = rule[Exp] {
-    case Comp(m, Rule4(q, Gen(p, IfThenElse(e1, e2, e3)), s), e) if m.commutative || q.isEmpty =>
+    case Comp(m, Rule4(q, Gen(p, IfThenElse(e1, e2, e3)), s), e) if m.commutative.head || q.isEmpty =>  // TODO: Assuming the monoid is already defined
       logger.debug(s"Applying normalizer rule 4")
       val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(p, e2)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(p), e3)) ++ s.map(deepclone), deepclone(e))
@@ -113,7 +113,7 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule7 = rule[Exp] {
-    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if m.commutative || q.isEmpty =>
+    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if m.commutative.head || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 7")
       val c1 = Comp(deepclone(m), q ++ Seq(Gen(p, e1)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(p), e2)) ++ s.map(deepclone), deepclone(e))
@@ -126,6 +126,8 @@ trait Normalizer extends Uniquifier {
   private object Rule8 {
     def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, _: Comp) => g})
   }
+
+  // TODO: Write testcae for this: two nested comprehensions on the Gen
 
   private lazy val rule8 = rule[Exp] {
     case Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
@@ -141,7 +143,7 @@ trait Normalizer extends Uniquifier {
   }
 
   private lazy val rule9 = rule[Exp] {
-    case Comp(m, Rule9(q, Comp(_: OrMonoid, r, pred), s), e) if m.idempotent =>
+    case Comp(m, Rule9(q, Comp(_: OrMonoid, r, pred), s), e) if m.idempotent.head =>
       logger.debug(s"Applying normalizer rule 9")
       Comp(m, q ++ r ++ Seq(pred) ++ s, e)
   }

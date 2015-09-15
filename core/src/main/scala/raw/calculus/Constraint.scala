@@ -13,4 +13,6 @@ object Constraint extends LazyLogging {
 
   case class HasType(e: Exp, expected: Type, desc: Option[String] = None) extends Constraint
 
+  case class ExpMonoidSubsetOf(e: Exp, m: Monoid) extends Constraint
+
 }

@@ -17,14 +17,14 @@ trait Uniquifier extends Transformer {
 
   private def rawEntity(n: IdnNode): RawEntity = analyzer.entity(n) match {
     case e: RawEntity => e
-    case e => throw UniquifierError(s"Entity $e is not a RawEntity")
+    case e            => throw UniquifierError(s"Entity $e is not a RawEntity")
   }
 
   private lazy val uniquify = everywhere(rule[IdnNode] {
-    case n@IdnDef(idn) => IdnDef(rawEntity(n).id.idn)
-    case n@IdnUse(idn) => rawEntity(n) match {
+    case n @ IdnDef(idn) => IdnDef(rawEntity(n).id.idn)
+    case n @ IdnUse(idn) => rawEntity(n) match {
       case _: DataSourceEntity => IdnUse(idn) // For data sources, keep the original identifier use.
-      case e => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
+      case e                   => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
     }
   })
 }

@@ -32,9 +32,9 @@
 //        if (name != "None") RecordType(attrs, Some(name)) else RecordType(attrs, None)
 //      }
 //    } |
-//    "BagType(" ~> tipe <~ ")" ^^ BagType |
-//    "SetType(" ~> tipe <~ ")" ^^ SetType |
-//    "ListType(" ~> tipe <~ ")" ^^ ListType
+//    "CollectionType(BagMonoid(), " ~> tipe <~ ")" ^^ BagType |
+//    "CollectionType(SetMonoid(), " ~> tipe <~ ")" ^^ SetType |
+//    "CollectionType(ListMonoid(), " ~> tipe <~ ")" ^^ ListType
 //  }
 //
 //  lazy val assignments: PackratParser[scala.collection.immutable.Seq[Tuple2[String, LogicalAlgebraNode]]] = repsep(assignment, ",")

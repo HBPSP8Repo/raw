@@ -11,11 +11,9 @@ case class UnknownDecl(i: Calculus.IdnNode) extends Error
 
 case class CollectionRequired(t: Type) extends Error
 
-case class CommutativeIdempotentRequired(t: Type) extends Error
+// TODO: Make it take Exp not Types since only Exps need to be annotated once w/ positions by the parser
 
-case class CommutativeRequired(t: Type) extends Error
-
-case class IdempotentRequired(t: Type) extends Error
+case class IncompatibleMonoids(m1: Monoid, t2: Type) extends Error
 
 case class IncompatibleTypes(t1: Type, t2: Type) extends Error
 
@@ -32,9 +30,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
     case CollectionRequired(t) => s"expected collection but got ${TypesPrettyPrinter(t)} (${t.pos})"
-    case CommutativeIdempotentRequired(t) => s"expected commutative and idempotent collection but got non-commutative type ${TypesPrettyPrinter(t)} (${t.pos})"
-    case CommutativeRequired(t) => s"expected commutative collection but got non-commutative type ${TypesPrettyPrinter(t)} (${t.pos})"
-    case IdempotentRequired(t) => s"expected idempotent collection but got non-idempotent type ${TypesPrettyPrinter(t)} (${t.pos})"
+    case IncompatibleMonoids(m1, t2) => s"TODO m1 ${PrettyPrinter(m1)} t2 ${TypesPrettyPrinter(t2)}"
     case IncompatibleTypes(t1, t2) =>
       if (t2.pos.line < t1.pos.line || (t1.pos.line == t2.pos.line && t2.pos.column < t1.pos.column))
         show(IncompatibleTypes(t2, t1))
@@ -71,12 +67,6 @@ object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
   }
 
   def show(t: Type): Doc = t match {
-    case ConstraintCollectionType(inner, c, i, _) =>
-      val prefix = List(p(c, "commutative"), p(i, "idempotent")).filter(_.isDefined).mkString(" and ")
-      if (prefix.nonEmpty)
-        prefix + " collection of " + TypesPrettyPrinter(inner)
-      else
-        "collection of " + TypesPrettyPrinter(inner)
     case ConstraintRecordType(atts, _) =>
       val satts = atts.map { case att => s"attribute ${att.idn} of type ${TypesPrettyPrinter(att.tipe)}" }.mkString(" and ")
       if (satts.nonEmpty)
