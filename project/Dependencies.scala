@@ -28,6 +28,7 @@ object Dependencies {
 
   val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.6.1"
   val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.6.1"
+  val jacksonCsv = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv" % "2.5.3"
 
   val sprayDeps = Seq(
     "io.spray" %% "spray-routing" % "1.3.3",

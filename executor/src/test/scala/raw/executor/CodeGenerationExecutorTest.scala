@@ -36,14 +36,14 @@ class CodeGenerationExecutorTest extends AbstractRawTest with SharedSparkContext
   val patientsFile = "C:\\cygwin64\\home\\nuno\\code\\raw\\executor\\src\\main\\resources\\data\\patients\\patients.json"
 
   test("scala") {
-    val p = Paths.get(Resources.getResource("rawschema.xml").toURI)
+    val p = Paths.get(Resources.getResource("data/patients/patients.schema.xml").toURI)
     CodeGenerationExecutor.registerAccessPath("patients", Files.newBufferedReader(p), Paths.get(patientsFile))
     val result = CodeGenerationExecutor.query(plan)
     assert(result === "500")
   }
 
   test("spark") {
-    val p = Paths.get(Resources.getResource("rawschema.xml").toURI)
+    val p = Paths.get(Resources.getResource("data/patients/patients.schema.xml").toURI)
     CodeGenerationExecutor.registerAccessPath("patients", Files.newBufferedReader(p), Paths.get(patientsFile), sc)
     val result = CodeGenerationExecutor.query(plan)
     assert(result === "500")

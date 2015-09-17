@@ -1,9 +1,7 @@
-import java.nio.file.{Files, Paths}
-
 import Dependencies._
 import Resolvers._
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
 import sbt.Keys._
-import sbt.dsl._
 
 
 lazy val buildSettings = Seq(
@@ -43,6 +41,7 @@ val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
+  //  http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
   enablePlugins(JavaAppPackaging, DockerPlugin).
   settings(
     version in Docker := "latest",
@@ -50,7 +49,18 @@ lazy val executor = (project in file("executor")).
     dockerRepository in Docker := Some("nfsantos"),
     dockerExposedPorts in Docker := Seq(54321),
     maintainer in Docker := "Nuno Santos <nuno@raw-labs.com>",
-    dockerExposedVolumes in Docker := Seq("/opt/docker/logs")
+    dockerExposedVolumes in Docker := Seq("/opt/docker/logs"),
+    // The plugin by default will run the container as a non-root user and will chown
+    // the directory to the give user. We remove the commands so we run as root (inside the container)
+    // The chown would also create a new layer in the image containing all the user files again,
+    // therefore increasing the final image size by about 150Mb.
+    dockerCommands := dockerCommands.value.filterNot {
+      // ExecCmd is a case class, and args is a varargs variable, so you need to bind it with @
+      case ExecCmd("RUN", args @ _*) => args.contains("chown")
+      case Cmd("USER", args @ _*) => true
+      // dont filter the rest
+      case cmd                       => false
+    }
   ).
 
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
@@ -68,6 +78,7 @@ lazy val executor = (project in file("executor")).
           sparkSql,
           jackson,
           jacksonScala,
+          jacksonCsv,
           httpClient,
           commonsMath,
           commonsIO,
@@ -83,8 +94,8 @@ lazy val executor = (project in file("executor")).
     fork := true,
 
     // Alternative to start SBT with -D...=... Applies to tasks launched within the VM which runs SBT
-//    initialize ~= { _ =>
-//    },
+    //    initialize ~= { _ =>
+    //    },
 
     //        testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
@@ -100,9 +111,9 @@ lazy val executor = (project in file("executor")).
       dumponexit=true,dumponexitpath=path
      */
     javaOptions ++= Seq("""-Dspark.master=local[2]"""),
-//        """-XX:+UnlockCommercialFeatures""",
-//        """-XX:+FlightRecorder""",
-//        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
+    //        """-XX:+UnlockCommercialFeatures""",
+    //        """-XX:+FlightRecorder""",
+    //        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
     // build a JAR with the Spark application plus transitive dependencies.
     // https://github.com/sbt/sbt-assembly
     test in assembly := {}, // Do not run tests when building the assembly
@@ -124,7 +135,7 @@ lazy val executor = (project in file("executor")).
       as a forked process.)
       http://stackoverflow.com/questions/7449312/create-script-with-classpath-from-sbt
       */
-//    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+    //    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
     TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
       val template = """#!/bin/sh
 java -classpath "%s" %s "$@"

@@ -94,13 +94,14 @@ package raw.query
 
 import java.nio.file.Path
 import raw.datasets.AccessPath
-import raw.executor.{JsonLoader, ScalaLoader}
+import raw.executor.{Loader, ScalaLoader}
 
 ${caseClassesSource}
 
 class ${loaderClassName} extends ScalaLoader {
+
   def loadAccessPaths(file: Path): AccessPath[_] = {
-    val data = JsonLoader.loadAbsolute[List[${innerType}]](file)
+    val data = Loader.loadAbsolute[List[${innerType}]](file)
     AccessPath("$name", Left(data))
   }
 }

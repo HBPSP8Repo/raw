@@ -18,7 +18,7 @@ object JsonLoader extends StrictLogging {
   mapper.registerModule(DefaultScalaModule)
 
   def load[T](resource: String)(implicit m: Manifest[T]): T = {
-    logger.info(s"Loading resource: $resource")
+    logger.info(s"Loading JSON resource: $resource")
     val is: InputStream = Resources.getResource(resource).openStream()
     try {
       val jp = jsonFactory.createParser(is)
@@ -29,7 +29,7 @@ object JsonLoader extends StrictLogging {
   }
 
   def loadAbsolute[T](p: Path)(implicit m: Manifest[T]): T = {
-    logger.info(s"Loading resource: $p")
+    logger.info(s"Loading JSON resource: $p")
     val is: InputStream = Files.newInputStream(p)
     try {
       val jp = jsonFactory.createParser(is)

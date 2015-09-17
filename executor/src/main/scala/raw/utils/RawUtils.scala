@@ -30,7 +30,7 @@ object RawUtils extends StrictLogging {
     try {
       Files.createDirectory(p)
     } catch {
-      case ex: Exception => logger.info("Failed with exception: " + ex)
+      case ex: Exception => logger.info("Failed to create directory: " + p + ". Exception: " + ex)
     }
   }
 

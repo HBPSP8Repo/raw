@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<list>
+    <record name="students_1">
+        <field name="v1">
+            <string/>
+        </field>
+        <field name="v2">
+            <int/>
+        </field>
+        <field name="v3">
+            <string/>
+        </field>
+        <field name="v4">
+            <string/>
+        </field>
+    </record>
+</list>

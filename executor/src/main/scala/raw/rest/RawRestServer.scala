@@ -1,8 +1,9 @@
 package raw.rest
 
-import java.nio.file.Files
+import java.nio.file.{Paths, Files}
 
 import akka.actor.ActorSystem
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
@@ -141,6 +142,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
 
     val schemas = StorageManager.listSchemas(rawUser)
+    logger.info("Found schemas: " + schemas)
     val accessPaths: Seq[AccessPath[_]] = schemas.map(name => {
       val schema = StorageManager.getSchema(rawUser, name)
       logger.info(s"Loading access path: ${schema.dataFile} with schema: ${schema.schemaFile}")
@@ -176,6 +178,8 @@ object RawRestServerMain extends StrictLogging {
       val executor: ScallopOption[String] = opt[String]("executor", default = Some("scala"), short = 'e')
     }
     val restServer = new RawRestServer(Conf.executor())
+
+    logger.info("Directory: " + ConfigFactory.load().getString("raw.datadir"))
     restServer.start()
   }
 }
