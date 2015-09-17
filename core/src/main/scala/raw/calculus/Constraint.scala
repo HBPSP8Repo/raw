@@ -1,5 +1,6 @@
 package raw
 package calculus
+import scala.collection.immutable.Seq
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -15,4 +16,5 @@ object Constraint extends LazyLogging {
 
   case class ExpMonoidSubsetOf(e: Exp, m: Monoid) extends Constraint
 
+  case class InheritsOption(t: Type, ts: Seq[Type]) extends Constraint
 }

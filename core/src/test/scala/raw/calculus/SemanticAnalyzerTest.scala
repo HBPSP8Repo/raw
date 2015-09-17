@@ -27,6 +27,7 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"Actual type: ${TypesPrettyPrinter(inferredType)}")
     logger.debug(s"Expected type: ${TypesPrettyPrinter(expectedType)}")
     compare(inferredType.toString, expectedType.toString)
+    compare(TypesPrettyPrinter(inferredType), TypesPrettyPrinter(expectedType))
   }
 
   def failure(query: String, world: World, error: Error) = {
@@ -609,6 +610,43 @@ class SemanticAnalyzerTest extends FunTest {
       }
       """, TestWorlds.empty, FunType(IntType(), IntType())
     )
+
+  }
+
+  test("option#1") {
+    val oint = IntType()
+    oint.nullable = true
+    val ob = BoolType()
+    ob.nullable = true
+    success("LI", TestWorlds.options, CollectionType(ListMonoid(), IntType()))
+    success("LOI", TestWorlds.options, CollectionType(ListMonoid(), oint))
+    success("for (i <- LI) yield set i", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
+    success("for (i <- LI) yield set 1+i", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
+    success("for (i <- LOI) yield set i", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("for (i <- LOI) yield set 1+i", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("for (i <-LI; oi <- LOI) yield set oi+i", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("for (i <- LOI) yield set i", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("(for (i <- LI) yield set i) union (for (i <- LI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
+    success("(for (i <- LOI) yield set i) union (for (i <- LOI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("(for (i <- LOI) yield set i) union (for (i <- LI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("(for (i <- LI) yield set i) union (for (i <- LOI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("{ m := for (i <- LOI) yield max i; for (i <- LI; i < m) yield set i }", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
+    success("for (i <- LI) yield max i", TestWorlds.options, IntType())
+    success("for (i <- LOI) yield max i", TestWorlds.options, IntType())
+    success("for (i <- OLI) yield max i", TestWorlds.options, oint)
+    success("for (i <- OLOI) yield max i", TestWorlds.options, oint)
+    success("for (i <- LI) yield list i", TestWorlds.options, CollectionType(ListMonoid(), IntType()))
+    success("for (i <- LOI) yield list i", TestWorlds.options, CollectionType(ListMonoid(), oint))
+    success("for (i <- OLI) yield list i", TestWorlds.options, { val ot = CollectionType(ListMonoid(), IntType()); ot.nullable = true; ot })
+    success("for (i <- OLOI) yield list i", TestWorlds.options, { val ot = CollectionType(ListMonoid(), oint); ot.nullable = true; ot })
+    success("{ m := for (i <- LOI) yield max i; for (i <- LI; i < m) yield set i }", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
+    success("for (i <- LOI; i < 1) yield set i", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("{ m := for (i <- LOI) yield max i; for (i <- LOI; i < m) yield set i }", TestWorlds.options, CollectionType(SetMonoid(), oint))
+    success("for (r <- records) yield set (r.OI > 10)", TestWorlds.options, CollectionType(SetMonoid(), ob))
+    success("for (r <- records) yield set (r.I > 10)", TestWorlds.options, CollectionType(SetMonoid(), BoolType()))
+    val oset = CollectionType(SetMonoid(), BoolType())
+    oset.nullable = true
+    success("for (i <- OLI) yield set (i > 10)", TestWorlds.options, oset)
 
   }
 

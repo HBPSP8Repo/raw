@@ -6,11 +6,9 @@ import calculus.{Symbol, SymbolTable}
 
 /** Types
   */
-sealed abstract class Type extends RawNode
-
-/** Option Type
-  */
-case class OptionType(t: Type) extends Type
+sealed abstract class Type extends RawNode {
+  var nullable = false
+}
 
 /** Primitive Types
   */

@@ -6,11 +6,13 @@ object TestWorlds {
 
   def linkedList = {
     val tipes = Map(
-      Symbol{"Item"} -> RecordType(List(AttrType("value", IntType()), AttrType("next", UserType(Symbol("Item")))), Some("item"))
+      Symbol {
+        "Item"
+      } -> RecordType(List(AttrType("value", IntType()), AttrType("next", UserType(Symbol("Item")))), Some("item"))
     )
 
     val sources = Map(
-      "Items" -> CollectionType(ListMonoid(),UserType(Symbol("Item")))
+      "Items" -> CollectionType(ListMonoid(), UserType(Symbol("Item")))
     )
 
     new World(sources, tipes)
@@ -29,12 +31,12 @@ object TestWorlds {
             None)),
           AttrType("salary", IntType()),
           AttrType("rank", StringType()),
-          AttrType("degrees", CollectionType(SetMonoid(),StringType())),
+          AttrType("degrees", CollectionType(SetMonoid(), StringType())),
           AttrType("dept", UserType(Symbol("Department"))),
-          AttrType("teaches", CollectionType(SetMonoid(),UserType(Symbol("Course"))))),
+          AttrType("teaches", CollectionType(SetMonoid(), UserType(Symbol("Course"))))),
           Some("instructor")),
       Symbol("Instructors") ->
-        CollectionType(SetMonoid(),UserType(Symbol("Instructor"))),
+        CollectionType(SetMonoid(), UserType(Symbol("Instructor"))),
       Symbol("Department") ->
         RecordType(List(
           AttrType("dno", IntType()),
@@ -44,7 +46,7 @@ object TestWorlds {
           AttrType("courses", UserType(Symbol("Courses")))),
           Some("department")),
       Symbol("Departments") ->
-        CollectionType(BagMonoid(),UserType(Symbol("Department"))),
+        CollectionType(BagMonoid(), UserType(Symbol("Department"))),
       Symbol("Course") ->
         RecordType(List(
           AttrType("code", StringType()),
@@ -52,10 +54,10 @@ object TestWorlds {
           AttrType("offered_by", UserType(Symbol("Department"))),
           AttrType("taught_by", UserType(Symbol("Instructor"))),
           AttrType("is_prerequisite_for", UserType(Symbol("Courses"))),
-          AttrType("has_prerequisites", CollectionType(SetMonoid(),UserType(Symbol("Course"))))),
+          AttrType("has_prerequisites", CollectionType(SetMonoid(), UserType(Symbol("Course"))))),
           Some("course")),
       Symbol("Courses") ->
-        CollectionType(SetMonoid(),UserType(Symbol("Course")))
+        CollectionType(SetMonoid(), UserType(Symbol("Course")))
     )
 
     val sources = Map(
@@ -96,8 +98,8 @@ object TestWorlds {
   }
 
   def A_B = {
-    val A = CollectionType(ListMonoid(),IntType())
-    val B = CollectionType(ListMonoid(),IntType())
+    val A = CollectionType(ListMonoid(), IntType())
+    val B = CollectionType(ListMonoid(), IntType())
 
     val sources = Map(
       "A" -> A,
@@ -294,26 +296,26 @@ object TestWorlds {
 
   def simple = {
     new World(sources = Map(
-      "unknown" -> CollectionType(SetMonoid(),TypeVariable()),
-      "integers" -> CollectionType(SetMonoid(),IntType()),
-      "floats" -> CollectionType(SetMonoid(),FloatType()),
-      "booleans" -> CollectionType(SetMonoid(),BoolType()),
-      "strings" -> CollectionType(SetMonoid(),StringType()),
-      "records" -> CollectionType(SetMonoid(),RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None))))
+      "unknown" -> CollectionType(SetMonoid(), TypeVariable()),
+      "integers" -> CollectionType(SetMonoid(), IntType()),
+      "floats" -> CollectionType(SetMonoid(), FloatType()),
+      "booleans" -> CollectionType(SetMonoid(), BoolType()),
+      "strings" -> CollectionType(SetMonoid(), StringType()),
+      "records" -> CollectionType(SetMonoid(), RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None))))
   }
 
   def unknown = {
     new World(sources = Map(
-      "unknown" -> CollectionType(SetMonoid(),TypeVariable()),
-      "unknownrecords" -> CollectionType(SetMonoid(),RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
+      "unknown" -> CollectionType(SetMonoid(), TypeVariable()),
+      "unknownrecords" -> CollectionType(SetMonoid(), RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
   }
 
   def professors_students = {
     val tipes = Map(
       Symbol("student") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student")),
-      Symbol("students") -> CollectionType(ListMonoid(),UserType(Symbol("student"))),
+      Symbol("students") -> CollectionType(ListMonoid(), UserType(Symbol("student"))),
       Symbol("professor") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors")),
-      Symbol("professors") -> CollectionType(ListMonoid(),UserType(Symbol("professor"))))
+      Symbol("professors") -> CollectionType(ListMonoid(), UserType(Symbol("professor"))))
 
     val sources = Map(
       "students" -> UserType(Symbol("students")),
@@ -324,4 +326,24 @@ object TestWorlds {
 
   def empty = new World()
 
+  def options = new World(sources = {
+    val i = IntType()
+    val oi = IntType();
+    oi.nullable = true
+    val li = CollectionType(ListMonoid(), i)
+    val loi = CollectionType(ListMonoid(), oi)
+    val oli = CollectionType(ListMonoid(), i);
+    oli.nullable = true
+    val oloi = CollectionType(ListMonoid(), oi);
+    oloi.nullable = true
+    Map(
+      "LI" -> li,
+      "LOI" -> loi,
+      "OLI" -> oli,
+      "OLOI" -> oloi,
+      "records" -> CollectionType(ListMonoid(), RecordType(List(AttrType("OI", oi), AttrType("LOI", loi),
+        AttrType("I", IntType()), AttrType("LI", li)), None))
+    )
+  }
+  )
 }
