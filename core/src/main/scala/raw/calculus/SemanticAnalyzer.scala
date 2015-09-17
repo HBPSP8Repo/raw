@@ -76,23 +76,40 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
-  def build_nullable_type(source: Type, models: Seq[Type], nulls: Seq[Type]): Type = {
+  def make_nullable(source: Type, models: Seq[Type], nulls: Seq[Type]): Type = {
     val t = (source, models) match {
-      case (col @ CollectionType(m, i), colls: Seq[CollectionType]) => {
+      case (col@CollectionType(m, i), colls: Seq[CollectionType]) => {
         val inners = colls.map(_.innerType)
-        CollectionType(m, build_nullable_type(i, inners, inners))
+        CollectionType(m, make_nullable(i, inners, inners))
       }
-      case (r @ RecordType(attr, n), recs: Seq[RecordType]) => {
-        val attributes = attr.map{case AttrType(idn, i) => {
-          val others = recs.map{r => r.getType(idn).get}
-          AttrType(idn, build_nullable_type(i, others, others))
-        }}
+      case (f @ FunType(p, e), funs: Seq[FunType]) => {
+        val otherP = funs.map(_.t1)
+        val otherE = funs.map(_.t2)
+        FunType(make_nullable(p, otherP, otherP), make_nullable(e, otherE, otherE))
+      }
+      case (r@RecordType(attr, n), recs: Seq[RecordType]) => {
+        val attributes = attr.map { case AttrType(idn, i) => {
+          val others = recs.map { r => r.getType(idn).get }
+          AttrType(idn, make_nullable(i, others, others))
+        }
+        }
         RecordType(attributes, n)
       }
       case (_: IntType, _) => IntType()
       case (_: FloatType, _) => FloatType()
       case (_: BoolType, _) => BoolType()
       case (_: StringType, _) => StringType()
+      case (u: UserType, _) => UserType(u.sym)
+      case (v: TypeVariable, _) => TypeVariable(v.sym)
+      case (v: NumberType, _) => NumberType(v.sym)
+      case (r@ConstraintRecordType(attr, sym), recs: Seq[ConstraintRecordType]) => {
+        val attributes = attr.map { case AttrType(idn, i) => {
+          val others = recs.map { r => r.getType(idn).get }
+          AttrType(idn, make_nullable(i, others, others))
+        }
+        }
+        ConstraintRecordType(attributes, sym)
+      }
     }
     t.nullable = t.nullable || nulls.collect{case t if t.nullable => t}.nonEmpty
     t
@@ -102,23 +119,29 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     */
   lazy val tipe: Exp => Type = attr {
     e => {
-      val te = data_tipe(e)
+      val te = data_tipe(e) // regular type (no option except from sources)
       val nt = e match {
         case RecordProj(e, idn) => tipe(e) match {
-          case rt@RecordType(_, _) => build_nullable_type(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
+          case rt: RecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
+          case ut: UserType => {
+            typesVarMap(ut).root match {
+              case rt: RecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
+            }
+          }
         }
+        case ConsCollectionMonoid(m, e) => CollectionType(m, tipe(e))
         case IfThenElse(e1, e2, e3) => (tipe(e1), tipe(e2), tipe(e3)) match {
-          case (t1, t2, t3) => build_nullable_type(te, Seq(t2, t3), Seq(t1, t2, t3))
+          case (t1, t2, t3) => make_nullable(te, Seq(t2, t3), Seq(t1, t2, t3))
         }
         case FunApp(f, v) => tipe(f) match {
-          case ft @ FunType(t1, t2) => build_nullable_type(te, Seq(t2), Seq(ft, t2, tipe(v)))
+          case ft @ FunType(t1, t2) => make_nullable(te, Seq(t2), Seq(ft, t2, tipe(v)))
         }
         case MergeMonoid(_, e1, e2) => (tipe(e1), tipe(e2)) match {
-          case (t1, t2) => build_nullable_type(te, Seq(t1, t2), Seq(t1, t2))
+          case (t1, t2) => make_nullable(te, Seq(t1, t2), Seq(t1, t2))
         }
         case Comp(m: CollectionMonoid, qs, proj) => {
           val inner = tipe(proj)
-          build_nullable_type(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e) => tipe(e)})
+          make_nullable(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e) => tipe(e)})
         }
         case Comp(_, qs, proj) => {
           val output_type = tipe(proj) match {
@@ -127,48 +150,36 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
             case _: BoolType => BoolType()
           }
           output_type.nullable = false
-          build_nullable_type(te, Seq(output_type), qs.collect { case Gen(_, e) => tipe(e)})
+          make_nullable(te, Seq(output_type), qs.collect { case Gen(_, e) => tipe(e)})
         }
-        case BinaryExp(_, e1, e2) => build_nullable_type(te, Seq(), Seq(tipe(e1), tipe(e2)))
-        case UnaryExp(_, e1) => build_nullable_type(te, Seq(), Seq(tipe(e1)))
+        case BinaryExp(_, e1, e2) => make_nullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
+        case UnaryExp(_, e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
         case ExpBlock(_, e1) => {
           val t1 = tipe(e1)
-          build_nullable_type(te, Seq(t1), Seq(t1))
+          make_nullable(te, Seq(t1), Seq(t1))
         }
         case _: IdnExp => te
         case _: IntConst => te
         case _: FloatConst => te
         case _: BoolConst => te
         case _: StringConst => te
+        case _: UserType => te
+        case _: RecordCons => te
+        case _: ZeroCollectionMonoid => te
+        case _: FunAbs => te
+        case _: VariableType => te
       }
       logger.debug(s"${CalculusPrettyPrinter(e)} => ${TypesPrettyPrinter(nt)}")
       nt
     }
   }
 
-  /** Constraints on nullable of a node.
-    * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
-    */
-  def option_constraint(n: RawNode): Seq[Constraint] = {
-    import Constraint._
-
-    n match {
-      case Gen(p, e) => walk(data_tipe(e)) match {
-        case CollectionType(_, i) => Seq(InheritsOption(patternType(p), Seq(i)))
-      }
-      case Bind(p, v) => Seq(InheritsOption(patternType(p), Seq(data_tipe(v))))
-      case _ => Seq()
-    }
-  }
-
-
-
   /** Type checker errors.
     */
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
-    tipe(tree.root) // Must type the entire program before checking for errors
+    data_tipe(tree.root) // Must type the entire program before checking for errors
     logger.debug(s"Final map\n${typesVarMap.toString}")
 
     badEntities ++ unifyErrors ++ semanticErrors
@@ -921,27 +932,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
     case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
-  }
-
-  /** Collects the option constraints of an expression.
-    * The constraints are returned in an "ordered sequence", i.e. the child constraints are collected before the current node's constraints.
-    */
-  lazy val option_constraints: RawNode => Seq[Constraint] = attr {
-    case n @ Comp(_, qs, e) => qs.flatMap{ case e => option_constraints(e) case _ => Nil } ++ option_constraints(e) ++ option_constraint(n)
-    case n @ FunAbs(_, e) => option_constraints(e) ++ option_constraint(n)
-    case n @ ExpBlock(_, e) => option_constraints(e) ++ option_constraint(n)
-    case n @ MergeMonoid(_, e1, e2) => option_constraints(e1) ++ option_constraints(e2) ++ option_constraint(n)
-    case n @ BinaryExp(_, e1, e2) => option_constraints(e1) ++ option_constraints(e2) ++ option_constraint(n)
-    case n @ UnaryExp(_, e) => option_constraints(e) ++ option_constraint(n)
-    case n: IdnExp => option_constraint(n)
-    case n @ RecordProj(e, _) => option_constraints(e) ++ option_constraint(n)
-    case n: Const => option_constraint(n)
-    case n @ RecordCons(atts) => atts.flatMap { case att => option_constraints(att.e) } ++ option_constraint(n)
-    case n @ FunApp(f, e) => option_constraints(f) ++ option_constraints(e) ++ option_constraint(n)
-    case n @ ConsCollectionMonoid(_, e) => option_constraints(e) ++ option_constraint(n)
-    case n @ IfThenElse(e1, e2, e3) => option_constraints(e1) ++ option_constraints(e2) ++ option_constraints(e3) ++ option_constraint(n)
-    case n @ Gen(p, e) => option_constraints(e) ++ option_constraint(n)
-    case n @ Bind(p, v) => option_constraints(v) ++ option_constraint(n)
   }
 
   /** For debugging.

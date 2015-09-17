@@ -375,7 +375,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (t <- things) yield list t") {
-    failure("for (t <- things) yield list", TestWorlds.things, IncompatibleMonoids(ListMonoid(), TestWorlds.things.sources("things")))
+    failure("for (t <- things) yield list t", TestWorlds.things, IncompatibleMonoids(ListMonoid(), TestWorlds.things.sources("things")))
   }
 
   test("for (s <- students) yield list s") {
