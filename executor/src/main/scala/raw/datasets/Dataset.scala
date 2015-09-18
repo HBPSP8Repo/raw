@@ -46,12 +46,12 @@ object AccessPath {
     new AccessPath[T](dataset.name, Left(data))
   }
 
-  def toScalaAcessPathAbs[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): AccessPath[T] = {
-//    val t = implicitly[TypeTag[T]]
-//    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(typeTag[List[T]])
-    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(manifest[List[T]])
-    new AccessPath[T](dataset.name, Left(data))
-  }
+//  def toScalaAcessPathAbs[T <: Product : ClassTag : TypeTag](dataset: Dataset[T]): AccessPath[T] = {
+////    val t = implicitly[TypeTag[T]]
+////    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(typeTag[List[T]])
+//    val data: List[T] = JsonLoader.loadAbsolute(Paths.get(dataset.file))(manifest[List[T]])
+//    new AccessPath[T](dataset.name, Left(data))
+//  }
 
   def loadSparkDataset(dsName: String, sc: SparkContext): List[AccessPath[_ <: Product]] = {
     dsName match {

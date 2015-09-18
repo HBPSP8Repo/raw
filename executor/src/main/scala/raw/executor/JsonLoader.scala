@@ -28,7 +28,8 @@ object JsonLoader extends StrictLogging {
     }
   }
 
-  def loadAbsolute[T](p: Path)(implicit m: Manifest[T]): T = {
+  def loadAbsolute[T](schema: RawSchema)(implicit m: Manifest[T]): T = {
+    val p = schema.dataFile
     logger.info(s"Loading JSON resource: $p")
     val is: InputStream = Files.newInputStream(p)
     try {

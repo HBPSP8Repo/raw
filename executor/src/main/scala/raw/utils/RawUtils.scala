@@ -1,7 +1,7 @@
 package raw.utils
 
 import java.net.URL
-import java.nio.file.{FileAlreadyExistsException, Files, Path, Paths}
+import java.nio.file._
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
@@ -14,7 +14,7 @@ object RawUtils extends StrictLogging {
       FileUtils.cleanDirectory(p.toFile)
     } else {
       logger.info(s"Creating results directory: $p")
-      Files.createDirectory(p)
+      Files.createDirectories(p)
     }
   }
 
@@ -27,11 +27,8 @@ object RawUtils extends StrictLogging {
   }
 
   def createDirectory(p: Path) = {
-    try {
-      Files.createDirectory(p)
-    } catch {
-      case ex: Exception => logger.info("Failed to create directory: " + p + ". Exception: " + ex)
-    }
+    // Does not throw an exception if the directory already exists
+    Files.createDirectories(p)
   }
 
   /**
@@ -52,7 +49,7 @@ object RawUtils extends StrictLogging {
     val p = RawUtils.getTemporaryDirectory().resolve(resourceName)
     val is = mpPlugin.openStream()
     try {
-      Files.copy(mpPlugin.openStream(), p)
+      Files.copy(mpPlugin.openStream(), p, StandardCopyOption.REPLACE_EXISTING)
     } catch {
       case ex: FileAlreadyExistsException => // Ignore
     } finally {

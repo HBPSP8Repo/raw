@@ -1,12 +1,14 @@
 package raw.executor
 
 import java.io.Reader
+import java.nio.file.Files
+import java.util
 
 import com.typesafe.scalalogging.StrictLogging
 import raw._
 
 import scala.collection.immutable.Seq
-import scala.collection.mutable
+import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.HashMap
 import scala.xml.{Elem, Node, XML}
 
@@ -18,19 +20,20 @@ import scala.xml.{Elem, Node, XML}
 case class ParsedSchema(caseClasses: Map[String, String], typeDeclaration: String)
 
 object SchemaParser extends StrictLogging {
-  def apply(schema: Reader): ParsedSchema = {
+  def apply(schema: RawSchema): ParsedSchema = {
     val asRawType: SchemaAsRawType = XmlToRawType(schema)
+    logger.info("Parsed schema: " + asRawType.caseClasses)
     val typeGenerator = new ScalaTypeGenerator(asRawType)
     ParsedSchema(typeGenerator.caseClassesSym.toMap, typeGenerator.typeDeclaration)
   }
 
   class ScalaTypeGenerator(rawType: SchemaAsRawType) {
     val typeDeclaration: String = buildScalaDeclaration(rawType.typeDeclaration)
-
     val caseClassesSym = new mutable.HashMap[String, String]()
     defineCaseClasses(rawType.typeDeclaration)
-
+    logger.info("Case classes: " + caseClassesSym)
     val caseClassesSource = caseClassesSym.values.mkString("\n")
+    logger.info("Case classes: " + caseClassesSource)
 
     private[this] def defineCaseClass(r: RecordType): String = {
       val idn = r.name.get
@@ -40,16 +43,15 @@ object SchemaParser extends StrictLogging {
           idn
 
         case None =>
-          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
+//          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
           val attributes = buildAttributeList(r.atts)
           val src = s"""case class $idn( $attributes )"""
-          logger.info(s"Source code: $src")
           caseClassesSym.put(idn, src)
           idn
       }
     }
 
-    private[this] def buildAttributeList(atts:Seq[AttrType]): String = {
+    private[this] def buildAttributeList(atts: Seq[AttrType]): String = {
       atts.map(att => {
         val idn = att.idn
         val symbol = att.tipe match {
@@ -99,15 +101,17 @@ object SchemaParser extends StrictLogging {
   case class SchemaAsRawType(caseClasses: Map[String, RecordType], typeDeclaration: raw.Type)
 
   private object XmlToRawType {
-    def apply(schema: Reader): SchemaAsRawType = {
-      val root: Elem = XML.load(schema)
-      val result = new RecursionWrapper(root)
+    def apply(schema: RawSchema): SchemaAsRawType = {
+      val schemaXML = Files.newBufferedReader(schema.schemaFile)
+      val root: Elem = XML.load(schemaXML)
+      val result = new RecursionWrapper(root, schema)
       SchemaAsRawType(result.records.toMap, result.rawType)
     }
 
-    private[this] class RecursionWrapper(root:Elem) {
+    private[this] class RecursionWrapper(root: Elem, schema: RawSchema) {
       val records = new HashMap[String, RecordType]()
       val rawType: raw.Type = toRawType(root)
+      var rootElementName: String = null
 
       private[this] def toRawType(elem: Elem): raw.Type = {
         elem.label match {
@@ -117,12 +121,17 @@ object SchemaParser extends StrictLogging {
 
           case "record" =>
             val name: String = getAttributeText(elem, "name")
+            if (rootElementName == null) {
+              rootElementName = name
+            }
             records.get(name) match {
               case Some(sym) => sym
               case None =>
                 val fields: Seq[Elem] = getChildren(elem)
                 val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
-                val record = RecordType(attrs, Some(name))
+                logger.info("Attributes: " + attrs)
+                val orderedAttrs = orderFields(name, attrs)
+                val record = RecordType(orderedAttrs, Some(name))
                 records.put(name, record)
                 record
             }
@@ -132,6 +141,20 @@ object SchemaParser extends StrictLogging {
           case "float" => FloatType()
           case "string" => StringType()
           case _ => throw new RuntimeException("Unknown node: " + elem)
+        }
+      }
+
+      private[this] def orderFields(name: String, attributes: Seq[AttrType]): Seq[AttrType] = {
+        schema.properties.fieldNames() match {
+          case None => attributes
+          case Some(order) => {
+            assert(name == rootElementName, "Unexpected field names metadata on nested schema. Processing element: " + name + ", rootelement: " + rootElementName + ", Schema: " + schema)
+            logger.info("Reordering: " + attributes + ", using order: " + order)
+            val attMap: Map[String, AttrType] = attributes.map(attr => attr.idn -> attr).toMap
+            val orderIter = JavaConversions.asScalaIterator(order.iterator())
+            val reordered = orderIter.map(attrName => attMap(attrName)).to[scala.collection.immutable.Seq]
+            reordered
+          }
         }
       }
 
@@ -157,5 +180,7 @@ object SchemaParser extends StrictLogging {
         AttrType(idn, tipe)
       }
     }
+
   }
+
 }

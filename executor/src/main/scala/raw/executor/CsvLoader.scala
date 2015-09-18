@@ -2,9 +2,10 @@ package raw.executor
 
 import java.io.InputStream
 import java.nio.file.{Files, Path}
+import java.util
 
-import com.fasterxml.jackson.databind.MappingIterator
-import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvParser}
+import com.fasterxml.jackson.databind.{ObjectMapper, MappingIterator}
+import com.fasterxml.jackson.dataformat.csv.{CsvSchema, CsvMapper, CsvParser}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConversions
@@ -15,8 +16,9 @@ case class Student(name: String, birthYear: Int, office: String, department: Str
 
 object CsvLoader extends StrictLogging {
 
-  private[this] final val mapper = new CsvMapper()
-  mapper.enable(CsvParser.Feature.WRAP_AS_ARRAY)
+  private[this] final val csvMapper = new CsvMapper()
+  csvMapper.enable(CsvParser.Feature.WRAP_AS_ARRAY)
+
 
   val mapperFunctions = HashMap[String, (String) => AnyRef](
     "java.lang.String" -> ((v: String) => v),
@@ -25,16 +27,21 @@ object CsvLoader extends StrictLogging {
     "float" -> ((v: String) => java.lang.Float.valueOf(v))
   )
 
-  private[this] def newCsvIterator(is: InputStream): Iterator[Array[String]] = {
-    val iter = mapper
+  private[this] def newCsvIterator(is: InputStream, properties:SchemaProperties): Iterator[Array[String]] = {
+    val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(properties.hasHeader().getOrElse(false))
+    val iter = csvMapper
       .readerFor(classOf[Array[String]])
+      .`with`(csvSchema)
       .readValues(is)
       .asInstanceOf[MappingIterator[Array[String]]]
     JavaConversions.asScalaIterator(iter)
   }
 
-  def loadAbsolute[T](p: Path)(implicit m: Manifest[T]): T = {
-    logger.info(s"Loading CSV resource: $p")
+  def loadAbsolute[T](schema: RawSchema)(implicit m: Manifest[T]): T = {
+    val p = schema.dataFile
+    val properties = schema.properties
+    logger.info(s"Loading CSV resource: $p. Properties: ${properties.properties}")
+
     val typeArgs: List[Predef.Manifest[_]] = m.typeArguments
     assert(typeArgs.size == 1, "Expected a single type argument. Found: " + typeArgs)
     val innerType: Predef.Manifest[_] = typeArgs.head
@@ -46,7 +53,7 @@ object CsvLoader extends StrictLogging {
     var parTypes = ctor.getParameterTypes
     val is: InputStream = Files.newInputStream(p)
     try {
-      val iter = newCsvIterator(is)
+      val iter = newCsvIterator(is, schema.properties)
       val args = new Array[AnyRef](ctor.getParameterCount)
       val res = iter.map(v => {
         var i = 0

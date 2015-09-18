@@ -46,7 +46,7 @@ lazy val executor = (project in file("executor")).
   settings(
     version in Docker := "latest",
     dockerBaseImage := "nimmis/java:oracle-8-jdk",
-    dockerRepository in Docker := Some("nfsantos"),
+    dockerRepository in Docker := Some("rawlabs"),
     dockerExposedPorts in Docker := Seq(54321),
     maintainer in Docker := "Nuno Santos <nuno@raw-labs.com>",
     dockerExposedVolumes in Docker := Seq("/opt/docker/logs"),

@@ -1,24 +1,40 @@
 package raw.executor
 
+import java.io.File
 import java.net.URL
-import java.nio.file.Paths
+import java.nio.file.{Path, Files, Paths}
+import java.util
 
 import com.google.common.io.Resources
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.IOUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.http.NameValuePair
+import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
 import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.HttpClients
+import org.apache.http.message.BasicNameValuePair
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.rest.RawRestServer
+import raw.utils.RawUtils
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterAll {
-
-  var restServer = new RawRestServer("scala")
-  val httpclient = HttpClients.createDefault();
+  var restServer: RawRestServer = _
+  var testDir: Path = _
+  val httpclient = HttpClients.createDefault()
 
   override def beforeAll() = {
-    restServer.start()
+    testDir = RawUtils.getTemporaryDirectory("test-basedata")
+    RawUtils.cleanOrCreateDirectory(testDir)
+    StorageManager.setStoragePath(testDir)
+    restServer = new RawRestServer("scala")
+    val serverUp = restServer.start()
+    logger.info("Waiting for rest server to start")
+    Await.ready(serverUp, Duration(2, SECONDS))
   }
 
   override def afterAll() = {
@@ -50,7 +66,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
                                                                        Diagnostic))),
                                           AttrType(gender,StringType())),
                                       Patient)))))
-                                      """
+                     """
 
   val studentsPlan = """
     Reduce(SumMonoid(),
@@ -63,9 +79,33 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
                                             AttrType(v3,StringType()),
                                             AttrType(v4,StringType())),
                                         students_1)))))
-   """
+                     """
 
-  def executeRequest(post: HttpUriRequest): String = {
+  val brainFeatureSetPlan =
+    """
+      |Reduce(SumMonoid(),
+      |       IntConst(1),
+      |       BoolConst(true),
+      |       Select(BoolConst(true),
+      |              Scan(brain_feature_set,
+      |                   BagType(RecordType(Seq(AttrType(anonymization_method_version,StringType()),
+      |                                          AttrType(description,StringType()),
+      |                                          AttrType(brain_atlas_id,StringType()),
+      |                                          AttrType(pipeline_version,StringType()),
+      |                                          AttrType(anonymization_method,StringType()),
+      |                                          AttrType(pipeline_name,StringType()),
+      |                                          AttrType(extracted_from,StringType()),
+      |                                          AttrType(exam_date,StringType()),
+      |                                          AttrType(record_creation,StringType()),
+      |                                          AttrType(patient_id,StringType()),
+      |                                          AttrType(extraction_method,StringType()),
+      |                                          AttrType(id,StringType()),
+      |                                          AttrType(extraction_method_version,StringType())),
+      |                                      brain_feature_set_1)))))
+      |
+    """.stripMargin
+
+  private[this] def executeRequest(post: HttpUriRequest): String = {
     logger.info("Sending request: " + post)
     val response = httpclient.execute(post)
     val body = IOUtils.toString(response.getEntity().getContent())
@@ -73,21 +113,29 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     body
   }
 
-  def newRegisterPost(schemaName: String, file: URL, rawUser: String, bodyResource: String): HttpPost = {
+  private[this] def stageResourceDir(ressource: String, toDir: String): Unit = {
+    val downloadDir = testDir.resolve(toDir)
+    RawUtils.cleanOrCreateDirectory(downloadDir)
+    val studentsURL: Path = Paths.get(Resources.getResource(ressource).toURI)
+    logger.info(s"Copying $ressource to $downloadDir")
+    FileUtils.copyDirectory(studentsURL.toFile, downloadDir.toFile)
+  }
+
+  def newRegisterPost(schemaName: String, rawUser: String, directory: String): HttpPost = {
     val post = new HttpPost("http://localhost:54321/register")
-    post.setHeader("Content-Type", "application/xml")
-    post.setHeader("Raw-Schema-Name", schemaName)
-    post.setHeader("Raw-File", file.toString)
-    post.setHeader("Raw-User", rawUser)
-    val p = Paths.get(Resources.getResource(bodyResource).toURI)
-    post.setEntity(new FileEntity(p.toFile))
+    val nvps = new util.ArrayList[NameValuePair]();
+    nvps.add(new BasicNameValuePair("user", rawUser));
+    nvps.add(new BasicNameValuePair("schemaName", schemaName));
+    nvps.add(new BasicNameValuePair("dataDir", directory));
+    post.setEntity(new UrlEncodedFormEntity(nvps));
     post
   }
 
-  test("JSON register && query") {
-    val patientsURL: URL = Resources.getResource("data/patients/patients.json")
-    val registerPost = newRegisterPost("patients", patientsURL, "joedoe", "data/patients/patients.schema.xml")
-    executeRequest(registerPost)
+
+  ignore("JSON register && query") {
+    stageResourceDir("data/patients", "downloaddata")
+    val post = newRegisterPost("patients", "joedoe", "downloaddata")
+    executeRequest(post)
 
     val queryPost = new HttpPost("http://localhost:54321/query")
     queryPost.setHeader("Raw-User", "joedoe")
@@ -95,14 +143,39 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     executeRequest(queryPost)
   }
 
-  test("CSV register && query") {
-    val studentsURL: URL = Resources.getResource("data/students.csv")
-    val post = newRegisterPost("students", studentsURL, "joedoe", "data/students.schema.xml")
+  test("CSV register && query: students with header") {
+    stageResourceDir("data/students", "downloaddata")
+    val post = newRegisterPost("students", "joedoe", "downloaddata")
     executeRequest(post)
 
     val queryPost = new HttpPost("http://localhost:54321/query")
     queryPost.setHeader("Raw-User", "joedoe")
     queryPost.setEntity(new StringEntity(studentsPlan))
-    executeRequest(queryPost)
+    val resp = executeRequest(queryPost)
+    assert(resp == "7")
+  }
+
+  test("CSV register && query: students no header") {
+    stageResourceDir("data/students_no_header", "downloaddata")
+    val post = newRegisterPost("students", "joedoe", "downloaddata")
+    executeRequest(post)
+
+    val queryPost = new HttpPost("http://localhost:54321/query")
+    queryPost.setHeader("Raw-User", "joedoe")
+    queryPost.setEntity(new StringEntity(studentsPlan))
+    val resp = executeRequest(queryPost)
+    assert(resp == "7")
+  }
+
+  test("CSV register && query: brain_features_set header") {
+    stageResourceDir("data/brain_feature_set", "downloaddata")
+    val post = newRegisterPost("brain_feature_set", "joedoe", "downloaddata")
+    executeRequest(post)
+
+    val queryPost = new HttpPost("http://localhost:54321/query")
+    queryPost.setHeader("Raw-User", "joedoe")
+    queryPost.setEntity(new StringEntity(brainFeatureSetPlan))
+    val resp = executeRequest(queryPost)
+    assert(resp == "1099")
   }
 }

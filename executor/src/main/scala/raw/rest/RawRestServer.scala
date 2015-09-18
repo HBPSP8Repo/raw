@@ -8,12 +8,15 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.datasets.AccessPath
-import raw.executor.{CodeGenerationExecutor, StorageManager}
+import raw.executor.{RawSchema, CodeGenerationExecutor, StorageManager}
 import raw.spark._
+import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
 import spray.routing.SimpleRoutingApp
+
+import scala.concurrent.Future
 
 case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
 
@@ -79,7 +82,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
   final val port = 54321
   implicit val system = ActorSystem("simple-routing-app")
 
-  def start(): Unit = {
+  def start(): Future[Bound] = {
     import RegisterRequestJsonSupport._
     val queryPath = "query"
     val registerPath = "register"
@@ -96,32 +99,33 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
               }
             } catch {
               case ex: RuntimeException =>
-                logger.warn(s"Failed to process request: $ex")
+                logger.warn(s"Failed to process request", ex)
                 complete(StatusCodes.BadRequest, ex.getMessage)
             }
           }
         }
       } ~
+        /*
+          dataDir must contain the following files:
+          - <schemaName>.[csv|json]
+          - schema.xml
+          - properties.json
+         */
         (path(registerPath) & post) {
-          headerValueByName("Raw-Schema-Name") { schemaName =>
-            headerValueByName("Raw-File") { fileURI =>
-              headerValueByName("Raw-User") { rawUser =>
-                entity(as[String]) { xmlSchema =>
-                  try {
-                    //                    doRegisterRequest(schemaName, xmlSchema, fileURI, rawUser)
-                    StorageManager.registerSchema(schemaName, xmlSchema, fileURI, rawUser)
-                    val schemas = StorageManager.listSchemas(rawUser)
-                    logger.info("Schemas: " + schemas)
-                    respondWithMediaType(MediaTypes.`application/json`) {
-                      complete(""" {"success" = True } """)
-                    }
-                  } catch {
-                    case ex: RuntimeException =>
-                      logger.warn(s"Failed to process request: $ex")
-                      complete(StatusCodes.BadRequest, ex.getMessage)
-                  }
-                }
+          formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
+            try {
+              logger.info(s"$user, $schemaName, $dataDir")
+              //                    doRegisterRequest(schemaName, xmlSchema, fileURI, rawUser)
+              StorageManager.registerSchema(schemaName, dataDir, user)
+              val schemas = StorageManager.listSchemas(user)
+              logger.info("Schemas: " + schemas)
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete( """ {"success" = True } """)
               }
+            } catch {
+              case ex: RuntimeException =>
+                logger.warn(s"Failed to process request.", ex)
+                complete(StatusCodes.BadRequest, ex.getMessage)
             }
           }
         }
@@ -142,11 +146,11 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     val cleanedQuery = query.trim.replaceAll("\\s+", " ")
 
     val schemas = StorageManager.listSchemas(rawUser)
-    logger.info("Found schemas: " + schemas)
+    logger.info("Found schemas: " + schemas.mkString(", "))
     val accessPaths: Seq[AccessPath[_]] = schemas.map(name => {
-      val schema = StorageManager.getSchema(rawUser, name)
-      logger.info(s"Loading access path: ${schema.dataFile} with schema: ${schema.schemaFile}")
-      CodeGenerationExecutor.loadAccessPath(name, Files.newBufferedReader(schema.schemaFile), schema.dataFile)
+      val schema: RawSchema = StorageManager.getSchema(rawUser, name)
+      logger.info(s"Loading access path for schema: $schema")
+      CodeGenerationExecutor.loadAccessPath(name, schema)
     })
     CodeGenerationExecutor.query(cleanedQuery, accessPaths)
   }
@@ -179,7 +183,7 @@ object RawRestServerMain extends StrictLogging {
     }
     val restServer = new RawRestServer(Conf.executor())
 
-    logger.info("Directory: " + ConfigFactory.load().getString("raw.datadir"))
+    //    logger.info("Directory: " + ConfigFactory.load().getString("raw.datadir"))
     restServer.start()
   }
 }

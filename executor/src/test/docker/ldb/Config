@@ -1,5 +1,0 @@
-# LDB
-LDBDIR = /opt/ldb
-
-# Shore-MT
-SHORE = /opt/shoremt
