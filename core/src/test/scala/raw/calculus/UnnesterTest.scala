@@ -125,13 +125,74 @@ class UnnesterTest extends FunTest {
     )
   }
 
-  test("paper query A") {
+  test("nested comprehension on predicate #1") {
     val t = process(
-      TestWorlds.employees,
-      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+      TestWorlds.professors_students,
+      """for (s <- students; s.age < for (p <- professors) yield max p.age) yield set s.name"""
+    )
     compare(
       CalculusPrettyPrinter(t.root),
       """
+      {
+        $2 := reduce(max, $1 <-  filter($1 <- professors, true), $1.age);
+        reduce(set, $0 <-  filter($0 <-  filter($0 <- students, true), true and $0.age < $2), $0.name)
+      }
+      """
+    )
+  }
+
+  test("nested comprehension on predicate #2") {
+    val t = process(
+      TestWorlds.professors_students,
+      """
+      for (s <- students;
+           s.age < (for (p <- professors) yield max p.age);
+           s.age = (for (s <- students; s.age = (for (p <- professors) yield max p.age)) yield max s.age))
+        yield set s.name
+      """
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+    """
+    {
+      $3 := reduce(max, $281 <-  filter($281 <- professors, true), $281.age);
+      {
+        $4 := {
+          $5 := reduce(max, $2 <-  filter($2 <- professors, true), $2.age);
+          reduce(max, $1 <-  filter($1 <-  filter($1 <- students, true), true and $1.age = $5), $1.age) };
+        reduce(
+          set,
+          $0 <-  filter($0 <-  filter($0 <- students, true), true and $0.age < $3 and $0.age = $4),
+          $0.name)
+      }
+    }
+    """
+    )
+  }
+
+  test("nested comprehension on predicate w/ dependency") {
+    val t = process(
+      TestWorlds.professors_students,
+      """
+      for (s <- students;
+           s.age = (for (p <- professors; p.age = s.age) yield sum 1)
+           )
+        yield set s.name
+      """
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      """)
+  }
+
+    test("paper query A") {
+      val t = process(
+        TestWorlds.employees,
+        "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+      compare(
+        CalculusPrettyPrinter(t.root),
+        """
       reduce(
         set,
         ($0, $2) <- nest(
@@ -178,15 +239,15 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         and,
-        \($0, $2) -> $2,
-        \($0, $2) -> true,
-         nest(
-                or,
-                \($0, $1) -> true,
-                \($0, $1) -> $0,
-                \($0, $1) -> true,
-                \($0, $1) -> $1,
-                 outer_join(\($0, $1) -> true and $0 = $1,  filter(\$0 -> true, A),  filter(\$1 -> true, B))))
+        ($0, $2) <- nest(
+          or,
+          ($0, $1) <- outer_join(
+            $0 <- filter($0 <- A, true),
+            $1 <- filter($1 <- B, true),
+            true and $0 = $1),
+          $0,
+          true),
+        $2)
       """
     )
   }

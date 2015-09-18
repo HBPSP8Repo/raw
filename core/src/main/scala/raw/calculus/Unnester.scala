@@ -5,9 +5,6 @@ import org.kiama.attribution.Attribution
 
 /** Algorithm that converts a calculus expression (in canonical form) into the logical algebra.
   * The algorithm is described in Fig. 10 of [1], page 34.
-  *
-  * TODO: The Unnester *DOES NOT* maintain unique identifiers.
-  * TODO: If unique identifiers are desirable, we should run a desugar pass at the end of the Unnester.
   */
 trait Unnester extends Attribution with Canonizer {
 
@@ -17,7 +14,9 @@ trait Unnester extends Attribution with Canonizer {
 
   override def strategy = attempt(super.strategy) <* unnester
 
-  private lazy val unnester = reduce(ruleScanFilter <+ ruleUnnest <+ ruleJoin <+ (ruleReduce + ruleNest))
+  private lazy val unnester =
+    repeat(oncetd(ruleInnerPrimitiveReduceOnPredicate)) <*
+    reduce(ruleScanFilter <+ ruleUnnest <+ ruleJoin <+ ruleReduceExpBlock <+ (ruleReduce + ruleNest))
 
   // TODO: When applying the last optimization of (for x <- Algebra) yield set (x.name, Algebra),
   // look at the monoid of 'for' and if it is a set, we can directly group by x.name w/o having to care
@@ -104,7 +103,7 @@ trait Unnester extends Attribution with Canonizer {
     *
     */
   private lazy val ruleReduce = rule[Exp] {
-    case CanComp(m, g :: Nil, (Nil | Seq(BoolConst(true))), e) if nestedComp(e).isEmpty =>
+    case CanComp(m, g :: Nil, Nil, e) if nestedComp(e).isEmpty =>
       Reduce(m, g, e)
   }
 
@@ -127,7 +126,7 @@ trait Unnester extends Attribution with Canonizer {
     *   yield set (d.name, $42)`
    */
   private lazy val ruleNest = rule[Exp] {
-    case CanComp(m, g :: Nil, (Nil | Seq(BoolConst(true))), e) if nestedComp(e).nonEmpty =>
+    case CanComp(m, g :: Nil, Nil, e) if nestedComp(e).nonEmpty =>
 
       // Get the first inner comprehension
       val c1 = nestedComp(e).head
@@ -162,28 +161,83 @@ trait Unnester extends Attribution with Canonizer {
             }))(e)
           CanComp(m, Gen(PatternProd(Seq(deepclone(g.p), PatternIdn(IdnDef(nsym)))), n) :: Nil, Nil, ne)
       }
+  }
 
+  /**
+   *
+   */
+//  private lazy val nestedReduce: Exp => Seq[Reduce] = attr {
+//    case e: Exp =>
+//      val collectReduces = collect[Seq, Reduce] {
+//        case n: Reduce => n
+//      }
+//      collectReduces(e)
+//  }
 
+  // TODO: Make this NOT JUST FOR PRIMITIVE!!
 
+  private lazy val ruleInnerPrimitiveReduceOnPredicate = rule[Exp] {
+    case CanComp(m, gs, ps, e) if ps.flatMap(nestedComp).nonEmpty && false => // TODO!!
 
+      var sym: Symbol = null
+      var nc: CanComp = null
+      val nps = for (p <- ps) yield {
+        val ncs = nestedComp(p)
+        if (sym == null && ncs.nonEmpty) {
+          nc = ncs.head
+          val nc1 = ncs.head
+          sym = SymbolTable.next()
+          rewrite(
+            everywhere(rule[Exp] {
+              case `nc1` => IdnExp(IdnUse(sym.idn))
+            }))(p)
+        } else {
+          p
+        }
+      }
+      ExpBlock(
+        Seq(Bind(PatternIdn(IdnDef(sym.idn)), nc)),
+        CanComp(m, gs, nps, e)
+      )
+//
+//
+//      for (p <- ps if nc == null) {
+//        val c1 = nestedComp(p)
+//        if (c1.nonEmpty) {
+//          nc = c1.head
+//        }
+//      }
+//
+//
+//      val binds = ps.flatMap {
+//        case p => nestedComp(p).map { case r => r -> SymbolTable.next().idn }
+//      }
+//      val nps = scala.collection.mutable.MutableList[Exp]()
+//      for (p <- ps) {
+//        var np = p
+//        for ((r, idn) <- binds) {
+//          np = rewrite(
+//            everywhere(rule[Exp] {
+//              case `r` => IdnExp(IdnUse(idn))
+//            }))(np)
+//        }
+//        nps += np
+//      }
+//      ExpBlock(
+//        binds.map { case (r, idn) => Bind(PatternIdn(IdnDef(idn)), r) },
+//        CanComp(m, gs, nps.to, e)
+//      )
+  }
 
-/*
-for (d <- departments) yield set (d.name, for (x <- departments; x.year == d.year) yield set x.name)
-
- */
-
-      // maybe make "outer" a mutable variable? Neh; might as well rewrite
-      // or set it to Outer if we know we are in a nested comprehension (i.e. there is a parent which is a CanComp and we are on its 'e' side - a lazy val can indicate this)
-      //
-      // assuming that exists, what is the "Reduce node" ?
-      // it is not: it is smtg more general purpose
-
-      // Nest(set, child is outer join of d with x with join cond x.year=d.year, e is ... e w/ rhs rewitten, f is part of e, ..)
-
-      //
-
-      // Nest(m, child, e, f, p)
-
+  /**
+   *
+   */
+  private lazy val ruleReduceExpBlock = rule[Exp] {
+    case ExpBlock(bs, CanComp(m, g :: Nil, ps, e)) =>
+      ExpBlock(
+        bs,
+        CanComp(m, Seq(Gen(deepclone(g.p), Filter(g, foldPreds(ps)))), Nil, e)
+      )
   }
 
   /** Create a record expression from a pattern (used by Nest).
