@@ -7,6 +7,7 @@ class NormalizerTest extends FunTest {
     val t = new Calculus.Calculus(parse(q))
 
     val t1 = Normalizer(t, w)
+    logger.debug(s"Normalized tree:\n${CalculusPrettyPrinter(t1.root)}")
 
     val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))
@@ -15,30 +16,36 @@ class NormalizerTest extends FunTest {
     CalculusPrettyPrinter(t1.root, 200)
   }
 
-  test("rule1") {
+  test("rule1 #1") {
     compare(
       process(
         "for (e <- Events; e1 := e; (for (a <- Events; a1 := a; a1.RunNumber > 200) yield max a1.RunNumber) < 300; e1.RunNumber > 100) yield set (muons := e1.muons)", TestWorlds.cern),
         "for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 200) yield max $1.RunNumber < 300; $0.RunNumber > 100) yield set (muons := $0.muons)")
+  }
 
+  test("rule1 #2") {
     compare(
       process(
         "for (e <- Events; a := e.RunNumber + 1; b := a + 2) yield set b", TestWorlds.cern),
-        "for ($0 <- Events) yield set $0.RunNumber + 1 + 2"
-    )
+        "for ($0 <- Events) yield set $0.RunNumber + 1 + 2")
+  }
 
+  test("rule1 #3") {
     compare(
       process(
         "for (e <- Events; a := e.RunNumber + 1; b := e.RunNumber + 2) yield set a + b", TestWorlds.cern),
-        "for ($0 <- Events) yield set $0.RunNumber + 1 + $0.RunNumber + 2"
-    )
+        "for ($0 <- Events) yield set $0.RunNumber + 1 + $0.RunNumber + 2")
+  }
 
+  test("rule1 #4") {
     compare(
       process(
         "(for (e <- Events; a := e) yield set a) union (for (e <- Events; a := e) yield set a)", TestWorlds.cern),
         "for ($0 <- Events) yield set $0 union for ($1 <- Events) yield set $1"
     )
+  }
 
+  test("rule1 #5") {
     compare(
       process(
         "for (x := for (e <- Events) yield set e; y <- x) yield set y", TestWorlds.cern),
@@ -46,21 +53,25 @@ class NormalizerTest extends FunTest {
     )
   }
 
-  test("rule2") {
+  test("rule2 #1") {
     compare(
       process(
         """for (e <- Events; e.RunNumber > ((\v -> v + 2)(40))) yield set e""", TestWorlds.cern),
         "for ($0 <- Events; $0.RunNumber > 40 + 2) yield set $0")
+  }
 
+  test("rule2 #2") {
     compare(
       process(
         """for (e <- Events; f := (\v -> v + 2); e.RunNumber > f(40)) yield set e""", TestWorlds.cern),
-        "for ($0 <- Events; $0.RunNumber > 40 + 2) yield set $0")
+        """for ($0 <- Events; $0.RunNumber > 40 + 2) yield set $0""")
+  }
 
+  test("rule2 #3") {
     compare(
       process(
         """for (e <- Events; e1 := e; (for (a <- Events; a1 := a; f := (\v -> v + 2); a1.RunNumber > f(40)) yield max a1.RunNumber) < 300; f2 := (\v -> v + 4); e1.RunNumber > f2(100)) yield set (muons := e1.muons)""", TestWorlds.cern),
-        "for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 40 + 2) yield max $1.RunNumber < 300; $0.RunNumber > 100 + 4) yield set (muons := $0.muons)")
+        """for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 40 + 2) yield max $1.RunNumber < 300; $0.RunNumber > 100 + 4) yield set (muons := $0.muons)""")
   }
 
   test("rule3") {
@@ -103,7 +114,7 @@ class NormalizerTest extends FunTest {
     compare(
       process(
         """for (t <- for (t <- things; t.a > 10) yield set t; t.b > 20) yield set t""", TestWorlds.things),
-      """for ($0 <- things; $0.a > 10; $0.b > 20) yield set $0""")
+        """for ($0 <- things; $0.a > 10; $0.b > 20) yield set $0""")
   }
 
   test("rule9") {

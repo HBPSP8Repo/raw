@@ -51,14 +51,14 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
       case PatternIdn(idn)            => apply(idn)
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
-
-      case Reduce(m, e, p, child)         => softline <> "reduce" <> parens(nest(group(lsep(List(monoid(m), apply(e), apply(p), nest(apply(child))), comma))))
-      case Nest(m, e, f, p, g, child)     => softline <> "nest" <> parens(nest(group(lsep(List(monoid(m), apply(e), apply(f), apply(p), apply(g), nest(apply(child))), comma))))
-      case Filter(p, child)               => softline <> "filter" <> parens(nest(group(lsep(List(apply(p), nest(apply(child))), comma))))
-      case Join(p, left, right)           => softline <> "join" <> parens(nest(group(lsep(List(apply(p), nest(apply(left)), nest(apply(right))), comma))))
-      case Unnest(path, pred, child)      => softline <> "unnest" <> parens(nest(group(lsep(List(apply(path), apply(pred), nest(apply(child))), comma))))
-      case OuterJoin(p, left, right)      => softline <> "outer_join" <> parens(nest(group(lsep(List(apply(p), nest(apply(left)), nest(apply(right))), comma))))
-      case OuterUnnest(path, pred, child) => softline <> "outer_unnest" <> parens(group(nest(lsep(List(apply(path), apply(pred), nest(apply(child))), comma))))
+      case CanComp(m, gs, ps, e)          => "for" <+> parens(group(nest(lsep((gs ++ ps).map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
+      case Reduce(m, child, e)         => softline <> "reduce" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(e)), comma))))
+      case Nest(m, child, k, v)        => softline <> "nest" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(k), apply(v)), comma))))
+      case Filter(child, p)               => softline <> "filter" <> parens(nest(group(lsep(List(nest(apply(child)), apply(p)), comma))))
+      case Join(left, right, p)           => softline <> "join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
+      case OuterJoin(left, right, p)      => softline <> "outer_join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
+      case Unnest(child, path, pred)      => softline <> "unnest" <> parens(nest(group(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
+      case OuterUnnest(child, path, pred) => softline <> "outer_unnest" <> parens(group(nest(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
 
 
         /*

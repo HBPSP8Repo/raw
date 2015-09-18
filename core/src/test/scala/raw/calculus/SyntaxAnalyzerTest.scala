@@ -1,6 +1,8 @@
 package raw
 package calculus
 
+import org.kiama.util.Positions
+
 class SyntaxAnalyzerTest extends FunTest {
   def matches(q: String, expected: String): Unit = {
     matches(q, Some(expected))
@@ -30,9 +32,10 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   def parseError(q: String, expected: Option[String] = None): Unit = {
-    assert(SyntaxAnalyzer(q).isLeft)
+    val r = SyntaxAnalyzer(q)
+    assert(r.isLeft)
     if (expected.isDefined)
-      SyntaxAnalyzer(q) match {
+      r match {
         case Left(err) => assert(err.contains(expected.get))
       }
   }
@@ -55,23 +58,41 @@ class SyntaxAnalyzerTest extends FunTest {
     matches( """for (e <- Employees) yield set (`Employee Children` := e.children)""")
   }
 
-  test("record projections") {
+  test("record projection #1") {
     matches("""("Foo", "Bar")._1""", """(_1 := "Foo", _2 := "Bar")._1""")
+  }
+
+  test("record projection #2") {
     matches("""((`Employee Name` := "Ben", Age := 35).`Employee Name`, "Foo")._1""",
       """(_1 := (`Employee Name` := "Ben", Age := 35).`Employee Name`, _2 := "Foo")._1""")
   }
 
-  test("expression blocks") {
-    matches( """{ a := 1; a + 1 }""")
+  test("expression block #1") {
+    matches("""{ a := 1; a + 1 }""")
+  }
+
+  test("expression block #2") {
     matches( """for (d <- Departments) yield set { name := d.name; (deptName := name) }""")
   }
 
-  test("patterns") {
+  test("patterns #1") {
     matches("""{ (a, b) := (1, 2); a + b }""",
       """{ (a, b) := (_1 := 1, _2 := 2); a + b }""")
+  }
+
+  test("patterns #2") {
     matches("""{ (a, (b, c)) := (_1 := 1, _2 := (_1 := 2, _2 := 3)); a + b + c }""")
+  }
+
+  test("patterns #3") {
     matches("""\(a, b) -> a + b + 1""")
+  }
+
+  test("patterns #4") {
     matches("""\(a, (b, c)) -> a + b + c + 1""")
+  }
+
+  test("patterns #5") {
     matches("""for ((a, b) <- list((1, 2), (3, 4))) yield set a + b""",
       """for ((a, b) <- list((_1 := 1, _2 := 2)) append list((_1 := 3, _2 := 4))) yield set a + b""")
   }
@@ -189,37 +210,109 @@ class SyntaxAnalyzerTest extends FunTest {
       """, """for (v <- values) yield max v""")
   }
 
-  test("#71 (keywords issue)") {
+  test("#71 (keywords issue) #1") {
     matches("""{ v := nothing; v }""")
+  }
+
+  test("#71 (keywords issue) #2") {
     matches("""{ v := nottrue; v }""")
+  }
+
+  test("#71 (keywords issue) #3") {
     parseError("""for (v <- collection) yield unionv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #4") {
     parseError("""for (v <- collection) yield bag_unionv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #5") {
     parseError("""for (v <- collection) yield appendv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #6") {
     parseError("""for (v <- collection) yield setv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #7") {
     parseError("""for (v <- collection) yield listv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #8") {
     parseError("""for (v <- collection) yield bagv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #9") {
     parseError("""for (v <- booleans) yield andv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #10") {
     parseError("""for (v <- booleans) yield andfalse""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #11") {
     parseError("""for (v <- booleans) yield orv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #12") {
     parseError("""for (v <- booleans) yield ortrue""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #13") {
+  }
+
+  test("#71 (keywords issue) #14") {
+  }
+
+  test("#71 (keywords issue) #15") {
     parseError("""for (v <- numbers) yield maxv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #16") {
     parseError("""for (v <- numbers) yield max12""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #17") {
     parseError("""for (v <- numbers) yield sumv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #18") {
     parseError("""for (v <- numbers) yield sum123""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #19") {
     parseError("""for (v <- numbers) yield multiplyv""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #20") {
     parseError("""for (v <- numbers) yield multiply123""", "illegal monoid")
+  }
+
+  test("#71 (keywords issue) #21") {
     matches("""for (r <- records; v := trueandfalse) yield set v""")
+  }
+
+  test("#71 (keywords issue) #22") {
     matches("""for (r <- records; v := falseortrue) yield set v""")
+  }
+
+  test("#71 (keywords issue) #23") {
     matches("""{ v := iftruethen1else2; v }""")
   }
 
-  test("#92 (record projection priorities)") {
+  test("#92 (record projection priorities) #1") {
     equals("""for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
+  }
+
+  test("#92 (record projection priorities) #2") {
     equals("""(t.A) and (t.B)""", """t.A and t.B""")
   }
 
-  test("#52 (chained logical operators)") {
+  test("#52 (chained logical operators) #1") {
     equals("""(a < b) = c""", """a < b = c""")
+  }
+
+  test("#52 (chained logical operators) #2") {
     equals("""(2 < 4) = false""", """2 < 4 = false""")
   }
 

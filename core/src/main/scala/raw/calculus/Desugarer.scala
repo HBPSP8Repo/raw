@@ -6,7 +6,7 @@ package calculus
 trait Desugarer extends Transformer {
 
   import scala.collection.immutable.Seq
-  import org.kiama.rewriting.Rewriter._
+  import org.kiama.rewriting.Cloner._
   import Calculus._
 
   def strategy = desugar
@@ -72,6 +72,7 @@ trait Desugarer extends Transformer {
   }
 
   /** De-sugar expression blocks by removing the binds one-at-a-time.
+    * Note that the rule applies from the leaves to the root, so there are no scoping issues.
     */
 
   private lazy val ruleExpBlocks = rule[ExpBlock] {

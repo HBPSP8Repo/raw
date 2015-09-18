@@ -3,23 +3,21 @@ package calculus
 
 import org.kiama.attribution.Attribution
 
-import Calculus._
-import org.rogach.scallop.exceptions.WrongOptionFormat
-import raw.calculus.Calculus
-import raw.calculus.SymbolTable._
-
 /** Algorithm that converts a calculus expression (in canonical form) into the logical algebra.
   * The algorithm is described in Fig. 10 of [1], page 34.
+  *
+  * TODO: The Unnester *DOES NOT* maintain unique identifiers.
+  * TODO: If unique identifiers are desirable, we should run a desugar pass at the end of the Unnester.
   */
-trait Unnester extends Canonizer with Attribution {
+trait Unnester extends Attribution with Canonizer {
 
   import scala.collection.immutable.Seq
-  import org.kiama.rewriting.Rewriter._
+  import org.kiama.rewriting.Cloner._
+  import Calculus._
 
   override def strategy = attempt(super.strategy) <* unnester
 
-  // TODO: Is it reduce for bottom/up application?
-  private lazy val unnester = reduce(ruleScanFilter + ruleReduce)
+  private lazy val unnester = reduce(ruleScanFilter <+ ruleUnnest <+ ruleJoin <+ (ruleReduce + ruleNest))
 
   // TODO: When applying the last optimization of (for x <- Algebra) yield set (x.name, Algebra),
   // look at the monoid of 'for' and if it is a set, we can directly group by x.name w/o having to care
@@ -27,9 +25,9 @@ trait Unnester extends Canonizer with Attribution {
 
   /** Scan + Filter
     * e.g.
-    * `for (d <- Departments; d.year > 1950; ...)`
+    * `for (d <- departments; d.year > 1950; ...)`
     *   becomes
-    * `for (d <- Filter(d <- Departments; d.year > 1950); ...`
+    * `for (d <- Filter(d <- departments; d.year > 1950); ...`
     */
 
   private object GenOverIdnExp {
@@ -37,24 +35,30 @@ trait Unnester extends Canonizer with Attribution {
   }
 
   private lazy val ruleScanFilter = rule[Exp] {
-    case CanComp(m, GenOverIdnExp(r, Gen(pv @ PatternIdn(IdnDef(v)), x: IdnExp), u), ps, e) =>
-      val (ps_v, ps_not_v) = ps.partition(variables(_) == Set(v))
-      CanComp(m, r ++ Seq(Gen(pv, Filter(Gen(deepclone(pv), x), foldPreds(ps_v)))) ++ u, ps_not_v, e)
+    case CanComp(m, GenOverIdnExp(r, g, u), ps, e) =>
+      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p).toSet)
+      CanComp(m, r ++ Seq(Gen(deepclone(g.p), Filter(g, foldPreds(ps_g)))) ++ u, ps_not_g, e)
   }
 
   /** Unnest
     * e.g.
-    * `for (d <- Departments; s <- d.students; d.year > 1950; s.age > 18; ...)`
+    * `for (d <- Filter(d <- departments, d.year > 1950); s <- d.students; s.age > 18; ...)`
     *   becomes
-    * `for ((d, s) <- Unnest(d <- Departments, s <- d.students, s.age > 18); d.age > 1950; ...)`
+    * `for ((d, s) <- Unnest(d <- Filter(d <- departments, d.year > 1950), s <- d.students, s.age > 18); ...)`
     */
 
   private object GenOverRecordProj {
     def unapply(qs: Seq[Gen]) = splitWith[Gen, Gen](qs, { case g @ Gen(_, _: RecordProj) => g})
   }
 
+  private lazy val idns: Pattern => Seq[Idn] = attr {
+    case PatternIdn(IdnDef(idn)) => Seq(idn)
+    case PatternProd(ps)         => ps.flatMap(idns)
+  }
+
   private lazy val ruleUnnest = rule[Exp] {
-    case CanComp(m, GenOverRecordProj(r, Gen(pv @ PatternIdn(IdnDef(v)), x: RecordProj), u), ps, e) =>
+    case CanComp(m, GenOverRecordProj(r, g, u), ps, e) =>
+      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p).toSet)
 
       // Find the root of the record projections (e.g. we must retrieve 'd' from d.info.students as well as from d.students)
       def rootProj(e: Exp): IdnExp = e match {
@@ -62,182 +66,141 @@ trait Unnester extends Canonizer with Attribution {
         case RecordProj(e1, _) => rootProj(e1)
       }
 
-      val rootIdn = rootProj(x)
+      val rootIdn = rootProj(g.e).idn.idn
 
       // Find the generator where the identifier is defined
-      r.collectFirst{ case Gen(PatternIdn(IdnDef(rootIdn.idn)), e) => e }
+      val og = r.collectFirst { case g @ Gen(p, _) if idns(p).contains(rootIdn) => g }.head
 
+      // Remove that generator from r
+      val nr = r.filter { case `og` => false case _ => true }
 
-      still, even if I do as now and copy over all the 'd'...
-      the thing can still be a pattern
-    i copy it all over, even though only 'd' out of d.students as needed?
-    yes, i think so.
-
-
-
-      what if the thing is defined as part of a pattern?
-      or, are there no patterns?
-    well, there are not, but I will be creating a pattern here, right?
-    so, if this rule is also applied over sequences of Unnests, well, it needs to cope w/ multiple patterns
-
-    or I want to rewrite the identifier thing...
-
-
-
-    WAIT
-    i could also go with a mode where i DO NOT rewrite the Idns
-    so in the scan above
-    and in the unnest here
-    i dont rewrite: i repeat them.
-
-    this does not really cause any issues I can think of..
-
-
-
-      // it may not exist ? if nested comp w/ dependency?
-
-      // create new symbol and create new gen
-      // then
-
-
-      i can collect the 'd' first
-      but i MUST be sure the expression is in canonical form
-
-      e..
-      for (d <- Departments; s <- d.foo.students)
-        (d.foo)students
-        well, but can't find d.foo
-        so have to go up the record proj until i find the idnexp
-
-        yepa
-
+      CanComp(m, nr ++ Seq(Gen(PatternProd(Seq(deepclone(og.p), deepclone(g.p))), Unnest(og, g, foldPreds(ps_g)))) ++ u, ps_not_g, e)
   }
 
+  /** Join
+    * e.g.
+    * `for (s <- students; p <- professors; s.age > p.age) ...`
+    *   becomes
+    * `for ((s, p) <- Join(s <- students; p <- professors; s.age > p.age)) ...`
+    */
 
-  // what happens if 'd' used in more than one place?
-  // say i am unnesting students and smtg else?
-//  what does he do? join?
-//i think he does yet another unnest which is a bit weird... ok. read and chec,
+  private lazy val ruleJoin = rule[Exp] {
+    case CanComp(m, g1 :: g2 :: rest, ps, e) =>
+      val idns1 = idns(g1.p)
+      val idns2 = idns(g2.p)
 
-
-  // then do rule for Join
-  // but join stuff should only kick in when we are done: when no unnest/scan filter left, i.e. when there are only algebra nodes left
-
-//
-//  private object GenOverRecordProj {
-//    def unapply(qs: Seq[Gen]) = splitWith[Gen, Gen](qs, { case g @ Gen(_, _: RecordProj) => g})
-//  }
-//
-//  private lazy val ruleUnnest = rule[Exp] {
-//    case CanComp(m, GenOverRecordProj(r, Gen(pv @ PatternIdn(IdnDef(v)), x @ RecordProj(s, name)), u), ps, e) =>
-//      val (ps_v, ps_not_v) = ps.partition(variables(_) == Set(v))
-//
-//      val nv0 = SymbolTable.next()
-//      val npv0 = PatternIdn(IdnDef(nv0.idn))
-//
-//      val nv1 = SymbolTable.next()
-//      val nps1_v = ps_v.map(rewriteExp(_, pv, nv1.idn))
-//      val npv1 = PatternIdn(IdnDef(nv1.idn))
-//
-//      CanComp(m, r ++ Seq(Gen(pv, Unnest(Gen(npv0, s), Gen(npv1, RecordProj(IdnExp(IdnUse(nv0.idn)), name)), foldPreds(nps1_v)))) ++ u, ps_not_v, e)
-//  }
-//
-//  // TODO: Merge Scan w/ Unnest (i.e. Generator variable of Unnest is defined in an Algebra node
-//  // TODO: Merge Unnest w/ Unnest
-//
-//  /** Merge Unnest into Algebra
-//    * e.g.
-//    * `for (d <- Filter($0 <- Departments; $0.year > 1950); s <- Unnest($0 <- d, $1 <- $0.students, $1.age > 18); ...)`
-//    *   becomes
-//    * `for ((d, s) <- Unnest($1 <- Filter($0 <- Departments; $0.year > 1950), $2 <- $1.students, $2.age > 18); ...)`
-//    * Handles merging of Scan w/ Unnest and of Unnest w/ Unnest
-//    */
-//
-//  // TODO: Join w/ Join (when there is only "one of each")
-//
-//
-
-
+      val (ps_12, ps_not_12) = ps.partition { case p =>
+        val vs = variables(p)
+        vs.intersect(idns1.toSet).nonEmpty && vs.intersect(idns2.toSet).nonEmpty
+      }
+      CanComp(m, Seq(Gen(PatternProd(Seq(g1.p, g2.p)), Join(deepclone(g1), deepclone(g2), foldPreds(ps_12)))) ++ rest, ps_not_12, e)
+  }
 
   /** Reduce
     * e.g.
-    * `for (d <- Filter($0 <- Departments; $0.year > 1950); s <- Unnest($0 <- d, $1 <- $0.students, $1.age > 18); ...) yield set s`
+    * `for (d <- departments; d.year > 1950) yield set d.name`
     *   becomes
-    * `Reduce(
-    *    set,
-    *    $
-    *    Unnest($0 <- d, $1 <- $0.students, $1.age > 18)
-    *      Filter($0 <- Departments; $0.year > 1950)`
+    * `reduce(set, d <- departments, d.year > 1950, d.name)`
+    *
     */
+  private lazy val ruleReduce = rule[Exp] {
+    case CanComp(m, g :: Nil, (Nil | Seq(BoolConst(true))), e) if nestedComp(e).isEmpty =>
+      Reduce(m, g, e)
+  }
 
-  lazy val nestedComp: Exp => Seq[CanComp] = attr {
+  private lazy val nestedComp: Exp => Seq[CanComp] = attr {
     case e: Exp =>
       val collectComps = collect[Seq, CanComp] {
-        case c: CanComp => c
+        case n: CanComp => n
       }
       collectComps(e)
   }
 
-  private lazy val ruleReduce = rule[Exp] {
-    case CanComp(m, gs, ps, e) if !gs.forall(_.e.isInstanceOf[LogicalAlgebraNode]) && nestedComp(e).isEmpty =>
-      logger.debug(s"Creating Reduce")
-      val nsym = SymbolTable.next()
-      Reduce(m, Gen(PatternIdn(IdnDef(nsym.idn)), Filter))
-      val nps = foldPreds(ps.map(rewriteExp(_, w, nsym.idn)))
-      val ne = rewriteExp(e, w, nsym.idn)
-      Reduce(m, Gen(PatternIdn(IdnDef(nsym.idn)), child), nps, ne)
+  /** Nest
+    * e.g.
+    * `for (d <- Filter(d <- departments, d.year > 1950)) yield set (d.name, for (x <- Filter(x <- departments, true); x.year = d.year) yield list x.name)`
+    *   becomes
+    * `for ((d, $42) <- Nest((d, x) <- OuterJoin(d <- Filter(d <- departments, d.year > 1950),
+    *                                            x <- Filter(x <- departments, true),
+    *                                            x.year = d.year),
+    *                        d, list, x.name))
+    *   yield set (d.name, $42)`
+   */
+  private lazy val ruleNest = rule[Exp] {
+    case CanComp(m, g :: Nil, (Nil | Seq(BoolConst(true))), e) if nestedComp(e).nonEmpty =>
+
+      // Get the first inner comprehension
+      val c1 = nestedComp(e).head
+
+      // Rewrite the algebra of the inner comprehension to be outer
+      val nc1 = rewrite(
+        everywhere(rule[Exp] {
+          case Unnest(child, path, pred) => OuterUnnest(child, path, pred)
+          case Join(left, right, p) => OuterJoin(left, right, p)
+        }))(c1)
+
+      nc1 match {
+        case CanComp(m1, g1 :: Nil, ps1, e1) =>
+          // OuterJoin both "comprehensions"
+          // The join predicates are the left-over predicates on the rhs
+//          assert(!ps1.map(variables(_) == (idns(g.p) ++ idns(g1.p)).toSet).exists(!_))
+          val j = OuterJoin(g, g1, foldPreds(ps1))
+
+          // Create Nest node
+          // Group-by the pattern of the 1st comprehension
+          val n = Nest(m1, Gen(PatternProd(Seq(deepclone(g.p), deepclone(g1.p))), j), createRecord(g.p), e1)
+
+          // TODO: Check with Ben: Is this still the same semantics as his "implementation/execution" of Nest? ...
+          // TODO: Check with Ben: ... because if predicate changes for them all, I still want to have the notion of None
+          //                       ... which I think I do actually
+
+          // Create new CanComp
+          val nsym = SymbolTable.next().idn
+          val ne = rewrite(
+            everywhere(rule[Exp] {
+              case `c1` => IdnExp(IdnUse(nsym))
+            }))(e)
+          CanComp(m, Gen(PatternProd(Seq(deepclone(g.p), PatternIdn(IdnDef(nsym)))), n) :: Nil, Nil, ne)
+      }
+
+
+
+
+
+/*
+for (d <- departments) yield set (d.name, for (x <- departments; x.year == d.year) yield set x.name)
+
+ */
+
+      // maybe make "outer" a mutable variable? Neh; might as well rewrite
+      // or set it to Outer if we know we are in a nested comprehension (i.e. there is a parent which is a CanComp and we are on its 'e' side - a lazy val can indicate this)
+      //
+      // assuming that exists, what is the "Reduce node" ?
+      // it is not: it is smtg more general purpose
+
+      // Nest(set, child is outer join of d with x with join cond x.year=d.year, e is ... e w/ rhs rewitten, f is part of e, ..)
+
+      //
+
+      // Nest(m, child, e, f, p)
+
   }
 
-  //    case (CanComp(m, Nil, ps, e), Some(w), Some(child)) =>
-  //      val nsym = SymbolTable.next()
-  //      val nps = foldPreds(ps.map(rewriteExp(_, w, nsym.idn)))
-  //      val ne = rewriteExp(e, w, nsym.idn)
-  //
-  //      if (!nested) {
-  //        logger.debug(s"Creating Reduce")
-  //        Reduce(m, Gen(PatternIdn(IdnDef(nsym.idn)), child), nps, ne)
-  //      } else {
-  //        logger.debug(s"Creating Nest")
-  //        val nf =
-  //        Nest(m, Gen(PatternIdn(IdnDef(nsym.idn)), child), nps, ne, FunAbs(w, createRecord(u, w)))
-  //      }
+  /** Create a record expression from a pattern (used by Nest).
+    */
+  def createRecord(u: Pattern): Exp = u match {
+    case PatternProd(ps) => RecordCons(ps.zipWithIndex.map { case (np, i) => AttrCons(s"_${i + 1}", createRecord(np))})
+    case PatternIdn(idn) => IdnExp(IdnUse(idn.idn))
+  }
 
+  // TODO: What happens with nested predicate? How/when to make the ExpBlock?
 
   /** The set of variables used in an expression.
     */
-  def variables(e: Exp): Set[String] = {
-    val collectIdns = collect[Set, String]{ case IdnExp(idn) => idn.idn }
+  def variables(e: Exp): Set[Idn] = {
+    val collectIdns = collect[Set, Idn]{ case IdnExp(idn) => idn.idn }
     collectIdns(e)
   }
-
-  /** Build an expression that projects the identifier given the pattern.
-  */
-  def projectIdn(p: Pattern, idn: Idn, newIdn: Idn): Option[Exp] = {
-    def recurse(p: Pattern): Option[Exp] = p match {
-      case PatternIdn(IdnDef(`idn`)) => Some(IdnExp(IdnUse(newIdn)))
-      case _: PatternIdn => None
-      case PatternProd(ps) =>
-        for ((p, i) <- ps.zipWithIndex) {
-          if (recurse(p).isDefined) {
-            return Some(RecordProj(recurse(p).head, s"_${i + 1}"))
-          }
-        }
-        None
-    }
-
-    recurse(p)
-  }
-
-  /** Rewrite an expression ...
-    */
-  def rewriteExp(e: Exp, p: Pattern, newIdn: Idn) =
-    rewrite(oncetd(rule[Exp] {
-      case e1 @ IdnExp(IdnUse(idn)) =>
-        projectIdn(p, idn, newIdn) match {
-          case Some(ne) => ne
-          case _ => e1
-        }
-    }))(e)
 
   /** Fold a sequence of predicates into a single ANDed predicate.
     */
@@ -248,6 +211,8 @@ trait Unnester extends Canonizer with Attribution {
 //
 //
 //  lazy val unnest = rule[Exp] {
+
+
 //    case c: CanComp => recurse(c, None, None, nested=false)
 //  }
 //

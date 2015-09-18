@@ -13,13 +13,23 @@ class UnnesterTest extends FunTest {
     Unnester(t, w)
   }
 
-  test("reduce") {
+  test("reduce #1") {
     val t = process(
       TestWorlds.departments,
       "for (d <- Departments) yield set d")
     compare(CalculusPrettyPrinter(t.root),
       """
-      reduce(set, $1 <- filter($0 <- Departments, true), true, $1)
+      reduce(set, $0 <- filter($0 <- Departments, true), $0)
+      """)
+  }
+
+  test("reduce #2") {
+    val t = process(
+      TestWorlds.departments,
+      "for (d <- Departments) yield set d.name")
+    compare(CalculusPrettyPrinter(t.root),
+      """
+      reduce(set, $0 <- filter($0 <- Departments, true), $0.name)
       """)
   }
 
@@ -30,13 +40,12 @@ class UnnesterTest extends FunTest {
     compare(CalculusPrettyPrinter(t.root),
       """
       reduce(
-          set,
-          \($0, $1) -> (a1 := $0, b1 := $1),
-          \($0, $1) -> true,
-           join(
-                  \($0, $1) -> true and $0.dno = $1.dno,
-                   filter(\$0 -> true, Departments),
-                   filter(\$1 -> true, Departments)))
+        set,
+        ($0, $1) <-  join(
+          $0 <-  filter($0 <- Departments, true),
+          $1 <-  filter($1 <- Departments, true),
+          true and $0.dno = $1.dno),
+        (a1 := $0, b1 := $1))
       """)
   }
 
@@ -49,12 +58,11 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        \($0, $1) -> (name := $1.person, location := $1.location),
-        \($0, $1) -> true,
-         join(
-                \($0, $1) -> true and $0.location = $1.location and $1.speed > $0.max_speed,
-                 filter(\$0 -> true, speed_limits),
-                 filter(\$1 -> true, radar)))
+        ($0, $1) <- join(
+          $0 <- filter($0 <- speed_limits, true),
+          $1 <- filter($1 <- radar, true),
+          true and $0.location = $1.location and $1.speed > $0.max_speed),
+        (name := $1.person, location := $1.location))
       """)
   }
 
@@ -67,12 +75,11 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        \($0, $1) -> (name := $1.person, location := $1.location),
-        \($0, $1) -> true,
-         join(
-                \($0, $1) -> true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed,
-                 filter(\$0 -> true, speed_limits),
-                 filter(\$1 -> true, radar)))
+        ($0, $1) <-  join(
+          $0 <-  filter($0 <- speed_limits, true),
+          $1 <-  filter($1 <- radar, true),
+          true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+        (name := $1.person, location := $1.location))
     """)
   }
 
@@ -85,15 +92,14 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        \(($0, $1), $2) -> $0,
-        \(($0, $1), $2) -> true,
-         join(
-                \(($0, $1), $2) -> true and $1.name = $2.prof,
-                 join(
-                        \($0, $1) -> true and $0.office = $1.office,
-                         filter(\$0 -> true, students),
-                         filter(\$1 -> true, profs)),
-                 filter(\$2 -> true, departments)))
+        (($0, $1), $2) <- join(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- students, true),
+            $1 <- filter($1 <- profs, true),
+            true and $0.office = $1.office),
+          $2 <-  filter($2 <- departments, true),
+          true and $1.name = $2.prof),
+        $0)
       """
     )
   }
@@ -107,15 +113,14 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        \(($0, $1), $2) -> $0,
-        \(($0, $1), $2) -> true,
-         join(
-                \(($0, $1), $2) -> true and $1.name = $2.prof,
-                 join(
-                        \($0, $1) -> true and $0.office = $1.office,
-                         filter(\$0 -> true, students),
-                         filter(\$1 -> true, profs)),
-                 filter(\$2 -> true, departments)))
+        (($0, $1), $2) <- join(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- students, true),
+            $1 <- filter($1 <- profs, true),
+            true and $0.office = $1.office),
+          $2 <-  filter($2 <- departments, true),
+          true and $1.name = $2.prof),
+        $0)
       """
     )
   }
@@ -129,18 +134,37 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         set,
-        \($0, $2) -> (D := $0, E := $2),
-        \($0, $2) -> true,
-         nest(
-                set,
-                \($0, $1) -> $1,
-                \($0, $1) -> $0,
-                \($0, $1) -> true,
-                \($0, $1) -> $1,
-                 outer_join(
-                        \($0, $1) -> true and $1.dno = $0.dno,
-                         filter(\$0 -> true, Departments),
-                         filter(\$1 -> true, Employees))))
+        ($0, $2) <- nest(
+          set,
+          ($0, $1) <- outer_join(
+            $0 <- filter($0 <- Departments, true),
+            $1 <- filter($1 <- Employees, true),
+            true and $1.dno = $0.dno),
+          $0,
+          $1),
+        (D := $0, E := $2))
+      """
+    )
+  }
+
+  test("paper query A variation") {
+    val t = process(
+      TestWorlds.employees,
+      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e.dno)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        ($0, $2) <- nest(
+          set,
+          ($0, $1) <- outer_join(
+            $0 <- filter($0 <- Departments, true),
+            $1 <- filter($1 <- Employees, true),
+            true and $1.dno = $0.dno),
+          $0,
+          $1.dno),
+        (D := $0, E := $2))
       """
     )
   }
@@ -240,37 +264,12 @@ class UnnesterTest extends FunTest {
     compare(
       CalculusPrettyPrinter(t.root),
       """
-      reduce(set, \$0 -> $0, \$0 -> true, filter(\$0 -> true, things))
+      reduce(set, $0 <- filter($0 <- things, true), $0)
         union
-      reduce(set, \$1 -> $1, \$1 -> true, filter(\$1 -> true, things))"""
+      reduce(set, $1 <- filter($1 <- things, true), $1)"""
     )
   }
-//
-//  test("top-level merge") {
-//    val query = "for (x <- things union things) yield set x"
-//    val w = TestWorlds.things
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        merge(
-//          set,
-//          reduce(
-//            set,
-//            arg,
-//            select(
-//              scan("things"))),
-//          reduce(
-//            set,
-//            arg,
-//            select(
-//              scan("things"))))
-//      }
-//    }
-//    assert(process(w, query) === Result())
-//  }
-//
+
 //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
 //        for (c <- diagnosis_codes) yield list {

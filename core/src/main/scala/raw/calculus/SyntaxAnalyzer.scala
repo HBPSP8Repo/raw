@@ -1,27 +1,51 @@
 package raw
 package calculus
 
-import org.kiama.util.PositionedParserUtilities
+import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
 
 /** Parser for monoid comprehensions.
   */
-object SyntaxAnalyzer extends PositionedParserUtilities {
+object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   import Calculus._
   import scala.collection.immutable.List
-  import scala.collection.immutable.HashSet
 
-  override val whiteSpace =
-    """(\s|(//.*\n))+""".r
+//  override val whitespace =
+//    regex("""(\s|(//.*\n))+""".r)
 
-  val reservedWords = HashSet(
-    "or", "and", "not",
-    "union", "bag_union", "append", "max", "sum",
-    "null", "true", "false",
-    "for", "yield",
-    "if", "then", "else",
-    "bool", "int", "float", "string", "record", "set", "bag", "list",
-    "to_bool", "to_int", "to_float", "to_string")
+  /** Reserved words
+    */
+  // TODO: Make reserved words case-insensitive?
+  val kwOr = "or\\b".r
+  val kwAnd = "and\\b".r
+  val kwNot = "not\\b".r
+  val kwUnion = "union\\b".r
+  val kwBagUnion = "bag_union\\b".r
+  val kwAppend = "append\\b".r
+  val kwMax = "max\\b".r
+  val kwSum = "sum\\b".r
+  val kwMultiply = "multiply\\b".r
+  val kwSet = "set\\b".r
+  val kwBag = "bag\\b".r
+  val kwList = "list\\b".r
+  val kwNull = "null\\b".r
+  val kwTrue = "true\\b".r
+  val kwFalse = "false\\b".r
+  val kwFor = "for\\b".r
+  val kwYield = "yield\\b".r
+  val kwIf = "if\\b".r
+  val kwThen = "then\\b".r
+  val kwElse = "else\\b".r
+  val kwToBool = "to_bool\\b".r
+  val kwToInt = "to_int\\b".r
+  val kwToFloat = "to_float\\b".r
+  val kwToString = "to_string\\b".r
+  val kwGoTo = "go_to\\b".r
+  val kwOrElse = "or_else\\b".r
+
+  val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
+    kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
+    kwToFloat | kwToString | kwGoTo | kwOrElse
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -30,42 +54,35 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     case f => Left(f.toString)
   }
 
-  lazy val exp: PackratParser[Exp] =
+  lazy val exp =
     mergeExp
 
-  lazy val mergeExp: PackratParser[Exp] =
+  lazy val mergeExp =
     positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
-  lazy val monoidMerge: PackratParser[Monoid] =
+  lazy val monoidMerge =
     positioned(
-      kw("union") ^^^ SetMonoid() |
-      kw("bag_union") ^^^ BagMonoid() |
-      kw("append") ^^^ ListMonoid() |
-      kw("max") ^^^ MaxMonoid())
+      kwUnion ^^^ SetMonoid() |
+      kwBagUnion ^^^ BagMonoid() |
+      kwAppend ^^^ ListMonoid() |
+      kwMax ^^^ MaxMonoid())
 
-  lazy val orExp: PackratParser[Exp] =
+  lazy val orExp =
     positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
-  lazy val or: PackratParser[OrMonoid] =
-    positioned(kw("or") ^^^ OrMonoid())
+  lazy val or =
+    positioned(kwOr ^^^ OrMonoid())
 
-  lazy val andExp: PackratParser[Exp] =
+  lazy val andExp =
     positioned(comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
 
-  lazy val and: PackratParser[AndMonoid] =
-    positioned(kw("and") ^^^ AndMonoid())
+  lazy val and =
+    positioned(kwAnd ^^^ AndMonoid())
 
-  lazy val notExp: PackratParser[Exp] =
-    positioned(not ~ notExp ^^ { case op ~ e => UnaryExp(op, e)}) |
-    comparisonExp
-
-  lazy val not: PackratParser[Not] =
-    positioned(kw("not") ^^^ Not())
-
-  lazy val comparisonExp: PackratParser[Exp] =
+  lazy val comparisonExp =
     positioned(plusMinusExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val comparisonOp: PackratParser[BinaryOperator] =
+  lazy val comparisonOp =
     positioned(
       "=" ^^^ Eq() |
       "<>" ^^^ Neq() |
@@ -80,29 +97,29 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     "+" ~> plusMinusExp |
     termExp
 
-  lazy val minus: PackratParser[Neg] =
+  lazy val minus =
     positioned("-" ^^^ Neg())
 
-  lazy val termExp: PackratParser[Exp] =
+  lazy val termExp =
     positioned(productExp * (
       sum ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
       sub ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val sum: PackratParser[SumMonoid] =
+  lazy val sum =
     positioned("+" ^^^ SumMonoid())
 
-  lazy val sub: PackratParser[Sub] =
+  lazy val sub =
     positioned("-" ^^^ Sub())
 
-  lazy val productExp: PackratParser[Exp] =
+  lazy val productExp =
     positioned(baseExp * (
       mult ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
       div ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val mult: PackratParser[MultiplyMonoid] =
+  lazy val mult =
     positioned("*" ^^^ MultiplyMonoid())
 
-  lazy val div: PackratParser[Div] =
+  lazy val div =
     positioned("/" ^^^ Div())
 
   /** `baseExp` is left-recursive since `exp` goes down to `baseExp` again.
@@ -120,162 +137,164 @@ object SyntaxAnalyzer extends PositionedParserUtilities {
     funAbs |
     funApp |
     "(" ~> exp <~ ")" |
-   idnExp
+    //notExp |
+    idnExp
 
-  lazy val expBlock: PackratParser[ExpBlock] =
-    positioned(("{" ~> rep(bind <~ opt(";"))) ~ (exp <~ "}") ^^ ExpBlock)
+  lazy val expBlock =
+    positioned(("{" ~> rep(bind <~ opt(";"))) ~ (exp <~ "}") ^^ { case b ~ e => ExpBlock(b, e) })
 
-  lazy val const: PackratParser[Exp] =
+  lazy val recordProj =
+    positioned(exp ~ ("." ~> attrName) ^^ { case e ~ idn => RecordProj(e, idn) })
+
+  lazy val attrName =
+    escapedIdent |
+    ident
+
+  lazy val escapedIdent =
+    """`[\w\t ]+`""".r ^^ {case s => s.drop(1).dropRight(1) }
+
+  lazy val ident =
+    not(reserved) ~> """[_a-zA-Z]\w*""".r
+
+  lazy val const =
     nullConst |
     boolConst |
     stringConst |
     numberConst
 
-  lazy val nullConst: PackratParser[Null] =
+  lazy val nullConst =
     positioned("null" ^^^ Null())
 
-  lazy val boolConst: PackratParser[BoolConst] =
-    positioned(kw("true") ^^^ BoolConst(true)) |
-    positioned(kw("false") ^^^ BoolConst(false))
+  lazy val boolConst =
+    positioned(
+      kwTrue ^^^ BoolConst(true) |
+      kwFalse ^^^ BoolConst(false))
 
-  lazy val stringConst: PackratParser[StringConst] =
-    positioned(stringLit ^^ StringConst)
+  lazy val stringConst =
+    positioned(stringLit ^^ { case s => StringConst(s.drop(1).dropRight(1)) })
 
-  def stringLit: Parser[String] =
-    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r ^^ (s => s.drop(1).dropRight(1))
+  lazy val stringLit =
+    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
 
-  lazy val numberConst: PackratParser[NumberConst] =
-    positioned(numericLit ^^ { case v =>
-      def isInt(s: String) = try { s.toInt; true } catch { case _: Throwable => false }
-      if (isInt(v)) IntConst(v) else FloatConst(v)
-    })
+  lazy val numberConst =
+    positioned(
+      numericLit ^^ { case v =>
+        def isInt(s: String) = try { s.toInt; true } catch { case _: Throwable => false }
+        if (isInt(v)) IntConst(v) else FloatConst(v)
+      })
 
-  def numericLit: Parser[String] =
+  lazy val numericLit =
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
-  lazy val recordProj: PackratParser[Exp] =
-    positioned(exp ~ ("." ~> attrName) ^^ RecordProj)
+  lazy val ifThenElse =
+    positioned(kwIf ~> exp ~ (kwThen ~> exp) ~ (kwElse ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
 
-  def attrName: Parser[Idn] =
-    escapeName |
-    ident
+  lazy val recordConsIdns =
+    positioned(
+      "(" ~> rep1sep((attrName <~ ":=") ~ exp, ",") <~ ")" ^^ {
+        case atts => RecordCons(atts.map{ case idn ~ e => AttrCons(idn, e) })
+      })
 
-  def escapeName: Parser[Idn] =
-    """`[\w\t ]+`""".r into (s => success(s.drop(1).dropRight(1)))
+  lazy val recordConsIdxs =
+    positioned(
+      "(" ~> (exp <~ ",") ~ rep1sep(exp, ",") <~ ")" ^^ {
+        case head ~ tail => RecordCons(tail.+:(head).zipWithIndex.map{ case (e, idx) => AttrCons(s"_${idx + 1}", e) })
+      })
 
-  def ident: Parser[Idn] =
-    """[_a-zA-Z]\w*""".r into (s => {
-      if (reservedWords contains s)
-        failure(s"""reserved keyword '$s' found where identifier expected""")
-      else
-        success(s)
-    })
+  lazy val comp =
+    positioned((kwFor ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ (kwYield ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
 
-  lazy val ifThenElse: PackratParser[IfThenElse] =
-    positioned(kw("if") ~> exp ~ (kw("then") ~> exp) ~ (kw("else") ~> exp) ^^ IfThenElse)
-
-  lazy val recordConsIdns: PackratParser[RecordCons] =
-    positioned("(" ~> rep1sep((attrName <~ ":=") ~ exp, ",") <~ ")" ^^ {
-      case atts => RecordCons(atts.map{ case idn ~ e => AttrCons(idn, e) })
-    })
-
-  lazy val recordConsIdxs: PackratParser[RecordCons] =
-    positioned("(" ~> (exp <~ ",") ~ rep1sep(exp, ",") <~ ")" ^^ {
-      case head ~ tail => RecordCons(AttrCons("_1", head) :: tail.zipWithIndex.map{ case (e, idx) => AttrCons(s"_${idx + 2}", e) })
-    })
-
-  lazy val comp: PackratParser[Comp] =
-    positioned(("for" ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ ("yield" ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
-
-  lazy val monoid: PackratParser[Monoid] =
+  lazy val monoid =
     primitiveMonoid |
     collectionMonoid |
-    failure("illegal monoid")
+    err("illegal monoid")
 
-  lazy val primitiveMonoid: PackratParser[PrimitiveMonoid] =
+  lazy val primitiveMonoid =
     positioned(
-      kw("sum") ^^^ SumMonoid() |
-      kw("multiply") ^^^ MultiplyMonoid() |
-      kw("max") ^^^ MaxMonoid() |
-      kw("or") ^^^ OrMonoid() |
-      kw("and") ^^^ AndMonoid())
+      kwSum ^^^ SumMonoid() |
+      kwMultiply ^^^ MultiplyMonoid() |
+      kwMax ^^^ MaxMonoid() |
+      kwOr ^^^ OrMonoid() |
+      kwAnd ^^^ AndMonoid())
 
-  lazy val collectionMonoid: PackratParser[CollectionMonoid] =
+  lazy val collectionMonoid =
     positioned(
-      kw("set") ^^^ SetMonoid() |
-      kw("bag") ^^^ BagMonoid() |
-      kw("list") ^^^ ListMonoid())
+      kwSet ^^^ SetMonoid() |
+      kwBag ^^^ BagMonoid() |
+      kwList ^^^ ListMonoid())
 
-  lazy val qualifier: PackratParser[Qual] =
+  lazy val qualifier =
     gen |
     bind |
     filter |
-    failure("illegal qualifier")
+    err("illegal qualifier")
 
-  lazy val gen: PackratParser[Gen] =
-    positioned((pattern <~ "<-") ~ exp ^^ Gen)
+  lazy val gen =
+    positioned((pattern <~ "<-") ~ exp ^^ { case p ~ e => Gen(p, e) })
 
-  lazy val pattern: PackratParser[Pattern] =
+  lazy val pattern =
     patternIdn |
     patternProd
 
-  lazy val patternIdn: PackratParser[PatternIdn] =
-    positioned(idnDef ^^ PatternIdn)
+  lazy val patternIdn =
+    positioned(idnDef ^^ { case idn => PatternIdn(idn) })
 
-  lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ^^ IdnDef)
+  lazy val idnDef =
+    positioned(ident ^^ { case idn => IdnDef(idn) })
 
-  lazy val patternProd: PackratParser[PatternProd] =
+  lazy val patternProd: PackratParser[Pattern] =
     positioned("(" ~> rep1sep(pattern, ",") <~ ")" ^^ PatternProd)
 
-  lazy val bind: PackratParser[Bind] =
-    positioned((pattern <~ ":=") ~ exp ^^ Bind)
+  lazy val bind =
+    positioned((pattern <~ ":=") ~ exp ^^ { case p ~ e => Bind(p, e) })
 
-  lazy val filter: PackratParser[Exp] =
+  lazy val filter =
     exp
 
-  lazy val zeroAndConsMonoid: PackratParser[Exp] =
+  lazy val zeroAndConsMonoid =
     positioned(
-    (collectionMonoid <~ "(") ~ (repsep(exp, ",") <~ ")") ^^ {
-      case m ~ es  => {
-        def clone(m: CollectionMonoid): CollectionMonoid = m match {
-          case m: SetMonoid => m.copy()
-          case m: BagMonoid => m.copy()
-          case m: ListMonoid => m.copy()
-        }
+      (collectionMonoid <~ "(") ~ (repsep(exp, ",") <~ ")") ^^ {
+        case m ~ es  =>
+          def clone(m: CollectionMonoid): CollectionMonoid = m match {
+            case m: SetMonoid => m.copy()
+            case m: BagMonoid => m.copy()
+            case m: ListMonoid => m.copy()
+          }
 
-        if (es.isEmpty)
-          ZeroCollectionMonoid(m)
-        else {
-          val nes: List[Exp] = es.map(ConsCollectionMonoid(clone(m), _))
-          nes.tail.foldLeft(nes.head)((a, b) => MergeMonoid(clone(m), a, b))
-        }
-      }
-    })
+          if (es.isEmpty)
+            ZeroCollectionMonoid(m)
+          else {
+            val nes: List[Exp] = es.map(ConsCollectionMonoid(clone(m), _))
+            nes.tail.foldLeft(nes.head)((a, b) => MergeMonoid(clone(m), a, b))
+          }
+        })
 
-  lazy val unaryFun: PackratParser[UnaryExp] =
-    positioned(unaryOp ~ ("(" ~> exp <~ ")") ^^ UnaryExp)
+  lazy val unaryFun =
+    positioned(unaryOp ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => UnaryExp(op, e) })
 
-  lazy val unaryOp: PackratParser[UnaryOperator] =
+  lazy val unaryOp =
     positioned(
-      "to_bool" ^^^ ToBool() |
-      "to_int" ^^^ ToInt() |
-      "to_float" ^^^ ToFloat() |
-      "to_string" ^^^ ToString())
+      kwToBool ^^^ ToBool() |
+      kwToInt ^^^ ToInt() |
+      kwToFloat ^^^ ToFloat() |
+      kwToString ^^^ ToString())
 
-  lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ FunAbs)
+  lazy val funAbs =
+    positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
 
-  lazy val funApp: PackratParser[FunApp] =
-    positioned(exp ~ exp ^^ FunApp)
+  lazy val funApp =
+    positioned(exp ~ exp ^^ { case f ~ e => FunApp(f, e) })
 
-  lazy val idnExp: PackratParser[IdnExp] =
+  lazy val notExp =
+    positioned(not ~ exp ^^ { case op ~ e => UnaryExp(op, e)})
+
+  lazy val not =
+    positioned(kwNot ^^^ Not())
+
+  lazy val idnExp =
     positioned(idnUse ^^ IdnExp)
 
-  lazy val idnUse: PackratParser[IdnUse] =
+  lazy val idnUse =
     positioned(ident ^^ IdnUse)
-
-  def kw(s: String) =
-    (s + "\\b").r
 
 }

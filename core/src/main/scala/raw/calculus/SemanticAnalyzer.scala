@@ -27,7 +27,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   import org.kiama.==>
   import org.kiama.attribution.Decorators
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}
-  import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
+//  import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
   import org.kiama.rewriting.Rewriter._
   import Calculus._
   import SymbolTable._
@@ -888,6 +888,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
   }
 
 }
+
+
+// TODO: Remove rewriteIdns and all "idn" uses (e.g. in Unnester et al) from the code and rely instead on entity
 
 // TODO: Add support for new Algebra nodes: in constraint and in constraints
 

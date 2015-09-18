@@ -147,11 +147,11 @@ object Calculus {
 
   /** Reduce
     */
-  case class Reduce(m: Monoid, child: Gen, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class Reduce(m: Monoid, child: Gen, e: Exp) extends LogicalAlgebraNode
 
   /** Nest
     */
-  case class Nest(m: Monoid, child: Gen, e: Exp, f: Exp, p: Exp) extends LogicalAlgebraNode
+  case class Nest(m: Monoid, child: Gen, k: Exp, v: Exp) extends LogicalAlgebraNode
 
   /** Filter
     */

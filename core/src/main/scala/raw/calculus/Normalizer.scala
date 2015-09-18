@@ -1,15 +1,15 @@
 package raw
 package calculus
 
-case class NormalizerError(err: String) extends RawException(err)
+import org.kiama.attribution.Attribution
 
 /** Normalize a comprehension by transforming a tree into its normalized form.
   * The normalization rules are described in [1] (Fig. 4, page 17).
   */
-trait Normalizer extends Uniquifier {
+trait Normalizer extends Attribution with Uniquifier {
 
   import scala.collection.immutable.Seq
-  import org.kiama.rewriting.Rewriter._
+  import org.kiama.rewriting.Cloner._
   import Calculus._
 
   override def strategy = attempt(super.strategy) <* normalize
@@ -127,7 +127,7 @@ trait Normalizer extends Uniquifier {
     def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, _: Comp) => g})
   }
 
-  // TODO: Write testcae for this: two nested comprehensions on the Gen
+  // TODO: Write testcase for this: two nested comprehensions on the Gen
 
   private lazy val rule8 = rule[Exp] {
     case Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
