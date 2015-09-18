@@ -648,6 +648,20 @@ class SemanticAnalyzerTest extends FunTest {
     oset.nullable = true
     success("for (i <- OLI) yield set (i > 10)", TestWorlds.options, oset)
 
+    success("""{ f := \x -> x > 10 ; for (i <- LI) yield set f(i) } """, TestWorlds.options, CollectionType(SetMonoid(), BoolType()))
+    success("""{ f := \x -> x > 10 ; for (i <- LOI) yield set f(i) } """, TestWorlds.options, CollectionType(SetMonoid(), ob))
+    success("""{ f := \x -> x > 10 ; for (i <- OLI) yield set f(i) } """, TestWorlds.options, { val ot = CollectionType(SetMonoid(), BoolType()); ot.nullable = true; ot })
+    success("""{ f := \x -> x > 10 ; for (i <- OLOI) yield set f(i) } """, TestWorlds.options, { val ot = CollectionType(SetMonoid(), ob); ot.nullable = true; ot })
+    success("""for (i <- LI) yield set (\x -> x < i)""", TestWorlds.options, CollectionType(SetMonoid(), FunType(IntType(), BoolType())))
+    success("""for (i <- LOI) yield set (\x -> x < i)""", TestWorlds.options, CollectionType(SetMonoid(), FunType(IntType(), ob)))
+    success("""for (i <- OLI) yield set (\x -> x < i)""", TestWorlds.options, { val ot = CollectionType(SetMonoid(), FunType(IntType(), BoolType())); ot.nullable = true; ot })
+    success("""for (i <- OLOI) yield set (\x -> x < i)""", TestWorlds.options, { val ot = CollectionType(SetMonoid(), FunType(IntType(), ob)); ot.nullable = true; ot })
+    success("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""", TestWorlds.options, {
+      val ot = CollectionType(SetMonoid(), FunType(RecordType(List(AttrType("_1", IntType()),
+                                                                   AttrType("_2", RecordType(List(
+                                                                                        AttrType("_1", IntType()), AttrType("_2", IntType())),
+                                                                     None))),
+        None), ob)); ot.nullable = true; ot })
   }
 
 }

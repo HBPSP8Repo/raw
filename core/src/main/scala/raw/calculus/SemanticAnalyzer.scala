@@ -76,21 +76,21 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
     }
   }
 
-  def make_nullable(source: Type, models: Seq[Type], nulls: Seq[Type]): Type = {
+  private def make_nullable(source: Type, models: Seq[Type], nulls: Seq[Type], nullable: Option[Boolean]=None): Type = {
     val t = (source, models) match {
       case (col@CollectionType(m, i), colls: Seq[CollectionType]) => {
         val inners = colls.map(_.innerType)
-        CollectionType(m, make_nullable(i, inners, inners))
+        CollectionType(m, make_nullable(i, inners, inners, nullable))
       }
       case (f @ FunType(p, e), funs: Seq[FunType]) => {
         val otherP = funs.map(_.t1)
         val otherE = funs.map(_.t2)
-        FunType(make_nullable(p, otherP, otherP), make_nullable(e, otherE, otherE))
+        FunType(make_nullable(p, otherP, otherP, nullable), make_nullable(e, otherE, otherE, nullable))
       }
       case (r@RecordType(attr, n), recs: Seq[RecordType]) => {
         val attributes = attr.map { case AttrType(idn, i) => {
           val others = recs.map { r => r.getType(idn).get }
-          AttrType(idn, make_nullable(i, others, others))
+          AttrType(idn, make_nullable(i, others, others, nullable))
         }
         }
         RecordType(attributes, n)
@@ -105,13 +105,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       case (r@ConstraintRecordType(attr, sym), recs: Seq[ConstraintRecordType]) => {
         val attributes = attr.map { case AttrType(idn, i) => {
           val others = recs.map { r => r.getType(idn).get }
-          AttrType(idn, make_nullable(i, others, others))
+          AttrType(idn, make_nullable(i, others, others, nullable))
         }
         }
         ConstraintRecordType(attributes, sym)
       }
     }
-    t.nullable = t.nullable || nulls.collect{case t if t.nullable => t}.nonEmpty
+    t.nullable = nullable.getOrElse(t.nullable || nulls.collect{case t if t.nullable => t}.nonEmpty)
     t
   }
 
@@ -123,6 +123,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
       val nt = e match {
         case RecordProj(e, idn) => tipe(e) match {
           case rt: RecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
+          case rt: ConstraintRecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
           case ut: UserType => {
             typesVarMap(ut).root match {
               case rt: RecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
@@ -148,6 +149,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
             case _: IntType => IntType()
             case _: FloatType => FloatType()
             case _: BoolType => BoolType()
+            case NumberType(v) => NumberType(v)
           }
           output_type.nullable = false
           make_nullable(te, Seq(output_type), qs.collect { case Gen(_, e) => tipe(e)})
@@ -163,11 +165,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryStrin
         case _: FloatConst => te
         case _: BoolConst => te
         case _: StringConst => te
-        case _: UserType => te
         case _: RecordCons => te
         case _: ZeroCollectionMonoid => te
-        case _: FunAbs => te
-        case _: VariableType => te
+        case f: FunAbs => {
+          val argType = make_nullable(walk(patternType(f.p)), Seq(), Seq(), Some(false))
+          FunType(argType, tipe(f.e))
+        }
       }
       logger.debug(s"${CalculusPrettyPrinter(e)} => ${TypesPrettyPrinter(nt)}")
       nt
