@@ -13,270 +13,263 @@ class UnnesterTest extends FunTest {
     Unnester(t, w)
   }
 
-  test("simple join") {
-    val t = process(TestWorlds.departments, "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)")
+  test("reduce #1") {
+    val t = process(
+      TestWorlds.departments,
+      "for (d <- Departments) yield set d")
     compare(CalculusPrettyPrinter(t.root),
       """
-        reduce(
-            set,
-            \($0, $1) -> (a1 := $0, b1 := $1),
-            \($0, $1) -> true,
-             join(
-                    \($0, $1) -> true and $0.dno = $1.dno,
-                     filter(\$0 -> true, Departments),
-                     filter(\$1 -> true, Departments)))
-
+      reduce(set, $0 <- filter($0 <- Departments, true), $0)
       """)
   }
-  
-//
-//  test("join") {
-//    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
-//    val w = TestWorlds.fines
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          list,
-//          record("name" -> arg._2.person, "location" -> arg._2.location),
-//          join(
-//            arg._1.location == arg._2.location && arg._2.speed > arg._1.max_speed,
-//            select(scan("speed_limits")),
-//            select(scan("radar"))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("join 2") {
-//    val query = "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)"
-//    val w = TestWorlds.fines
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          list,
-//          record("name" -> arg._2.person, "location" -> arg._2.location),
-//          true,
-//          join(
-//            (arg._1.location == arg._2.location) && ((arg._2.speed < arg._1.min_speed) || arg._2.speed > arg._1.max_speed),
-//            select(true, scan("speed_limits")),
-//            select(true, scan("radar"))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("join 3 (split predicates)") {
-//    val query = """for (s <- students; p <- profs; d <- departments; s.office = p.office; p.name = d.prof) yield list s"""
-//    val w = TestWorlds.school
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          list,
-//          arg._1._1,
-//          true,
-//          join(
-//            arg._1._2.name == arg._2.prof,
-//            join(
-//              arg._1.office == arg._2.office,
-//              select(true, scan("students")),
-//              select(true, scan("profs"))),
-//            select(true, scan("departments"))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("join 3 (ANDed predicates)") {
-//    val query = """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s"""
-//    val w = TestWorlds.school
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          list,
-//          arg._1._1,
-//          true,
-//          join(
-//            arg._1._2.name == arg._2.prof,
-//            join(
-//              arg._1.office == arg._2.office,
-//              select(true, scan("students")),
-//              select(true, scan("profs"))),
-//            select(true, scan("departments"))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("paper query A") {
-//    val query = "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)"
-//    val w = TestWorlds.employees
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          set,
-//          record("D" -> arg._1, "E" -> arg._2),
-//          true,
-//          nest(
-//            set,
-//            arg._2,
-//            arg._1,
-//            true,
-//            arg._2,
-//            outer_join(
-//              arg._2.dno == arg._1.dno,
-//              select(true, scan("Departments")),
-//              select(true, scan("Employees")))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("paper query B") {
-//    val query = "for (a <- A) yield and (for (b <- B; a = b) yield or true)"
-//    val w = TestWorlds.A_B
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          and,
-//          arg._2,
-//          true,
-//          nest(
-//            or,
-//            true,
-//            arg._1,
-//            true,
-//            arg._2,
-//            outer_join(
-//              arg._1 == arg._2,
-//              select(true, scan("A")),
-//              select(true, scan("B")))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("paper query C") {
-//    val query = "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)"
-//    val w = TestWorlds.employees
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          set,
-//          record("E" -> arg._1, "M" -> arg._2),
-//          nest(
-//            sum,
-//            e=1,
-//            group_by=arg._1._1,
-//            p=arg._2,
-//            nulls=record("_1" -> arg._1._2, "_2" -> arg._2),
-//            nest(
-//              and,
-//              e=arg._1._2.age > arg._2.age,
-//              group_by=record("_1" -> arg._1._1, "_2" -> arg._1._2),
-//              nulls=arg._2,
-//              outer_unnest(
-//                path=arg._1.manager.children,
-//                outer_unnest(
-//                  path=arg.children,
-//                  select(
-//                    scan("Employees")))))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("paper query D") {
-//    val query = """for (s <- Students; for (c <- Courses; c.title = "DB") yield and (for (t <- Transcripts; t.id = s.id; t.cno = c.cno) yield or true)) yield set s"""
-//    val w = TestWorlds.transcripts
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        reduce(
-//          set,
-//          arg._1,
-//          arg._2,
-//          nest(
-//            and,
-//            arg._2,
-//            arg._1._1,
-//            true,
-//            record("_1" -> arg._1._2, "_2" -> arg._2),
-//            nest(
-//              or,
-//              true,
-//              record("_1" -> arg._1._1, "_2" -> arg._1._2),
-//              true,
-//              arg._2,
-//              outer_join(
-//                arg._2.id == arg._1._1.id && arg._2.cno == arg._1._2.cno,
-//                outer_join(
-//                  true,
-//                  select(scan("Students")),
-//                  select(
-//                    arg.title == const("DB"),
-//                    scan("Courses"))),
-//                select(true, scan("Transcripts"))))))
-//      }
-//    }
-//
-//    assert(process(w, query) === Result())
-//  }
-//
-//  test("top-level merge") {
-//    val query = "for (x <- things union things) yield set x"
-//    val w = TestWorlds.things
-//
-//    object Result extends AlgebraDSL {
-//      val world = w
-//
-//      def apply() = {
-//        merge(
-//          set,
-//          reduce(
-//            set,
-//            arg,
-//            select(
-//              scan("things"))),
-//          reduce(
-//            set,
-//            arg,
-//            select(
-//              scan("things"))))
-//      }
-//    }
-//    assert(process(w, query) === Result())
-//  }
-//
+
+  test("reduce #2") {
+    val t = process(
+      TestWorlds.departments,
+      "for (d <- Departments) yield set d.name")
+    compare(CalculusPrettyPrinter(t.root),
+      """
+      reduce(set, $0 <- filter($0 <- Departments, true), $0.name)
+      """)
+  }
+
+  test("simple join") {
+    val t = process(
+      TestWorlds.departments,
+      "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)")
+    compare(CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        ($0, $1) <-  join(
+          $0 <-  filter($0 <- Departments, true),
+          $1 <-  filter($1 <- Departments, true),
+          true and $0.dno = $1.dno),
+        (a1 := $0, b1 := $1))
+      """)
+  }
+
+  test("join") {
+    val t = process(
+      TestWorlds.fines,
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        list,
+        ($0, $1) <- join(
+          $0 <- filter($0 <- speed_limits, true),
+          $1 <- filter($1 <- radar, true),
+          true and $0.location = $1.location and $1.speed > $0.max_speed),
+        (name := $1.person, location := $1.location))
+      """)
+  }
+
+  test("join 2") {
+    val t = process(
+      TestWorlds.fines,
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        list,
+        ($0, $1) <-  join(
+          $0 <-  filter($0 <- speed_limits, true),
+          $1 <-  filter($1 <- radar, true),
+          true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+        (name := $1.person, location := $1.location))
+    """)
+  }
+
+  test("join 3 (split predicates)") {
+    val t = process(
+      TestWorlds.school,
+      """for (s <- students; p <- profs; d <- departments; s.office = p.office; p.name = d.prof) yield list s""")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        list,
+        (($0, $1), $2) <- join(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- students, true),
+            $1 <- filter($1 <- profs, true),
+            true and $0.office = $1.office),
+          $2 <-  filter($2 <- departments, true),
+          true and $1.name = $2.prof),
+        $0)
+      """
+    )
+  }
+
+  test("join 3 (ANDed predicates)") {
+    val t = process(
+      TestWorlds.school,
+      """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s""")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        list,
+        (($0, $1), $2) <- join(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- students, true),
+            $1 <- filter($1 <- profs, true),
+            true and $0.office = $1.office),
+          $2 <-  filter($2 <- departments, true),
+          true and $1.name = $2.prof),
+        $0)
+      """
+    )
+  }
+
+  test("paper query A") {
+    val t = process(
+      TestWorlds.employees,
+      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        ($0, $2) <- nest(
+          set,
+          ($0, $1) <- outer_join(
+            $0 <- filter($0 <- Departments, true),
+            $1 <- filter($1 <- Employees, true),
+            true and $1.dno = $0.dno),
+          $0,
+          $1),
+        (D := $0, E := $2))
+      """
+    )
+  }
+
+  test("paper query A variation") {
+    val t = process(
+      TestWorlds.employees,
+      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e.dno)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        ($0, $2) <- nest(
+          set,
+          ($0, $1) <- outer_join(
+            $0 <- filter($0 <- Departments, true),
+            $1 <- filter($1 <- Employees, true),
+            true and $1.dno = $0.dno),
+          $0,
+          $1.dno),
+        (D := $0, E := $2))
+      """
+    )
+  }
+
+  test("paper query B") {
+    val t = process(
+      TestWorlds.A_B,
+      "for (a <- A) yield and (for (b <- B; a = b) yield or true)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        and,
+        \($0, $2) -> $2,
+        \($0, $2) -> true,
+         nest(
+                or,
+                \($0, $1) -> true,
+                \($0, $1) -> $0,
+                \($0, $1) -> true,
+                \($0, $1) -> $1,
+                 outer_join(\($0, $1) -> true and $0 = $1,  filter(\$0 -> true, A),  filter(\$1 -> true, B))))
+      """
+    )
+  }
+
+  test("paper query C") {
+    val t = process(
+      TestWorlds.employees,
+      "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        \($0, $32) -> (E := $0, M := $32),
+        \($0, $32) -> true,
+         nest(
+                sum,
+                \(($0, $1), $3) -> 1,
+                \(($0, $1), $3) -> $0,
+                \(($0, $1), $3) -> true and $3,
+                \(($0, $1), $3) -> (_1 := $1, _2 := $3),
+                 nest(
+                        and,
+                        \(($0, $1), $2) -> $1.age > $2.age,
+                        \(($0, $1), $2) -> (_1 := $0, _2 := $1),
+                        \(($0, $1), $2) -> true,
+                        \(($0, $1), $2) -> (_1 := $2),
+                         outer_unnest(
+                                \($0, $1) -> $0.manager.children,
+                                \(($0, $1), $2) -> true,
+                                 outer_unnest(\$0 -> $0.children, \($0, $1) -> true,  filter(\$0 -> true, Employees))))))
+      """
+    )
+  }
+
+  test("paper query D") {
+    val t = process(
+      TestWorlds.transcripts,
+      """for (s <- Students; for (c <- Courses; c.title = "DB") yield and (for (t <- Transcripts; t.id = s.id; t.cno = c.cno) yield or true)) yield set s""")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        \($0, $4) -> $0,
+        \($0, $4) -> true and $4,
+         nest(
+                and,
+                \(($0, $1), $3) -> $3,
+                \(($0, $1), $3) -> $0,
+                \(($0, $1), $3) -> true,
+                \(($0, $1), $3) -> (_1 := $1, _2 := $3),
+                 nest(
+                        or,
+                        \(($0, $1), $2) -> true,
+                        \(($0, $1), $2) -> (_1 := $0, _2 := $1),
+                        \(($0, $1), $2) -> true,
+                        \(($0, $1), $2) -> (_1 := $2),
+                         outer_join(
+                                \(($0, $1), $2) -> true and $2.id = $0.id and $2.cno = $1.cno,
+                                 outer_join(
+                                        \($0, $1) -> true,
+                                         filter(\$0 -> true, Students),
+                                         filter(\$1 -> true and $1.title = "DB", Courses)),
+                                 filter(\$2 -> true, Transcripts)))))
+      """
+    )
+  }
+
+  test("top-level merge") {
+    val t = process(
+      TestWorlds.things,
+      "for (x <- things union things) yield set x"
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(set, $0 <- filter($0 <- things, true), $0)
+        union
+      reduce(set, $1 <- filter($1 <- things, true), $1)"""
+    )
+  }
+
 //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
 //        for (c <- diagnosis_codes) yield list {

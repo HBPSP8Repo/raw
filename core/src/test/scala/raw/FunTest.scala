@@ -9,6 +9,7 @@ import scala.collection.mutable
 class FunTest extends FunSuite with LazyLogging {
 
   def parse(q: String): Calculus.Exp = {
+    val positions = new org.kiama.util.Positions
     SyntaxAnalyzer(q) match {
       case Right(ast) => ast
       case Left(err) => fail(s"Parser error: $err")
