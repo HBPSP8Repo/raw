@@ -35,7 +35,8 @@ trait Unnester extends Attribution with Canonizer {
 
   private lazy val ruleScanFilter = rule[Exp] {
     case CanComp(m, GenOverIdnExp(r, g, u), ps, e) =>
-      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p).toSet)
+      logger.debug(s"Applying ruleScanFilter")
+      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p))
       CanComp(m, r ++ Seq(Gen(deepclone(g.p), Filter(g, foldPreds(ps_g)))) ++ u, ps_not_g, e)
   }
 
@@ -50,14 +51,15 @@ trait Unnester extends Attribution with Canonizer {
     def unapply(qs: Seq[Gen]) = splitWith[Gen, Gen](qs, { case g @ Gen(_, _: RecordProj) => g})
   }
 
-  private lazy val idns: Pattern => Seq[Idn] = attr {
-    case PatternIdn(IdnDef(idn)) => Seq(idn)
-    case PatternProd(ps)         => ps.flatMap(idns)
+  private lazy val idns: Pattern => Set[Idn] = attr {
+    case PatternIdn(IdnDef(idn)) => Set(idn)
+    case PatternProd(ps)         => ps.flatMap(idns).to
   }
 
   private lazy val ruleUnnest = rule[Exp] {
-    case CanComp(m, GenOverRecordProj(r, g, u), ps, e) =>
-      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p).toSet)
+    case c @ CanComp(m, GenOverRecordProj(r, g, u), ps, e) =>
+      logger.debug(s"Applying ruleUnnest")
+      val (ps_g, ps_not_g) = ps.partition(variables(_) == idns(g.p))
 
       // Find the root of the record projections (e.g. we must retrieve 'd' from d.info.students as well as from d.students)
       def rootProj(e: Exp): IdnExp = e match {
@@ -67,11 +69,12 @@ trait Unnester extends Attribution with Canonizer {
 
       val rootIdn = rootProj(g.e).idn.idn
 
+      logger.debug(s"Just here with ${CalculusPrettyPrinter(c)}")
       // Find the generator where the identifier is defined
       val og = r.collectFirst { case g @ Gen(p, _) if idns(p).contains(rootIdn) => g }.head
 
       // Remove that generator from r
-      val nr = r.filter { case `og` => false case _ => true }
+      val nr = r.filter { case n if n eq og => false case _ => true }
 
       CanComp(m, nr ++ Seq(Gen(PatternProd(Seq(deepclone(og.p), deepclone(g.p))), Unnest(og, g, foldPreds(ps_g)))) ++ u, ps_not_g, e)
   }
@@ -85,12 +88,14 @@ trait Unnester extends Attribution with Canonizer {
 
   private lazy val ruleJoin = rule[Exp] {
     case CanComp(m, g1 :: g2 :: rest, ps, e) =>
+      logger.debug(s"Applying ruleJoin")
+
       val idns1 = idns(g1.p)
       val idns2 = idns(g2.p)
 
       val (ps_12, ps_not_12) = ps.partition { case p =>
         val vs = variables(p)
-        vs.intersect(idns1.toSet).nonEmpty && vs.intersect(idns2.toSet).nonEmpty
+        vs.intersect(idns1).nonEmpty && vs.intersect(idns2).nonEmpty
       }
       CanComp(m, Seq(Gen(PatternProd(Seq(g1.p, g2.p)), Join(deepclone(g1), deepclone(g2), foldPreds(ps_12)))) ++ rest, ps_not_12, e)
   }
@@ -104,6 +109,7 @@ trait Unnester extends Attribution with Canonizer {
     */
   private lazy val ruleReduce = rule[Exp] {
     case CanComp(m, g :: Nil, Nil, e) if nestedComp(e).isEmpty =>
+      logger.debug(s"Applying ruleReduce")
       Reduce(m, g, e)
   }
 
@@ -127,6 +133,7 @@ trait Unnester extends Attribution with Canonizer {
    */
   private lazy val ruleNest = rule[Exp] {
     case CanComp(m, g :: Nil, Nil, e) if nestedComp(e).nonEmpty =>
+      logger.debug(s"Applying ruleNest")
 
       // Get the first inner comprehension
       val c1 = nestedComp(e).head
@@ -157,7 +164,7 @@ trait Unnester extends Attribution with Canonizer {
           val nsym = SymbolTable.next().idn
           val ne = rewrite(
             everywhere(rule[Exp] {
-              case `c1` => IdnExp(IdnUse(nsym))
+              case n if n eq c1 => IdnExp(IdnUse(nsym))
             }))(e)
           CanComp(m, Gen(PatternProd(Seq(deepclone(g.p), PatternIdn(IdnDef(nsym)))), n) :: Nil, Nil, ne)
       }
@@ -176,29 +183,53 @@ trait Unnester extends Attribution with Canonizer {
 
   // TODO: Make this NOT JUST FOR PRIMITIVE!!
 
+  lazy val compIdns: CanComp => Set[Idn] = attr {
+    case c => c.gs.flatMap { case g => idns(g.p) }.toSet
+  }
+
+  lazy val nestedIndependentComp: Exp => Seq[CanComp] = attr {
+    case e =>
+      logger.debug(s"Here with e ${CalculusPrettyPrinter(e)}")
+      val c = nestedComp(e)
+      val sources = analyzer.world.sources.keySet
+      if (c.size > 0) {
+        logger.debug(s"Here with x ${CalculusPrettyPrinter(c.head)}")
+        logger.debug(s"vars ${variables(c.head)}")
+        logger.debug(s"Here ${compIdns(c.head)}")
+        logger.debug(s"vars ${variables(c.head).filter(!sources.contains(_))}")
+
+      }
+
+      nestedComp(e).filter(c => variables(c).filter(!sources.contains(_)).subsetOf(compIdns(c)))
+  }
+
   private lazy val ruleInnerPrimitiveReduceOnPredicate = rule[Exp] {
-    case CanComp(m, gs, ps, e) if ps.flatMap(nestedComp).nonEmpty && false => // TODO!!
+    case c @ CanComp(m, gs, ps, e) if ps.flatMap(nestedIndependentComp).nonEmpty =>
+      logger.debug(s"Applying ruleInnerPrimitiveReduceOnPredicate on ${CalculusPrettyPrinter(c)}")
 
       var sym: Symbol = null
       var nc: CanComp = null
       val nps = for (p <- ps) yield {
-        val ncs = nestedComp(p)
+        val ncs = nestedIndependentComp(p)
         if (sym == null && ncs.nonEmpty) {
           nc = ncs.head
           val nc1 = ncs.head
           sym = SymbolTable.next()
           rewrite(
             everywhere(rule[Exp] {
-              case `nc1` => IdnExp(IdnUse(sym.idn))
+              case x if x eq nc1 => IdnExp(IdnUse(sym.idn))
             }))(p)
         } else {
           p
         }
       }
-      ExpBlock(
+
+      val r = ExpBlock(
         Seq(Bind(PatternIdn(IdnDef(sym.idn)), nc)),
         CanComp(m, gs, nps, e)
       )
+      logger.debug(s"Output is ${CalculusPrettyPrinter(r)}")
+      r
 //
 //
 //      for (p <- ps if nc == null) {
@@ -234,6 +265,7 @@ trait Unnester extends Attribution with Canonizer {
    */
   private lazy val ruleReduceExpBlock = rule[Exp] {
     case ExpBlock(bs, CanComp(m, g :: Nil, ps, e)) =>
+      logger.debug(s"Applying ruleReduceExpBlock")
       ExpBlock(
         bs,
         CanComp(m, Seq(Gen(deepclone(g.p), Filter(g, foldPreds(ps)))), Nil, e)
@@ -251,6 +283,7 @@ trait Unnester extends Attribution with Canonizer {
 
   /** The set of variables used in an expression.
     */
+  // TODO: Turn into attribute?
   def variables(e: Exp): Set[Idn] = {
     val collectIdns = collect[Set, Idn]{ case IdnExp(idn) => idn.idn }
     collectIdns(e)

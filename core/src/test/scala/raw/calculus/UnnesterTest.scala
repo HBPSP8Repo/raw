@@ -10,7 +10,7 @@ class UnnesterTest extends FunTest {
     logger.debug(calculus.CalculusPrettyPrinter(ast))
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
-    Unnester(t, w)
+    Unnester2(t, w)
   }
 
   test("reduce #1") {
@@ -125,7 +125,7 @@ class UnnesterTest extends FunTest {
     )
   }
 
-  test("nested comprehension on predicate #1") {
+  test("nested comprehension on predicate w/o dependency") {
     val t = process(
       TestWorlds.professors_students,
       """for (s <- students; s.age < for (p <- professors) yield max p.age) yield set s.name"""
@@ -141,7 +141,23 @@ class UnnesterTest extends FunTest {
     )
   }
 
-  test("nested comprehension on predicate #2") {
+  test("nested comprehension on predicate w/ dependency") {
+    val t = process(
+      TestWorlds.professors_students,
+      """
+      for (s <- students;
+           s.age = (for (p <- professors; p.age = s.age) yield sum 1)
+           )
+        yield set s.name
+      """
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      """)
+  }
+
+  test("nested comprehension on predicate w/ and w/o dependency") {
     val t = process(
       TestWorlds.professors_students,
       """
@@ -162,7 +178,7 @@ class UnnesterTest extends FunTest {
           reduce(max, $1 <-  filter($1 <-  filter($1 <- students, true), true and $1.age = $5), $1.age) };
         reduce(
           set,
-          $0 <-  filter($0 <-  filter($0 <- students, true), true and $0.age < $3 and $0.age = $4),
+          $0 <- filter($0 <-  filter($0 <- students, true), true and $0.age < $3 and $0.age = $4),
           $0.name)
       }
     }
@@ -170,21 +186,7 @@ class UnnesterTest extends FunTest {
     )
   }
 
-  test("nested comprehension on predicate w/ dependency") {
-    val t = process(
-      TestWorlds.professors_students,
-      """
-      for (s <- students;
-           s.age = (for (p <- professors; p.age = s.age) yield sum 1)
-           )
-        yield set s.name
-      """
-    )
-    compare(
-      CalculusPrettyPrinter(t.root),
-      """
-      """)
-  }
+  // TODO: Add test cases with nested non-primitive reduces!
 
     test("paper query A") {
       val t = process(
@@ -281,6 +283,35 @@ class UnnesterTest extends FunTest {
                                  outer_unnest(\$0 -> $0.children, \($0, $1) -> true,  filter(\$0 -> true, Employees))))))
       """
     )
+  }
+
+//  v\for (s <- students ; s.size = (for (p <- profs; p.age = s.age) yield sum 1)) yield bag s.name
+//
+//  the predicates that depend on 's' are:
+//      s.size = (for (p <- profs; p.age = s.age) yield sum 1)
+
+//  for (s <- students) yield (s, for (p <- profs ; p.age = s.age) yield sum 1)
+//  for ((x, y) <- (for (s <- students) yield (s, for (p <- profs ; p.age = s.age) yield sum 1))
+//  x.size = y)
+//  yield bag x.name
+//
+//  ok. maybe to try it, write test case w/ the last step, and see whether from the last step we make a decent algebra.
+//  if so, then work out what the transformation ought to be...
+//
+//  implement algebra simplifier, removing useless filters and (true and blah)
+
+  test("foo") {
+    val t = process(
+      TestWorlds.professors_students,
+    """
+    for (s <- students ; s.age = (for (p <- professors; p.age = s.age) yield sum 1)) yield bag s.name
+    """)
+//      """for ((x, y) <- (for (s <- students) yield list (s, for (p <- professors; p.age = s.age) yield sum 1)); x.age = y)
+//yield bag x.name""")
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+""")
   }
 
   test("paper query D") {
