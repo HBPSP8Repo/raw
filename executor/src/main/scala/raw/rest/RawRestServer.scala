@@ -183,7 +183,7 @@ object RawRestServerMain extends StrictLogging {
     }
     val restServer = new RawRestServer(Conf.executor())
 
-    //    logger.info("Directory: " + ConfigFactory.load().getString("raw.datadir"))
+    logger.info("Storage directory: " + ConfigFactory.load().getString("raw.datadir"))
     restServer.start()
   }
 }

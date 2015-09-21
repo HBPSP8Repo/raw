@@ -1,12 +1,11 @@
 package raw.executor
 
-import java.io.Reader
-import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import raw.datasets.AccessPath
+import raw.utils.Instrumented
 
 import scala.collection.mutable
 

@@ -1,8 +1,6 @@
 package raw.executor
 
-import java.io.Reader
 import java.nio.file.Files
-import java.util
 
 import com.typesafe.scalalogging.StrictLogging
 import raw._
@@ -33,7 +31,6 @@ object SchemaParser extends StrictLogging {
     defineCaseClasses(rawType.typeDeclaration)
     logger.info("Case classes: " + caseClassesSym)
     val caseClassesSource = caseClassesSym.values.mkString("\n")
-    logger.info("Case classes: " + caseClassesSource)
 
     private[this] def defineCaseClass(r: RecordType): String = {
       val idn = r.name.get
@@ -43,7 +40,7 @@ object SchemaParser extends StrictLogging {
           idn
 
         case None =>
-//          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
+          //          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
           val attributes = buildAttributeList(r.atts)
           val src = s"""case class $idn( $attributes )"""
           caseClassesSym.put(idn, src)
@@ -93,7 +90,6 @@ object SchemaParser extends StrictLogging {
         case _: NothingType => ???
         case _: CollectionType => ???
       }
-      //    logger.info(s"Type: $tt")
       code
     }
   }
@@ -182,5 +178,4 @@ object SchemaParser extends StrictLogging {
     }
 
   }
-
 }

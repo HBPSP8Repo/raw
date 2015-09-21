@@ -1,14 +1,12 @@
 package raw.executor
 
-import java.nio.file.Path
-
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.reflect._
 
 object Loader extends StrictLogging {
 
-  def loadAbsolute[T](schema:RawSchema)(implicit m: Manifest[T]): T = {
+  def loadAbsolute[T](schema: RawSchema)(implicit m: Manifest[T]): T = {
     val p = schema.dataFile
     if (p.toString.endsWith(".json")) {
       JsonLoader.loadAbsolute(schema)

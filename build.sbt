@@ -83,6 +83,7 @@ lazy val executor = (project in file("executor")).
           commonsMath,
           commonsIO,
           scallop,
+          metrics,
           multisets
         )
         ++ sprayDeps,

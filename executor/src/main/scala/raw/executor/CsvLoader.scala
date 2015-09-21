@@ -3,10 +3,14 @@ package raw.executor
 import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.util
+import java.util.concurrent.TimeUnit
 
 import com.fasterxml.jackson.databind.{ObjectMapper, MappingIterator}
 import com.fasterxml.jackson.dataformat.csv.{CsvSchema, CsvMapper, CsvParser}
+import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
+import nl.grons.metrics.scala.Timer
+import raw.utils.Instrumented
 
 import scala.collection.JavaConversions
 import scala.collection.immutable.HashMap
@@ -14,7 +18,9 @@ import scala.reflect._
 
 case class Student(name: String, birthYear: Int, office: String, department: String)
 
-object CsvLoader extends StrictLogging {
+object CsvLoader extends StrictLogging with Instrumented {
+
+  private[this] val csvLoadTimer: Timer = metrics.timer("load:csv")
 
   private[this] final val csvMapper = new CsvMapper()
   csvMapper.enable(CsvParser.Feature.WRAP_AS_ARRAY)
@@ -27,7 +33,7 @@ object CsvLoader extends StrictLogging {
     "float" -> ((v: String) => java.lang.Float.valueOf(v))
   )
 
-  private[this] def newCsvIterator(is: InputStream, properties:SchemaProperties): Iterator[Array[String]] = {
+  private[this] def newCsvIterator(is: InputStream, properties: SchemaProperties): Iterator[Array[String]] = {
     val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(properties.hasHeader().getOrElse(false))
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
@@ -38,6 +44,7 @@ object CsvLoader extends StrictLogging {
   }
 
   def loadAbsolute[T](schema: RawSchema)(implicit m: Manifest[T]): T = {
+    val start = Stopwatch.createStarted()
     val p = schema.dataFile
     val properties = schema.properties
     logger.info(s"Loading CSV resource: $p. Properties: ${properties.properties}")
@@ -73,10 +80,13 @@ object CsvLoader extends StrictLogging {
         ctor.newInstance(args: _*)
       }
       ).toList
-      res.asInstanceOf[T]
+      val result = res.asInstanceOf[T]
+      val loadTime = start.elapsed(TimeUnit.MILLISECONDS)
+      logger.info("Loaded " + schema.dataFile + " in " + loadTime + "ms")
+      csvLoadTimer.update(loadTime, TimeUnit.MILLISECONDS)
+      result
     } finally {
       is.close()
     }
   }
 }
-

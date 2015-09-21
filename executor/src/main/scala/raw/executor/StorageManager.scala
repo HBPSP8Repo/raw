@@ -35,6 +35,8 @@ class SchemaProperties(schemaProperties: java.util.Map[String, Object]) {
     val v = properties.get(FIELD_NAMES)
     if (v == null) None else Some(v.asInstanceOf[util.ArrayList[String]])
   }
+
+  override def toString():String = properties.toString
 }
 
 
@@ -138,7 +140,6 @@ object StorageManager extends StrictLogging {
 
     val properties = schemaDir.resolve("properties.json")
     val userData = jsonMapper.readValue(properties.toFile, classOf[java.util.Map[String, Object]])
-    logger.info("Userdata: " + userData)
 
     RawSchema(schemaDir.resolve("schema.xml"), new SchemaProperties(userData), list.head)
   }

@@ -7,9 +7,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import nl.grons.metrics.scala.Timer
 import org.apache.spark.rdd.RDD
 import raw.datasets.AccessPath
-import raw.utils.RawUtils
+import raw.utils.{Instrumented, RawUtils}
 import raw.{QueryLogger, RawQuery}
 
 import scala.tools.nsc.reporters.StoreReporter
@@ -25,7 +26,10 @@ object QueryCompilerClient {
 }
 
 class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader,
-                          val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging {
+                          val baseOutputDir: Path = QueryCompilerClient.defaultTargetDirectory) extends StrictLogging with Instrumented {
+  // Metrics
+  private[this] val queryCompileTimer: Timer = metrics.timer("compile:query")
+  private[this] val loaderCompileTimer: Timer = metrics.timer("compile:loader")
 
   RawUtils.cleanOrCreateDirectory(baseOutputDir)
 
@@ -59,7 +63,7 @@ class QueryCompilerClient(val rawClassloader: RawMutableURLClassLoader,
     settings.embeddedDefaults[QueryCompilerClient]
 
     // Needed for macro annotations
-    val p  = RawUtils.extractResource("paradise_2.11.7-2.1.0-M5.jar")
+    val p = RawUtils.extractResource("paradise_2.11.7-2.1.0-M5.jar")
     logger.info("Loading plugin: " + p)
     settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))
@@ -144,11 +148,15 @@ class $queryName($args) extends RawQuery {
     logger.info(s"Generated code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve(queryName + ".scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
-    logger.info(s"Wrote source file: ${srcFile.toAbsolutePath}")
+    logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
 
-    // Compile the query
-    val run = new compiler.Run()
-    run.compile(List(srcFile.toString))
+
+    queryCompileTimer.time {
+      // Compile the query
+      val run = new compiler.Run()
+      run.compile(List(srcFile.toString))
+    }
+
     if (compileReporter.hasErrors) {
       // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
       // compilation runs are not falsely reported in the subsequent runs
@@ -171,25 +179,30 @@ class $queryName($args) extends RawQuery {
     ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
   }
 
-
+  /**
+   *
+   * @param code
+   * @param className Name of the class defined in the source code. Must be unique within the current run of the program
+   * @return
+   */
   def compileLoader(code: String, className: String): AnyRef = {
-    logger.info(s"Source code:\n$code")
-    val srcFile: Path = sourceOutputDir.resolve("MyLoader.scala")
+    logger.info(s"Loader source code:\n$code")
+    val srcFile: Path = sourceOutputDir.resolve(s"$className.scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
-    logger.info(s"Wrote source file: ${srcFile.toAbsolutePath}")
 
-    // Compile the query
-    val run = new compiler.Run()
-    run.compile(List(srcFile.toString))
+    logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
+    loaderCompileTimer.time {
+      val run = new compiler.Run()
+      run.compile(List(srcFile.toString))
+    }
     if (compileReporter.hasErrors) {
       // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
       // compilation runs are not falsely reported in the subsequent runs
-      val message = "Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
+      val message = "Compilation of data loader failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
       compileReporter.reset()
       return throw new RuntimeException(message)
     }
 
-    // Load the main query class
     val queryClass = s"raw.query.${className}"
     logger.info("Creating new instance of: " + queryClass)
     val clazz = rawClassloader.loadClass(queryClass)
