@@ -19,7 +19,7 @@ import scala.util.parsing.input.Position
   *
   * The original user query is passed optionally for debugging purposes.
   */
-class SemanticAnalyzer(val tree: Calculus.Calculus, world: World, val queryString: Option[String] = None) extends Attribution with LazyLogging {
+class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: Option[String] = None) extends Attribution with LazyLogging {
 
   // TODO: Add a check to the semantic analyzer that the monoids are no longer monoid variables; they have been sorted out
 

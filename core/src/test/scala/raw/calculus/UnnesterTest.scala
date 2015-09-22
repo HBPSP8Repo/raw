@@ -19,7 +19,7 @@ class UnnesterTest extends FunTest {
       "for (d <- Departments) yield set d")
     compare(CalculusPrettyPrinter(t.root),
       """
-      reduce(set, $0 <- filter($0 <- Departments, true), $0)
+      reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0)
       """)
   }
 
@@ -29,7 +29,7 @@ class UnnesterTest extends FunTest {
       "for (d <- Departments) yield set d.name")
     compare(CalculusPrettyPrinter(t.root),
       """
-      reduce(set, $0 <- filter($0 <- Departments, true), $0.name)
+      reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0.name)
       """)
   }
 
@@ -41,10 +41,12 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         set,
-        ($0, $1) <-  join(
-          $0 <-  filter($0 <- Departments, true),
-          $1 <-  filter($1 <- Departments, true),
-          true and $0.dno = $1.dno),
+        ($0, $1) <- filter(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- Departments, true),
+            $1 <- filter($1 <- Departments, true),
+            true and $0.dno = $1.dno),
+          true),
         (a1 := $0, b1 := $1))
       """)
   }
@@ -58,10 +60,12 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        ($0, $1) <- join(
-          $0 <- filter($0 <- speed_limits, true),
-          $1 <- filter($1 <- radar, true),
-          true and $0.location = $1.location and $1.speed > $0.max_speed),
+        ($0, $1) <- filter(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- speed_limits, true),
+            $1 <- filter($1 <- radar, true),
+            true and $0.location = $1.location and $1.speed > $0.max_speed),
+          true),
         (name := $1.person, location := $1.location))
       """)
   }
@@ -75,10 +79,12 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        ($0, $1) <-  join(
-          $0 <-  filter($0 <- speed_limits, true),
-          $1 <-  filter($1 <- radar, true),
-          true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+        ($0, $1) <- filter(
+          ($0, $1) <- join(
+            $0 <- filter($0 <- speed_limits, true),
+            $1 <- filter($1 <- radar, true),
+            true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+          true),
         (name := $1.person, location := $1.location))
     """)
   }
@@ -92,13 +98,15 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        (($0, $1), $2) <- join(
-          ($0, $1) <- join(
-            $0 <- filter($0 <- students, true),
-            $1 <- filter($1 <- profs, true),
-            true and $0.office = $1.office),
-          $2 <-  filter($2 <- departments, true),
-          true and $1.name = $2.prof),
+        (($0, $1), $2) <- filter(
+          (($0, $1), $2) <- join(
+            ($0, $1) <- join(
+              $0 <- filter($0 <- students, true),
+              $1 <- filter($1 <- profs, true),
+              true and $0.office = $1.office),
+            $2 <-  filter($2 <- departments, true),
+            true and $1.name = $2.prof),
+          true),
         $0)
       """
     )
@@ -113,35 +121,145 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         list,
-        (($0, $1), $2) <- join(
-          ($0, $1) <- join(
-            $0 <- filter($0 <- students, true),
-            $1 <- filter($1 <- profs, true),
-            true and $0.office = $1.office),
-          $2 <-  filter($2 <- departments, true),
-          true and $1.name = $2.prof),
+        (($0, $1), $2) <- filter(
+          (($0, $1), $2) <- join(
+            ($0, $1) <- join(
+              $0 <- filter($0 <- students, true),
+              $1 <- filter($1 <- profs, true),
+              true and $0.office = $1.office),
+            $2 <- filter($2 <- departments, true),
+            true and $1.name = $2.prof),
+          true),
         $0)
       """
     )
   }
 
-  test("paper query A") {
+  test("nested comprehension on predicate w/o dependency") {
     val t = process(
-      TestWorlds.employees,
-      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+      TestWorlds.professors_students,
+      """for (s <- students; s.age < for (p <- professors) yield max p.age) yield set s.name"""
+    )
     compare(
       CalculusPrettyPrinter(t.root),
       """
       reduce(
         set,
-        ($0, $2) <- nest(
-          set,
-          ($0, $1) <- outer_join(
-            $0 <- filter($0 <- Departments, true),
-            $1 <- filter($1 <- Employees, true),
-            true and $1.dno = $0.dno),
-          $0,
-          $1),
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            max,
+            ($0, $1) <- outer_join(
+              $0 <- filter($0 <- students, true),
+              $1 <- filter($1 <- professors, true),
+              true),
+            $0,
+            true,
+            $1.age),
+          true and $0.age < $2),
+        $0.name)
+      """
+    )
+  }
+
+  test("nested comprehension on predicate w/ dependency") {
+    val t = process(
+      TestWorlds.professors_students,
+      """
+      for (s <- students;
+           s.age = (for (p <- professors; p.age = s.age) yield sum 1)
+           )
+        yield set s.name
+      """
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+      """
+      reduce(
+        set,
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            sum,
+            ($0, $1) <- outer_join(
+              $0 <- filter($0 <- students, true),
+              $1 <- filter($1 <- professors, true),
+              true and $1.age = $0.age),
+            $0,
+            true,
+            1),
+          true and $0.age = $2),
+        $0.name)
+      """)
+  }
+
+  test("nested comprehension on predicate w/ and w/o dependency") {
+    val t = process(
+      TestWorlds.professors_students,
+      """
+      for (s <- students;
+           s.age < (for (p <- professors) yield max p.age);
+           s.age = (for (s <- students; s.age = (for (p <- professors) yield sum 1)) yield max s.age))
+        yield set s.name
+      """
+    )
+    compare(
+      CalculusPrettyPrinter(t.root),
+    """
+    reduce(
+      set,
+      (($0, $4), $5) <- filter(
+        (($0, $4), $5) <- nest(
+          max,
+          ((($0, $4), $6), $2) <- outer_join(
+            (($0, $4), $6) <- nest(
+              sum,
+              (($0, $4), $3) <- outer_join(
+                ($0, $4) <- nest(
+                  max,
+                  ($0, $1) <- outer_join(
+                    $0 <- filter($0 <- students, true),
+                    $1 <- filter($1 <- professors, true),
+                    true),
+                  $0,
+                  true,
+                  $1.age),
+                $3 <- filter($3 <- professors, true),
+                true),
+              (_1 := $0, _2 := $4),
+              true,
+              1),
+            $2 <- filter($2 <- students, true),
+            true and $2.age = $6),
+          (_1 := $0, _2 := $4),
+          true,
+          $2.age),
+        true and $0.age < $4 and $0.age = $5),
+      $0.name)
+    """
+    )
+  }
+
+  // TODO: Add test cases with nested non-primitive reduces!
+
+    test("paper query A") {
+      val t = process(
+        TestWorlds.employees,
+        "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+      compare(
+        CalculusPrettyPrinter(t.root),
+        """
+      reduce(
+        set,
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            set,
+            ($0, $1) <- outer_join(
+              $0 <- filter($0 <- Departments, true),
+              $1 <- filter($1 <- Employees, true),
+              true and $1.dno = $0.dno),
+            $0,
+            true,
+            $1),
+          true),
         (D := $0, E := $2))
       """
     )
@@ -156,14 +274,17 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         set,
-        ($0, $2) <- nest(
-          set,
-          ($0, $1) <- outer_join(
-            $0 <- filter($0 <- Departments, true),
-            $1 <- filter($1 <- Employees, true),
-            true and $1.dno = $0.dno),
-          $0,
-          $1.dno),
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            set,
+            ($0, $1) <- outer_join(
+              $0 <- filter($0 <- Departments, true),
+              $1 <- filter($1 <- Employees, true),
+              true and $1.dno = $0.dno),
+            $0,
+            true,
+            $1.dno),
+          true),
         (D := $0, E := $2))
       """
     )
@@ -178,15 +299,18 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         and,
-        \($0, $2) -> $2,
-        \($0, $2) -> true,
-         nest(
-                or,
-                \($0, $1) -> true,
-                \($0, $1) -> $0,
-                \($0, $1) -> true,
-                \($0, $1) -> $1,
-                 outer_join(\($0, $1) -> true and $0 = $1,  filter(\$0 -> true, A),  filter(\$1 -> true, B))))
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            or,
+            ($0, $1) <- outer_join(
+              $0 <- filter($0 <- A, true),
+              $1 <- filter($1 <- B, true),
+              true and $0 = $1),
+            $0,
+            true,
+            true),
+          true),
+        $2)
       """
     )
   }
@@ -200,24 +324,26 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         set,
-        \($0, $32) -> (E := $0, M := $32),
-        \($0, $32) -> true,
-         nest(
-                sum,
-                \(($0, $1), $3) -> 1,
-                \(($0, $1), $3) -> $0,
-                \(($0, $1), $3) -> true and $3,
-                \(($0, $1), $3) -> (_1 := $1, _2 := $3),
-                 nest(
-                        and,
-                        \(($0, $1), $2) -> $1.age > $2.age,
-                        \(($0, $1), $2) -> (_1 := $0, _2 := $1),
-                        \(($0, $1), $2) -> true,
-                        \(($0, $1), $2) -> (_1 := $2),
-                         outer_unnest(
-                                \($0, $1) -> $0.manager.children,
-                                \(($0, $1), $2) -> true,
-                                 outer_unnest(\$0 -> $0.children, \($0, $1) -> true,  filter(\$0 -> true, Employees))))))
+        ($0, $3) <- filter(
+          ($0, $3) <- nest(
+            sum,
+            (($0, $1), $4) <- nest(
+              and,
+              (($0, $1), $2) <- outer_unnest(
+                ($0, $1) <- outer_unnest(
+                  $0 <- filter($0 <- Employees, true),
+                  $1 <- $0.children,
+                  true),
+                $2 <- $0.manager.children,
+                true),
+              (_1 := $0, _2 := $1),
+              true,
+              $1.age > $2.age),
+            $0,
+            true and $4,
+            1),
+          true),
+        (E := $0, M := $3))
       """
     )
   }
@@ -231,27 +357,26 @@ class UnnesterTest extends FunTest {
       """
       reduce(
         set,
-        \($0, $4) -> $0,
-        \($0, $4) -> true and $4,
-         nest(
-                and,
-                \(($0, $1), $3) -> $3,
-                \(($0, $1), $3) -> $0,
-                \(($0, $1), $3) -> true,
-                \(($0, $1), $3) -> (_1 := $1, _2 := $3),
-                 nest(
-                        or,
-                        \(($0, $1), $2) -> true,
-                        \(($0, $1), $2) -> (_1 := $0, _2 := $1),
-                        \(($0, $1), $2) -> true,
-                        \(($0, $1), $2) -> (_1 := $2),
-                         outer_join(
-                                \(($0, $1), $2) -> true and $2.id = $0.id and $2.cno = $1.cno,
-                                 outer_join(
-                                        \($0, $1) -> true,
-                                         filter(\$0 -> true, Students),
-                                         filter(\$1 -> true and $1.title = "DB", Courses)),
-                                 filter(\$2 -> true, Transcripts)))))
+        ($0, $3) <- filter(
+          ($0, $3) <- nest(
+            and,
+            (($0, $1), $4) <- nest(
+              or,
+              (($0, $1), $2) <- outer_join(
+                ($0, $1) <- outer_join(
+                  $0 <- filter($0 <- Students, true),
+                  $1 <- filter($1 <- Courses, true and $1.title = "DB"),
+                  true),
+                $2 <- filter($2 <- Transcripts, true),
+                true and $2.id = $0.id and $2.cno = $1.cno),
+              (_1 := $0, _2 := $1),
+              true,
+              true),
+            $0,
+            true,
+            $4),
+          true and $3),
+        $0)
       """
     )
   }
@@ -264,9 +389,9 @@ class UnnesterTest extends FunTest {
     compare(
       CalculusPrettyPrinter(t.root),
       """
-      reduce(set, $0 <- filter($0 <- things, true), $0)
+      reduce(set, $0 <- filter($0 <- filter($0 <- things, true), true), $0)
         union
-      reduce(set, $1 <- filter($1 <- things, true), $1)"""
+      reduce(set, $1 <- filter($1 <- filter($1 <- things, true), true), $1)"""
     )
   }
 

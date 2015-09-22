@@ -58,7 +58,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case PatternProd(ps)            => parens(group(nest(lsep(ps.map(apply), comma))))
       case CanComp(m, gs, ps, e)          => "for" <+> parens(group(nest(lsep((gs ++ ps).map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
       case Reduce(m, child, e)         => softline <> "reduce" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(e)), comma))))
-      case Nest(m, child, k, v)        => softline <> "nest" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(k), apply(v)), comma))))
+      case Nest(m, child, k, p, e)        => softline <> "nest" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(k), apply(p), apply(e)), comma))))
       case Filter(child, p)               => softline <> "filter" <> parens(nest(group(lsep(List(nest(apply(child)), apply(p)), comma))))
       case Join(left, right, p)           => softline <> "join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
       case OuterJoin(left, right, p)      => softline <> "outer_join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))

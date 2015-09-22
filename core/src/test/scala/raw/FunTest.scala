@@ -40,10 +40,16 @@ class FunTest extends FunSuite with LazyLogging {
       r.replaceAllIn(q, _ match { case m => s"\\$$${map(m.matched)}" })
     }
 
-    logger.debug(s"A ${rewritten(actual).trim().replaceAll("^ +| +$|(\\s)+", "$1")}")
-    logger.debug(s"E ${rewritten(expected).trim().replaceAll("^ +| +$|(\\s)+", "$1")}")
+    def fix(q: String) = {
+      q.trim().replaceAll("\n", " ").replaceAll("\\s+", " ").replaceAll("\\(\\s+", "(").replaceAll(",\\s+", ",")
+    }
 
-    if (rewritten(actual).trim().replaceAll("^ +| +$|(\\s)+", "$1") != rewritten(expected).trim().replaceAll("^ +| +$|(\\s)+", "$1"))
+    val A = fix(rewritten(actual))
+    val E = fix(rewritten(expected))
+    logger.debug(s"A $A")
+    logger.debug(s"E $E")
+
+    if (A != E)
       assert(false, s"Incompatible!!\nActual: $actual\nExpected: $expected")
   }
 }
