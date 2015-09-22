@@ -256,6 +256,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
 
+  // TODO: Entity lookup based on attribute name
+
   private lazy val env: Chain[Environment] =
     chain(envin, envout)
 
@@ -570,7 +572,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def unify(t1: Type, t2: Type): Boolean = {
 
     def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
-      logger.debug(s"Here with t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
+//      logger.debug(s"Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
       if (occursCheck.contains((t1, t2))) {
         return true
       }
@@ -982,14 +984,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
 
   }
-
 }
 
-
-// TODO: Remove rewriteIdns and all "idn" uses (e.g. in Unnester et al) from the code and rely instead on entity
-
 // TODO: Add support for new Algebra nodes: in constraint and in constraints
-
 // TODO: Add detailed description of the type checker: the flow, the unification, partial records, how are errors handled, ...
 // TODO: Add more tests to the SemanticAnalyzer:
 //        - let-polymorphism in combination with patterns;
@@ -1005,25 +1002,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //       e.g. if Int, Bool on usage generate 2 versions of the method;
 //       more interestingly, if ConstraintRecordType, find out the actual records used and generate versions for those.
 // TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
-// TODO: Re-do Unnester to use the same tree. Refactor code into new package raw.core
 // TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
 // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 // TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
 //       This should only happen for a single col I guess?. It helps write the map function.
-
-
-// I think monoidsVarMap has to be handled during instantiateTypeScheme, just like monoidsVarMAp? Write test case that breaks 1st!!!
-
-// OptionType has to be tested, particularly w/ collections.
-// actually, in unify if we have OptionType unifying w/ TypeVar, we are going 1st to recurse on OptionType in the current impl. Is this what we want?
-// Because, say we have a Option(Int) + $2 .... we better unify $2 w/ Option(Int) not with Int.'
-// What if we have Option(Int) + Option($2) ?
-
-// We also said that we need to drop ConstrainedRecordType. It will instead do a local scope lookup based on the field name and attach itself to that type.
-// This lookup will use a lazy val chain in Kiama and then also be re-used by the OQL Select parser when looking up (Select name) although here name is an Exp so it's not exatly the same.
-// THis replaces the RecordProj constraint...
-
-// Fix Unnester to only build pairs of patterns instead of nested patterns, because we can then have an Option on the 2nd element of the pair...
-
-// all types have an option parameter (a bit like commutative) and there's a var map...
+// TODO: I think monoidsVarMap has to be handled during instantiateTypeScheme, just like monoidsVarMAp? Write test case that breaks 1st!!!
+// TODO: We also said that we need to drop ConstrainedRecordType. It will instead do a local scope lookup based on the field name and attach itself to that type.
+//       This lookup will use a lazy val chain in Kiama and then also be re-used by the OQL Select parser when looking up (Select name) although here name is an Exp so it's not exatly the same.
+//       This replaces the RecordProj constraint...

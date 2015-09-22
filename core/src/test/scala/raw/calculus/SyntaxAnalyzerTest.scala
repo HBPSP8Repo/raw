@@ -22,7 +22,7 @@ class SyntaxAnalyzerTest extends FunTest {
 
   /** Check whether two strings parse to the same AST.
     */
-  def equals(q1: String, q2: String): Unit = {
+  def sameAST(q1: String, q2: String): Unit = {
     val ast1 = parse(q1)
     val pretty1 = CalculusPrettyPrinter(ast1, 200)
     val ast2 = parse(q2)
@@ -43,29 +43,90 @@ class SyntaxAnalyzerTest extends FunTest {
 
   def parseError(q: String, expected: String): Unit = parseError(q, Some(expected))
 
-  test("cern events") {
-    matches("for (e1 <- Events; e1.RunNumber > 100) yield set (muon := e1.muon)")
+  test("true") {
+    matches("true")
   }
 
-  test("paper query 1") {
-    matches( """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""")
+  test("false") {
+    matches("false")
   }
 
-  test("paper query 2") {
-    matches( """for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
+  test("1") {
+    matches("1")
+  }
+
+  test("1.") {
+    matches("1.")
+  }
+
+  test("1.1") {
+    matches("1.1")
+  }
+
+  test("\"hello\"") {
+    matches("\"hello\"")
+  }
+
+  test("true and true") {
+    matches("true and true")
+  }
+
+  test("true or true and false") {
+    sameAST("true or true and false", "true or (true and false)")
+  }
+
+  test("1 < 2") {
+    matches("1 < 2")
+  }
+
+  test("1 < 2 < 3") {
+    sameAST("1 < 2 < 3", "((1 < 2) < 3)")
+  }
+
+  test("1 + 2") {
+    matches("1 + 2")
+  }
+
+  test("1 + 2 + 3") {
+    matches("1 + 2 + 3")
+  }
+
+  test("1 * 2") {
+    matches("1 * 2")
+  }
+
+  test("1 + 2 * 3") {
+    sameAST("1 + 2 * 3", "1 + (2 * 3)")
+  }
+
+  test("1 + 2 * 3 * 4") {
+    sameAST("1 + 2 * 3 * 4", "1 + ((2 * 3) * 4)")
+  }
+
+  test("student.name") {
+    matches("student.name")
+  }
+
+  test("student.address.street") {
+    sameAST("student.address.street", "((student.address).street)")
+  }
+
+  test("student.name as name") {
+    sameAST("student.name as name", "name: student.name")
   }
 
   test("backticks") {
-    matches( """for (e <- Employees) yield set (`Employee Children` := e.children)""")
+    matches( """for (e <- Employees) yield set (`Employee Children`: e.children)""")
   }
 
   test("record projection #1") {
-    matches("""("Foo", "Bar")._1""", """(_1 := "Foo", _2 := "Bar")._1""")
+    matches("""("Foo", "Bar")._1""", """(_1: "Foo", _2: "Bar")._1""")
   }
 
   test("record projection #2") {
-    matches("""((`Employee Name` := "Ben", Age := 35).`Employee Name`, "Foo")._1""",
-      """(_1 := (`Employee Name` := "Ben", Age := 35).`Employee Name`, _2 := "Foo")._1""")
+    matches(
+      """((`Employee Name`: "Ben", Age: 35).`Employee Name`, "Foo")._1""",
+      """(_1: (`Employee Name`: "Ben", Age: 35).`Employee Name`, _2: "Foo")._1""")
   }
 
   test("expression block #1") {
@@ -73,16 +134,17 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("expression block #2") {
-    matches( """for (d <- Departments) yield set { name := d.name; (deptName := name) }""")
+    matches( """for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
   }
 
   test("patterns #1") {
-    matches("""{ (a, b) := (1, 2); a + b }""",
-      """{ (a, b) := (_1 := 1, _2 := 2); a + b }""")
+    matches(
+      """{ (a, b) := (1, 2); a + b }""",
+      """{ (a, b) := (_1: 1, _2: 2); a + b }""")
   }
 
   test("patterns #2") {
-    matches("""{ (a, (b, c)) := (_1 := 1, _2 := (_1 := 2, _2 := 3)); a + b + c }""")
+    matches("""{ (a, (b, c)) := (_1: 1, _2: (_1: 2, _2: 3)); a + b + c }""")
   }
 
   test("patterns #3") {
@@ -94,13 +156,39 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("patterns #5") {
-    matches("""for ((a, b) <- list((1, 2), (3, 4))) yield set a + b""",
-      """for ((a, b) <- list((_1 := 1, _2 := 2)) append list((_1 := 3, _2 := 4))) yield set a + b""")
+    matches(
+      """for ((a, b) <- list((1, 2))) yield set a + b""",
+      """for ((a, b) <- list((_1: 1, _2: 2))) yield set a + b""")
   }
 
-  /** Parentheses and operator precedence:
-    * http://en.wikipedia.org/wiki/Order_of_operations#Programming_languages
-    */
+  test("f(g(x))") {
+    matches("f(g(x))")
+  }
+
+  test("f(g(x.foo))") {
+    matches("f(g(x.foo))")
+  }
+
+  test("x.f(1)") {
+    sameAST("x.f(1)", "(x.f)(1)")
+  }
+
+  test("""\x -> f(x)""") {
+    matches("""\x -> f(x)""")
+  }
+
+  test("""\x -> x * 1""") {
+    sameAST("""\x -> x * 1""", """\x -> (x * 1)""")
+  }
+
+  test("""\x -> 1 * x""") {
+    sameAST("""\x -> 1 * x""", """\x -> (1 * x)""")
+  }
+
+  test("""\x -> f(g(x)) * 1""") {
+    matches("""\x -> f(g(x)) * 1""")
+  }
+
   test("parentheses - sum - none") {
     matches("a + b + c", "a + b + c")
   }
@@ -197,18 +285,30 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("(a < b) = c", "a < b = c")
   }
 
-  test("#63 (support for !=)") {
-    equals("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
-  }
-
   test("source code comments") {
-    equals(
+    sameAST(
       """
         // compute the max of values
         for (v <- values) // yield set v
            yield max v
            // check if type inference assumes v is a int/float
       """, """for (v <- values) yield max v""")
+  }
+
+  test("cern events") {
+    matches("for (e1 <- Events; e1.RunNumber > 100) yield set (muon: e1.muon)")
+  }
+
+  test("paper query 1") {
+    matches( """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""")
+  }
+
+  test("paper query 2") {
+    matches( """for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
+  }
+
+  test("#63 (support for !=)") {
+    sameAST("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
   }
 
   test("#71 (keywords issue) #1") {
@@ -302,43 +402,19 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("#92 (record projection priorities) #1") {
-    equals("""for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
+    sameAST("""for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
   }
 
   test("#92 (record projection priorities) #2") {
-    equals("""(t.A) and (t.B)""", """t.A and t.B""")
+    sameAST("""(t.A) and (t.B)""", """t.A and t.B""")
   }
 
   test("#52 (chained logical operators) #1") {
-    equals("""(a < b) = c""", """a < b = c""")
+    sameAST("""(a < b) = c""", """a < b = c""")
   }
 
   test("#52 (chained logical operators) #2") {
-    equals("""(2 < 4) = false""", """2 < 4 = false""")
-  }
-
-  test("f g x") {
-    equals("f g x", "f(g(x))")
-  }
-
-  test("f g x.foo") {
-    equals("f g x.foo", "f(g(x.foo))")
-  }
-
-  test("""\x -> f x""") {
-    equals("""\x -> f x""", """\x -> f(x)""")
-  }
-
-  test("""\x -> x * 1""") {
-    equals("""\x -> x * 1""", """\x -> (x * 1)""")
-  }
-
-  test("""\x -> 1 * x""") {
-    equals("""\x -> 1 * x""", """\x -> (1 * x)""")
-  }
-
-  test("""\x -> f g x * 1""") {
-    equals("""\x -> f g x * 1""", """\x -> f(g(x)) * 1""")
+    sameAST("""(2 < 4) = false""", """2 < 4 = false""")
   }
 
   test("select") {
@@ -348,15 +424,15 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("select s.name as n from s in students")
     equals("select s.name as n, age, s.size from s in students")
     matches("select 2015 - birthyear as age from s in students")
-    equals("select name from (select s.name from s in students)", "select name from select s.name from s in students")
+    sameAST("select name from (select s.name from s in students)", "select name from select s.name from s in students")
   }
 
   test("select s.name from students s") {
-    equals("select s.name from students s", "select s.name from s in students")
+    sameAST("select s.name from students s", "select s.name from s in students")
   }
 
   test("select s.name from students as s") {
-    equals("select s.name from students as s", "select s.name from s in students")
+    sameAST("select s.name from students as s", "select s.name from s in students")
   }
 
 }
