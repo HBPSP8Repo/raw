@@ -42,10 +42,20 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwToString = "to_string\\b".r
   val kwGoTo = "go_to\\b".r
   val kwOrElse = "or_else\\b".r
+  val kwSelect = "select\\b".r
+  val kwDistinct = "distinct\\b".r
+  val kwFrom = "from\\b".r
+  val kwAs = "as\\b".r
+  val kwIn = "in\\b".r
+  val kwWhere = "where\\b".r
+  val kwGroupBy = "group\\s+by\\b".r
+  val kwOrder = "order\\b".r
+  val kwHaving = "having\\b".r
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
-    kwToFloat | kwToString | kwGoTo | kwOrElse
+    kwToFloat | kwToString | kwGoTo | kwOrElse | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroupBy | kwOrder |
+    kwHaving
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -132,6 +142,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     recordConsIdns |
     recordConsIdxs |
     comp |
+    select |
     zeroAndConsMonoid |
     unaryFun |
     funAbs |
@@ -203,6 +214,27 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val comp =
     positioned((kwFor ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ (kwYield ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
+
+  lazy val select =
+    positioned(kwSelect ~> distinct ~ projects ~ (kwFrom ~> iterators)
+      ~ opt(kwWhere ~> exp) ~ opt(kwGroupBy ~> projects) ~ opt(kwOrder ~> exp) ~ opt(kwHaving ~> exp) ^^ {
+      case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
+    })
+
+  // TODO position the attrcons
+  lazy val projects = rep1sep(exp ~ opt(kwAs ~> attrName), ",") ^^ {
+    case e ~ None :: Nil => e
+    case l => ProjRecordCons(l.zipWithIndex.map{ case (e ~ i, _) => ProjAttrCons(i, e) case (e ~ None, idx) => ProjAttrCons(None, e) })
+  }
+
+  lazy val distinct = opt(kwDistinct) ^^ { case e => e.isDefined }
+
+  lazy val iterators = rep1sep(iterator, ",")
+
+  lazy val iterator =
+    positioned(ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
+    positioned(exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
+    positioned(exp ^^ { case e => Iterator(None, e)})
 
   lazy val monoid =
     primitiveMonoid |

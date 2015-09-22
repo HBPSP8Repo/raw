@@ -37,6 +37,9 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case RecordProj(e, idn)         => apply(e) <> dot <> ident(idn)
       case AttrCons(idn, e)           => ident(idn) <+> ":=" <+> apply(e)
       case RecordCons(atts)           => parens(group(nest(lsep(atts.map(apply), comma))))
+      case ProjAttrCons(Some(idn), e) => apply(e) <+> "as" <+> ident(idn)
+      case ProjAttrCons(None, e)      => apply(e)
+      case ProjRecordCons(atts)       => group(nest(lsep(atts.map(apply), comma)))
       case IfThenElse(e1, e2, e3)     => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)
       case BinaryExp(op, e1, e2)      => apply(e1) <+> binaryOp(op) <+> apply(e2)
       case FunApp(f, e)               => apply(f) <> parens(apply(e))
@@ -47,6 +50,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case UnaryExp(op, e)            => unaryOp(op) <+> apply(e)
       case FunAbs(p, e)               => "\\" <> apply(p) <+> "->" <+> apply(e)
       case Gen(p, e)                  => apply(p) <+> "<-" <+> apply(e)
+      case Iterator(Some(p), e)       => apply(p) <+> "in" <+> apply(e)
+      case Iterator(None, e)          => apply(e)
       case Bind(p, e)                 => apply(p) <+> ":=" <+> apply(e)
       case ExpBlock(bs, e)            => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
       case PatternIdn(idn)            => apply(idn)
@@ -59,8 +64,12 @@ object CalculusPrettyPrinter extends PrettyPrinter {
       case OuterJoin(left, right, p)      => softline <> "outer_join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
       case Unnest(child, path, pred)      => softline <> "unnest" <> parens(nest(group(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
       case OuterUnnest(child, path, pred) => softline <> "outer_unnest" <> parens(group(nest(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
-
-
+      case Select(f, d, proj, w, g, o, h) => (if (d) "select distinct" else "select") <+> apply(proj) <+> lsep(List(
+                  group("from" <+> lsep(f.map(apply), comma)),
+                  group((if (w.isDefined) "where" <+> apply(w.get) else "")),
+                  group((if (g.isDefined) "group by" <+> apply(g.get) else "")),
+                  group((if (o.isDefined) "order" <+> apply(o.get) else "")),
+                  group((if (h.isDefined) "having" <+> apply(h.get) else ""))), space)
         /*
         
 /** Reduce

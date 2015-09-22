@@ -13,10 +13,11 @@ class SyntaxAnalyzerTest extends FunTest {
     */
   def matches(q: String, expected: Option[String] = None): Unit = {
     val ast = parse(q)
-    val pretty = CalculusPrettyPrinter(ast, 200)
+    val pretty = CalculusPrettyPrinter(ast, 200).replaceAll("\\s+", " ").trim()
+    val e = expected.getOrElse(q).replaceAll("\\s+", " ").trim()
     logger.debug("\n\tInput: {}\n\tParsed: {}\n\tAST: {}", q, pretty, ast)
 
-    assert(pretty == expected.getOrElse(q))
+    assert(pretty === e)
   }
 
   /** Check whether two strings parse to the same AST.
@@ -339,4 +340,23 @@ class SyntaxAnalyzerTest extends FunTest {
   test("""\x -> f g x * 1""") {
     equals("""\x -> f g x * 1""", """\x -> f(g(x)) * 1""")
   }
+
+  test("select") {
+    matches("select name from students")
+    matches("select name from s in students")
+    matches("select s.name from s in students")
+    matches("select s.name as n from s in students")
+    equals("select s.name as n, age, s.size from s in students")
+    matches("select 2015 - birthyear as age from s in students")
+    equals("select name from (select s.name from s in students)", "select name from select s.name from s in students")
+  }
+
+  test("select s.name from students s") {
+    equals("select s.name from students s", "select s.name from s in students")
+  }
+
+  test("select s.name from students as s") {
+    equals("select s.name from students as s", "select s.name from s in students")
+  }
+
 }
