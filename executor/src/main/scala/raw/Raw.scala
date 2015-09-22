@@ -50,6 +50,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.SetType(inferType(t1).rawType)
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.ListType(inferType(t1).rawType) // TODO can we pattern match on something else
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.ListType(inferType(t1).rawType)
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {

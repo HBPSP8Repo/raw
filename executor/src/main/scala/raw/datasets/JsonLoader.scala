@@ -1,7 +1,7 @@
-package raw.executor
+package raw.datasets
 
 import java.io.InputStream
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -9,6 +9,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
+import raw.executor.RawSchema
 
 import scala.reflect._
 

@@ -7,8 +7,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.datasets.AccessPath
-import raw.executor.{RawSchema, CodeGenerationExecutor, StorageManager}
+import raw.executor.{StorageManager, RawServer, CodeGenerator}
 import raw.spark._
 import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
@@ -70,7 +69,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     case "spark" =>
       logger.info("Using Spark")
       lazy val sc: SparkContext = {
-        Thread.currentThread().setContextClassLoader(CodeGenerationExecutor.rawClassloader)
+        Thread.currentThread().setContextClassLoader(CodeGenerator.rawClassloader)
         logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
         new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
       }
@@ -82,6 +81,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
   final val port = 54321
   implicit val system = ActorSystem("simple-routing-app")
 
+
   def start(): Future[Bound] = {
     import RegisterRequestJsonSupport._
     val queryPath = "query"
@@ -92,7 +92,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
         headerValueByName("Raw-User") { rawUser =>
           entity(as[String]) { query =>
             try {
-              val result = doQuery(query, rawUser)
+              val result = RawServer.doQuery(query, rawUser)
               logger.info("Query succeeded. Returning result: " + result.take(30))
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete(result)
@@ -115,10 +115,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
           formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
             try {
               logger.info(s"$user, $schemaName, $dataDir")
-              //                    doRegisterRequest(schemaName, xmlSchema, fileURI, rawUser)
-              StorageManager.registerSchema(schemaName, dataDir, user)
-              val schemas = StorageManager.listSchemas(user)
-              logger.info("Schemas: " + schemas)
+              RawServer.registerSchema(schemaName, dataDir, user)
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete( """ {"success" = True } """)
               }
@@ -137,42 +134,6 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     system.shutdown()
   }
 
-
-  def doQuery(query: String, rawUser: String): String = {
-    // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
-    // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
-    // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
-    // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
-    val cleanedQuery = query.trim.replaceAll("\\s+", " ")
-
-    val schemas = StorageManager.listSchemas(rawUser)
-    logger.info("Found schemas: " + schemas.mkString(", "))
-    val accessPaths: Seq[AccessPath[_]] = schemas.map(name => {
-      val schema: RawSchema = StorageManager.getSchema(rawUser, name)
-      logger.info(s"Loading access path for schema: $schema")
-      CodeGenerationExecutor.loadAccessPath(name, schema)
-    })
-    CodeGenerationExecutor.query(cleanedQuery, accessPaths)
-  }
-
-  //  def doRegisterRequest(schemaName: String, xmlSchema: String, fileURI: String, rawUser: String) = {
-  //    logger.info(s"Registering schema: $schemaName, file: $fileURI, user: $rawUser")
-  //    val uri = new URI(fileURI)
-  //    val localFile = if (uri.getScheme().startsWith("http")) {
-  //      logger.info("toURL: " + uri.toURL)
-  //      logger.info("toURL.getFile: " + uri.toURL.getFile)
-  //      val localPath = Files.createTempFile(schemaName, schemaName + ".json")
-  //      val is = uri.toURL.openStream()
-  //      logger.info(s"Downloading file $fileURI to $localPath")
-  //      Files.copy(is, localPath, StandardCopyOption.REPLACE_EXISTING)
-  //      is.close()
-  //      localPath
-  //    } else {
-  //      Paths.get(uri)
-  //    }
-  //    logger.info(s"Registering file: $localFile with schema: $schemaName")
-  //    CodeGenerationExecutor.registerAccessPath(schemaName, new StringReader(xmlSchema), localFile)
-  //  }
 }
 
 object RawRestServerMain extends StrictLogging {
@@ -185,5 +146,7 @@ object RawRestServerMain extends StrictLogging {
 
     logger.info("Storage directory: " + ConfigFactory.load().getString("raw.datadir"))
     restServer.start()
+    logger.info("Users: " + StorageManager.listUsers())
+
   }
 }

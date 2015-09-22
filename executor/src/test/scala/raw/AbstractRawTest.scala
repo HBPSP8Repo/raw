@@ -9,7 +9,7 @@ import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.spark._
-import raw.executor.{ResultConverter, RawClassLoader, QueryCompilerClient}
+import raw.executor.{RawCompiler, ResultConverter, RawClassLoader, RawCompiler$}
 
 import scala.collection.JavaConversions
 
@@ -21,12 +21,12 @@ abstract class AbstractRawTest
   with LDBDockerContainer
   with RawClassLoader {
 
-  var queryCompiler: QueryCompilerClient = _
+  var queryCompiler: RawCompiler = _
 
   override def beforeAll() {
     super.beforeAll()
     try {
-      queryCompiler = new QueryCompilerClient(rawClassLoader)
+      queryCompiler = new RawCompiler(rawClassLoader)
     } catch {
       case ex: Exception =>
         super.afterAll()

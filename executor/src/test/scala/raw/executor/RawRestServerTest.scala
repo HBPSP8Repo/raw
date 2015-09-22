@@ -16,6 +16,7 @@ import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.executor.RawServer._
 import raw.rest.RawRestServer
 import raw.utils.RawUtils
 
@@ -132,7 +133,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
   }
 
 
-  ignore("JSON register && query") {
+  test("JSON register && query") {
     stageResourceDir("data/patients", "downloaddata")
     val post = newRegisterPost("patients", "joedoe", "downloaddata")
     executeRequest(post)
@@ -177,5 +178,18 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     queryPost.setEntity(new StringEntity(brainFeatureSetPlan))
     val resp = executeRequest(queryPost)
     assert(resp == "1099")
+  }
+
+  test("RawServer") {
+    val rawUser = "joedoe"
+    stageResourceDir("data/brain_feature_set", "downloaddata")
+    StorageManager.registerSchema2("brain_feature_set", "downloaddata", rawUser)
+    val scanner = StorageManager.getScanner(rawUser, "brain_feature_set")
+
+    val schemas = StorageManager.listUserSchemas(rawUser)
+    logger.info("Found schemas: " + schemas.mkString(", "))
+    val scanners: Set[RawScanner[_]] = schemas.map(name => StorageManager.getScanner(rawUser, name))
+    val result = CodeGenerator.query2(brainFeatureSetPlan, scanners)
+    logger.info("Result: " + result)
   }
 }

@@ -17,15 +17,22 @@ trait ScalaLoader {
 }
 
 /**
+ * Interface implemented by classes generated at runtime to load Scala access paths.
+ */
+trait RawScalaLoader {
+  def loadRawScanner(rawSchema: RawSchema): RawScanner[_]
+}
+
+/**
  * Interface implemented by classes generated at runtime to load Spark access paths
  */
 trait SparkLoader {
   def loadAccessPaths(rawSchema: RawSchema, sc: SparkContext): AccessPath[_]
 }
 
-object CodeGenerationExecutor extends StrictLogging with ResultConverter {
+object CodeGenerator extends StrictLogging with ResultConverter {
   val rawClassloader = new RawMutableURLClassLoader(getClass.getClassLoader)
-  private[this] val queryCompiler = new QueryCompilerClient(rawClassloader)
+  private[this] val queryCompiler = new RawCompiler(rawClassloader)
   private[this] val ai = new AtomicInteger(0)
   private[this] val accessPaths = new mutable.HashMap[String, AccessPath[_]]()
 
@@ -66,46 +73,46 @@ object CodeGenerationExecutor extends StrictLogging with ResultConverter {
   //    accessPaths.put(name, accessPath)
   //  }
 
-  def loadAccessPath(name: String, schema: RawSchema, sc: SparkContext = null): AccessPath[_] = {
-    val parsedSchema: ParsedSchema = SchemaParser(schema)
-
-    val innerType = extractInnerType(parsedSchema.typeDeclaration)
-    val caseClassesSource = parsedSchema.caseClasses.values.mkString("\n")
-    val loaderClassName = s"Loader${ai.getAndIncrement()}__${name}"
-
-    if (sc == null) {
-      // Scala local executor
-      val sourceCode = genScalaLoader(caseClassesSource, loaderClassName, innerType, name)
-      val scalaLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[ScalaLoader]
-      scalaLoader.loadAccessPaths(schema)
-
-    } else {
-      // Spark distributed executor
-      val sourceCode = genSparkLoader(caseClassesSource, loaderClassName, innerType, name)
-      val sparkLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[SparkLoader]
-      sparkLoader.loadAccessPaths(schema, sc)
-    }
-  }
-
-  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
-    s"""
-package raw.query
-
-import java.nio.file.Path
-import raw.datasets.AccessPath
-import raw.executor.{Loader, ScalaLoader, RawSchema}
-
-${caseClassesSource}
-
-class ${loaderClassName} extends ScalaLoader {
-
-  def loadAccessPaths(rawSchema: RawSchema): AccessPath[_] = {
-    val data = Loader.loadAbsolute[List[${innerType}]](rawSchema)
-    AccessPath("$name", Left(data))
-  }
-}
-"""
-  }
+//  def loadAccessPath(name: String, schema: RawSchema, sc: SparkContext = null): AccessPath[_] = {
+//    val parsedSchema: ParsedSchema = SchemaParser(schema)
+//
+//    val innerType = extractInnerType(parsedSchema.typeDeclaration)
+//    val caseClassesSource = parsedSchema.caseClasses.values.mkString("\n")
+//    val loaderClassName = s"Loader${ai.getAndIncrement()}__${name}"
+//
+//    if (sc == null) {
+//      // Scala local executor
+//      val sourceCode = genScalaLoader(caseClassesSource, loaderClassName, innerType, name)
+//      val scalaLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[ScalaLoader]
+//      scalaLoader.loadAccessPaths(schema)
+//
+//    } else {
+//      // Spark distributed executor
+//      val sourceCode = genSparkLoader(caseClassesSource, loaderClassName, innerType, name)
+//      val sparkLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[SparkLoader]
+//      sparkLoader.loadAccessPaths(schema, sc)
+//    }
+//  }
+//
+//  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
+//    s"""
+//package raw.query
+//
+//import java.nio.file.Path
+//import raw.datasets.AccessPath
+//import raw.executor.{Loader, ScalaLoader, RawSchema}
+//
+//${caseClassesSource}
+//
+//class ${loaderClassName} extends ScalaLoader {
+//
+//  def loadAccessPaths(rawSchema: RawSchema): AccessPath[_] = {
+//    val data = Loader.loadAbsolute[List[${innerType}]](rawSchema)
+//    AccessPath("$name", Left(data))
+//  }
+//}
+//"""
+//  }
 
   private[this] def genSparkLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
     s"""
@@ -150,6 +157,12 @@ class ${loaderClassName} extends SparkLoader {
     convertToJson(result)
   }
 
+  def query2(logicalPlan: String, queryPaths: Set[RawScanner[_]]): String = {
+    val query = queryCompiler.compileLogicalPlan2(logicalPlan, queryPaths)
+    val result = query.computeResult
+    convertToJson(result)
+  }
+
   //  def query(logicalPlan: String, paths: Seq[String]): String = {
   //    logger.info("AccessPaths: " + paths)
   //    val queryPaths: Seq[AccessPath[_]] = paths.map(p => accessPaths(p))
@@ -158,4 +171,42 @@ class ${loaderClassName} extends SparkLoader {
   //    val result = query.computeResult
   //    convertToJson(result)
   //  }
+
+
+  def loadScanner(name: String, schema: RawSchema, sc: SparkContext = null): RawScanner[_] = {
+    val parsedSchema: ParsedSchema = SchemaParser(schema)
+
+    val innerType = extractInnerType(parsedSchema.typeDeclaration)
+    val caseClassesSource = parsedSchema.caseClasses.values.mkString("\n")
+    val loaderClassName = s"Loader${ai.getAndIncrement()}__${name}"
+
+    if (sc == null) {
+      // Scala local executor
+      val sourceCode = genScalaLoader(caseClassesSource, loaderClassName, innerType, name)
+      val scalaLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[RawScalaLoader]
+      scalaLoader.loadRawScanner(schema)
+
+    } else {
+      ???
+    }
+  }
+
+//  new CsvRawScanner(rawSchema, manifest[$innerType])
+
+  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
+    s"""
+package raw.query
+
+import java.nio.file.Path
+import raw.executor._
+
+${caseClassesSource}
+
+class ${loaderClassName} extends RawScalaLoader {
+  override def loadRawScanner(rawSchema: RawSchema): RawScanner[_] = {
+    RawScanner(rawSchema, manifest[$innerType])
+  }
+}
+"""
+  }
 }
