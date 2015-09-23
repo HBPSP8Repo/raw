@@ -69,11 +69,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   }
 
   lazy val exp: PackratParser[Exp] =
-    log(recordCons)("recordCons") |
+    recordCons |
     mergeExp
 
   lazy val recordCons: PackratParser[RecordCons] =
-    log((attrCons <~ ",") ~ rep1sep(attrCons, ","))("recordCons #1") ^^ {
+    (attrCons <~ ",") ~ rep1sep(attrCons, ",") ^^ {
       case head ~ tail => RecordCons((Seq(head) ++ tail).zipWithIndex.map {
         case (att, idx) =>
           val natt = att.idn match {
@@ -84,7 +84,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
           natt
       })
     } |
-    log(namedAttrCons)("recordCons #2") ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))}
+    namedAttrCons ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))}
 
   case class ParserAttrCons(e: Exp, idn: Option[Idn]) extends Positional
 
@@ -94,11 +94,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val namedAttrCons: PackratParser[ParserAttrCons] =
     positioned(
-      log((attrName <~ ":") ~ mergeExp ^^ { case idn ~ e => ParserAttrCons(e, Some(idn)) })("namedAttrCons #1") |
-      log(mergeExp ~ (kwAs ~> attrName) ^^ { case e ~ idn => ParserAttrCons(e, Some(idn)) })("namedAttrCons #2"))
+      (attrName <~ ":") ~ mergeExp ^^ { case idn ~ e => ParserAttrCons(e, Some(idn)) } |
+      mergeExp ~ (kwAs ~> attrName) ^^ { case e ~ idn => ParserAttrCons(e, Some(idn)) })
 
   lazy val anonAttrCons: PackratParser[ParserAttrCons] =
-    positioned(log(mergeExp)("anonAttrCons") ^^ { case e => ParserAttrCons(e, None) })
+    positioned(mergeExp ^^ { case e => ParserAttrCons(e, None) })
 
   lazy val mergeExp: PackratParser[Exp] =
     positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))

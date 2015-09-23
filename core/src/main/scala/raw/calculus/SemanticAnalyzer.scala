@@ -275,7 +275,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   //       ...and in the Desugar, replace that entity by the thing it points to.
   //       and in the type checker, get the type of the parent thing and apply the record proj to it...
   //       but that's like being a constrained record thing.
-  //
+  //       The same mechanism should also support * e.g. for ( <- students, <- professors) yield list *
+  //       Which makes me think that perhaps we should have a phase where the records are all anon, but there
+  //       is a separate notion of Alias? also to cope with 'from students as s'?
+  //       records would then be structs with aliases? not sure... Better forget it for now.
 
   private lazy val env: Chain[Environment] =
     chain(envin, envout)

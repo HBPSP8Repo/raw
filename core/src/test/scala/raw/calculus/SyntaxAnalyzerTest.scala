@@ -189,6 +189,18 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("""for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
   }
 
+  test("expression block #3 - newline") {
+    sameAST(
+      """{
+           a := 1;
+           a + 1
+         }""",
+      """{
+           a := 1
+           a + 1
+         }""")
+  }
+
   test("patterns #1") {
     matches(
       """{ (a, b) := (1, 2); a + b }""",
@@ -209,7 +221,7 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("patterns #5") {
     matches(
-      """for ((a, b) <- list((1, 2))) yield set a + b""",
+      """for ((a, b) <- list(1, 2) ) yield set a + b""",
       """for ((a, b) <- list((_1: 1, _2: 2))) yield set a + b""")
   }
 
@@ -524,21 +536,19 @@ class SyntaxAnalyzerTest extends FunTest {
   test("select - fun stuff #1") {
     sameAST(
       """select { dog_to_human_years := \x -> x*7; (name, dog_to_human_years(age)) } from dogs""",
-      """select { dog_to_human_years := (\x -> (x*7)); (_1: name, _2: (dog_to_human_years(age))) } from dogs"""
-      )
+      """select { dog_to_human_years := (\x -> (x*7)); (_1: name, _2: (dog_to_human_years(age))) } from dogs""")
   }
 
   test("select - fun stuff #2") {
     sameAST(
       """{
            dog_to_human_years := \x -> x*7;
-           select name, dog_to_human_years(age) from dogs
+           select name, dog_to_human_years(age) as human_age from dogs
          }""",
       """{
            dog_to_human_years := (\x -> (x*7));
-           select (_1: name, _2: (dog_to_human_years(age))) from dogs
-         }"""
-    )
+           select (_1: name, human_age: (dog_to_human_years(age))) from dogs
+         }""")
   }
 
 }

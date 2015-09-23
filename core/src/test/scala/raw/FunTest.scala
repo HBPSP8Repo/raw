@@ -2,14 +2,13 @@ package raw
 
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
-import raw.calculus.{Calculus, SyntaxAnalyzer}
+import raw.calculus.{CalculusPrettyPrinter, Calculus, SyntaxAnalyzer}
 
 import scala.collection.mutable
 
 class FunTest extends FunSuite with LazyLogging {
 
   def parse(q: String): Calculus.Exp = {
-    val positions = new org.kiama.util.Positions
     SyntaxAnalyzer(q) match {
       case Right(ast) => ast
       case Left(err) => fail(s"Parser error: $err")
@@ -44,8 +43,11 @@ class FunTest extends FunSuite with LazyLogging {
       q.trim().replaceAll("\n", " ").replaceAll("\\s+", " ").replaceAll("\\(\\s+", "(").replaceAll(",\\s+", ",")
     }
 
-    val A = fix(rewritten(actual))
-    val E = fix(rewritten(expected))
+    val parsedA = actual   // CalculusPrettyPrinter(parse(actual))
+    val parsedE = expected // CalculusPrettyPrinter(parse(expected))
+
+    val A = fix(rewritten(parsedA))
+    val E = fix(rewritten(parsedE))
     logger.debug(s"A $A")
     logger.debug(s"E $E")
 

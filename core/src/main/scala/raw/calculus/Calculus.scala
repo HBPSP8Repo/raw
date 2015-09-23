@@ -181,11 +181,13 @@ object Calculus {
     */
   case class HashJoin(left: Gen, right: Gen, es: Seq[Idn]) extends PhysicalAlgebraNode  // TODO: Fix signature
 
-  /** Select Iterator
+  /** Select
+    */
+  case class Select(from: Seq[Iterator], distinct: Boolean, projectionAttributes: Exp, where: Option[Exp], group: Option[Exp], order:Option[Exp],
+                    having: Option[Exp]) extends Exp
+
+  /** Iterator
     */
   case class Iterator(p: Option[Pattern], e: Exp) extends Statement
-
-  case class Select(from: Seq[Iterator], distinct: Boolean, projectionAttributes: Exp, where: Option[Exp], group: Option[Exp], order:Option[Exp],
-                     having: Option[Exp]) extends Exp
 
 }

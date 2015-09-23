@@ -374,6 +374,10 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (t <- things) yield and true", TestWorlds.things, BoolType())
   }
 
+  test("for (t <- things) yield bag t") {
+    failure("for (t <- things) yield bag t", TestWorlds.things, IncompatibleMonoids(BagMonoid(), TestWorlds.things.sources("things")))
+  }
+
   test("for (t <- things) yield list t") {
     failure("for (t <- things) yield list t", TestWorlds.things, IncompatibleMonoids(ListMonoid(), TestWorlds.things.sources("things")))
   }
