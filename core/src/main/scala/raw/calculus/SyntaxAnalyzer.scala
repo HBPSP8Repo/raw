@@ -51,14 +51,15 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwAs = "as\\b".r
   val kwIn = "in\\b".r
   val kwWhere = "where\\b".r
-  val kwGroupBy = "group\\s+by\\b".r
+  val kwGroup = "group\\b".r
   val kwOrder = "order\\b".r
+  val kwBy = "by\\b".r
   val kwHaving = "having\\b".r
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwGoTo | kwGoTo2 | kwOrElse | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere |
-    kwGroupBy | kwOrder | kwHaving
+    kwGroup | kwOrder | kwBy | kwHaving
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -289,7 +290,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val select =
     positioned(kwSelect ~> distinct ~ exp ~ (kwFrom ~> iterators)
-      ~ opt(kwWhere ~> exp) ~ opt(kwGroupBy ~> exp) ~ opt(kwOrder ~> exp) ~ opt(kwHaving ~> exp) ^^ {
+      ~ opt(kwWhere ~> exp) ~ opt(kwGroup ~> kwBy ~> exp) ~ opt(kwOrder ~> kwBy ~> exp) ~ opt(kwHaving ~> exp) ^^ {
       case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
     })
 

@@ -113,7 +113,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     t
   }
 
-  /** Return the basic type of an expression.
+  /** Return the type of an expression (including option flag set).
     */
   lazy val tipe: Exp => Type = attr {
     e => {
@@ -141,6 +141,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Comp(m: CollectionMonoid, qs, proj) => {
           val inner = tipe(proj)
           make_nullable(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e) => tipe(e)})
+        }
+        case Select(froms, d, proj, w, g, o, h) => {
+          val inner = tipe(proj)
+          // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
+          make_nullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Iterator(_, e) => tipe(e)})
         }
         case Comp(_, qs, proj) => {
           val output_type = tipe(proj) match {
@@ -280,6 +285,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     // Entering new scopes
     case c: Comp => enter(in(c))
+    case s: Select => enter(in(s))
     case b: ExpBlock => enter(in(b))
 
     // If we are in a function abstraction, we must open a new scope for the variable argument. But if the parent is a
@@ -292,11 +298,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // is the same as that of the parent: the environment does not include the left hand side of the assignment.
     case tree.parent.pair(_: Exp, b: Bind) => env.in(b)
     case tree.parent.pair(_: Exp, g: Gen) => env.in(g)
+    case tree.parent.pair(_: Exp, it: Iterator) => env.in(it)
   }
 
   private def envout(out: RawNode => Environment): RawNode ==> Environment = {
     // Leaving a scope
     case c: Comp => leave(out(c))
+    case s: Select => leave(out(s))
     case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
@@ -308,6 +316,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // The `out` environment of a bind or generator is the environment after the assignment.
     case Bind(p, _) => env(p)
     case Gen(p, _) => env(p)
+    case Iterator(Some(p), _) => env(p)
 
     // Expressions cannot define new variables, so their `out` environment is always the same as their `in`
     // environment. The chain does not need to go "inside" the expression to finding any bindings.
@@ -331,6 +340,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   private lazy val tipeGen: Gen => Type = attr {
     case Gen(p, e) =>
+      solve(constraints(e))
+      val t = expType(e)
+      val expected = CollectionType(MonoidVariable(), patternType(p))
+      if (!unify(t, expected)) {
+        unifyErrors += UnexpectedType(walk(t), walk(expected), Some("Generator"))
+      }
+      t
+  }
+
+  /** Type the rhs of a Gen declaration.
+    */
+  private lazy val tipeIterator: Iterator => Type = attr {
+    case Iterator(Some(p), e) =>
       solve(constraints(e))
       val t = expType(e)
       val expected = CollectionType(MonoidVariable(), patternType(p))
@@ -388,6 +410,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       def getDecl(n: RawNode): Option[RawNode] = n match {
         case b: Bind                          => Some(b)
         case g: Gen                           => Some(g)
+        case i: Iterator                      => Some(i)
         case f: FunAbs                        => Some(f)
         case tree.parent.pair(_: Pattern, n1) => getDecl(n1)
       }
@@ -429,6 +452,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
           // Type the rhs body of the Gen
           val te = tipeGen(g)
+          // TODO: Implement TypeScheme support? Add test case that needs it first...
+          t
+
+        case Some(it @ Iterator(Some(p), e))       =>
+          // Add all pattern identifier types to the map before processing the rhs
+          // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
+          patternIdnTypes(p).foreach{ case pt => typesVarMap.union(pt, pt)}
+
+          // Type the rhs body of the Gen
+          val te = tipeIterator(it)
           // TODO: Implement TypeScheme support? Add test case that needs it first...
           t
         case Some(f: FunAbs)                  =>
@@ -732,6 +765,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           unifyErrors += UnexpectedType(walk(t), walk(expected), desc)
         }
         r
+
       case ExpMonoidSubsetOf(e, m) =>
         val t = expType(e)
         find(t) match {
@@ -900,6 +934,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
           Seq(HasType(n, CollectionType(m, expType(e1))))
 
+      case Select(froms, d, proj, w, g, o, h) => {
+        val m = if (o.isDefined) ListMonoid() else if (d) SetMonoid() else BagMonoid()
+        Seq(HasType(n, CollectionType(m, expType(proj))))
+      }
+
       // Binary Expression type
       case BinaryExp(_: EqualityOperator, e1, e2) =>
         Seq(
@@ -939,6 +978,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   lazy val constraints: Exp => Seq[Constraint] = attr {
     case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case _ => Nil } ++ constraints(e) ++ constraint(n)
+    case n @ Select(froms, _, proj, _, w, _, _) => (if (w.isDefined) constraints(w.get) else Nil) ++ constraints(proj) ++ constraint(n)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
     case n @ ExpBlock(_, e) => constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)

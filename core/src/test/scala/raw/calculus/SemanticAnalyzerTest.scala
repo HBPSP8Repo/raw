@@ -680,4 +680,16 @@ class SemanticAnalyzerTest extends FunTest {
         None), ob)); ot.nullable = true; ot })
   }
 
+  test("select") {
+    success("select s from s in students", TestWorlds.professors_students, CollectionType(BagMonoid(), UserType(Symbol("student"))))
+    success("select distinct s from s in students", TestWorlds.professors_students, CollectionType(SetMonoid(), UserType(Symbol("student"))))
+    success("select distinct s.age from s in students", TestWorlds.professors_students, CollectionType(SetMonoid(), IntType()))
+    success("select s.age from s in students order by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), IntType()))
+    success("""select s.lastname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, CollectionType(BagMonoid(), StringType()))
+  }
+
+  test("wrong field name") {
+    failure("""select s.astname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, ???)
+  }
+
 }
