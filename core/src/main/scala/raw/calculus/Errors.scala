@@ -9,6 +9,8 @@ case class MultipleDecl(i: Calculus.IdnNode) extends Error
 
 case class UnknownDecl(i: Calculus.IdnNode) extends Error
 
+case class UnknownPartition(p: Calculus.Partition) extends Error
+
 case class CollectionRequired(t: Type) extends Error
 
 // TODO: Make it take Exp not Types since only Exps need to be annotated once w/ positions by the parser
@@ -29,6 +31,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
   def show(e: Error): Doc = e match {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
+    case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
     case CollectionRequired(t) => s"expected collection but got ${TypesPrettyPrinter(t)} (${t.pos})"
     case IncompatibleMonoids(m1, t2) => s"TODO m1 ${PrettyPrinter(m1)} t2 ${TypesPrettyPrinter(t2)}"
     case IncompatibleTypes(t1, t2) =>

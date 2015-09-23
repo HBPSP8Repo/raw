@@ -508,8 +508,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     case p: Partition =>
       partitionSelect(p) match {
-        case Some(s) => logger.debug("We got here!!!"); selectTypeVar(s)
-        case None    => NothingType()
+        case Some(s) => selectTypeVar(s)
+        case None    =>
+          unifyErrors += UnknownPartition(p)
+          NothingType()
       }
 
     // Rule 1
