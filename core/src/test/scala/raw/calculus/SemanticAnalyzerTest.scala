@@ -712,6 +712,16 @@ class SemanticAnalyzerTest extends FunTest {
     success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("names", CollectionType(BagMonoid(), StringType()))), None)))
   }
 
+  test("select s.dept, count(partition) as n from students s group by s.dept") {
+    success(
+      """
+      {
+        count := \x -> for (e <- x) yield sum 1
+        select s.department, count(partition) as n from students s group by s.department
+      }
+      """, TestWorlds.school, CollectionType(BagMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
+  }
+
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
     success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
   }
