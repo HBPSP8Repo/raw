@@ -700,6 +700,16 @@ class SemanticAnalyzerTest extends FunTest {
     success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("_2", CollectionType(BagMonoid(), UserType(Symbol("student"))))), None)))
   }
 
+  test("partition") {
+    // TODO: Add check for partition: if NothingType(), there should be errors generated...
+    // TODO: So actually, when we walk up the Select, add an error to the error list!
+    failure("partition", TestWorlds.empty, ???)
+  }
+
+  test("select s.age, (select p.name from partition p) from students s group by s.age") {
+    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("names", CollectionType(BagMonoid(), StringType()))), None)))
+  }
+
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
     success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
   }
