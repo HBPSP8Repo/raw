@@ -115,6 +115,38 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("student.name as name", "name: student.name")
   }
 
+  test("student.name as name, student.age as age") {
+    sameAST("student.name as name, student.age as age", "name: student.name, age: student.age")
+  }
+
+  test("student.address.street as street, student.address.number as number") {
+    sameAST("student.address.street as street, student.address.number as number", "street: student.address.street, number: student.address.number")
+  }
+
+  test("for #1") {
+    matches("for (s <- students) yield set s")
+  }
+
+  test("for #2") {
+    sameAST("for (s <- students; s.age > 18) yield set s", "for (s <- students; ((s.age) > 18)) yield set s")
+  }
+
+  test("for #3") {
+    matches("for (s <- students; c <- s.courses; c.rating > 10) yield set s")
+  }
+
+  test("for #4") {
+    sameAST("for (s <- students; c <- s.info.courses; c.details.rating > 10) yield set s", "for (s <- students; c <- ((s.info).courses); (((c.details).rating) > 10)) yield set s")
+  }
+
+  test("for #5") {
+    sameAST("for (s <- students) yield set name: s.name, s.age as student_age", "for (s <- students) yield set s.name as name, student_age: s.age")
+  }
+
+  test("for #6") {
+    sameAST("for (s <- students) yield set name: s.name, (for (c <- s.courses) yield set c) as courses", "for (s <- students) yield set s.name as name, courses: (for (c <- s.courses) yield set c)")
+  }
+
   test("backticks") {
     matches( """for (e <- Employees) yield set (`Employee Children`: e.children)""")
   }
@@ -171,6 +203,14 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("x.f(1)") {
     sameAST("x.f(1)", "(x.f)(1)")
+  }
+
+  test("x.f.g(1)") {
+    sameAST("x.f.g(1)", "((x.f).g)(1)")
+  }
+
+  test("(x.f).g(1)") {
+    sameAST("(x.f).g(1)", "((x.f).g)(1)")
   }
 
   test("""\x -> f(x)""") {

@@ -1,8 +1,7 @@
 package raw
 package calculus
 
-import java.io.Serializable
-
+import scala.util.matching.Regex
 import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
 import scala.util.parsing.input.Positional
 
@@ -11,11 +10,10 @@ import scala.util.parsing.input.Positional
 object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   import Calculus._
-  import scala.collection.immutable.List
   import scala.collection.immutable.Seq
 
-//  override val whitespace =
-//    regex("""(\s|(//.*\n))+""".r)
+  override val whiteSpace =
+    """(//.*\s*|\s+)+""".r
 
   /** Reserved words
     */
@@ -70,12 +68,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   }
 
   lazy val exp: PackratParser[Exp] =
-    recordCons |
+    log(recordCons)("recordCons") |
     mergeExp
 
   lazy val recordCons: PackratParser[RecordCons] =
-    namedAttrCons ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))} |
-    (attrCons <~ ",") ~ rep1sep(attrCons, ",") ^^ {
+    log((attrCons <~ ",") ~ rep1sep(attrCons, ","))("recordCons #1") ^^ {
       case head ~ tail => RecordCons((Seq(head) ++ tail).zipWithIndex.map {
         case (att, idx) =>
           val natt = att.idn match {
@@ -85,7 +82,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
           natt.pos = att.pos
           natt
       })
-    }
+    } |
+    log(namedAttrCons)("recordCons #2") ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))}
 
   case class ParserAttrCons(e: Exp, idn: Option[Idn]) extends Positional
 
@@ -95,11 +93,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val namedAttrCons: PackratParser[ParserAttrCons] =
     positioned(
-      exp ~ (kwAs ~> attrName) ^^ { case e ~ idn => ParserAttrCons(e, Some(idn)) } |
-      (attrName <~ ":") ~ exp ^^ { case idn ~ e => ParserAttrCons(e, Some(idn)) })
+      log((attrName <~ ":") ~ exp ^^ { case idn ~ e => ParserAttrCons(e, Some(idn)) })("namedAttrCons #1") |
+      log(mergeExp ~ (kwAs ~> attrName) ^^ { case e ~ idn => ParserAttrCons(e, Some(idn)) })("namedAttrCons #2"))
 
   lazy val anonAttrCons: PackratParser[ParserAttrCons] =
-    positioned(exp ^^ { case e => ParserAttrCons(e, None) })
+    positioned(log(exp)("anonAttrCons") ^^ { case e => ParserAttrCons(e, None) })
 
   lazy val mergeExp: PackratParser[Exp] =
     positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
@@ -167,7 +165,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned("/" ^^^ Div())
 
   lazy val funAppExp: PackratParser[Exp] =
-    positioned((funAppExp <~ "(") ~ (funAppExp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
+    positioned((recordProjExp <~ "(") ~ (funAppExp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
     recordProjExp
 
   lazy val recordProjExp: PackratParser[Exp] =
@@ -240,29 +238,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(kwIf ~> exp ~ (kwThen ~> exp) ~ (kwElse ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
 
   lazy val comp: PackratParser[Comp] =
-    positioned((kwFor ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ (kwYield ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
-
-  lazy val select =
-    positioned(kwSelect ~> distinct ~ exp ~ (kwFrom ~> iterators)
-      ~ opt(kwWhere ~> exp) ~ opt(kwGroupBy ~> exp) ~ opt(kwOrder ~> exp) ~ opt(kwHaving ~> exp) ^^ {
-      case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
-    })
-
-  // TODO: Handle ProjAttrCons pretty printer!
-
-  lazy val distinct = opt(kwDistinct) ^^ { case e => e.isDefined }
-
-  lazy val iterators = rep1sep(iterator, ",")
-
-  lazy val iterator: PackratParser[Iterator] =
-    positioned(ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
-    positioned(exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
-    positioned(exp ^^ { case e => Iterator(None, e)})
+  positioned((kwFor ~ "(") ~> (rep1sep(qualifier, ";") <~ ")") ~ (kwYield ~> monoid) ~ exp ^^ { case qs ~ m ~ e => Comp(m, qs, e) })
 
   lazy val monoid: PackratParser[Monoid] =
     primitiveMonoid |
-    collectionMonoid |
-    err("illegal monoid")
+    collectionMonoid
 
   lazy val primitiveMonoid: PackratParser[PrimitiveMonoid] =
     positioned(
@@ -276,7 +256,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(
       kwSet ^^^ SetMonoid() |
       kwBag ^^^ BagMonoid() |
-      kwList ^^^ ListMonoid())
+      kwList ^^^ ListMonoid()) |
+      err("foo")
 
   lazy val qualifier: PackratParser[Qual] =
     gen |
@@ -306,6 +287,24 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val filter: PackratParser[Exp] =
     exp
+
+
+  lazy val select =
+    positioned(kwSelect ~> distinct ~ exp ~ (kwFrom ~> iterators)
+      ~ opt(kwWhere ~> exp) ~ opt(kwGroupBy ~> exp) ~ opt(kwOrder ~> exp) ~ opt(kwHaving ~> exp) ^^ {
+      case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
+    })
+
+  // TODO: Handle ProjAttrCons pretty printer!
+
+  lazy val distinct = opt(kwDistinct) ^^ { case e => e.isDefined }
+
+  lazy val iterators = rep1sep(iterator, ",")
+
+  lazy val iterator: PackratParser[Iterator] =
+    positioned(ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
+      positioned(exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
+      positioned(exp ^^ { case e => Iterator(None, e)})
 
 //  lazy val zeroAndConsMonoid: PackratParser[Exp] =
 //    positioned(
