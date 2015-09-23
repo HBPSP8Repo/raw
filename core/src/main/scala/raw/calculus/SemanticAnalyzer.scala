@@ -1027,14 +1027,58 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case Select(from, _, _, _, _, _, _) => TypeVariable()
   }
 
+  /** Walk up tree until we find a Select, if it exists.
+    */
+  private def findSelect(n: RawNode): Option[Select] = n match {
+    case s: Select                   => Some(s)
+    case n1 if tree.isRoot(n1)       => None
+    case tree.parent.pair(_, parent) => findSelect(parent)
+  }
+
+  /** Parent Select of the current Select, if it exists.
+    */
+  private lazy val selectParent: Select => Option[Select] = attr {
+    case n if tree.isRoot(n)         => None
+    case tree.parent.pair(_, parent) => findSelect(parent)
+  }
+
+  /** Finds the Select that this partition refers to.
+   */
   private lazy val partitionSelect: Partition => Option[Select] = attr {
     case p =>
-      def findSelect(n: RawNode): Option[Select] = n match {
-        case s: Select                   => Some(s)
-        case n if tree.isRoot(n)         => None
-        case tree.parent.pair(_, parent) => findSelect(parent)
+
+      // Returns true if `p` used in `e`
+      def inExp(e: Exp) = {
+        var found = false
+        query[Exp] {
+          case n if n eq p => found = true
+        }(e)
+        found
       }
-      findSelect(p)
+
+      // Returns true if `p`p used in the from
+      def inFrom(from: Seq[Iterator]): Boolean = {
+        for (f <- from) {
+          f match {
+            case Iterator(_, e) => if (inExp(e)) return true
+          }
+        }
+        false
+      }
+
+      findSelect(p) match {
+        case Some(s) =>
+          // The partition node is:
+          // - used in the FROM;
+          // - or in the GROUP BY;
+          // - or there is no GROUP BY (which means it cannot possibly refer to our own Select node)
+          if (inFrom(s.from) || (s.group.isDefined && inExp(s.group.get)) || s.group.isEmpty) {
+            selectParent(s)
+          } else {
+            Some(s)
+          }
+        case None => None
+      }
   }
 
   /** For debugging.
