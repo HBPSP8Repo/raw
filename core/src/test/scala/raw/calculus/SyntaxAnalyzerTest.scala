@@ -168,7 +168,7 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("backticks") {
-    matches( """for (e <- Employees) yield set (`Employee Children`: e.children)""")
+    matches("""for (e <- Employees) yield set (`Employee Children`: e.children)""")
   }
 
   test("record projection #1") {
@@ -186,7 +186,7 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("expression block #2") {
-    matches( """for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
+    matches("""for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
   }
 
   test("patterns #1") {
@@ -368,11 +368,11 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("paper query 1") {
-    matches( """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""")
+    matches("""for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""")
   }
 
   test("paper query 2") {
-    matches( """for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
+    matches("""for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
   }
 
   test("#63 (support for !=)") {
@@ -485,13 +485,31 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("""(2 < 4) = false""", """2 < 4 = false""")
   }
 
-  test("select") {
+  test("select name from students") {
     matches("select name from students")
+  }
+
+  test("select name from s in students") {
     matches("select name from s in students")
+  }
+
+  test("select s.name from s in students") {
     matches("select s.name from s in students")
-    matches("select s.name as n from s in students")
+  }
+
+  test("select s.name as n from s in students") {
+    sameAST("select s.name as n from s in students", "select n: s.name from s in students")
+  }
+
+  test("select s.name as n, age, s.size from s in students") {
     equals("select s.name as n, age, s.size from s in students")
-    matches("select 2015 - birthyear as age from s in students")
+  }
+
+  test("select 2015 - birthyear as age from s in students") {
+    sameAST("select 2015 - birthyear as age from s in students", "select age: (2015 - birthyear) from s in students")
+  }
+
+  test("select name from (select s.name from s in students)") {
     sameAST("select name from (select s.name from s in students)", "select name from select s.name from s in students")
   }
 

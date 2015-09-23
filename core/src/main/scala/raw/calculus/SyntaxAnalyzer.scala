@@ -287,29 +287,28 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   lazy val filter: PackratParser[Exp] =
     exp
 
-
   lazy val select =
     positioned(kwSelect ~> distinct ~ exp ~ (kwFrom ~> iterators)
       ~ opt(kwWhere ~> exp) ~ opt(kwGroupBy ~> exp) ~ opt(kwOrder ~> exp) ~ opt(kwHaving ~> exp) ^^ {
       case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
     })
 
-  // TODO: Handle ProjAttrCons pretty printer!
-
   lazy val distinct = opt(kwDistinct) ^^ { case e => e.isDefined }
 
   lazy val iterators = rep1sep(iterator, ",")
 
   lazy val iterator: PackratParser[Iterator] =
-    positioned(ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
-      positioned(exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)}) |
-      positioned(exp ^^ { case e => Iterator(None, e)})
+    positioned(
+      ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
+      exp ~ (kwAs ~> ident) ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} | // TODO: Maybe replace by ident and do IdnUse if we really want to have this? Otherwise ambiguous w/ single record doing AS...
+      exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
+      exp ^^ { case e => Iterator(None, e)})
 
   lazy val consMonoid: PackratParser[Exp] =
-    collectionMonoid ~ ("(" ~> exp <~ ")") ^^ { case m ~ e => ConsCollectionMonoid(m, e) }
+    positioned(collectionMonoid ~ ("(" ~> exp <~ ")") ^^ { case m ~ e => ConsCollectionMonoid(m, e) })
 
   lazy val zeroMonoid: PackratParser[Exp] =
-    collectionMonoid <~ ("(" ~ ")") ^^ { case m => ZeroCollectionMonoid(m) }
+    positioned(collectionMonoid <~ ("(" ~ ")") ^^ { case m => ZeroCollectionMonoid(m) })
 
   lazy val unaryFun: PackratParser[UnaryExp] =
     positioned(unaryOp ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => UnaryExp(op, e) })
