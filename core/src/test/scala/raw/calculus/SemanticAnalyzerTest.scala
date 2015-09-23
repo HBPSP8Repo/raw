@@ -75,8 +75,8 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None)))
   }
 
-  test("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)") {
-    success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon := m)", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
+  test("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon: m)") {
+    success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon: m)", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(List(AttrType("muon", RecordType(List(AttrType("pt", FloatType()), AttrType("eta", FloatType())), None))), None)))
   }
 
   test("for (i <- Items) yield set i") {
@@ -93,7 +93,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("departments - from Fegaras's paper") {
     success(
-      """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name := e.name, address := e.address)""", TestWorlds.departments,
+      """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""", TestWorlds.departments,
       CollectionType(SetMonoid(),RecordType(List(AttrType("name", StringType()), AttrType("address", RecordType(List(AttrType("street", StringType()), AttrType("zipcode", StringType())), None))), None)))
   }
 
@@ -105,13 +105,13 @@ class SemanticAnalyzerTest extends FunTest {
     success( """for ( d <- Departments; d.name = "CSE") yield set d""", TestWorlds.departments, CollectionType(SetMonoid(),UserType(Symbol("Department"))))
   }
 
-  test( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""") {
-    success( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName := name) }""", TestWorlds.departments, CollectionType(SetMonoid(),RecordType(List(AttrType("deptName", StringType())), None)))
+  test( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName: name) }""") {
+    success( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName: name) }""", TestWorlds.departments, CollectionType(SetMonoid(),RecordType(List(AttrType("deptName", StringType())), None)))
   }
 
   test("employees - from Fegaras's paper") {
     success(
-      "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)", TestWorlds.employees,
+      "for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)", TestWorlds.employees,
       CollectionType(SetMonoid(),RecordType(List(AttrType("E", RecordType(List(AttrType("dno", IntType()), AttrType("children", CollectionType(ListMonoid(),RecordType(List(AttrType("age", IntType())), None))), AttrType("manager", RecordType(List(AttrType("name", StringType()), AttrType("children", CollectionType(ListMonoid(),RecordType(List(AttrType("age", IntType())), None)))), None))), None)), AttrType("M", IntType())), None)))
   }
 
@@ -382,20 +382,20 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (s <- students) yield list s", TestWorlds.professors_students, CollectionType(ListMonoid(),UserType(Symbol("student"))))
   }
 
-  test("for (s <- students) yield list (a := 1, b := s)") {
-    success("for (s <- students) yield list (a := 1, b := s)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student")))), None)))
+  test("for (s <- students) yield list (a: 1, b: s)") {
+    success("for (s <- students) yield list (a: 1, b: s)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student")))), None)))
   }
 
   test("for (s <- students; p <- professors; s = p) yield list s") {
     failure("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, IncompatibleTypes(UserType(Symbol("professor")), UserType(Symbol("student"))))
   }
 
-  test("for (s <- students; p <- professors) yield list (name := s.name, age := p.age)") {
-    success("for (s <- students; p <- professors) yield list (name := s.name, age := p.age)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
+  test("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)") {
+    success("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), None)))
   }
 
-  test("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)") {
-    success("for (s <- students; p <- professors) yield list (a := 1, b := s, c := p)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))), AttrType("c", UserType(Symbol("professor")))), None)))
+  test("for (s <- students; p <- professors) yield list (a: 1, b: s, c: p)") {
+    success("for (s <- students; p <- professors) yield list (a: 1, b: s, c: p)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))), AttrType("c", UserType(Symbol("professor")))), None)))
   }
 
   test("""\(x, y) -> x + y + 10""") {
@@ -416,7 +416,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""let polymorphism - not binding into functions""") {
-    val m = MonoidVariable()
+    val m = MonoidVariable(idempotent = Some(false))
     val z = TypeVariable()
     val n = NumberType()
     success(

@@ -123,6 +123,26 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("student.address.street as street, student.address.number as number", "street: student.address.street, number: student.address.number")
   }
 
+  test("1, 2") {
+    sameAST("1, 2", "(_1: 1, _2: 2)")
+  }
+
+  test("1,2 #2") {
+    sameAST("1, 2", "_1: 1, _2: 2")
+  }
+
+  test("1, 2, 3") {
+    sameAST("1, 2, 3", "(_1: 1, _2: 2, _3: 3)")
+  }
+
+  test("1, (2, 3)") {
+    sameAST("1, (2, 3)", "(_1: 1, _2: (_1: 2, _2: 3))")
+  }
+
+  test("(1, 2), 3") {
+    sameAST("(1, 2), 3", "(_1: (_1: 1, _2: 2), _2: 3)")
+  }
+
   test("for #1") {
     matches("for (s <- students) yield set s")
   }
@@ -227,6 +247,14 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("""\x -> f(g(x)) * 1""") {
     matches("""\x -> f(g(x)) * 1""")
+  }
+
+  test("""\(x,y) -> x + y""") {
+    sameAST("""\(x,y) -> x + y""", """\x,y -> (x + y)""")
+  }
+
+  test("f(x,y)") {
+    sameAST("f(x,y)", "f( _1: x, _2: y)")
   }
 
   test("parentheses - sum - none") {
