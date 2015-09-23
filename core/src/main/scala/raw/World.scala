@@ -1,7 +1,7 @@
 package raw
 
 import scala.collection.immutable.Map
-import raw.calculus.{TypesPrettyPrinter, Symbol}
+import raw.calculus.{CalculusPrettyPrinter, TypesPrettyPrinter, Symbol}
 
 import scala.util.parsing.input.Position
 import com.typesafe.scalalogging.LazyLogging
@@ -106,6 +106,20 @@ object World extends LazyLogging {
       case (_: BagMonoid, _: BagMonoid) => e1 == e2
       case (_: ListMonoid, _: ListMonoid) => e1 == e2
       case _ => e1 eq e2
+    }
+    override def toString: String = {
+      var s = "\n"
+      val keys = m.map(_._1).sortBy(_.toString)
+      for (k <- keys) {
+        val g = apply(k)
+        s += s"${PrettyPrinter(k)} => ${PrettyPrinter(g.root)} (${
+          g.elements.map {
+            case t: MonoidVariable => s"[${t.sym.idn}] ${PrettyPrinter(t)}"
+            case t => PrettyPrinter(t)
+          }.mkString(", ")
+        })\n"
+      }
+      s
     }
   }
 

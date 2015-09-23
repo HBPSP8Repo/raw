@@ -1,5 +1,8 @@
 package raw
 package calculus
+
+import raw.calculus.Calculus.Gen
+
 import scala.collection.immutable.Seq
 
 import com.typesafe.scalalogging.LazyLogging

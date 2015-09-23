@@ -17,7 +17,9 @@ case class CollectionRequired(t: Type) extends Error
 
 case class IncompatibleMonoids(m1: Monoid, t2: Type) extends Error
 
-case class IncompatibleTypes(t1: Type, t2: Type) extends Error
+case class IncompatibleTypes(t1: Type, t2: Type) extends Error {
+  override def toString() = s"incompatible types ${t1} (${t1.pos}) and ${t2} (${t2.pos})"
+}
 
 case class UnexpectedType(t: Type, expected: Type, desc: Option[String]) extends Error
 
