@@ -696,4 +696,12 @@ class SemanticAnalyzerTest extends FunTest {
     failure("""select s.astname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, ???)
   }
 
+  test("select s.age, partition from students s group by s.age") {
+    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("_2", CollectionType(ListMonoid(), UserType(Symbol("student"))))), None)))
+  }
+
+  test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
+    success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
+  }
+
 }

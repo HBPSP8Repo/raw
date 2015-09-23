@@ -61,7 +61,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case OuterJoin(left, right, p)      => "outer_join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
         case Unnest(child, path, pred)      => "unnest" <> parens(nest(group(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
         case OuterUnnest(child, path, pred) => "outer_unnest" <> parens(group(nest(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
-        case Select(f, d, proj, w, g, o, h) =>
+        case Partition()                    => "partition"
+        case Select(f, d, g, proj, w, o, h) =>
           (if (d) ("select distinct") else "select") <+> apply(proj) <+>
             lsep(List(
               group("from" <+> lsep(f.map(apply), comma)),

@@ -55,11 +55,12 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwOrder = "order\\b".r
   val kwBy = "by\\b".r
   val kwHaving = "having\\b".r
+  val kwPartition = "partition\\b".r
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwGoTo | kwGoTo2 | kwOrElse | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere |
-    kwGroup | kwOrder | kwBy | kwHaving
+    kwGroup | kwOrder | kwBy | kwHaving | kwPartition
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -199,6 +200,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     zeroMonoid |
     unaryFun |
     funAbs |
+    partition |
     "(" ~> exp <~ ")" |
     idnExp
 
@@ -291,7 +293,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   lazy val select =
     positioned(kwSelect ~> distinct ~ exp ~ (kwFrom ~> iterators)
       ~ opt(kwWhere ~> exp) ~ opt(kwGroup ~> kwBy ~> exp) ~ opt(kwOrder ~> kwBy ~> exp) ~ opt(kwHaving ~> exp) ^^ {
-      case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, proj, w, g, o, h)
+      case d ~ proj ~ f ~ w ~ g ~ o ~ h => Select(f, d, g, proj, w, o, h)
     })
 
   lazy val distinct = opt(kwDistinct) ^^ { case e => e.isDefined }
@@ -323,6 +325,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val funAbs: PackratParser[FunAbs] =
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
+
+  lazy val partition: PackratParser[Partition] =
+    kwPartition ^^^ Partition()
 
   lazy val notExp: PackratParser[UnaryExp] =
     positioned(not ~ exp ^^ { case op ~ e => UnaryExp(op, e)})

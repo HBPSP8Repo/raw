@@ -183,11 +183,20 @@ object Calculus {
 
   /** Select
     */
-  case class Select(from: Seq[Iterator], distinct: Boolean, projectionAttributes: Exp, where: Option[Exp], group: Option[Exp], order:Option[Exp],
+  case class Select(from: Seq[Iterator],
+                    distinct: Boolean,
+                    group: Option[Exp],
+                    proj: Exp,
+                    where: Option[Exp],
+                    order: Option[Exp],
                     having: Option[Exp]) extends Exp
 
   /** Iterator
     */
   case class Iterator(p: Option[Pattern], e: Exp) extends Statement
+
+  /** Partition
+    */
+  case class Partition() extends Exp
 
 }

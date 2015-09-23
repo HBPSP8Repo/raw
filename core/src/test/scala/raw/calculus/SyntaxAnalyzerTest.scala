@@ -533,6 +533,14 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("select s.name from students as s", "select s.name from s in students")
   }
 
+  test("select s.dept, count(partition) from students s group by s.dept") {
+    sameAST("select s.dept, count(partition) from students s group by s.dept", "select _1: s.dept, _2: count(partition) from students s group by s.dept")
+  }
+
+  test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
+    sameAST("select dpt, count(partition) as n from students s group by dpt: s.dept", "select _1: dpt, n: count(partition) from students s group by dpt: s.dept")
+  }
+
   test("select - fun stuff #1") {
     sameAST(
       """select { dog_to_human_years := \x -> x*7; (name, dog_to_human_years(age)) } from dogs""",

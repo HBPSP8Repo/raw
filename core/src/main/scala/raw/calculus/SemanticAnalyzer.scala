@@ -142,7 +142,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val inner = tipe(proj)
           make_nullable(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e) => tipe(e)})
         }
-        case Select(froms, d, proj, w, g, o, h) => {
+        case Select(froms, d, g, proj, w, o, h) => {
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
           make_nullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Iterator(_, e) => tipe(e)})
@@ -937,7 +937,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
           Seq(HasType(n, CollectionType(m, expType(e1))))
 
-      case Select(froms, d, proj, w, g, o, h) => {
+      case Select(froms, d, g, proj, w, o, h) => {
         val m = if (o.isDefined) ListMonoid() else if (d) SetMonoid() else BagMonoid()
         Seq(HasType(n, CollectionType(m, expType(proj))))
       }
@@ -979,9 +979,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Collects the constraints of an expression.
     * The constraints are returned in an "ordered sequence", i.e. the child constraints are collected before the current node's constraints.
     */
+  // TODO: Move constraint(n) to top-level and apply it always at the end
   lazy val constraints: Exp => Seq[Constraint] = attr {
     case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case _ => Nil } ++ constraints(e) ++ constraint(n)
-    case n @ Select(froms, _, proj, _, w, _, _) => (if (w.isDefined) constraints(w.get) else Nil) ++ constraints(proj) ++ constraint(n)
+    case n @ Select(_, _, g, proj, w, o, h) =>
+      val wc = if (w.isDefined) constraints(w.get) else Nil
+      val gc = if (g.isDefined) constraints(g.get) else Nil
+      val oc = if (o.isDefined) constraints(o.get) else Nil
+      val hc = if (h.isDefined) constraints(h.get) else Nil
+      wc ++ gc ++ oc ++ hc ++ constraints(proj) ++ constraint(n)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
     case n @ ExpBlock(_, e) => constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
@@ -994,6 +1000,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
     case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
+    case n: Partition => constraint(n)
   }
 
   /** For debugging.
