@@ -193,7 +193,7 @@ object Calculus {
 
   /** Iterator
     */
-  case class Iterator(p: Option[Pattern], e: Exp) extends Statement
+  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Statement
 
   /** Partition
     */
