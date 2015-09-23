@@ -521,4 +521,24 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("select s.name from students as s", "select s.name from s in students")
   }
 
+  test("select - fun stuff #1") {
+    sameAST(
+      """select { dog_to_human_years := \x -> x*7; (name, dog_to_human_years(age)) } from dogs""",
+      """select { dog_to_human_years := (\x -> (x*7)); (_1: name, _2: (dog_to_human_years(age))) } from dogs"""
+      )
+  }
+
+  test("select - fun stuff #2") {
+    sameAST(
+      """{
+           dog_to_human_years := \x -> x*7;
+           select name, dog_to_human_years(age) from dogs
+         }""",
+      """{
+           dog_to_human_years := (\x -> (x*7));
+           select (_1: name, _2: (dog_to_human_years(age))) from dogs
+         }"""
+    )
+  }
+
 }

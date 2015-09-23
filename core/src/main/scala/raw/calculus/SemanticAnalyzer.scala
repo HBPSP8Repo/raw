@@ -3,10 +3,8 @@ package calculus
 
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
-import org.kiama.rewriting.Strategy
 import raw.World._
 
-import scala.collection.GenTraversableOnce
 import scala.util.parsing.input.Position
 
 /** Analyzes the semantics of an AST.
@@ -257,6 +255,22 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   // TODO: Entity lookup based on attribute name
+  //       Normally, s.name is a RecordProj of 's', which itself is an entity
+  //       Now I'd see 'name'. This is not a user source, so looking up "data source" won't work.
+  //       So I'd need to look in the env.in(n) environment for all that is there, and see what matches name (?)
+  //       Actually, all that is in
+  //         for ( <- students ) yield set name
+  //       this could be sugar for
+  //         for ( $44 <- students ) yield set $44.name
+  //       but i need to find inconsistencies.
+  //       in a sense, starting from
+  //         for ( $44 <- students ) yield set name
+  //       makes some sense but still, the entity of 'name' is what?
+  //       i could introduce a new entity...
+  //       ...and in the Desugar, replace that entity by the thing it points to.
+  //       and in the type checker, get the type of the parent thing and apply the record proj to it...
+  //       but that's like being a constrained record thing.
+  //
 
   private lazy val env: Chain[Environment] =
     chain(envin, envout)
