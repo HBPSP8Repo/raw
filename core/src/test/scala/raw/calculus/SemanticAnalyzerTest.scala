@@ -416,7 +416,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""let polymorphism - not binding into functions""") {
-    val m = MonoidVariable(idempotent = Some(false))
+    val m = MonoidVariable(idempotent=Some(false))
     val z = TypeVariable()
     val n = NumberType()
     success(
@@ -430,6 +430,22 @@ class SemanticAnalyzerTest extends FunTest {
 
       """, TestWorlds.professors_students,
       FunType(RecordType(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, n))), None), n))
+  }
+
+  test("""this should fail!""") {
+    // also type of count, should it be resolved to take a collection or not.
+    val m = MonoidVariable(idempotent=Some(false))
+    val z = TypeVariable()
+    failure(
+      """
+        {
+        count := \x -> for (z <- x) yield sum 1;
+        count(1)
+        }
+
+      """, TestWorlds.unknown,
+      IncompatibleTypes(CollectionType(m, z), IntType()) // I don't know what error is expected
+    )
   }
 
   test("""let-polymorphism #1""") {

@@ -19,8 +19,8 @@ class NormalizerTest extends FunTest {
   test("rule1 #1") {
     compare(
       process(
-        "for (e <- Events; e1 := e; (for (a <- Events; a1 := a; a1.RunNumber > 200) yield max a1.RunNumber) < 300; e1.RunNumber > 100) yield set (muons := e1.muons)", TestWorlds.cern),
-        "for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 200) yield max $1.RunNumber < 300; $0.RunNumber > 100) yield set (muons := $0.muons)")
+        "for (e <- Events; e1 := e; (for (a <- Events; a1 := a; a1.RunNumber > 200) yield max a1.RunNumber) < 300; e1.RunNumber > 100) yield set (muons: e1.muons)", TestWorlds.cern),
+        "for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 200) yield max $1.RunNumber < 300; $0.RunNumber > 100) yield set (muons: $0.muons)")
   }
 
   test("rule1 #2") {
@@ -70,14 +70,14 @@ class NormalizerTest extends FunTest {
   test("rule2 #3") {
     compare(
       process(
-        """for (e <- Events; e1 := e; (for (a <- Events; a1 := a; f := (\v -> v + 2); a1.RunNumber > f(40)) yield max a1.RunNumber) < 300; f2 := (\v -> v + 4); e1.RunNumber > f2(100)) yield set (muons := e1.muons)""", TestWorlds.cern),
-        """for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 40 + 2) yield max $1.RunNumber < 300; $0.RunNumber > 100 + 4) yield set (muons := $0.muons)""")
+        """for (e <- Events; e1 := e; (for (a <- Events; a1 := a; f := (\v -> v + 2); a1.RunNumber > f(40)) yield max a1.RunNumber) < 300; f2 := (\v -> v + 4); e1.RunNumber > f2(100)) yield set (muons: e1.muons)""", TestWorlds.cern),
+        """for ($0 <- Events; for ($1 <- Events; $1.RunNumber > 40 + 2) yield max $1.RunNumber < 300; $0.RunNumber > 100 + 4) yield set (muons: $0.muons)""")
   }
 
   test("rule3") {
     compare(
       process(
-        """for (e <- Events; rec := (x := e.RunNumber, y := e.lbn); rec.x > 200) yield sum 1""", TestWorlds.cern),
+        """for (e <- Events; rec := (x: e.RunNumber, y: e.lbn); rec.x > 200) yield sum 1""", TestWorlds.cern),
         """for ($0 <- Events; $0.RunNumber > 200) yield sum 1""")
   }
 
@@ -134,15 +134,15 @@ class NormalizerTest extends FunTest {
   test("paper query") {
     compare(
       process(
-        """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (Name := e.name, Address := e.address)""", TestWorlds.departments),
-        """for ($0 <- Departments; $0.name = "CSE"; $1 <- $0.instructors; $2 <- $1.teaches; $2.name = "cse5331") yield set (Name := $1.name, Address := $1.address)""")
+        """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (Name: e.name, Address: e.address)""", TestWorlds.departments),
+        """for ($0 <- Departments; $0.name = "CSE"; $1 <- $0.instructors; $2 <- $1.teaches; $2.name = "cse5331") yield set (Name: $1.name, Address: $1.address)""")
   }
 
   test("join") {
     compare(
       process(
-        """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)""", TestWorlds.fines),
-        """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name := $1.person, location := $1.location)"""
+        """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)""", TestWorlds.fines),
+        """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name: $1.person, location: $1.location)"""
     )
   }
 
@@ -150,14 +150,14 @@ class NormalizerTest extends FunTest {
     compare(
       process(
         """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""", TestWorlds.set_of_tuples),
-      """for ($0 <- set_of_tuples) yield set (_1 := $0._1, _2 := $0._4)""")
+        """for ($0 <- set_of_tuples) yield set (_1: $0._1, _2: $0._4)""")
   }
 
   test("desugar and normalize PatternBind") {
     compare(
       process(
         """{ (a, b) := (1, 2); a + b }"""),
-      """1 + 2""")
+        """1 + 2""")
   }
 
 }

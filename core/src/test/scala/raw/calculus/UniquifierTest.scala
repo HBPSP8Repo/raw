@@ -18,15 +18,15 @@ class UniquifierTest extends FunTest {
   test("different entities are unique entities") {
     compare(
       process(
-        """for (a <- things; b <- things) yield set (a := a, b := b)""", TestWorlds.things),
-        """for ($0 <- things; $1 <- things) yield set (a := $0, b := $1)""")
+        """for (a <- things; b <- things) yield set (a: a, b: b)""", TestWorlds.things),
+        """for ($0 <- things; $1 <- things) yield set (a: $0, b: $1)""")
   }
 
   test("different entities are unique entities across nested scopes") {
     compare(
       process(
-        """for (a <- things) yield set (a := a, b := for (a <- things) yield set a)""", TestWorlds.things),
-        """for ($0 <- things) yield set (a := $0, b := for ($1 <- things) yield set $1)""")
+        """for (a <- things) yield set (a: a, b: for (a <- things) yield set a)""", TestWorlds.things),
+        """for ($0 <- things) yield set (a: $0, b: for ($1 <- things) yield set $1)""")
   }
 
   test("""\(a, b) -> a + b + 1""") {

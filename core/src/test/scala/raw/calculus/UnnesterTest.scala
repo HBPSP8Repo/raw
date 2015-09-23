@@ -36,7 +36,7 @@ class UnnesterTest extends FunTest {
   test("simple join") {
     val t = process(
       TestWorlds.departments,
-      "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1 := a, b1 := b)")
+      "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1: a, b1: b)")
     compare(CalculusPrettyPrinter(t.root),
       """
       reduce(
@@ -47,14 +47,14 @@ class UnnesterTest extends FunTest {
             $1 <- filter($1 <- Departments, true),
             true and $0.dno = $1.dno),
           true),
-        (a1 := $0, b1 := $1))
+        (a1: $0, b1: $1))
       """)
   }
 
   test("join") {
     val t = process(
       TestWorlds.fines,
-      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)")
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)")
     compare(
       CalculusPrettyPrinter(t.root),
       """
@@ -66,14 +66,14 @@ class UnnesterTest extends FunTest {
             $1 <- filter($1 <- radar, true),
             true and $0.location = $1.location and $1.speed > $0.max_speed),
           true),
-        (name := $1.person, location := $1.location))
+        (name: $1.person, location: $1.location))
       """)
   }
 
   test("join 2") {
     val t = process(
       TestWorlds.fines,
-      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name := observation.person, location := observation.location)")
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)")
     compare(
       CalculusPrettyPrinter(t.root),
       """
@@ -85,7 +85,7 @@ class UnnesterTest extends FunTest {
             $1 <- filter($1 <- radar, true),
             true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
           true),
-        (name := $1.person, location := $1.location))
+        (name: $1.person, location: $1.location))
     """)
   }
 
@@ -224,12 +224,12 @@ class UnnesterTest extends FunTest {
                   $1.age),
                 $3 <- filter($3 <- professors, true),
                 true),
-              (_1 := $0, _2 := $4),
+              (_1: $0, _2: $4),
               true,
               1),
             $2 <- filter($2 <- students, true),
             true and $2.age = $6),
-          (_1 := $0, _2 := $4),
+          (_1: $0, _2: $4),
           true,
           $2.age),
         true and $0.age < $4 and $0.age = $5),
@@ -243,7 +243,7 @@ class UnnesterTest extends FunTest {
     test("paper query A") {
       val t = process(
         TestWorlds.employees,
-        "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e)")
+        "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e)")
       compare(
         CalculusPrettyPrinter(t.root),
         """
@@ -260,7 +260,7 @@ class UnnesterTest extends FunTest {
             true,
             $1),
           true),
-        (D := $0, E := $2))
+        (D: $0, E: $2))
       """
     )
   }
@@ -268,7 +268,7 @@ class UnnesterTest extends FunTest {
   test("paper query A variation") {
     val t = process(
       TestWorlds.employees,
-      "for (d <- Departments) yield set (D := d, E := for (e <- Employees; e.dno = d.dno) yield set e.dno)")
+      "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e.dno)")
     compare(
       CalculusPrettyPrinter(t.root),
       """
@@ -285,7 +285,7 @@ class UnnesterTest extends FunTest {
             true,
             $1.dno),
           true),
-        (D := $0, E := $2))
+        (D: $0, E: $2))
       """
     )
   }
@@ -318,7 +318,7 @@ class UnnesterTest extends FunTest {
   test("paper query C") {
     val t = process(
       TestWorlds.employees,
-      "for (e <- Employees) yield set (E := e, M := for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
+      "for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
     compare(
       CalculusPrettyPrinter(t.root),
       """
@@ -336,14 +336,14 @@ class UnnesterTest extends FunTest {
                   true),
                 $2 <- $0.manager.children,
                 true),
-              (_1 := $0, _2 := $1),
+              (_1: $0, _2: $1),
               true,
               $1.age > $2.age),
             $0,
             true and $4,
             1),
           true),
-        (E := $0, M := $3))
+        (E: $0, M: $3))
       """
     )
   }
@@ -369,7 +369,7 @@ class UnnesterTest extends FunTest {
                   true),
                 $2 <- filter($2 <- Transcripts, true),
                 true and $2.id = $0.id and $2.cno = $1.cno),
-              (_1 := $0, _2 := $1),
+              (_1: $0, _2: $1),
               true,
               true),
             $0,
