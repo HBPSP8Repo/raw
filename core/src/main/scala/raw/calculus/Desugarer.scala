@@ -3,13 +3,13 @@ package calculus
 
 /** Desugar a comprehension.
   */
-trait Desugarer extends Transformer {
+trait Desugarer extends Uniquifier {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  def strategy = desugar
+  override def strategy = attempt(super.strategy) <* desugar
 
   private lazy val desugar =
     reduce(rulePatternFunAbs +
@@ -104,8 +104,11 @@ object Desugarer {
   import Calculus.Calculus
   import org.kiama.rewriting.Rewriter.rewriteTree
 
-  def apply(tree: Calculus): Calculus = {
-    val desugarer = new Desugarer {}
+  def apply(tree: Calculus, world: World): Calculus = {
+    val a = new SemanticAnalyzer(tree, world)
+    val desugarer = new Desugarer {
+      override def analyzer: SemanticAnalyzer = a
+    }
     rewriteTree(desugarer.strategy)(tree)
   }
 

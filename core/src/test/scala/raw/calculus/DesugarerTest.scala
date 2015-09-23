@@ -6,7 +6,7 @@ class DesugarerTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val t1 = Desugarer(t)
+    val t1 = Desugarer(t, w)
 
     val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))

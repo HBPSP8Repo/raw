@@ -40,12 +40,11 @@ object Translator {
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree)
-    val t2 = Uniquifier(t1, world)
-    val a = new SemanticAnalyzer(t2, world)
+    val t1 = Desugarer(tree, world)
+    val a = new SemanticAnalyzer(t1, world)
     val translator = new Translator {
       override def analyzer: SemanticAnalyzer = a
     }
-    rewriteTree(translator.strategy)(t2)
+    rewriteTree(translator.strategy)(t1)
   }
 }
