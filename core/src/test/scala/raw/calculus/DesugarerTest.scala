@@ -16,28 +16,28 @@ class DesugarerTest extends FunTest {
     CalculusPrettyPrinter(t1.root, 200)
   }
 
-  test("desugar ExpBlock") {
+  test("ExpBlock") {
     compare(
       process(
         """for (d <- Departments) yield set { name := d.name; (deptName: name) }""", TestWorlds.departments),
         """for ($0 <- Departments) yield set (deptName: $0.name)""")
   }
 
-  test("desugar PatternFunAbs") {
+  test("PatternFunAbs") {
     compare(
       process(
         """\(a, b) -> a + b + 2"""),
         """\$0 -> $0._1 + $0._2 + 2""")
   }
 
-  test("desugar PatternGen") {
+  test("PatternGen") {
     compare(
       process(
         """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""", TestWorlds.set_of_tuples),
         """for ($0 <- set_of_tuples; $1 := $0._1; $2 := $0._2; $3 := $0._3; $4 := $0._4) yield set (_1: $1, _2: $4)""")
   }
 
-  test("desugar PatternBind") {
+  test("PatternBind") {
     compare(
       process(
         """{ (a, b) := (1, 2); a + b }"""),
@@ -49,6 +49,28 @@ class DesugarerTest extends FunTest {
       process(
         """{ a := 1; { a := 2; a } + a }"""),
         """2 + 1""")
+  }
+
+  test("sum") {
+    compare(
+      process(
+        """sum(list(1))"""),
+         """\$0 -> for ($1 <- $0) yield sum $1(list(1))""")
+  }
+
+  test("max") {
+    compare(
+      process(
+        """max(list(1))"""),
+      """\$0 -> for ($1 <- $0) yield max $1(list(1))""")
+  }
+
+
+  test("count") {
+    compare(
+      process(
+        """count(list(1))"""),
+      """\$0 -> for ($1 <- $0) yield sum 1(list(1))""")
   }
 
 }

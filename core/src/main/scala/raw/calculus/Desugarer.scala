@@ -1,7 +1,9 @@
 package raw
 package calculus
 
-/** Desugar a comprehension.
+/** Desugar the following expressions:
+  * - Expression blocks
+  * - Sugar expression (e.g. Count, ...)
   */
 trait Desugarer extends Uniquifier {
 
@@ -12,12 +14,43 @@ trait Desugarer extends Uniquifier {
   override def strategy = attempt(super.strategy) <* desugar
 
   private lazy val desugar =
-    reduce(rulePatternFunAbs +
+    reduce(
+      ruleSum +
+      ruleMax +
+      ruleCount +
+      rulePatternFunAbs +
       rulePatternGen +
       rulePatternBindExpBlock +
       rulePatternBindComp +
       ruleExpBlocks +
       ruleEmptyExpBlock)
+
+  /** De-sugar sum
+    */
+  private lazy val ruleSum = rule[Exp] {
+    case Sum(e) =>
+      val xs = SymbolTable.next().idn
+      val x = SymbolTable.next().idn
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+  }
+
+  /** De-sugar max
+    */
+  private lazy val ruleMax = rule[Exp] {
+    case Max(e) =>
+      val xs = SymbolTable.next().idn
+      val x = SymbolTable.next().idn
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MaxMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+  }
+
+  /** De-sugar count
+    */
+  private lazy val ruleCount = rule[Exp] {
+    case Count(e) =>
+      val xs = SymbolTable.next().idn
+      val x = SymbolTable.next().idn
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IntConst("1"))), e)
+  }
 
   /** De-sugar pattern function abstractions into expression blocks.
     * e.g. `\((a,b),c) -> a + b + c` becomes `\x -> { (a,b) := x._1; c := x._2; a + b + c }`

@@ -51,7 +51,7 @@ class SemanticAnalyzerTest extends FunTest {
       // Ignore text description in expected types, even if defined
       case UnexpectedType(t, expected, _) =>
         assert(analyzer.errors.exists {
-          case UnexpectedType(`t`, `expected`, _) => true
+          case UnexpectedType(`t`, expected, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
@@ -713,17 +713,70 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.dept, count(partition) as n from students s group by s.dept") {
-    success(
-      """
-      {
-        count := \x -> for (e <- x) yield sum 1
-        select s.department, count(partition) as n from students s group by s.department
-      }
-      """, TestWorlds.school, CollectionType(BagMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
+    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(BagMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
   }
 
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
     success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
   }
 
+  test("sum(list(1))") {
+    success("sum(list(1))", TestWorlds.empty, IntType())
+  }
+
+  test("sum(list(1.1))") {
+    success("sum(list(1.1))", TestWorlds.empty, FloatType())
+  }
+
+  test("sum(1)") {
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+  }
+
+  test("max(list(1))") {
+    success("max(list(1))", TestWorlds.empty, IntType())
+  }
+
+  test("max(list(1.1))") {
+    success("max(list(1.1))", TestWorlds.empty, FloatType())
+  }
+
+  test("max(1)") {
+    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+  }
+
+  test("min(list(1))") {
+    success("min(list(1))", TestWorlds.empty, IntType())
+  }
+
+  test("min(list(1.1))") {
+    success("min(list(1.1))", TestWorlds.empty, FloatType())
+  }
+
+  test("min(1)") {
+    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+  }
+
+  test("avg(list(1))") {
+    success("avg(list(1))", TestWorlds.empty, IntType())
+  }
+
+  test("avg(list(1.1))") {
+    success("avg(list(1.1))", TestWorlds.empty, FloatType())
+  }
+
+  test("avg(1)") {
+    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+  }
+
+  test("count(list(1))") {
+    success("count(list(1))", TestWorlds.empty, IntType())
+  }
+
+  test("count(list(1.1))") {
+    success("count(list(1.1))", TestWorlds.empty, IntType())
+  }
+
+  test("""count(list("foo"))""") {
+    success("""count(list("foo"))""", TestWorlds.empty, IntType())
+  }
 }

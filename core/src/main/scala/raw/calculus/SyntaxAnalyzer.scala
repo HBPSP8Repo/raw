@@ -1,9 +1,12 @@
 package raw
 package calculus
 
-import scala.util.matching.Regex
 import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
 import scala.util.parsing.input.Positional
+
+// TODO: Add support for max, min, count, (avg?)
+// TODO: Can't it be a stdlib that is always prefixed to a query?
+// TODO: I don't think so. Is it a UnaryFun?
 
 /** Parser for monoid comprehensions.
   */
@@ -22,7 +25,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwAnd = "and\\b".r
   val kwNot = "not\\b".r
   val kwUnion = "union\\b".r
-  val kwBagUnion = "bag_union\\b".r
+  val kwBagUnion = "(bag_union|bagUnion)\\b".r
   val kwAppend = "append\\b".r
   val kwMax = "max\\b".r
   val kwSum = "sum\\b".r
@@ -38,13 +41,21 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwIf = "if\\b".r
   val kwThen = "then\\b".r
   val kwElse = "else\\b".r
-  val kwToBool = "to_bool\\b".r
-  val kwToInt = "to_int\\b".r
-  val kwToFloat = "to_float\\b".r
-  val kwToString = "to_string\\b".r
-  val kwGoTo = "go_to\\b".r
-  val kwGoTo2 = "goto\\b".r
-  val kwOrElse = "or_else\\b".r
+  val kwToBool = "(to_bool|toBool)\\b".r
+  val kwToInt = "(to_int|toInt)\\b".r
+  val kwToFloat = "(to_float|toFloat)\\b".r
+  val kwToString = "(to_string|toString)\\b".r
+  val kwToBag = "(to_bag|toBag)\\b".r
+  val kwToList = "(to_list|toList)\\b".r
+  val kwToSet = "(to_set|toSet)\\b".r
+  val kwAvg = "avg\\b".r
+  val kwCount = "count\\b".r
+  val kwMin = "min\\b".r
+  val kwGoTo = "(go_to|goto)\\b".r
+  val kwGetOrElse = "(get_or_else|getOrElse)\\b".r
+  val kwOrElse = "(or_else|orElse)\\b".r
+  val kwBreak = "break\\b".r
+  val kwContinue = "continue\\b".r
   val kwSelect = "select\\b".r
   val kwDistinct = "distinct\\b".r
   val kwFrom = "from\\b".r
@@ -57,10 +68,14 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwHaving = "having\\b".r
   val kwPartition = "partition\\b".r
 
+  // TODO: Alphabetic order
+  // TODO: Add more general support for built-in functions(?)
+
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
-    kwToFloat | kwToString | kwGoTo | kwGoTo2 | kwOrElse | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere |
-    kwGroup | kwOrder | kwBy | kwHaving | kwPartition
+    kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
+    kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
+    kwPartition
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -199,6 +214,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     consMonoid |
     zeroMonoid |
     unaryFun |
+    sugarFun |
     funAbs |
     partition |
     "(" ~> exp <~ ")" |
@@ -321,7 +337,18 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToBool ^^^ ToBool() |
       kwToInt ^^^ ToInt() |
       kwToFloat ^^^ ToFloat() |
-      kwToString ^^^ ToString())
+      kwToString ^^^ ToString() |
+      kwToBag ^^^ ToBag() |
+      kwToList ^^^ ToList() |
+      kwToSet ^^^ ToSet())
+
+  lazy val sugarFun: PackratParser[Sugar] =
+    positioned(
+      kwSum ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Sum(e) } |
+      kwMax ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Max(e) } |
+      kwMin ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Min(e) } |
+      kwAvg ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Avg(e) } |
+      kwCount ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Count(e) })
 
   lazy val funAbs: PackratParser[FunAbs] =
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })

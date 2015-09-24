@@ -182,6 +182,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
           // TODO: Ben: HELP!!!
         case _: Partition => te
+        case Sum(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
+        case Max(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
+        case Min(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
+        case Avg(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
+        case Count(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
       }
       logger.debug(s"${CalculusPrettyPrinter(e)} => ${TypesPrettyPrinter(nt)}")
       nt
@@ -566,6 +571,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case UnaryExp(_: ToInt, _)   => IntType()
     case UnaryExp(_: ToFloat, _) => FloatType()
     case UnaryExp(_: ToString, _) => StringType()
+
+    // Sugar expressions
+    case _: Count => IntType()
 
     case n => TypeVariable()
   }
@@ -1053,6 +1061,37 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g2.e, CollectionType(m, t2)),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
       }
+
+      case n @ Sum(e) =>
+        val tn = NumberType()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), tn)),
+          HasType(n, tn))
+
+      case n @ Max(e) =>
+        val tn = NumberType()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), tn)),
+          HasType(n, tn))
+
+      case n @ Min(e) =>
+        val tn = NumberType()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), tn)),
+          HasType(n, tn))
+
+      case n @ Avg(e) =>
+        val tn = NumberType()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), tn)),
+          HasType(n, tn))
+
+      case n @ Count(e) =>
+        val tn = NumberType()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), TypeVariable())),
+          HasType(n, tn))
+
       case _ =>
         Seq()
     }
@@ -1089,6 +1128,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
+    case n @ Sum(e) => constraints(e) ++ constraint(n)
+    case n @ Max(e) => constraints(e) ++ constraint(n)
+    case n @ Min(e) => constraints(e) ++ constraint(n)
+    case n @ Avg(e) => constraints(e) ++ constraint(n)
+    case n @ Count(e) => constraints(e) ++ constraint(n)
   }
 
   private lazy val selectTypeVar: Select => Type = attr {

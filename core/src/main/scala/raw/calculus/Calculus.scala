@@ -123,9 +123,33 @@ object Calculus {
     */
   case class Bind(p: Pattern, e: Exp) extends Statement
 
+  /** Sugar Nodes: removed by the Desugarer
+    */
+  sealed abstract class Sugar extends Exp
+
   /** Expression in a Block with Binds
     */
-  case class ExpBlock(bs: Seq[Bind], e: Exp) extends Exp
+  case class ExpBlock(bs: Seq[Bind], e: Exp) extends Sugar
+
+  /** Sum
+    */
+  case class Sum(e: Exp) extends Sugar
+
+  /** Max
+    */
+  case class Max(e: Exp) extends Sugar
+
+  /** Min
+    */
+  case class Min(e: Exp) extends Sugar
+
+  /** Avg
+    */
+  case class Avg(e: Exp) extends Sugar
+
+  /** Count
+    */
+  case class Count(e: Exp) extends Sugar
 
   /** Patterns
     */
