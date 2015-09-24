@@ -23,8 +23,6 @@ class TranslatorTest extends FunTest {
     pt
   }
 
-  // TODO: Make the testcases get the root type of both types and compare that they are equal!!!!
-
   test("select s.name from students s") {
     compare(
       process(
