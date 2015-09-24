@@ -403,6 +403,34 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
+  private def getVariableMonoids(t: Type, occursCheck: Set[Type] = Set()): Set[MonoidVariable] = {
+    if (occursCheck.contains(t))
+      Set()
+    else {
+      t match {
+        case _: NothingType => Set()
+        case _: AnyType => Set()
+        case _: BoolType => Set()
+        case _: IntType => Set()
+        case _: FloatType => Set()
+        case _: StringType => Set()
+        case _: UserType => Set()
+        case _: PrimitiveType => Set()
+        case _: NumberType => Set()
+        case t1: TypeVariable                                  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableMonoids(typesVarMap(t1).root, occursCheck + t) else Set()
+        case RecordType(atts, _) => atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }.toSet
+        case CollectionType(m: MonoidVariable, innerType) =>
+          (mFind(m) match {
+            case m: MonoidVariable => Set(m)
+            case _ => Set()
+          }) ++ getVariableMonoids(innerType, occursCheck + t)
+        case CollectionType(_, innerType) => getVariableMonoids(innerType, occursCheck + t)
+        case FunType(p, e) => getVariableMonoids(p, occursCheck + t) ++ getVariableMonoids(e, occursCheck + t)
+        case ConstraintRecordType(atts, _) => atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }
+      }
+    }
+  }
+
   /** Return the type of an entity.
     * Implements let-polymorphism.
     */
@@ -429,11 +457,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Some(b: Bind)      =>
           // Add all pattern identifier types to the map before processing the rhs
           // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-//          patternIdnTypes(b.p).foreach{ case pt => typesVarMap.union(pt, pt)}
+          patternIdnTypes(b.p).foreach{ case pt => typesVarMap.union(pt, pt)}
 
           // Collect all the roots known in the TypesVarMap.
           // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
-          val prevRoots = typesVarMap.getRoots
+          val prevTypeRoots = typesVarMap.getRoots
+          val prevMonoidRoots = monoidsVarMap.getRoots
 
           // Type the rhs body of the Bind
           val te = tipeBind(b)
@@ -441,12 +470,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             case t: NothingType => t
             case _ =>
               // Find all type variables used in the type
-              val vars = getVariableTypes(te)
+              val typeVars = getVariableTypes(te)
+              val monoidVars = getVariableMonoids(te)
               // For all the "previous roots", get their new roots
-              val prevRootsUpdated = prevRoots.map { case v => typesVarMap(v).root }
+              val prevTypeRootsUpdated = prevTypeRoots.map { case v => typesVarMap(v).root }
+              val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => monoidsVarMap(v).root }
               // Collect all symbols from variable types that were not in TypesVarMap before we started typing the body of the Bind.
-              val freeSyms = vars.collect { case vt: VariableType => vt }.filter { case vt => !prevRootsUpdated.contains(vt) }.map(_.sym)
-              TypeScheme(t, freeSyms)
+              val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
+              val freeMonoidSyms = monoidVars.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
+              val ts = TypeScheme(t, freeTypeSyms, freeMonoidSyms)
+              logger.debug(s"TypeScheme is ${PrettyPrinter(ts)} for ${CalculusPrettyPrinter(b)}")
+              ts
           }
         case Some(g: Gen)       =>
           t
@@ -467,7 +501,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Instantiate a new type from a type scheme.
     * Used for let-polymorphism.
     */
-  private def instantiateTypeScheme(t: Type, polymorphic: Set[Symbol]) = {
+  private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol]) = {
     val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getNewSym(sym: Symbol): Symbol = {
@@ -476,14 +510,22 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       newSyms(sym)
     }
 
+    def getMonoid(m: CollectionMonoid): CollectionMonoid = {
+      val mr = if (monoidsVarMap.contains(m)) monoidsVarMap(m).root else m
+      mr match {
+        case MonoidVariable(commutative, idempotent, sym) if monoidSyms.contains(sym) => MonoidVariable(commutative, idempotent, getNewSym(sym))
+        case _ => mr
+      }
+    }
+
     def recurse(t: Type, occursCheck: Set[Type]): Type = {
       if (occursCheck.contains(t))
         t
       else {
         t match {
-          case t1 @ TypeVariable(sym) if !polymorphic.contains(sym)  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
-          case t1 @ NumberType(sym) if !polymorphic.contains(sym)    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
-          case t1 @ PrimitiveType(sym) if !polymorphic.contains(sym) => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
+          case t1 @ TypeVariable(sym) if !typeSyms.contains(sym)  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
+          case t1 @ NumberType(sym) if !typeSyms.contains(sym)    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
+          case t1 @ PrimitiveType(sym) if !typeSyms.contains(sym) => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           // TODO: We seem to be missing a strategy to reconstruct constraint record types.
           //       We need to take care to only reconstruct if absolutely needed (if there is a polymorphic symbol somewhere inside?).
           case TypeVariable(sym)                              => TypeVariable(getNewSym(sym))
@@ -502,7 +544,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           //       Or is it the case that if I got here is it because for sure there are type variables inside?  
           //       Say we have a record with 2 fields which are 2 collections: one of them has type vars the other doesn't. So should we just clone one? Or both?
           case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, name)
-          case CollectionType(m, inner)                       => CollectionType(m, recurse(inner, occursCheck + t))
+          case c1 @ CollectionType(m, inner)                       =>
+            logger.debug(s"c1 is ${PrettyPrinter(c1)}")
+            logger.debug(s"typeSyms $typeSyms")
+            logger.debug(s"monoidSyms $monoidSyms")
+            val nm = getMonoid(m)
+            logger.debug(s"nm $nm")
+            CollectionType(nm, recurse(inner, occursCheck + t))
           case FunType(p, e)                                  => FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
         }
       }
@@ -547,7 +595,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // Rule 3
     case IdnExp(idn) =>
       idnType(idn) match {
-        case TypeScheme(t, vars) => if (vars.isEmpty) t else instantiateTypeScheme(t, vars)
+        case TypeScheme(t, typeSyms, monoidSyms) =>
+          if (typeSyms.isEmpty && monoidSyms.isEmpty)
+            t
+          else instantiateTypeScheme(t, typeSyms, monoidSyms)
         case t                   => t
       }
 
@@ -618,7 +669,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def unify(t1: Type, t2: Type): Boolean = {
 
     def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
-      // logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
+      logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
       if (occursCheck.contains((t1, t2))) {
         return true
       }
@@ -766,17 +817,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         r
       case ExpMonoidSubsetOf(e, m) =>
         val t = expType(e)
-        find(t) match {
-          case CollectionType(m1, _) =>
-            // Subset of monoid
-            val rc = if (m.commutative.isDefined && m.commutative.get) None else m.commutative
-            val ri = if (m.idempotent.isDefined && m.idempotent.get) None else m.idempotent
-            val r = unify(t, CollectionType(MonoidVariable(rc, ri), TypeVariable()))
-            if (!r) {
-              unifyErrors += IncompatibleMonoids(m, walk(t))
-            }
-            r
+        // Subset of monoid
+        val rc = if (m.commutative.isDefined && m.commutative.get) None else m.commutative
+        val ri = if (m.idempotent.isDefined && m.idempotent.get) None else m.idempotent
+        val r = unify(t, CollectionType(MonoidVariable(rc, ri), TypeVariable()))
+        if (!r) {
+          unifyErrors += IncompatibleMonoids(m, walk(t))
         }
+        r
 
       case PartitionHasType(s) =>
         val t = selectTypeVar(s)
@@ -817,6 +865,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           unifyErrors += IncompatibleTypes(walk(t), walk(t1))
         }
         r
+
+      case InheritType(Bind(p, e)) =>
+        def idns(p: Pattern): Seq[IdnDef] = p match {
+          case PatternProd(ps) => ps.flatMap(idns)
+          case PatternIdn(idndef) => Seq(idndef)
+        }
+        idnType(idns(p).head)
+        true
     }
 
     logger.debug(s"solving $cs")
@@ -1038,6 +1094,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e, CollectionType(MonoidVariable(), patternType(p)))
         )
 
+      case b @ Bind(p, e) =>
+        Seq(
+          InheritType(b)
+        )
+
       case Iterator(Some(p), e) =>
         Seq(
           HasType(e, CollectionType(MonoidVariable(), patternType(p)))
@@ -1134,7 +1195,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   // TODO: Move constraint(n) to top-level and apply it always at the end
   lazy val constraints: Exp => Seq[Constraint] = attr {
-    case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case g @ Gen(_, e1) => constraints(e1) ++ constraint(g) case _ => Nil } ++ constraints(e) ++ constraint(n)
+    case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case g @ Gen(_, e1) => constraints(e1) ++ constraint(g) case b @ Bind(_, e1) => constraint(b) } ++ constraints(e) ++ constraint(n)
     case n @ Select(from, _, g, proj, w, o, h) =>
       val fc = from.flatMap { case it @ Iterator(_, e) => constraints(e) ++ constraint(it) }
       val wc = if (w.isDefined) constraints(w.get) else Nil
@@ -1143,7 +1204,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val hc = if (h.isDefined) constraints(h.get) else Nil
       fc ++ wc ++ gc ++ oc ++ hc ++ constraints(proj) ++ constraint(n)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
-    case n @ ExpBlock(_, e) => constraints(e) ++ constraint(n)
+    case n @ ExpBlock(binds, e) => binds.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ BinaryExp(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ UnaryExp(_, e) => constraints(e) ++ constraint(n)

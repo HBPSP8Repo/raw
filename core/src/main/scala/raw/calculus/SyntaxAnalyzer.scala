@@ -217,6 +217,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     sugarFun |
     funAbs |
     partition |
+    notExp |
     "(" ~> exp <~ ")" |
     idnExp
 

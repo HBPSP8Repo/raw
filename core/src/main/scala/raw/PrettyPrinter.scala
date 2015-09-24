@@ -77,7 +77,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: AnyType             => opt(t.nullable) <> "any"
     case _: NothingType         => opt(t.nullable) <> "nothing"
     case UserType(sym)          => opt(t.nullable) <> sym.idn
-    case TypeScheme(t1, vars)   => opt(t.nullable) <> "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(vars.map{ case sym => text(sym.idn) }.to, comma))))
+    case TypeScheme(t1, typeSyms, monoidSyms)   => opt(t.nullable) <> "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(typeSyms.map{ case sym => text(sym.idn) }.to, comma)))) <> parens(group(nest(lsep(monoidSyms.map{ case sym => text(sym.idn) }.to, comma))))
   }
 
 }

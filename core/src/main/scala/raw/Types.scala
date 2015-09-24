@@ -75,6 +75,6 @@ case class ConstraintRecordType(atts: Set[AttrType], sym: Symbol = SymbolTable.n
 /** Type Scheme
   * TODO: Describe.
   */
-case class TypeScheme(t: Type, vars: Set[Symbol]) extends Type
+case class TypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol]) extends Type
 
 

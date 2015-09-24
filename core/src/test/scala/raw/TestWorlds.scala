@@ -306,6 +306,7 @@ object TestWorlds {
 
   def unknown = {
     new World(sources = Map(
+      "unknownvalue" -> TypeVariable(),
       "unknown" -> CollectionType(SetMonoid(), TypeVariable()),
       "unknownrecords" -> CollectionType(SetMonoid(), RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
   }

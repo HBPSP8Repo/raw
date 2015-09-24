@@ -167,6 +167,18 @@ class SemanticAnalyzerTest extends FunTest {
     success("for (r <- unknown; v := r) yield set (r + 0)", TestWorlds.simple, CollectionType(SetMonoid(),IntType()))
   }
 
+  test("bug") {
+    success("for (s <- unknown; a := s + 2) yield set s", TestWorlds.unknown, CollectionType(SetMonoid(), IntType()))
+  }
+
+  test("{ a:= -unknownvalue; unknownvalue}") {
+    success("{ a:= -unknownvalue; unknownvalue}", TestWorlds.unknown, NumberType())
+  }
+
+  test("{ a:= not unknownvalue; unknownvalue}") {
+    success("{ a:= not unknownvalue; unknownvalue}", TestWorlds.unknown, BoolType())
+  }
+
   test("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)") {
     success("for (r <- integers; (a,b) := (1, 2)) yield set (a+b)", TestWorlds.simple, CollectionType(SetMonoid(),IntType()))
   }
@@ -426,7 +438,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       """
         {
-        sum1 := \(x,y) -> for (z <- x) yield sum y(z);
+        sum1 := (\(x,y) -> for (z <- x) yield sum (y(z)));
         age := (students, \x -> x.age);
         v := sum1(age);
         sum1

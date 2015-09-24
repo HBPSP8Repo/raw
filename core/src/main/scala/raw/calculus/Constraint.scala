@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-import raw.calculus.Calculus.Gen
+import raw.calculus.Calculus.{Bind, Gen}
 
 import scala.collection.immutable.Seq
 
@@ -22,4 +22,6 @@ object Constraint extends LazyLogging {
   case class InheritsOption(t: Type, ts: Seq[Type]) extends Constraint
 
   case class PartitionHasType(s: Select) extends Constraint
+
+  case class InheritType(b: Bind) extends Constraint
 }

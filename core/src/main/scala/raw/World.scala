@@ -62,6 +62,7 @@ object World extends LazyLogging {
 
         m = nm.toList
       }
+      logger.debug(s"mymap: ${toString()}")
       this
     }
 
