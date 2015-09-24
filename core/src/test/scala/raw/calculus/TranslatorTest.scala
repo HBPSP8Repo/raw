@@ -59,4 +59,12 @@ class TranslatorTest extends FunTest {
         """select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10""", TestWorlds.professors_students),
       """for ($0 <- students) yield bag (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1) yield bag $2.name)""")
   }
+
+  test("sss") {
+    compare(
+      process(
+        "select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students),
+      """for ($0 <- students) yield bag (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1) yield bag $2.name)""")
+  }
+
 }

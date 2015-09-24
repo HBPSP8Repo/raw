@@ -14,7 +14,8 @@ trait Translator extends Transformer {
 
   def analyzer: SemanticAnalyzer
 
-  private def translate = attempt(manytd(selectGroupBy)) <* reduce(selectToComp)
+//  private def translate = attempt(manytd(selectGroupBy)) <* reduce(selectToComp)
+    private def translate = reduce(selectGroupBy)
 
   // TODO: Keyword "partition" ? Type it...
   // TODO: Add case classes ToSet, ToBag, ToList and apply them here so that the output Comp still types properly
@@ -70,6 +71,7 @@ trait Translator extends Transformer {
         Select(ns.from, ns.distinct, None, nproj, Some(BinaryExp(Eq(), groupby, ns.group.get)), None, None)
 
       // TODO: Replace `s` by reference equality check
+      logger.debug(s"will crash: ${CalculusPrettyPrinter(s)}")
       val projWithoutPart = rewrite(everywhere(rule[Exp] {
         case p: Partition if analyzer.partitionSelect(p).contains(`s`) =>
           deepclone(partition)

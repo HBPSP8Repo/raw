@@ -762,6 +762,10 @@ class SemanticAnalyzerTest extends FunTest {
     success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(BagMonoid(),RecordType(List(AttrType("decade",IntType()), AttrType("names",CollectionType(BagMonoid(),StringType()))),None)))
   }
 
+  test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
+    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(),RecordType(List(AttrType("_1",IntType()), AttrType("names",CollectionType(BagMonoid(),RecordType(List(AttrType("_1",StringType()), AttrType("_2",CollectionType(BagMonoid(),UserType(Symbol("student"))))),None)))),None)))
+  }
+
   test("sum(list(1))") {
     success("sum(list(1))", TestWorlds.empty, IntType())
   }
