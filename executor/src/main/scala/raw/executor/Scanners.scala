@@ -60,7 +60,7 @@ trait AbstractClosableIterator[A] extends AbstractIterator[A] with Iterator[A] {
 }
 
 case class ClosableIterator[A](underlying: MappingIterator[A]) extends AbstractClosableIterator[A] {
-  def hasNext = underlying.hasNext()
+  def hasNext = underlying.hasNext
 
   def next() = underlying.next()
 
@@ -68,7 +68,7 @@ case class ClosableIterator[A](underlying: MappingIterator[A]) extends AbstractC
 }
 
 case class ClosableIteratorInputStream[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
-  def hasNext = underlying.hasNext()
+  def hasNext = underlying.hasNext
 
   def next() = underlying.next()
 
