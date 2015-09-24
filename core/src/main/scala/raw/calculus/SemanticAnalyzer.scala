@@ -429,7 +429,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Some(b: Bind)      =>
           // Add all pattern identifier types to the map before processing the rhs
           // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-          patternIdnTypes(b.p).foreach{ case pt => typesVarMap.union(pt, pt)}
+//          patternIdnTypes(b.p).foreach{ case pt => typesVarMap.union(pt, pt)}
 
           // Collect all the roots known in the TypesVarMap.
           // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
@@ -455,7 +455,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Some(f: FunAbs)                  =>
           // Add all pattern identifier types to the map before processing the rhs
           // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-          patternIdnTypes(f.p).foreach{ case pt => typesVarMap.union(pt, pt)}
+//          patternIdnTypes(f.p).foreach{ case pt => typesVarMap.union(pt, pt)}
           t
       }
     }

@@ -51,7 +51,7 @@ class SemanticAnalyzerTest extends FunTest {
       // Ignore text description in expected types, even if defined
       case UnexpectedType(t, expected, _) =>
         assert(analyzer.errors.exists {
-          case UnexpectedType(`t`, expected, _) => true
+          case UnexpectedType(t, expected, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
@@ -436,19 +436,17 @@ class SemanticAnalyzerTest extends FunTest {
       FunType(RecordType(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, n))), None), n))
   }
 
-  test("""this should fail!""") {
-    // also type of count, should it be resolved to take a collection or not.
-    val m = MonoidVariable(idempotent=Some(false))
-    val z = TypeVariable()
+  test("""home-made count applied to wrong type""") {
+    val m =
     failure(
       """
         {
-        count := \x -> for (z <- x) yield sum 1;
-        count(1)
+        count1 := \x -> for (z <- x) yield sum 1
+        count1(1)
         }
 
-      """, TestWorlds.unknown,
-      IncompatibleTypes(CollectionType(m, z), IntType()) // I don't know what error is expected
+      """, TestWorlds.empty,
+      UnexpectedType(FunType(CollectionType(MonoidVariable(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()), None)
     )
   }
 
@@ -806,6 +804,10 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("""count(list("foo"))""") {
     success("""count(list("foo"))""", TestWorlds.empty, IntType())
+  }
+
+  test("""count(1)""") {
+    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable()), None))
   }
 
   test("to_bag(list(1))") {
