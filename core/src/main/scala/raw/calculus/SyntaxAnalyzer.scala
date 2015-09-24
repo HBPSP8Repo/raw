@@ -318,10 +318,10 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val iterator: PackratParser[Iterator] =
     positioned(
-      ident ~ (kwIn ~> exp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
-      exp ~ (kwAs ~> ident) ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} | // TODO: Maybe replace by ident and do IdnUse if we really want to have this? Otherwise ambiguous w/ single record doing AS...
-      exp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
-      exp ^^ { case e => Iterator(None, e)})
+      ident ~ (kwIn ~> mergeExp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ~ (kwAs ~> ident) ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ^^ { case e => Iterator(None, e)})
 
   lazy val consMonoid: PackratParser[Exp] =
     positioned(collectionMonoid ~ ("(" ~> exp <~ ")") ^^ { case m ~ e => ConsCollectionMonoid(m, e) })
