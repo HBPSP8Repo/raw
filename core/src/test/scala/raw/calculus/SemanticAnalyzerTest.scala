@@ -807,4 +807,16 @@ class SemanticAnalyzerTest extends FunTest {
   test("""count(list("foo"))""") {
     success("""count(list("foo"))""", TestWorlds.empty, IntType())
   }
+
+  test("to_bag(list(1))") {
+    success("""to_bag(list(1))""", TestWorlds.empty, CollectionType(BagMonoid(), IntType()))
+  }
+
+  test("to_set(list(1))") {
+    success("""to_set(list(1))""", TestWorlds.empty, CollectionType(SetMonoid(), IntType()))
+  }
+
+  test("to_list(set(1))") {
+    success("""to_list(set(1))""", TestWorlds.empty, CollectionType(ListMonoid(), IntType()))
+  }
 }

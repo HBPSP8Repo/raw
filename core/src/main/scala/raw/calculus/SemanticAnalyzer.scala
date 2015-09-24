@@ -897,6 +897,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Constraints of a node.
     * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
     */
+  // TODO: With Ben, we sort of agree that we should re-order constraints so that the stuff that provides more information goes first.
+  // TODO: Typically this means HasType(e, IntType()) goes before a SameType(n, e). We believe this may impact the precision of error reporting.
   def constraint(n: RawNode): Seq[Constraint] = {
     import Constraint._
 
@@ -1002,10 +1004,29 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e2, NumberType()))
 
       // Unary Expression type
+      case n @ UnaryExp(_: Not, e) =>
+        Seq(
+          SameType(n, e),
+          HasType(e, BoolType()))
       case n @ UnaryExp(_: Neg, e) =>
         Seq(
           SameType(n, e),
           HasType(e, NumberType()))
+      case n @ UnaryExp(_: ToBag, e) =>
+        val inner = TypeVariable()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), inner)),
+          HasType(n, CollectionType(BagMonoid(), inner)))
+      case n @ UnaryExp(_: ToList, e) =>
+        val inner = TypeVariable()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), inner)),
+          HasType(n, CollectionType(ListMonoid(), inner)))
+      case n @ UnaryExp(_: ToSet, e) =>
+        val inner = TypeVariable()
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), inner)),
+          HasType(n, CollectionType(SetMonoid(), inner)))
 
       // Expression block type
       case n @ ExpBlock(_, e) =>
