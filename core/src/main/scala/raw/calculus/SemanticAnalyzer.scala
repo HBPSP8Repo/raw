@@ -1250,7 +1250,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** Finds the Select that this partition refers to.
    */
-  private lazy val partitionSelect: Partition => Option[Select] = attr {
+  lazy val partitionSelect: Partition => Option[Select] = attr {
     case p =>
 
       // Returns true if `p` used in `e`

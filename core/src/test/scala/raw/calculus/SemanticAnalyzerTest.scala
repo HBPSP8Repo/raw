@@ -571,8 +571,8 @@ class SemanticAnalyzerTest extends FunTest {
       """
         {
         map := \(col, f) -> for (el <- col) yield list f(el);
-        col1 := set(1,2,3);
-        col2 := list(1.0, 2.0, 3.0);
+        col1 := list(1);
+        col2 := list(1.0);
         (map(col1, \x -> x + 1), map(col2, \x -> x + 1.1))
         }
       """, TestWorlds.empty, RecordType(List(AttrType("_1", CollectionType(ListMonoid(),IntType())), AttrType("_2", CollectionType(ListMonoid(),FloatType()))), None))
@@ -756,6 +756,10 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
     success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
+  }
+
+  test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
+    success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(BagMonoid(),RecordType(List(AttrType("decade",IntType()), AttrType("names",CollectionType(BagMonoid(),StringType()))),None)))
   }
 
   test("sum(list(1))") {
