@@ -1,26 +1,25 @@
 package raw.executor
 
-import com.fasterxml.jackson.core.{JsonToken, JsonFactory}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-
-import scala.reflect._
-import scala.reflect.runtime.universe._
-
 import java.io.InputStream
 import java.nio.file.Files
 
-import com.fasterxml.jackson.databind.{ObjectMapper, MappingIterator}
-import com.fasterxml.jackson.dataformat.csv.{CsvSchema, CsvParser, CsvMapper}
+import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
+import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
+import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvParser, CsvSchema}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.SparkContext
 import raw.utils.Instrumented
 
-import scala.collection.JavaConversions
 import scala.collection.immutable.HashMap
+import scala.collection.{AbstractIterator, Iterator, JavaConversions}
+import scala.reflect._
+import scala.reflect.runtime.universe._
 
 
 object RawScanner {
-  def apply[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag[T]): RawScanner[T] = {
+  def apply[T:TypeTag:ClassTag](schema: RawSchema, m: Manifest[T]): RawScanner[T] = {
     val p = schema.dataFile
     if (p.toString.endsWith(".json")) {
       new JsonRawScanner(schema, m)
@@ -32,10 +31,50 @@ object RawScanner {
   }
 }
 
-abstract class RawScanner[T](val schema: RawSchema)(implicit val tag: TypeTag[T]) extends Iterable[T] {
+abstract class RawScanner[T: TypeTag: ClassTag](val schema: RawSchema) extends Iterable[T] {
+  val tt = typeTag[T]
+  val ct = classTag[T]
   // The default Iterable toString implementation prints the full contents
-  override def toString() = s"${this.getClass}(${schema.toString})"
+  override def toString() = s"${this.getClass}(${schema.toString}, tag:${typeTag[T]})"
+
+  override def iterator: AbstractClosableIterator[T]
 }
+
+class SparkRawScanner[T: TypeTag: ClassTag](scanner: RawScanner[T], sc: SparkContext) extends RawScanner[T](scanner.schema) with StrictLogging {
+  override def iterator: AbstractClosableIterator[T] = scanner.iterator
+
+  def toRDD() = {
+    val iter = scanner.iterator
+    try {
+      sc.parallelize(iter.toBuffer)
+    } finally {
+      logger.info("Closing iterator: " + iter.close())
+      iter.close()
+    }
+  }
+}
+
+
+trait AbstractClosableIterator[A] extends AbstractIterator[A] with Iterator[A] {
+  def close()
+}
+
+case class ClosableIterator[A](underlying: MappingIterator[A]) extends AbstractClosableIterator[A] {
+  def hasNext = underlying.hasNext()
+
+  def next() = underlying.next()
+
+  def close() = underlying.close()
+}
+
+case class ClosableIteratorInputStream[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
+  def hasNext = underlying.hasNext()
+
+  def next() = underlying.next()
+
+  def close() = is.close()
+}
+
 
 object CsvRawScanner {
   private val mapperFunctions = HashMap[String, (String) => AnyRef](
@@ -53,9 +92,10 @@ object CsvRawScanner {
   }
 }
 
-class CsvRawScanner[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag[T]) extends RawScanner[T](schema) with Instrumented with StrictLogging {
-
+class CsvRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with Instrumented with StrictLogging {
   import CsvRawScanner._
+
+  val tag = typeTag[T]
 
   private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
   private[this] val ctor = {
@@ -66,15 +106,11 @@ class CsvRawScanner[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag[
   }
   private[this] var parTypes = ctor.getParameterTypes
 
-  override def iterator: Iterator[T] = {
+  override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
     val properties = schema.properties
-    logger.info(s"Creating iterator for CSV resource: $p. Properties: ${properties.properties}")
-    val iter: Iterator[Array[String]] = newCsvIterator()
-    iter.map(v => newValue(v))
-  }
+    logger.info(s"Creating iterator for CSV resource: $p. Properties: ${properties}")
 
-  private[this] def newCsvIterator(): Iterator[Array[String]] = {
     // TODO: Potential resource leak. Who closes the InputStream once the client code is done with the
     // iterator? There is no close() method on the Iterator interface
     val is: InputStream = Files.newInputStream(schema.dataFile)
@@ -83,7 +119,9 @@ class CsvRawScanner[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag[
       .`with`(csvSchema)
       .readValues(is)
       .asInstanceOf[MappingIterator[Array[String]]]
-    JavaConversions.asScalaIterator(iter)
+    val scalaIter = JavaConversions.asScalaIterator(iter)
+    val mappedIter: scala.Iterator[T] = scalaIter.map(v => newValue(v))
+    new ClosableIteratorInputStream(mappedIter, is)
   }
 
   // Buffer reused in calls to newValue().
@@ -118,14 +156,16 @@ object JsonRawScanner {
   mapper.registerModule(DefaultScalaModule)
 }
 
-class JsonRawScanner[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag[T]) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
+class JsonRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
   import JsonRawScanner._
 
+  val tag = typeTag[T]
+
   /* http://www.ngdata.com/parsing-a-large-json-file-efficiently-and-easily/ */
-  override def iterator: Iterator[T] = {
+  override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
     val properties = schema.properties
-    logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties.properties}")
+    logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: $m, TyppeTag: ${typeTag[T]}")
 
     val is: InputStream = Files.newInputStream(schema.dataFile)
     val jp = jsonFactory.createParser(is)
@@ -133,8 +173,6 @@ class JsonRawScanner[T](schema: RawSchema, m: Manifest[T])(implicit tag: TypeTag
     assert(jp.nextToken() == JsonToken.START_ARRAY)
     assert(jp.nextToken() == JsonToken.START_OBJECT)
     val iter: MappingIterator[T] = mapper.readValues(jp)(m)
-    JavaConversions.asScalaIterator(iter)
+    new ClosableIterator[T](iter)
   }
 }
-
-

@@ -8,9 +8,8 @@ import common
 templateClass = """package %(package)s
 
 import raw._
-import raw.datasets.publications.Publications
 
-class %(name)sTest extends Abstract%(testType)sTest(Publications.%(testType)s.%(dataset)s) {
+class %(name)sTest extends Abstract%(testType)sTest {
 %(testMethods)s
 }
 """

@@ -1,9 +1,8 @@
 package raw.publications.generated.scala
 
 import raw._
-import raw.datasets.publications.Publications
 
-class AssignTest extends AbstractScalaTest(Publications.Scala.publications) {
+class AssignTest extends AbstractScalaTest {
 
   test("Assign0") {
     val oql = """
@@ -17,7 +16,7 @@ from (
       from authors A
       group by title: A.title) G
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Assign0", result)
   }
 

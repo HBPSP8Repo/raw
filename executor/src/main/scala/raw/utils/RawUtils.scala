@@ -2,10 +2,14 @@ package raw.utils
 
 import java.net.URL
 import java.nio.file._
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.function.BiPredicate
 
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
+
+import scala.collection.JavaConversions
 
 object RawUtils extends StrictLogging {
 
@@ -27,8 +31,18 @@ object RawUtils extends StrictLogging {
   }
 
   def createDirectory(p: Path) = {
+    logger.info("Creating directory tree: " + p)
     // Does not throw an exception if the directory already exists
     Files.createDirectories(p)
+  }
+
+  def listSubdirectories(basePath: Path): Iterator[Path] = {
+    val directoryFilter = new BiPredicate[Path, BasicFileAttributes] {
+      override def test(t: Path, u: BasicFileAttributes): Boolean = {
+        u.isDirectory && t != basePath
+      }
+    }
+    JavaConversions.asScalaIterator(Files.find(basePath, 1, directoryFilter).iterator())
   }
 
   /**

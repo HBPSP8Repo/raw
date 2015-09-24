@@ -12,7 +12,7 @@ templateTestMethod = """
     val oql = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected(\"\"\"
@@ -28,7 +28,7 @@ templateTestMethodJsonCompare = """
     val oql = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual(\"%(dataset)s\", \"%(name)s\", result)
   }
 """

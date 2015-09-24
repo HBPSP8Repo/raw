@@ -1,15 +1,14 @@
 package raw.publications.generated.scala
 
 import raw._
-import raw.datasets.publications.Publications
 
-class CountTest extends AbstractScalaTest(Publications.Scala.publications) {
+class CountTest extends AbstractScalaTest {
 
   test("Count0") {
     val oql = """
       count(authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Count0", result)
   }
 
@@ -17,7 +16,7 @@ class CountTest extends AbstractScalaTest(Publications.Scala.publications) {
     val oql = """
       count(publications)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Count1", result)
   }
 

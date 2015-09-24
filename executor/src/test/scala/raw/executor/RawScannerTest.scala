@@ -27,8 +27,7 @@ class RawScannerTest extends FunSuite with StrictLogging with BeforeAndAfterAll 
   override def beforeAll() = {
     testDir = RawUtils.getTemporaryDirectory("test-basedata")
     RawUtils.cleanOrCreateDirectory(testDir)
-    StorageManager.setStoragePath(testDir)
-    restServer = new RawRestServer("scala")
+    restServer = new RawRestServer("scala", Some(testDir.toString))
     val serverUp = restServer.start()
     logger.info("Waiting for rest server to start")
     Await.ready(serverUp, Duration(2, SECONDS))

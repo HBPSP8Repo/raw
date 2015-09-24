@@ -1,15 +1,14 @@
 package raw.publications.generated.scala
 
 import raw._
-import raw.datasets.publications.Publications
 
-class SelectTest extends AbstractScalaTest(Publications.Scala.publications) {
+class SelectTest extends AbstractScalaTest {
 
   test("Select0") {
     val oql = """
       select distinct a.name, a.title, a.year from authors a where a.year = 1973
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Select0", result)
   }
 
@@ -17,7 +16,7 @@ class SelectTest extends AbstractScalaTest(Publications.Scala.publications) {
     val oql = """
       select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Select1", result)
   }
 
@@ -25,7 +24,7 @@ class SelectTest extends AbstractScalaTest(Publications.Scala.publications) {
     val oql = """
       select a.title from authors a where a.year = 1959
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Select2", result)
   }
 
@@ -33,7 +32,7 @@ class SelectTest extends AbstractScalaTest(Publications.Scala.publications) {
     val oql = """
       select distinct a.title from authors a where a.year = 1959
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "Select3", result)
   }
 

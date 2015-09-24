@@ -1,15 +1,14 @@
 package raw.publications.generated.spark
 
 import raw._
-import raw.datasets.publications.Publications
 
-class CollectionExprTest extends AbstractSparkTest(Publications.Spark.publications) {
+class CollectionExprTest extends AbstractSparkTest {
 
   test("CollectionExpr0") {
     val oql = """
       min(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr0", result)
   }
 
@@ -17,7 +16,7 @@ class CollectionExprTest extends AbstractSparkTest(Publications.Spark.publicatio
     val oql = """
       max(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr1", result)
   }
 
@@ -25,7 +24,7 @@ class CollectionExprTest extends AbstractSparkTest(Publications.Spark.publicatio
     val oql = """
       sum(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr2", result)
   }
 
@@ -33,7 +32,7 @@ class CollectionExprTest extends AbstractSparkTest(Publications.Spark.publicatio
     val oql = """
       count(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr4", result)
   }
 
@@ -41,7 +40,7 @@ class CollectionExprTest extends AbstractSparkTest(Publications.Spark.publicatio
     val oql = """
       EXISTS (select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr6", result)
   }
 

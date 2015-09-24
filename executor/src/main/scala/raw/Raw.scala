@@ -1,16 +1,20 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.slf4j.LoggerFactory
 import raw.algebra.LogicalAlgebra.{LogicalAlgebraNode, Reduce}
 import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
+import raw.executor.{AbstractClosableIterator, ClosableIterator, RawScanner}
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 import scala.language.experimental.macros
 
 
@@ -18,9 +22,35 @@ class rawQueryAnnotation extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
 }
 
-/*
- */
-abstract class RawQuery {
+
+class RawIterable[T](rawScanner: RawScanner[T], iteratorBuffer: ArrayBuffer[AbstractClosableIterator[_]]) extends mutable.AbstractIterable[T] {
+  override def iterator: Iterator[T] = {
+    var newIter = rawScanner.iterator
+    iteratorBuffer += newIter
+    newIter
+  }
+}
+
+abstract class RawQuery extends StrictLogging {
+  val openIters = new ArrayBuffer[AbstractClosableIterator[_]]()
+
+  def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
+    logger.info("Opening iterator: " + scanner)
+    new RawIterable(scanner, openIters)
+  }
+
+  def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
+    logger.info("Bypassing: " + iterable)
+    iterable
+  }
+
+
+  def closeAllIterators(): Unit = {
+    logger.info("Closing iterators: " + openIters)
+    openIters.foreach(_.close())
+    openIters.clear()
+  }
+
   //  val query: String
   def computeResult: Any
 }
@@ -51,6 +81,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.ListType(inferType(t1).rawType) // TODO can we pattern match on something else
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.ListType(inferType(t1).rawType)
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "raw.executor.RawScanner" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
@@ -308,7 +339,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val gExp = g match {
           case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
           case _ => {
-            assert(false); BoolConst(true)
+            assert(false);
+            BoolConst(true)
           }
         }
 
@@ -350,11 +382,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case ScalaOuterJoin(logicalNode, p, left, right) =>
         q"""
+  val rightCache = ${build(right)}.toSeq
   ${build(left)}.flatMap(l =>
     if (l == null)
       List((null, null))
     else {
-      val ok = ${build(right)}.map(r => (l, r)).filter(${exp(p)})
+      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
       if (ok.isEmpty)
         List((l, null))
       else
@@ -362,6 +395,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
   )
   """
+
       case r@ScalaReduce(logicalNode, m, e, p, child) =>
         val pCode = exp(p)
         val eCode = exp(e)
@@ -394,7 +428,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"""${build(child)}.filter(${exp(p)})"""
 
       case ScalaScan(logicalNode, name, _) =>
-        Ident(TermName(name))
+        val ident: c.universe.Ident = Ident(TermName(name))
+        q"""openScanner($ident)"""
 
       case ScalaJoin(logicalNode, p, left, right) =>
         val pCode = exp(p)
@@ -408,7 +443,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           */
         q"""
           val left = $leftCode
-          val right = $rightCode
+          val right = ${rightCode}.toSeq
           left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
         """
 
@@ -554,7 +589,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val st: String = buildScalaType(t, world)
         val childTree: Tree = build(child)
 
-//        val tp = c.parse(st)
+        //        val tp = c.parse(st)
 
         def computeG(l: Seq[Exp]): Exp = l match {
           case Nil => BoolConst(false)
@@ -564,7 +599,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val gExp = g match {
           case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
           case _ => {
-            assert(false); BoolConst(true)
+            assert(false);
+            BoolConst(true)
           }
         }
 
@@ -971,18 +1007,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         */
         val moduleName = TermName(className.decodedName.toString)
         val companion = q"""
-  object $moduleName extends com.typesafe.scalalogging.StrictLogging {
-    val queryLogger = org.slf4j.LoggerFactory.getLogger("raw.queries")
+  object $moduleName {
     ..$caseClasses
-    def apply(..$methodDefParameters) = {
-       $generatedTree
-    }
   }"""
 
         val clazz = q"""
   class $className(..$methodDefParameters) extends RawQuery {
+    val queryLogger = org.slf4j.LoggerFactory.getLogger("raw.queries")
     ..$body
-    def computeResult = $moduleName.apply(..$methodCallParameters)
+
+    import ${moduleName}._
+    private[this] def executeQuery(..$methodDefParameters) = {
+      $generatedTree
+    }
+
+    def computeResult = {
+       try {
+          executeQuery(..$methodCallParameters)
+       } finally {
+         closeAllIterators()
+       }
+    }
   }
 """
         val block = Block(List(companion, clazz), Literal(Constant(())))

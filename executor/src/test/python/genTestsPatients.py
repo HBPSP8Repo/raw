@@ -7,9 +7,8 @@ import common
 templateClass ="""package %(package)s
 
 import raw._
-import raw.datasets.patients.Patients
 
-class %(name)sTest extends Abstract%(testType)sTest(Patients.%(testType)s.%(dataset)s) {
+class %(name)sTest extends Abstract%(testType)sTest {
 %(testMethods)s
 }
 """

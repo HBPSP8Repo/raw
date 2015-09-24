@@ -1,13 +1,13 @@
 package raw.rest
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.executor.{StorageManager, RawServer, CodeGenerator}
+import raw.executor.{CodeGenerator, RawServer, StorageManager}
 import raw.spark._
 import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
@@ -62,7 +62,20 @@ object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupp
  * }}}
  * @param executorArg scala or spark executor. Currently, on Scala executor is implemented.
  */
-class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLogging {
+class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends SimpleRoutingApp with StrictLogging {
+
+  val rawServer = {
+    val storageDir: Path = storageDirCmdOption match {
+      case None =>
+        try {
+          Paths.get(ConfigFactory.load().getString("raw.datadir"))
+        } catch {
+          case ex: ConfigException.Missing => StorageManager.defaultStorageDir
+        }
+      case Some(dir) => Paths.get(dir)
+    }
+    new RawServer(storageDir)
+  }
 
   val sc: Option[SparkContext] = executorArg match {
     case "scala" => logger.info("Using Scala-only executor"); None
@@ -92,7 +105,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
         headerValueByName("Raw-User") { rawUser =>
           entity(as[String]) { query =>
             try {
-              val result = RawServer.doQuery(query, rawUser)
+              val result = rawServer.doQuery(query, rawUser)
               logger.info("Query succeeded. Returning result: " + result.take(30))
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete(result)
@@ -115,7 +128,7 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
           formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
             try {
               logger.info(s"$user, $schemaName, $dataDir")
-              RawServer.registerSchema(schemaName, dataDir, user)
+              rawServer.registerSchema(schemaName, dataDir, user)
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete( """ {"success" = True } """)
               }
@@ -133,7 +146,6 @@ class RawRestServer(executorArg: String) extends SimpleRoutingApp with StrictLog
     logger.info("Shutting down")
     system.shutdown()
   }
-
 }
 
 object RawRestServerMain extends StrictLogging {
@@ -141,12 +153,10 @@ object RawRestServerMain extends StrictLogging {
     object Conf extends ScallopConf(args) {
       banner("Scala/Spark OQL execution server")
       val executor: ScallopOption[String] = opt[String]("executor", default = Some("scala"), short = 'e')
+      val storageDir: ScallopOption[String] = opt[String]("storage-dir", default = None, short = 's')
     }
-    val restServer = new RawRestServer(Conf.executor())
 
-    logger.info("Storage directory: " + ConfigFactory.load().getString("raw.datadir"))
+    val restServer = new RawRestServer(Conf.executor(), Conf.storageDir.get)
     restServer.start()
-    logger.info("Users: " + StorageManager.listUsers())
-
   }
 }

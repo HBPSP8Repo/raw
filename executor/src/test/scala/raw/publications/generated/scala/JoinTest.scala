@@ -1,9 +1,8 @@
 package raw.publications.generated.scala
 
 import raw._
-import raw.datasets.publications.Publications
 
-class JoinTest extends AbstractScalaTest(Publications.Scala.publicationsSmall) {
+class JoinTest extends AbstractScalaTest {
 
   test("Join0") {
     val oql = """
@@ -11,7 +10,7 @@ class JoinTest extends AbstractScalaTest(Publications.Scala.publicationsSmall) {
 from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publicationsSmall", "Join0", result)
   }
 
@@ -21,7 +20,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
 from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publicationsSmall", "Join1", result)
   }
 
@@ -33,7 +32,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
        where A.name = a and A.title = "professor") as profs
 from publications P
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publicationsSmall", "Join2", result)
   }
 
@@ -47,7 +46,7 @@ from publications P
 from publications P
 where "particle detectors" in P.controlledterms
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publicationsSmall", "Join3", result)
   }
 

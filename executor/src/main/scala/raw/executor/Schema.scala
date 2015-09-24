@@ -1,6 +1,8 @@
 package raw.executor
 
-import java.nio.file.Files
+import java.nio.file.{Path, Files}
+import java.util
+import java.util.Collections
 
 import com.typesafe.scalalogging.StrictLogging
 import raw._
@@ -9,6 +11,38 @@ import scala.collection.immutable.Seq
 import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.HashMap
 import scala.xml.{Elem, Node, XML}
+
+
+case class RawSchema(name: String, schemaFile: Path, properties: SchemaProperties, dataFile: Path) {
+  def fileType: String = {
+    val filename = dataFile.getFileName.toString
+    val i = filename.lastIndexOf('.')
+    if (i < 0) {
+      throw new Exception("Invalid data file, could not determine file type: " + dataFile)
+    }
+    filename.substring(i + 1).toLowerCase
+  }
+}
+
+class SchemaProperties(schemaProperties: java.util.Map[String, Object]) {
+  final val HAS_HEADER = "has_header"
+  final val FIELD_NAMES = "field_names"
+
+  // For convenience, convert null argument to an empty map
+  val properties = if (schemaProperties == null) Collections.emptyMap[String, Object]() else schemaProperties
+
+  def hasHeader(): Option[Boolean] = {
+    val v = properties.get(HAS_HEADER)
+    if (v == null) None else Some(v.asInstanceOf[Boolean])
+  }
+
+  def fieldNames(): Option[util.ArrayList[String]] = {
+    val v = properties.get(FIELD_NAMES)
+    if (v == null) None else Some(v.asInstanceOf[util.ArrayList[String]])
+  }
+
+  override def toString(): String = properties.toString
+}
 
 /**
  *
@@ -178,4 +212,5 @@ object SchemaParser extends StrictLogging {
     }
 
   }
+
 }

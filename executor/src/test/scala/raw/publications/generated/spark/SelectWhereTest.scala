@@ -1,15 +1,14 @@
 package raw.publications.generated.spark
 
 import raw._
-import raw.datasets.publications.Publications
 
-class SelectWhereTest extends AbstractSparkTest(Publications.Spark.publications) {
+class SelectWhereTest extends AbstractSparkTest {
 
   test("SelectWhere0") {
     val oql = """
       select a from authors a where a.title = "PhD"
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "SelectWhere0", result)
   }
 
@@ -18,7 +17,7 @@ class SelectWhereTest extends AbstractSparkTest(Publications.Spark.publications)
       select a from authors a
             where a.year = 1973 or a.year = 1975
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "SelectWhere1", result)
   }
 
@@ -29,7 +28,7 @@ class SelectWhereTest extends AbstractSparkTest(Publications.Spark.publications)
             and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
             and "Sarigiannidou, E." in P.authors
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "SelectWhere2", result)
   }
 
@@ -42,7 +41,7 @@ and "magnetic levitation" in P.controlledterms
 and "titanium" in P.controlledterms
 and "torque" in P.controlledterms
     """
-    val result = queryCompiler.compileOQL(oql, accessPaths).computeResult
+    val result = queryCompiler.compileOQL(oql, scanners).computeResult
     assertJsonEqual("publications", "SelectWhere3", result)
   }
 

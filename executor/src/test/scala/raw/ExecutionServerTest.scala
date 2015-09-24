@@ -1,9 +1,6 @@
 package raw
 
-import raw.datasets.publications.Publications
-import raw.publications.AbstractSparkPublicationsTest
-
-class ExecutionServerTest extends AbstractSparkPublicationsTest(Publications.Spark.publications) {
+class ExecutionServerTest extends AbstractSparkTest {
   val countAuthors = """Reduce(SumMonoid(),
      IntConst(1),
      BoolConst(true),
@@ -173,7 +170,7 @@ class ExecutionServerTest extends AbstractSparkPublicationsTest(Publications.Spa
   //  }
 
   test("compile oql") {
-    getResult(queryCompiler.compileOQL("count(authors)", accessPaths))
+    getResult(queryCompiler.compileOQL("count(authors)", scanners))
   }
 
 
