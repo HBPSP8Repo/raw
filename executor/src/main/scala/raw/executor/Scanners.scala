@@ -19,7 +19,7 @@ import scala.reflect.runtime.universe._
 
 
 object RawScanner {
-  def apply[T:TypeTag:ClassTag](schema: RawSchema, m: Manifest[T]): RawScanner[T] = {
+  def apply[T: TypeTag : ClassTag](schema: RawSchema, m: Manifest[T]): RawScanner[T] = {
     val p = schema.dataFile
     if (p.toString.endsWith(".json")) {
       new JsonRawScanner(schema, m)
@@ -31,16 +31,17 @@ object RawScanner {
   }
 }
 
-abstract class RawScanner[T: TypeTag: ClassTag](val schema: RawSchema) extends Iterable[T] {
+abstract class RawScanner[T: TypeTag : ClassTag](val schema: RawSchema) extends Iterable[T] {
   val tt = typeTag[T]
   val ct = classTag[T]
+
   // The default Iterable toString implementation prints the full contents
   override def toString() = s"${this.getClass}(${schema.toString}, tag:${typeTag[T]})"
 
   override def iterator: AbstractClosableIterator[T]
 }
 
-class SparkRawScanner[T: TypeTag: ClassTag](scanner: RawScanner[T], sc: SparkContext) extends RawScanner[T](scanner.schema) with StrictLogging {
+class SparkRawScanner[T: TypeTag : ClassTag](scanner: RawScanner[T], sc: SparkContext) extends RawScanner[T](scanner.schema) with StrictLogging {
   override def iterator: AbstractClosableIterator[T] = scanner.iterator
 
   def toRDD() = {
@@ -59,15 +60,8 @@ trait AbstractClosableIterator[A] extends AbstractIterator[A] with Iterator[A] {
   def close()
 }
 
-case class ClosableIterator[A](underlying: MappingIterator[A]) extends AbstractClosableIterator[A] {
-  def hasNext = underlying.hasNext
 
-  def next() = underlying.next()
-
-  def close() = underlying.close()
-}
-
-case class ClosableIteratorInputStream[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
+case class ClosableIterator[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
   def hasNext = underlying.hasNext
 
   def next() = underlying.next()
@@ -92,7 +86,8 @@ object CsvRawScanner {
   }
 }
 
-class CsvRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with Instrumented with StrictLogging {
+class CsvRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with Instrumented with StrictLogging {
+
   import CsvRawScanner._
 
   val tag = typeTag[T]
@@ -121,7 +116,7 @@ class CsvRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) exten
       .asInstanceOf[MappingIterator[Array[String]]]
     val scalaIter = JavaConversions.asScalaIterator(iter)
     val mappedIter: scala.Iterator[T] = scalaIter.map(v => newValue(v))
-    new ClosableIteratorInputStream(mappedIter, is)
+    new ClosableIterator(mappedIter, is)
   }
 
   // Buffer reused in calls to newValue().
@@ -156,7 +151,8 @@ object JsonRawScanner {
   mapper.registerModule(DefaultScalaModule)
 }
 
-class JsonRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
+class JsonRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
+
   import JsonRawScanner._
 
   val tag = typeTag[T]
@@ -172,7 +168,7 @@ class JsonRawScanner[T:ClassTag:TypeTag](schema: RawSchema, m: Manifest[T]) exte
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
     assert(jp.nextToken() == JsonToken.START_OBJECT)
-    val iter: MappingIterator[T] = mapper.readValues(jp)(m)
-    new ClosableIterator[T](iter)
+    val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues(jp)(m))
+    new ClosableIterator[T](iter, is)
   }
 }
