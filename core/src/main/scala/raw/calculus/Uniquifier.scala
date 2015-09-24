@@ -23,7 +23,7 @@ trait Uniquifier extends Transformer {
   private lazy val uniquify = everywhere(rule[IdnNode] {
     case n @ IdnDef(idn) => IdnDef(rawEntity(n).id.idn)
     case n @ IdnUse(idn) => rawEntity(n) match {
-      case _: DataSourceEntity => IdnUse(idn) // For data sources, keep the original identifier use.
+      case _: DataSourceEntity => IdnUse(idn)      // For data sources, keep the original identifier use.
       case e                   => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
     }
   })

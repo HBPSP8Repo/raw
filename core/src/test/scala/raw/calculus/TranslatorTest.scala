@@ -50,21 +50,21 @@ class TranslatorTest extends FunTest {
     compare(
       process(
         """select s.age/10 as decade, partition as students from students s group by s.age/10""", TestWorlds.professors_students),
-      """for ($0 <- students) yield bag (decade: $0.age / 10, students: for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1)""")
+        """for ($0 <- students) yield bag (decade: $0.age / 10, students: for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1)""")
   }
 
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
     compare(
       process(
         """select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10""", TestWorlds.professors_students),
-      """for ($0 <- students) yield bag (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1) yield bag $2.name)""")
+        """for ($0 <- students) yield bag (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1) yield bag $2.name)""")
   }
 
-  test("sss") {
+  test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
     compare(
       process(
-        "select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students),
-      """for ($0 <- students) yield bag (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield bag $1) yield bag $2.name)""")
+        """select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age""", TestWorlds.professors_students),
+        """for ($0 <- students) yield bag (_1: $0.age, names: for ($1 <- for ($2 <- students; $0.age = $2.age) yield bag $2) yield bag (_1: $1.name, _2: for ($3 <- for ($2 <- students; $0.age = $2.age) yield bag $2; $1.name = $3.name) yield bag $3))""")
   }
 
 }
