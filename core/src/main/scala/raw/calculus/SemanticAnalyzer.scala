@@ -118,7 +118,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   lazy val tipe: Exp => Type = attr {
     e => {
       val te = data_tipe(e) // regular type (no option except from sources)
-      logger.debug(s"type(${CalculusPrettyPrinter(e)}) = ${TypesPrettyPrinter(te)}")
       val nt = e match {
         case RecordProj(e, idn) => tipe(e) match {
           case rt: RecordType => make_nullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
@@ -152,6 +151,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Filter(g, p) => make_nullable(te, Seq(), Seq(tipe(g.e)))
         case Join(g1, g2, p) => make_nullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
         case OuterJoin(g1, g2, p) => make_nullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        case OuterUnnest(g1, g2, p) => make_nullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
         case Nest(m, g, k, p, e) => make_nullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) => {
           val output_type = tipe(proj) match {
@@ -181,9 +181,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           FunType(argType, tipe(f.e))
         }
           // TODO: Ben: HELP!!!
+          // Ben: I think it should inherit the nullables the related froms, something like that?
         case _: Partition => te
       }
-      logger.debug(s"${CalculusPrettyPrinter(e)} => ${TypesPrettyPrinter(nt)}")
       nt
     }
   }
@@ -301,6 +301,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case f: Filter => enter(in(f))
     case j: Join => enter(in(j))
     case o: OuterJoin => enter(in(o))
+    case o: OuterUnnest => enter(in(o))
     case n: Nest => enter(in(n))
     case s: Select => enter(in(s))
     case b: ExpBlock => enter(in(b))
@@ -326,6 +327,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case f: Filter => leave(out(f))
     case j: Join => leave(out(j))
     case o: OuterJoin => leave(out(o))
+    case o: OuterUnnest => leave(out(o))
     case n: Nest => leave(out(n))
     case b: ExpBlock => leave(out(b))
 
@@ -608,7 +610,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def unify(t1: Type, t2: Type): Boolean = {
 
     def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
-      logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
+      // logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
       if (occursCheck.contains((t1, t2))) {
         return true
       }
@@ -1041,7 +1043,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val t2 = TypeVariable()
         val m  = MonoidVariable()
         Seq(HasType(g1.e, CollectionType(m, t1)),
-            HasType(g2.e, CollectionType(m, t2)),
+            HasType(g2.e, CollectionType(m, t2)), HasType(p, BoolType()),
             HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
       }
       case n @ OuterJoin(g1, g2, p) => {
@@ -1050,7 +1052,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         t2.nullable = true
         val m  = MonoidVariable()
         Seq(HasType(g1.e, CollectionType(m, t1)),
-          HasType(g2.e, CollectionType(m, t2)),
+          HasType(g2.e, CollectionType(m, t2)), HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
+      }
+      case n @ OuterUnnest(g1, g2, p) => {
+        val t1 = TypeVariable()
+        val t2 = TypeVariable()
+        t2.nullable = true
+        val m  = MonoidVariable()
+        Seq(HasType(g1.e, CollectionType(m, t1)),
+          HasType(g2.e, CollectionType(MonoidVariable(), t2)), HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
       }
       case _ =>
@@ -1089,6 +1100,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
+    case n @ OuterUnnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
   }
 
   private lazy val selectTypeVar: Select => Type = attr {

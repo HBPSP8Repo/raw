@@ -684,6 +684,34 @@ class SemanticAnalyzerTest extends FunTest {
         None), ob)); ot.nullable = true; ot })
   }
 
+  test("options in select") {
+    success("select s from s in LI", TestWorlds.options, CollectionType(BagMonoid(), IntType()))
+    success("select partition from s in LI group by s", TestWorlds.options, CollectionType(BagMonoid(), CollectionType(BagMonoid(), IntType())))
+
+    {
+      // we check the type of "partition" when it comes from an option bag of integers. Itself should be an option bag of integers, wrapped into
+      // an option bag because the select itself inherits the option of its sources.
+      val partitionType = CollectionType(BagMonoid(), IntType());
+      partitionType.nullable = true // because OLI is an option list
+      val selectType = CollectionType(BagMonoid(), partitionType);
+      selectType.nullable = true // because OLI is an option list
+      success("select partition from s in OLI group by s", TestWorlds.options, selectType)
+    }
+  }
+
+  test("fancy select with options") {
+      // more fancy. We join a bag of option(int) with an option bag(int).
+      // partition should be an option bag of record with an option int and a non-option int.
+      val optionInt = IntType()
+      optionInt.nullable = true
+      val partitionType = CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", optionInt), AttrType("_2", IntType())), None))
+      partitionType.nullable = true // because OLI is an option list
+      // select should be an option bag of ...
+      val selectType = CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", optionInt), AttrType("_2", partitionType)), None));
+      selectType.nullable = true // because OLI is an option list
+      success("select s+r, partition from s in OLI, r in LOI where s = r group by s+r", TestWorlds.options, selectType)
+    }
+
   test("select") {
     success("select s from s in students", TestWorlds.professors_students, CollectionType(BagMonoid(), UserType(Symbol("student"))))
     success("select distinct s from s in students", TestWorlds.professors_students, CollectionType(SetMonoid(), UserType(Symbol("student"))))
