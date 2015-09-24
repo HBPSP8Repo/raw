@@ -1,0 +1,1 @@
+{"field_names": ["id", "brain_atlas_id", "patient_id", "exam_date", "pipeline_name", "pipeline_version", "extracted_from", "extraction_method", "extraction_method_version", "anonymization_method", "anonymization_method_version", "description", "record_creation"], "has_header": true}

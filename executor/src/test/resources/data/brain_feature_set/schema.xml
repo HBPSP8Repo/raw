@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<list>
+	<record name="brain_feature_set_1">
+		<field name="anonymization_method_version">
+			<string/>
+		</field>
+		<field name="description">
+			<string/>
+		</field>
+		<field name="brain_atlas_id">
+			<string/>
+		</field>
+		<field name="pipeline_version">
+			<string/>
+		</field>
+		<field name="anonymization_method">
+			<string/>
+		</field>
+		<field name="pipeline_name">
+			<string/>
+		</field>
+		<field name="extracted_from">
+			<string/>
+		</field>
+		<field name="exam_date">
+			<string/>
+		</field>
+		<field name="record_creation">
+			<string/>
+		</field>
+		<field name="patient_id">
+			<string/>
+		</field>
+		<field name="extraction_method">
+			<string/>
+		</field>
+		<field name="id">
+			<string/>
+		</field>
+		<field name="extraction_method_version">
+			<string/>
+		</field>
+	</record>
+</list>

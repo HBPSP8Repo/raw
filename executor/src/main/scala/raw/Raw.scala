@@ -1,26 +1,55 @@
 package raw
 
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.slf4j.LoggerFactory
 import raw.algebra.{LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
 import raw.compilerclient.OQLToPlanCompilerClient
+import raw.executor.{AbstractClosableIterator, ClosableIterator, RawScanner}
 import raw.psysicalalgebra.PhysicalAlgebra._
 import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 import scala.language.experimental.macros
 
 
-//class queryAnnotation(query: String, catalog: HList) extends StaticAnnotation {
 class rawQueryAnnotation extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
 }
 
-/*
- */
-abstract class RawQuery {
+
+class RawIterable[T](rawScanner: RawScanner[T], iteratorBuffer: ArrayBuffer[AbstractClosableIterator[_]]) extends mutable.AbstractIterable[T] {
+  override def iterator: Iterator[T] = {
+    var newIter = rawScanner.iterator
+    iteratorBuffer += newIter
+    newIter
+  }
+}
+
+abstract class RawQuery extends StrictLogging {
+  val openIters = new ArrayBuffer[AbstractClosableIterator[_]]()
+
+  def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
+    logger.info("Opening iterator: " + scanner)
+    new RawIterable(scanner, openIters)
+  }
+
+  def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
+    logger.info("Bypassing: " + iterable)
+    iterable
+  }
+
+
+  def closeAllIterators(): Unit = {
+    logger.info("Closing iterators: " + openIters)
+    openIters.foreach(_.close())
+    openIters.clear()
+  }
+
   //  val query: String
   def computeResult: Any
 }
@@ -50,6 +79,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.SetType(inferType(t1).rawType)
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.ListType(inferType(t1).rawType) // TODO can we pattern match on something else
       case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.ListType(inferType(t1).rawType)
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "raw.executor.RawScanner" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
@@ -276,7 +307,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => q"((a, b) => a || b)"
       case _: SumMonoid => q"((a, b) => a + b)"
       case _: MultiplyMonoid => q"((a, b) => a * b)"
-//      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
+      //      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
       case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
@@ -289,54 +320,72 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def build(a: PhysicalAlgebraNode): Tree = a match {
-      case ScalaNest(logicalNode, m, e, f, p, g, child) => m match {
-        case m1: PrimitiveMonoid =>
-          val z1 = zeroExp(m1)
-          //              logger.debug("grouped:\n{}", grouped.mkString("\n"))
-          //              logger.debug("map1:\n{}", map1.mkString("\n"))
-          //              logger.debug("map2:\n{}", map2.mkString("\n"))
-          //              logger.debug("map3:\n{}", map3.mkString("\n"))
-          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
-          q"""val child = ${build(child)}
-              logger.debug("Child:\n{}", child.mkString("\n"))
-              val grouped = child.groupBy(${exp(f)})
-              val map1 = grouped.toList.map(v => (v._1, v._2.filter(${exp(p)})))
-              val map2 = map1.map(v => (v._1, v._2.map(${exp(f1)})))
-              val map3 = map2.map(v => (v._1, v._2.foldLeft(${zero(m1)})(${fold(m1)})))
-              map3"""
-        case m1: BagMonoid => ???
-        case m1: ListMonoid => ???
-        // TODO: similar implementation as for the spark operator
-        //          val f1 = q"""(arg => if (${exp(g)}(arg) == null) List() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-        //          val f1 = IfThenElse(BinaryExp(Eq(), g, Null), ZeroCollectionMonoid(ListMonoid()), e)
-        //          q"""${build(child)}
-        //             .groupBy(${exp(f)})
-        //             .toList
-        //             .map(v => (v._1, v._2.filter(${exp(p)})))
-        //             .map(v => (v._1, v._2.map(${exp(f1)})))
-        //             .map(v => (v._1, v._2.to[scala.collection.immutable.List]))"""
+      case ScalaNest(logicalNode, m, e, f, p, g, child) =>
+        val eCode = exp(e)
+        val fCode = exp(f)
+        val pCode = exp(p)
+        logger.info(s"[ScalaNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
+        val t = typer.expressionType(e)
+        val st: String = buildScalaType(t, world)
+        val childTree: Tree = build(child)
 
-        case m1: SetMonoid => ???
-        // Not implemented for the same reasons as the ListMonoid
-        //          val f1 = q"""(arg => if (${exp(g)}(arg) == null) Set() else ${exp(e)}(arg))""" // TODO: Remove indirect function call
-        //          q"""val grouped = ${build(child)}.groupBy(${exp(f)})
-        //    println("Grouped: " + grouped)
-        //    val mapped1 = grouped.toSet.map(v => (v._1, v._2.filter(${exp(p)})))
-        //    println("mapped1: " + mapped1)
-        //    val mapped2 = mapped1.map(v => (v._1, v._2.map($f1)))
-        //    println("mapped2: " + mapped2)
-        //    val mapped3 = mapped2.map(v => (v._1, v._2.to[scala.collection.immutable.Set]))
-        //    println("mapped3: " + mapped3)
-        //    mapped3
-        //  """
-      }
+        def computeG(l: Seq[Exp]): Exp = l match {
+          case Nil => BoolConst(false)
+          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+        }
+
+        val gExp = g match {
+          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
+          case _ => {
+            assert(false);
+            BoolConst(true)
+          }
+        }
+
+        val code = m match {
+          case m1: PrimitiveMonoid =>
+            val z1 = zeroExp(m1)
+            val f1 = IfThenElse(gExp, z1, e)
+            q"""
+              val grouped = $childTree.groupBy($fCode)
+              grouped.mapValues(v => v
+                  .filter($pCode)
+                  .map(${exp(f1)})
+                  .fold(${zero(m1)})(${fold(m1)}))
+            """
+          case m1: CollectionMonoid =>
+            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
+            val monoidReduceCode = m1 match {
+              case m2: SetMonoid => q"""mappedByE.toSet"""
+              // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
+              case m1: BagMonoid => q"""mappedByE.toList"""
+              case m1: ListMonoid => q"""mappedByE.toList"""
+            }
+            val commonCode = q"""
+            val grouped = $childTree.groupBy($fCode)
+            grouped.mapValues(v => {
+                val filteredByP = v.filter($pCode)
+                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
+                val mappedByE = filteredByG.map($eCode)
+                ${monoidReduceCode}
+            })
+            """
+            commonCode
+        }
+        q"""
+          val start = "************ ScalaNest ************"
+          val scalaNest = $code
+          val end = "************ ScalaNest ************"
+          scalaNest"""
+
       case ScalaOuterJoin(logicalNode, p, left, right) =>
         q"""
+  val rightCache = ${build(right)}.toSeq
   ${build(left)}.flatMap(l =>
     if (l == null)
       List((null, null))
     else {
-      val ok = ${build(right)}.map(r => (l, r)).filter(${exp(p)})
+      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
       if (ok.isEmpty)
         List((l, null))
       else
@@ -344,43 +393,95 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
   )
   """
+
       case r@ScalaReduce(logicalNode, m, e, p, child) =>
+        val pCode = exp(p)
         val eCode = exp(e)
+        val childCode = build(child)
+        logger.info(s"[ScalaReduce] $m, e: $eCode, p: $pCode")
+        val filterMapCode = q"""$childCode.filter($pCode).map($eCode)"""
+
         val code = m match {
+          case m1: MaxMonoid => q"""$filterMapCode.max"""
+          case m1: MinMonoid => q"""$filterMapCode.min"""
           case m1: PrimitiveMonoid =>
             // TODO: Replace foldLeft with fold?
-            q"""${build(child)}.filter(${exp(p)}).map(${exp(e)}).foldLeft(${zero(m1)})(${fold(m1)})"""
+            q"""$filterMapCode.foldLeft(${zero(m1)})(${fold(m1)})"""
           case _: BagMonoid =>
-            /* TODO: There is no Bag implementation on the Scala or Java standard libs. Here we use Guava's Bag
-             * implementation. Verify if this dependency on Guava could cause problems.
-             * The code below does not import any of the dependencies, instead it uses the fully qualified package names.
-             * The rationale is that if the client code does any manipulation of the result as an ImmutableMultiset,
-             * then it must declare the imports to compile. If it does not downcast the result, then it does not need
-             * the imports.
+            /* TODO: There is no Bag implementation on the Scala or Java standard libs. For the time being, we use a
+             List, but this is less efficient than a real Bag.
              */
-            q"""val e = ${build(child)}.filter(${exp(p)}).map($eCode)
-          com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(e))"""
-          case _: ListMonoid =>
-            q"""${build(child)}.filter(${exp(p)}).map($eCode).to[scala.collection.immutable.List]"""
-          case _: SetMonoid =>
-            q"""${build(child)}.filter(${exp(p)}).map($eCode).to[scala.collection.immutable.Set]"""
+            q"""$filterMapCode.to[scala.collection.immutable.List]"""
+          case _: ListMonoid => q"""$filterMapCode.to[scala.collection.immutable.List]"""
+          case _: SetMonoid => q"""$filterMapCode.to[scala.collection.immutable.Set]"""
         }
-        if (r eq physicalTree)
-          code
-        else
-          q"""List($code)"""
+        q"""
+        val start = "************ ScalaReduce ************"
+        val res = $code
+        val end= "************ ScalaReduce ************"
+        res
+        """
 
       case ScalaSelect(logicalNode, p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
         q"""${build(child)}.filter(${exp(p)})"""
-      case ScalaScan(logicalNode, name, _) =>
-        Ident(TermName(name))
 
-      case ScalaJoin(logicalNode, p, left, right) => ???
+      case ScalaScan(logicalNode, name, _) =>
+        val ident: c.universe.Ident = Ident(TermName(name))
+        q"""openScanner($ident)"""
+
+      case ScalaJoin(logicalNode, p, left, right) =>
+        val pCode = exp(p)
+        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
+        val leftCode = build(left)
+        val rightCode = build(right)
+        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
+         would be more efficient in the cases where p filters part of the results because the tuples
+         are created only for the pairs that pass the filter. But our p function expects a tuple as its
+         single argument, while the form above requires a p function that takes two arguments.
+          */
+        q"""
+          val left = $leftCode
+          val right = ${rightCode}.toSeq
+          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
+        """
+
       case ScalaMerge(logicalNode, m, left, right) => ???
       case ScalaOuterUnnest(logicalNode, path, pred, child) => ???
       case ScalaToSparkNode(node) => ???
-      case ScalaUnnest(logicalNode, path, pref, child) => ???
-      case ScalaAssign(logicalNode, as, child) => ???
+
+      case ScalaUnnest(logicalNode, path, pred, child) =>
+        val childTypeName = nodeScalaType(child.logicalNode)
+        val pathCode = exp(path, Some(childTypeName))
+        val pathType = expScalaType(path)
+        //        val pathType = exp(path)
+        val predCode = exp(pred)
+        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
+        val childCode = build(child)
+        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+        val code = q"""
+          $childCode.flatMap(x => {
+            val pathValues = $pathCode(x)
+            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
+            }
+          )
+        """
+
+        q"""
+        val start = "************ ScalaUnnest ************"
+        val res = $code
+        val end= "************ ScalaUnnest ************"
+        res
+        """
+
+      case ScalaAssign(logicalNode, assigns, child) =>
+        var block: c.universe.Tree = q""
+        assigns.foreach({ case (key, node) => {
+          val colName = TermName(key)
+          val code = build(node)
+          block = q"..$block; val $colName = $code"
+        }
+        })
+        q"""..$block; ${build(child)}"""
 
 
       /////////////////////////////////////////////////////
@@ -449,8 +550,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case SparkReduce(logicalNode, m, e, p, child) =>
         val pCode = exp(p)
         val eCode = exp(e)
-        logger.info(s"[REDUCE] $m, e: $eCode, p: $pCode")
         val childCode = build(child)
+        logger.info(s"[SparkReduce] $m, e: $eCode, p: $pCode")
         val filterMapCode = q"""
      val childRDD = $childCode
      childRDD
@@ -481,12 +582,25 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val eCode = exp(e)
         val fCode = exp(f)
         val pCode = exp(p)
-        logger.info(s"[NEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
+        logger.info(s"[SparkNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
         val t = typer.expressionType(e)
         val st: String = buildScalaType(t, world)
         val childTree: Tree = build(child)
 
-        val tp = c.parse(st)
+        //        val tp = c.parse(st)
+
+        def computeG(l: Seq[Exp]): Exp = l match {
+          case Nil => BoolConst(false)
+          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+        }
+
+        val gExp = g match {
+          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
+          case _ => {
+            assert(false);
+            BoolConst(true)
+          }
+        }
 
         val code = m match {
           case m1: MinMonoid =>
@@ -508,7 +622,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
           case m1: PrimitiveMonoid =>
             val z1 = zeroExp(m1)
-            val f1 = IfThenElse(BinaryExp(Eq(), g, Null), z1, e)
+            val f1 = IfThenElse(gExp, z1, e)
             //  logger.debug("groupBy:\n{}", toString(grouped))
             //  logger.debug("filteredP:\n{}", toString(filteredP))
             //  logger.debug("mapped:\n{}", toString(mapped))
@@ -527,7 +641,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
              */
             // Since the zero element of a collection monoid is an empty collection,
             // instead of using fold we can just filter any elements such that g(w) == null
-            val filterGNulls = IfThenElse(BinaryExp(Eq(), g, Null), BoolConst(false), BoolConst(true))
+            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
             val monoidReduceCode = m1 match {
               case m2: SetMonoid =>
                 q"""mappedByE.toSet"""
@@ -603,27 +717,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
             val start = "************ SparkOuterJoin ************"
             val leftRDD:RDD[$leftNodeType] = ${build(left)}
-            queryLogger.info("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
+            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
 
             val rightRDD:RDD[$rightNodeType] = ${build(right)}
-            queryLogger.info("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
+            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
 
             val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
               .cartesian(rightRDD)
               .filter(tuple => tuple._1 != null)
               .filter($expP)
-            queryLogger.info("matching:\n"+ raw.QueryHelpers.toString(matching))
+            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
 
             val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
               .map(v => (v, v))
               .leftOuterJoin(matching)
-            queryLogger.info("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
+            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
 
             val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
               case (v1, (v2, None)) => (v1, null)
               case (v1, (v2, Some(w))) => (v1, w)
             })
-            queryLogger.info("res:\n"+ raw.QueryHelpers.toString(res))
+            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
             val end = "************ SparkOuterJoin ************"
             res
             """
@@ -650,8 +764,28 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
     val tree = build(physicalTree)
+
     val treeType = typer.tipe(physicalTree.logicalNode)
-    val reducedTree = treeType match {
+    logger.info(s"TreeType: $treeType")
+    val reducedTree = physicalTree match {
+      case _: SparkNode => reduceSpark(tree, treeType)
+      case _: ScalaNode => reduceScala(tree, treeType)
+    }
+
+    reducedTree
+  }
+
+  def reduceScala(tree: Tree, treeType: raw.Type): Tree = {
+    treeType match {
+      case BagType(_) => tree
+      case ListType(_) => tree
+      case n@SetType(_) => tree
+      case _ => tree
+    }
+  }
+
+  def reduceSpark(tree: Tree, treeType: raw.Type): Tree = {
+    treeType match {
       /*
        Currently, we do not take advantage of the Bag semantics to optimize an RDD representing a BagType. So an RDD
        representing a Bag containes multiple copies of equivalent elements. A possible optimization is to represent
@@ -684,7 +818,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case _ => tree
     }
-    reducedTree
   }
 
 
@@ -702,7 +835,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
 
-  sealed abstract class QueryLanguage
+  sealed trait QueryLanguage
 
   case object Krawl extends QueryLanguage
 
@@ -840,7 +973,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(logicalTree) =>
         var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
-        logger.info(s"Algebra:\n${algebraStr}")
         loggerQueries.info(s"Algebra:\n${algebraStr}")
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
         val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
@@ -873,18 +1005,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         */
         val moduleName = TermName(className.decodedName.toString)
         val companion = q"""
-  object $moduleName extends com.typesafe.scalalogging.StrictLogging {
-    val queryLogger = org.slf4j.LoggerFactory.getLogger("raw.queries")
+  object $moduleName {
     ..$caseClasses
-    def apply(..$methodDefParameters) = {
-       $generatedTree
-    }
   }"""
 
         val clazz = q"""
   class $className(..$methodDefParameters) extends RawQuery {
+    val queryLogger = org.slf4j.LoggerFactory.getLogger("raw.queries")
     ..$body
-    def computeResult = $moduleName.apply(..$methodCallParameters)
+
+    import ${moduleName}._
+    private[this] def executeQuery(..$methodDefParameters) = {
+      $generatedTree
+    }
+
+    def computeResult = {
+       try {
+          executeQuery(..$methodCallParameters)
+       } finally {
+         closeAllIterators()
+       }
+    }
   }
 """
         val block = Block(List(companion, clazz), Literal(Constant(())))

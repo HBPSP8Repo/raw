@@ -1,4 +1,4 @@
-<queries dataset="patients">
+<queries disabled="https://github.com/raw-db/ldb/issues/18" dataset="patients">
     <query>
         <oql><![CDATA[
             select G, count(partition) from patients P group by G: struct(a:P.city, b:P.country)

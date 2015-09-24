@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<list>
+	<record name="patients_3096">
+		<field name="city">
+			<string/>
+		</field>
+		<field name="country">
+			<string/>
+		</field>
+		<field name="patient_id">
+			<string/>
+		</field>
+		<field name="year_of_birth">
+			<int/>
+		</field>
+		<field name="gender">
+			<string/>
+		</field>
+		<field name="diagnosis">
+			<list>
+				<record name="patients_3095">
+					<field name="diag_id">
+						<string/>
+					</field>
+					<field name="code">
+						<string/>
+					</field>
+					<field name="diag_date">
+						<string/>
+					</field>
+					<field name="description">
+						<string/>
+					</field>
+					<field name="patient_id">
+						<string/>
+					</field>
+				</record>
+			</list>
+		</field>
+	</record>
+</list>

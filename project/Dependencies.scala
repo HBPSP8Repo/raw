@@ -16,22 +16,28 @@ object Dependencies {
   val kiama = "com.googlecode.kiama" %% "kiama" % "2.0.0-SNAPSHOT" changing()
 
   //  val shapeless = "com.chuusai" %% "shapeless" % "2.1.0"
-  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
-  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
+  val spark = "org.apache.spark" %% "spark-core" % sparkVersion exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
+  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
+//  val spark = "org.apache.spark" %% "spark-core" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") exclude("org.apache.curator", "curator-recipes") withSources() withJavadoc()
+//  val sparkSql = "org.apache.spark" %% "spark-hive" % sparkVersion % Provided exclude("org.slf4j", "slf4j-log4j12") withSources() withJavadoc()
 
   val commonsMath = "org.apache.commons" % "commons-math3" % "3.5"
   val commonsIO = "commons-io" % "commons-io" % "2.4"
 
   val guava = "com.google.guava" % "guava" % "18.0"
 
-  val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.5.2"
-  val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.5.2"
+  val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.6.1"
+  val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.6.1"
+  val jacksonCsv = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv" % "2.5.3"
+
+  val metrics = "nl.grons" %% "metrics-scala" % "3.5.2_a2.3"
 
   val sprayDeps = Seq(
     "io.spray" %% "spray-routing" % "1.3.3",
     "io.spray" %% "spray-can" % "1.3.3",
-    "com.typesafe.akka" %% "akka-actor" % "2.3.11",
-    "com.typesafe.akka" %% "akka-slf4j" % "2.3.11")
+    "io.spray" %% "spray-json" % "1.3.2",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.12",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.3.12")
 
   val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5"
 

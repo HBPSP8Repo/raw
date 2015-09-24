@@ -1,9 +1,8 @@
-import java.nio.file.{Files, Paths}
-
 import Dependencies._
 import Resolvers._
-import org.apache.commons.io.FileUtils
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
 import sbt.Keys._
+
 
 lazy val buildSettings = Seq(
   homepage := Some(url("http://dias.epfl.ch/")),
@@ -25,7 +24,6 @@ lazy val buildSettings = Seq(
 
 lazy val commonDeps = Seq(
   scalatest % Test,
-  scalacheck % Test,
   scalaLogging,
   logbackClassic,
   log4jOverSlf4j,
@@ -43,6 +41,28 @@ val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
   dependsOn(core).
+  //  http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
+  enablePlugins(JavaAppPackaging, DockerPlugin).
+  settings(
+    version in Docker := "latest",
+    dockerBaseImage := "nimmis/java:oracle-8-jdk",
+    dockerRepository in Docker := Some("rawlabs"),
+    dockerExposedPorts in Docker := Seq(54321),
+    maintainer in Docker := "Nuno Santos <nuno@raw-labs.com>",
+    dockerExposedVolumes in Docker := Seq("/opt/docker/logs"),
+    // The plugin by default will run the container as a non-root user and will chown
+    // the directory to the give user. We remove the commands so we run as root (inside the container)
+    // The chown would also create a new layer in the image containing all the user files again,
+    // therefore increasing the final image size by about 150Mb.
+    dockerCommands := dockerCommands.value.filterNot {
+      // ExecCmd is a case class, and args is a varargs variable, so you need to bind it with @
+      case ExecCmd("RUN", args @ _*) => args.contains("chown")
+      case Cmd("USER", args @ _*) => true
+      // dont filter the rest
+      case cmd                       => false
+    }
+  ).
+
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
   settings(resolvers += "softprops-maven" at "http://dl.bintray.com/content/softprops/maven").
   settings(
@@ -58,10 +78,12 @@ lazy val executor = (project in file("executor")).
           sparkSql,
           jackson,
           jacksonScala,
+          jacksonCsv,
           httpClient,
           commonsMath,
           commonsIO,
           scallop,
+          metrics,
           multisets
         )
         ++ sprayDeps,
@@ -73,30 +95,9 @@ lazy val executor = (project in file("executor")).
     fork := true,
 
     // Alternative to start SBT with -D...=... Applies to tasks launched within the VM which runs SBT
-    // No longer needed, done by LDBDockerContainer.scala
-//    initialize ~= { _ =>
-//      val dockerAddress = System.getenv().get("DOCKER_HOST")
-//      val ldbServerAddress = if (dockerAddress == null) {
-//        println("WARN: No DOCKER_HOST environment variable found. Using default of localhost for LDB compilation server")
-//        "http://localhost:5001/raw-plan"
-//      } else {
-//        println("Docker host: " + dockerAddress)
-//        val uri = new URI(dockerAddress)
-//        s"http://${uri.getHost}:5001/raw-plan"
-//      }
-//      println(s"RAW compilation server at $ldbServerAddress")
-//      System.setProperty("raw.compile.server.host", ldbServerAddress)
-//    },
+    //    initialize ~= { _ =>
+    //    },
 
-    testOptions in Test += Tests.Setup(() => {
-      val path = Paths.get(System.getProperty("java.io.tmpdir"), "rawqueries")
-      try {
-        FileUtils.cleanDirectory(path.toFile)
-      } catch {
-        // Directory does not exist. Create it.
-        case ex: IllegalArgumentException => Files.createDirectory(path)
-      }
-    }),
     //        testOptions in Test += Tests.Cleanup(() => println("Cleanup")),
     // only use a single thread for building
     parallelExecution := false,
@@ -111,9 +112,9 @@ lazy val executor = (project in file("executor")).
       dumponexit=true,dumponexitpath=path
      */
     javaOptions ++= Seq("""-Dspark.master=local[2]"""),
-//        """-XX:+UnlockCommercialFeatures""",
-//        """-XX:+FlightRecorder""",
-//        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
+    //        """-XX:+UnlockCommercialFeatures""",
+    //        """-XX:+FlightRecorder""",
+    //        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
     // build a JAR with the Spark application plus transitive dependencies.
     // https://github.com/sbt/sbt-assembly
     test in assembly := {}, // Do not run tests when building the assembly
@@ -127,7 +128,7 @@ lazy val executor = (project in file("executor")).
         _.data.getName == "spark-assembly-1.3.1-hadoop2.6.0.jar"
       }
     },
-    mainClass in Runtime := Some("raw.executionserver.Main"),
+    mainClass in Runtime := Some("raw.rest.RawRestServerMain"),
     /*
       Create a shell script that launches the rest service directly from the shell, thereby bypassing SBT.
       This avoids the overhead of starting SBT (which is considerable) and allows killing the process by simply using
@@ -135,36 +136,19 @@ lazy val executor = (project in file("executor")).
       as a forked process.)
       http://stackoverflow.com/questions/7449312/create-script-with-classpath-from-sbt
       */
-    TaskKey[File]("mkrun") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+    //    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
+
+    TaskKey[File]("mk-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
       val template = """#!/bin/sh
 java -classpath "%s" %s "$@"
 """
-      val mainStr = main.getOrElse(sys.error("No main class specified"))
+      val mainStr = "raw.rest.RawRestServerMain"
       val contents = template.format(cp.files.absString, mainStr)
-      val out = base / "../bin/run-server.sh"
+      val out = base / "../bin/run-rest-server.sh"
       IO.write(out, contents)
       out.setExecutable(true)
       out
     }
-    //    startDocker := {
-    //      println("Starting docker")
-    //      val cID = ("docker run -d -p 5001:5000 raw/ldb".!!).trim
-    //      println(s"Started container: $cID")
-    //      cID
-    //    },
-    //    stopDocker := {
-    //      val cID = startDocker.value
-    //      println(s"Stopping docker container: $cID")
-    //      val separator = "== Docker container logs =="
-    //      println(separator)
-    //      s"docker stop -t 0 ${cID}".!!
-    //      s"docker logs ${cID}".!
-    //      s"docker rm $cID".!!
-    //      println(separator)
-    //    },
-    //    compile in Test <<= (startDocker, (compile in Test), stopDocker) {
-    //      (start, comp, stop) => comp.dependsOn(start).doFinally(stop)
-    //    }
   )
 
 lazy val core = (project in file("core")).
@@ -174,9 +158,3 @@ lazy val core = (project in file("core")).
       kiama)
 
   )
-
-initialCommands in console := """
-                                |import raw.repl._
-                                |import raw.repl.RawContext._
-                                |val rc = new RawContext()
-                                | """.stripMargin

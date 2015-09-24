@@ -6,7 +6,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 import org.scalatest.{BeforeAndAfterAll, Suite}
-import raw.executionserver.{DefaultSparkConfiguration, RawMutableURLClassLoader}
+import raw.spark.DefaultSparkConfiguration
+import raw.executor.RawClassLoader
 
 
 /* Create a new Spark context for every test suite.
@@ -19,11 +20,9 @@ The first problem can be mitigated by ensuring that the JVM is always closed at 
 in SBT.
 */
 trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
-  self: Suite =>
+  self: Suite with RawClassLoader =>
 
   @transient private var _sc: SparkContext = _
-
-  val rawClassLoader = new RawMutableURLClassLoader(new Array[URL](0), this.getClass.getClassLoader)
 
   def sc: SparkContext = _sc
 
@@ -49,7 +48,7 @@ trait SharedSparkContext extends BeforeAndAfterAll with StrictLogging {
 
 
 trait SharedSparkSQLContext extends SharedSparkContext {
-  self: Suite =>
+  self: Suite with RawClassLoader =>
 
   var sqlContext: SQLContext = _
 

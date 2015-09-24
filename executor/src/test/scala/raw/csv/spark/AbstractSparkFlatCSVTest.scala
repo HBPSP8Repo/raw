@@ -5,9 +5,15 @@ import org.apache.spark.rdd.RDD
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.SharedSparkContext
 import raw.csv.{Department, Professor, Student}
+import raw.executor.RawClassLoader
 import raw.util.CSVToRDDParser
 
-abstract class AbstractSparkFlatCSVTest extends FunSuite with StrictLogging with BeforeAndAfterAll with SharedSparkContext {
+abstract class AbstractSparkFlatCSVTest extends FunSuite
+  with StrictLogging
+  with BeforeAndAfterAll
+  with SharedSparkContext
+  with RawClassLoader
+{
   var profs: RDD[Professor] = _
   var students: RDD[Student] = _
   var departments: RDD[Department] = _

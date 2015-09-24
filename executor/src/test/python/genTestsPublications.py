@@ -1,15 +1,15 @@
 # Generate test classes from .q files. Each .q file contains one or more query/test blocks separated by a line with
 # the string "--". Each XXX.q file will be transformed into one XXXTest.scala file.
 # The generated files are placed in the subdirectory "generated".
-import os.path, sys
+import os.path
+import sys
 import common
 
-templateClass ="""package %(package)s.generated
+templateClass = """package %(package)s
 
-import raw.publications.AbstractSparkPublicationsTest
-import raw.datasets.publications.Publications
+import raw._
 
-class %(name)sTest extends AbstractSparkPublicationsTest(Publications.%(dataset)s) {
+class %(name)sTest extends Abstract%(testType)sTest {
 %(testMethods)s
 }
 """

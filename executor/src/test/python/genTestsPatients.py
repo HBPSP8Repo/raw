@@ -4,11 +4,11 @@
 import os.path, sys
 import common
 
-templateClass ="""package %(package)s.generated
+templateClass ="""package %(package)s
 
-import raw.patients.AbstractSparkPatientsTest
+import raw._
 
-class %(name)sTest extends AbstractSparkPatientsTest {
+class %(name)sTest extends Abstract%(testType)sTest {
 %(testMethods)s
 }
 """
