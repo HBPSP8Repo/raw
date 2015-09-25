@@ -20,12 +20,11 @@ trait Translator extends Transformer {
   // TODO: Add case classes ToSet, ToBag, ToList and apply them here so that the output Comp still types properly
 
   private lazy val selectToComp = rule[Exp] {
-    case s @ Select(from, _, None, proj, where, None, None) =>
+    case s @ Select(from, distinct, None, proj, where, None, None) =>
       val whereq = if (where.isDefined) Seq(where.head) else Seq()
 
-      // TODO: Handlie distinct!!
-      // TODO: Turn it allinto ToBag always and have the Bag Monoid unless it is distinct
-      Comp(BagMonoid(), from.map { case Iterator(Some(p), e) => Gen(p, e) } ++ whereq, proj)
+      val c = Comp(BagMonoid(), from.map { case Iterator(Some(p), e) => Gen(p, UnaryExp(ToBag(), e)) } ++ whereq, proj)
+      if (distinct) UnaryExp(ToSet(), c) else c
   }
 
   private lazy val selectGroupBy = rule[Exp] {
@@ -43,9 +42,9 @@ trait Translator extends Transformer {
 
       val partition =
         if (ns.where.isDefined)
-          Select(ns.from, ns.distinct, None, nproj, Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(groupby), ns.group.get))), None, None)
+          Select(ns.from, false, None, nproj, Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(groupby), ns.group.get))), None, None)
         else
-          Select(ns.from, ns.distinct, None, nproj, Some(BinaryExp(Eq(), deepclone(groupby), ns.group.get)), None, None)
+          Select(ns.from, false, None, nproj, Some(BinaryExp(Eq(), deepclone(groupby), ns.group.get)), None, None)
 
       val projWithoutPart = rewrite(everywherebu(rule[Exp] {
         case p: Partition =>
