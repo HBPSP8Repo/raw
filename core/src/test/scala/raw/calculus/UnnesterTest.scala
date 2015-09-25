@@ -402,12 +402,6 @@ class UnnesterTest extends FunTest {
     )
   }
 
-  def check(query: String, world: World, algebra: String) = compare(CalculusPrettyPrinter(process(world, query).root), algebra)
-
-  test("publications: select A from A in authors") {
-    check("select A from A in authors", TestWorlds.publications, """""")
-  }
-
 //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
 //        for (c <- diagnosis_codes) yield list {

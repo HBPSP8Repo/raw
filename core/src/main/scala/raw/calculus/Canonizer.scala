@@ -2,7 +2,7 @@ package raw
 package calculus
 
 
-trait Canonizer extends Simplifier {
+trait Canonizer extends Normalizer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
@@ -23,6 +23,8 @@ trait Canonizer extends Simplifier {
     case MergeMonoid(_: AndMonoid, e1, e2) => flattenPreds(e1) ++ flattenPreds(e2)
     case _                                 => Seq(p)
   }
+
+  // TODO: If ToSet, create ExpBlock!!!
 
 }
 

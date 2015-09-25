@@ -94,7 +94,7 @@ trait Unnester extends Attribution with Canonizer {
     /** Rule C7
       */
 
-    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path: RecordProj) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C7")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
@@ -121,7 +121,7 @@ trait Unnester extends Attribution with Canonizer {
     /** Rule C10
       */
 
-    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path: RecordProj) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C10")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))

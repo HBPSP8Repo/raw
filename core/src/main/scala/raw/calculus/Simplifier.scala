@@ -1,9 +1,11 @@
 package raw
 package calculus
 
-/** Simplify expressions by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
+/** Simplify expressions:
+  * - by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
+  * - by removing useless conversions to bag/list/set.
   */
-trait Simplifier extends Normalizer {
+trait Simplifier extends Translator {
 
   import org.kiama.rewriting.Rewriter._
   import Calculus._
@@ -13,11 +15,27 @@ trait Simplifier extends Normalizer {
   // TODO: Compute expressions like "if (true) then 1 else 2"
   // TODO: Fold constants
 
-  lazy val simplify = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
+  lazy val simplify = reduce(
+    removeUselessTos +
+    ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
     ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv)
   //ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
+
+  /** Remove useless conversions.
+    */
+  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+    analyzer.tipe(e) match {
+      case CollectionType(m, _) => true
+      case _ => false
+    }
+
+  lazy val removeUselessTos = rule[Exp] {
+    case UnaryExp(_: ToBag, e) if isCollectionMonoid(e, BagMonoid())   => e
+    case UnaryExp(_: ToList, e) if isCollectionMonoid(e, ListMonoid()) => e
+    case UnaryExp(_: ToSet, e) if isCollectionMonoid(e, SetMonoid())   => e
+  }
 
   /** Rules to simplify Boolean expressions to CNF.
     */

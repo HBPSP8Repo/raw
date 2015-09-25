@@ -15,3 +15,4 @@ id_rsa
 metastore_db/
 .src-*/
 *.iml
+executor/queries.log

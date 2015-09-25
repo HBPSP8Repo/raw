@@ -1,0 +1,36 @@
+3936 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(authors)
+    
+  
+4417 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+reduce(sum, $6 <- authors, 1)
+4455 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Scala code:
+{
+  val start = "************ ScalaReduce ************";
+  val res = ({
+  val f = ((___arg6: raw.datasets.Publication) => 1);
+  openScanner(authors).map(f)
+}).foldLeft(0)(((a, b) => a.+(b)));
+  val end = "************ ScalaReduce ************";
+  res
+}
+5075 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(publications)
+    
+  
+5138 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+reduce(sum, $25 <- publications, 1)
+5142 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Scala code:
+{
+  val start = "************ ScalaReduce ************";
+  val res = ({
+  val f = ((___arg25: raw.datasets.Publication) => 1);
+  openScanner(publications).map(f)
+}).foldLeft(0)(((a, b) => a.+(b)));
+  val end = "************ ScalaReduce ************";
+  res
+}

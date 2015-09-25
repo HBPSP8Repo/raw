@@ -55,7 +55,7 @@ class DesugarerTest extends FunTest {
     compare(
       process(
         """sum(list(1))"""),
-         """\$0 -> for ($1 <- $0) yield sum $1(list(1))""")
+         """\$0 -> for ($1 <- to_bag($0)) yield sum $1(list(1))""")
   }
 
   test("max") {
@@ -70,7 +70,7 @@ class DesugarerTest extends FunTest {
     compare(
       process(
         """count(list(1))"""),
-      """\$0 -> for ($1 <- $0) yield sum 1(list(1))""")
+      """\$0 -> for ($1 <- to_bag($0)) yield sum 1(list(1))""")
   }
 
 }
