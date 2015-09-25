@@ -2,10 +2,20 @@
 # the string "--". Each XXX.q file will be transformed into one XXXTest.scala file.
 # The generated files are placed in the subdirectory "generated".
 import os.path
+import sys
 import shutil
 import re
 import xml.etree.ElementTree as ET
 import utils
+
+templateClass = """package %(package)s
+
+import raw._
+
+class %(name)sTest extends Abstract%(testType)sTest {
+%(testMethods)s
+}
+"""
 
 templateTestMethod = """
   test("%(name)s") {
@@ -141,3 +151,15 @@ class TestGenerator:
                             break
                         except RuntimeWarning:
                             pass
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        baseDir = os.path.abspath(sys.argv[1])
+    else:
+        baseDir = os.path.abspath(".")
+
+    generator = TestGenerator(templateClass)
+    print "Searching for query files in: " + baseDir
+    generator.processAllFiles(baseDir, "scala/raw/patients")
+    generator.processAllFiles(baseDir, "scala/raw/publications")

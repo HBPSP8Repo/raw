@@ -3,4 +3,4 @@
 RAW_ROOT="$(cd "`dirname "$0"`"/..; pwd)"
 
 cd ${RAW_ROOT}/executor/src/test/
-python python/genTestsPublications.py
+python python/genTests.py
