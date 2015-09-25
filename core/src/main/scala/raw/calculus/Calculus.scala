@@ -85,7 +85,7 @@ object Calculus {
 
   /** Function Abstraction
     */
-  case class FunAbs(p: Pattern, e: Exp) extends Exp
+  case class FunAbs(p: Pattern, e: Exp) extends Exp with Decl
 
   /** Function Application
     */
@@ -111,17 +111,17 @@ object Calculus {
     */
   case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
 
-  /** Statements
+  /** Declarations
     */
-  sealed abstract class Statement extends Qual
+  sealed trait Decl extends Qual
 
   /** Generator
     */
-  case class Gen(p: Pattern, e: Exp) extends Statement
+  case class Gen(p: Pattern, e: Exp) extends Decl
 
   /** Bind
     */
-  case class Bind(p: Pattern, e: Exp) extends Statement
+  case class Bind(p: Pattern, e: Exp) extends Decl
 
   /** Sugar Nodes: removed by the Desugarer
     */
@@ -217,7 +217,7 @@ object Calculus {
 
   /** Iterator
     */
-  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Statement
+  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Decl
 
   /** Partition
     */

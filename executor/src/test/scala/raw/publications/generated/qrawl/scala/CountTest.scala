@@ -1,12 +1,11 @@
-package raw.publications.generated.oql.spark
+package raw.publications.generated.qrawl.scala
 
-import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class CountTest extends AbstractSparkTest with LDBDockerContainer with BeforeAndAfterAll {
+class CountTest extends AbstractScalaTest {
 
   test("Count0") {
-    val queryLanguage = "oql"
+    val queryLanguage = "qrawl"
     val query = """
       count(authors)
     """
@@ -15,7 +14,7 @@ class CountTest extends AbstractSparkTest with LDBDockerContainer with BeforeAnd
   }
 
   test("Count1") {
-    val queryLanguage = "oql"
+    val queryLanguage = "qrawl"
     val query = """
       count(publications)
     """

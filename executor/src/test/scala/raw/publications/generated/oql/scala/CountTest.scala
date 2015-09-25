@@ -1,8 +1,9 @@
 package raw.publications.generated.oql.scala
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class CountTest extends AbstractScalaTest {
+class CountTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Count0") {
     val queryLanguage = "oql"

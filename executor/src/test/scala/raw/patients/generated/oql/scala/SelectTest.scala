@@ -1,8 +1,9 @@
 package raw.patients.generated.oql.scala
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class SelectTest extends AbstractScalaTest {
+class SelectTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Select0") {
     val queryLanguage = "oql"

@@ -199,8 +199,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
     data_tipe(tree.root) // Must type the entire program before checking for errors
-    logger.debug(s"Final type map\n${typesVarMap.toString}")
-    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
+//    logger.debug(s"Final type map\n${typesVarMap.toString}")
+//    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
 
     badEntities ++ unifyErrors ++ semanticErrors
   }
@@ -479,7 +479,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
               val freeMonoidSyms = monoidVars.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
               val ts = TypeScheme(t, freeTypeSyms, freeMonoidSyms)
-              logger.debug(s"TypeScheme is ${PrettyPrinter(ts)} for ${CalculusPrettyPrinter(b)}")
+//              logger.debug(s"TypeScheme is ${PrettyPrinter(ts)} for ${CalculusPrettyPrinter(b)}")
               ts
           }
         case Some(g: Gen)       =>
@@ -545,11 +545,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           //       Say we have a record with 2 fields which are 2 collections: one of them has type vars the other doesn't. So should we just clone one? Or both?
           case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, name)
           case c1 @ CollectionType(m, inner)                       =>
-            logger.debug(s"c1 is ${PrettyPrinter(c1)}")
-            logger.debug(s"typeSyms $typeSyms")
-            logger.debug(s"monoidSyms $monoidSyms")
+//            logger.debug(s"c1 is ${PrettyPrinter(c1)}")
+//            logger.debug(s"typeSyms $typeSyms")
+//            logger.debug(s"monoidSyms $monoidSyms")
             val nm = getMonoid(m)
-            logger.debug(s"nm $nm")
+//            logger.debug(s"nm $nm")
             CollectionType(nm, recurse(inner, occursCheck + t))
           case FunType(p, e)                                  => FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
         }
@@ -669,7 +669,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def unify(t1: Type, t2: Type): Boolean = {
 
     def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
-      logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
+//      logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
       if (occursCheck.contains((t1, t2))) {
         return true
       }
@@ -858,8 +858,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             ??? // Add error: we're using a partition over an empty generator(?)
 
         val t1 = fromType(s.from)
-        logger.debug(s"t1 is $t1")
-        logger.debug(s"t is $t")
+//        logger.debug(s"t1 is $t1")
+//        logger.debug(s"t is $t")
         val r = unify(t, t1)
         if (!r) {
           unifyErrors += IncompatibleTypes(walk(t), walk(t1))
@@ -875,9 +875,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         true
     }
 
-    logger.debug(s"solving $cs")
+//    logger.debug(s"solving $cs")
     cs match {
-      case c :: rest => logger.debug(s"  solving $c") ; if (solver(c)) solve(rest) else false
+      case c :: rest =>
+//        logger.debug(s"  solving $c")
+        if (solver(c)) solve(rest) else false
       case _ => true
     }
 
@@ -1221,6 +1223,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
+    case n @ Unnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterUnnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ Sum(e) => constraints(e) ++ constraint(n)
     case n @ Max(e) => constraints(e) ++ constraint(n)

@@ -4,7 +4,7 @@
             count(patients)
         </oql>
         <qrawl>
-            qrawl query: count(patients)
+            count(patients)
         </qrawl>
         <result>
             500
