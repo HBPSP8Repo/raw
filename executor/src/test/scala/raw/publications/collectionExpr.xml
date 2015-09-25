@@ -3,6 +3,9 @@
         <oql>
             min(select year from authors)
         </oql>
+        <qrawl>
+            min(select a.year from a in authors)
+        </qrawl>
         <result>
             1951
         </result>
@@ -12,6 +15,9 @@
         <oql>
             max(select year from authors)
         </oql>
+        <qrawl>
+            max(select a.year from a in authors)
+        </qrawl>
         <result>
             1994
         </result>
@@ -21,6 +27,9 @@
         <oql>
             sum(select year from authors)
         </oql>
+        <qrawl>
+            sum(select a.year from a in authors)
+        </qrawl>
         <result>
             98724
         </result>
@@ -30,6 +39,9 @@
         <oql>
             avg(select year from authors)
         </oql>
+        <qrawl>
+            avg(select a.year from a in authors)
+        </qrawl>
         <result>
             1974
         </result>
@@ -39,6 +51,9 @@
         <oql>
             count(select year from authors)
         </oql>
+        <qrawl>
+            count(select a.year from a in authors)
+        </qrawl>
         <result>
             50
         </result>
