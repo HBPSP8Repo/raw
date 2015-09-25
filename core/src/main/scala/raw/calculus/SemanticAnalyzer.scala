@@ -200,8 +200,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
     data_tipe(tree.root) // Must type the entire program before checking for errors
-//    logger.debug(s"Final type map\n${typesVarMap.toString}")
-//    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
+    logger.debug(s"Final type map\n${typesVarMap.toString}")
+    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
 
     badEntities ++ unifyErrors ++ semanticErrors
   }

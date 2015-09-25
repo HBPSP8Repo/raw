@@ -27,7 +27,7 @@ trait Simplifier extends Translator {
     */
   private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
     analyzer.tipe(e) match {
-      case CollectionType(m, _) => true
+      case CollectionType(`m`, _) => true
       case _ => false
     }
 
