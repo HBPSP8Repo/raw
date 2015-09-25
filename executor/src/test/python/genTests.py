@@ -8,11 +8,21 @@ import re
 import xml.etree.ElementTree as ET
 import utils
 
-templateClass = """package %(package)s
+qrawlClassTemplate = """package %(package)s
 
 import raw._
 
 class %(name)sTest extends Abstract%(testType)sTest {
+%(testMethods)s
+}
+"""
+
+oqlClassTemplate = """package %(package)s
+
+import org.scalatest.BeforeAndAfterAll
+import raw._
+
+class %(name)sTest extends Abstract%(testType)sTest with LDBDockerContainer with BeforeAndAfterAll {
 %(testMethods)s
 }
 """
@@ -47,9 +57,6 @@ templateTestMethodJsonCompare = """
 
 
 class TestGenerator:
-    def __init__(self, template):
-        self.template = template
-
     def indent(self, lines, level):
         return [(" " * level) + line for line in lines]
 
@@ -82,7 +89,7 @@ class TestGenerator:
         outFile.write(code)
         outFile.close()
 
-    def processFile(self, root, filename, queryLanguage):
+    def processFile(self, root, filename, queryLanguage, classTemplate):
         package = re.split('src/test/scala/', root)[1]
         package = package.replace("/", ".")
 
@@ -120,7 +127,7 @@ class TestGenerator:
             return
 
         sparkTestsDirectory = os.path.join(generatedDirectory, "spark")
-        code = self.template % {
+        code = classTemplate % {
             "name": name,
             "package": package + ".generated." + queryLanguage + ".spark",
             "testMethods": testMethods,
@@ -129,7 +136,7 @@ class TestGenerator:
         self.writeTestFile(sparkTestsDirectory, name, code)
 
         scalaTestsDirectory = os.path.join(generatedDirectory, "scala")
-        code = self.template % {
+        code = classTemplate % {
             "name": name,
             "package": package + ".generated." + queryLanguage +".scala",
             "testMethods": testMethods,
@@ -159,9 +166,9 @@ class TestGenerator:
                     while True:
                         try:
                             # Places scala files in generated.oql.[scala|spark]
-                            self.processFile(root, file, "oql")
+                            self.processFile(root, file, "oql", oqlClassTemplate)
                             # Places scala files in generated.qrawl.[scala|spark]
-                            self.processFile(root, file, "qrawl")
+                            self.processFile(root, file, "qrawl", qrawlClassTemplate)
                             break
                         except RuntimeWarning:
                             pass
@@ -173,7 +180,7 @@ if __name__ == '__main__':
     else:
         baseDir = os.path.abspath(".")
 
-    generator = TestGenerator(templateClass)
+    generator = TestGenerator()
     print "Searching for query files in: " + baseDir
     generator.processAllFiles(baseDir, "scala/raw/patients")
     generator.processAllFiles(baseDir, "scala/raw/publications")
