@@ -1,4 +1,4 @@
-package raw.publications.generated.spark
+package raw.publications.generated.oql.spark
 
 import raw._
 

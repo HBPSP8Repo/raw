@@ -1,46 +1,51 @@
-package raw.publications.generated.spark
+package raw.publications.generated.oql.spark
 
 import raw._
 
 class CollectionExprTest extends AbstractSparkTest {
 
   test("CollectionExpr0") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       min(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr0", result)
   }
 
   test("CollectionExpr1") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       max(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr1", result)
   }
 
   test("CollectionExpr2") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       sum(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr2", result)
   }
 
   test("CollectionExpr4") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       count(select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr4", result)
   }
 
   test("CollectionExpr6") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       EXISTS (select year from authors)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "CollectionExpr6", result)
   }
 

@@ -1,30 +1,33 @@
-package raw.patients.generated.scala
+package raw.patients.generated.oql.scala
 
 import raw._
 
 class SelectTest extends AbstractScalaTest {
 
   test("Select0") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       count(patients)
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("patients", "Select0", result)
   }
 
   test("Select1") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("patients", "Select1", result)
   }
 
   test("Select2") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("patients", "Select2", result)
   }
 
