@@ -154,7 +154,5 @@ java -classpath "%s" %s "$@"
 lazy val core = (project in file("core")).
   settings(buildSettings).
   settings(
-    libraryDependencies ++= commonDeps ++ Seq(
-      kiama)
-
+    libraryDependencies ++= commonDeps ++ Seq(parserCombinators) ++ kiamaDependencies
   )
