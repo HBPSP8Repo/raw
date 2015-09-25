@@ -200,8 +200,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
     data_tipe(tree.root) // Must type the entire program before checking for errors
-    logger.debug(s"Final type map\n${typesVarMap.toString}")
-    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
+//    logger.debug(s"Final type map\n${typesVarMap.toString}")
+//    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
 
     badEntities ++ unifyErrors ++ semanticErrors
   }
@@ -882,11 +882,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         true
     }
 
-//    logger.debug(s"solving $cs")
     cs match {
       case c :: rest =>
 //        logger.debug(s"  solving $c")
-        if (solver(c)) solve(rest) else false
+        if (solver(c))
+          solve(rest)
+        else
+          false
       case _ => true
     }
 
@@ -1213,7 +1215,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val hc = if (h.isDefined) constraints(h.get) else Nil
       fc ++ wc ++ gc ++ oc ++ hc ++ constraints(proj) ++ constraint(n)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
-    case n @ ExpBlock(binds, e) => binds.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
+    case n @ ExpBlock(binds, e) => binds.toList.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ BinaryExp(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ UnaryExp(_, e) => constraints(e) ++ constraint(n)

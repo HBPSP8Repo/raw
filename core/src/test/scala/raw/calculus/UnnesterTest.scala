@@ -402,7 +402,16 @@ class UnnesterTest extends FunTest {
     )
   }
 
-//  ignore("edge bundling chuv diagnossis") {
+  def check(query: String, world: World, algebra: String) = compare(CalculusPrettyPrinter(process(world, query).root), algebra)
+
+  test("publications: count of authors grouped by title and then year") {
+    check("select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
+      TestWorlds.publications, """
+          """)
+  }
+
+
+  //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
 //        for (c <- diagnosis_codes) yield list {
 //          code := c.diagnostic_code;

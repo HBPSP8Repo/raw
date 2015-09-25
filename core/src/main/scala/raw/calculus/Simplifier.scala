@@ -15,8 +15,7 @@ trait Simplifier extends Translator {
   // TODO: Compute expressions like "if (true) then 1 else 2"
   // TODO: Fold constants
 
-  lazy val simplify = reduce(
-    removeUselessTos +
+  lazy val simplify = manytd(removeUselessTos) + reduce(
     ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
@@ -32,9 +31,9 @@ trait Simplifier extends Translator {
     }
 
   lazy val removeUselessTos = rule[Exp] {
-    case UnaryExp(_: ToBag, e) if isCollectionMonoid(e, BagMonoid())   => e
-    case UnaryExp(_: ToList, e) if isCollectionMonoid(e, ListMonoid()) => e
-    case UnaryExp(_: ToSet, e) if isCollectionMonoid(e, SetMonoid())   => e
+    case u @ UnaryExp(_: ToBag, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, BagMonoid()) }   => e
+    case u @ UnaryExp(_: ToList, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, ListMonoid()) } => e
+    case u @ UnaryExp(_: ToSet, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, SetMonoid()) }   => e
   }
 
   /** Rules to simplify Boolean expressions to CNF.
