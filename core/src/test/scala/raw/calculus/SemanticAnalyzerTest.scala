@@ -243,7 +243,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("{ z := 42; x := for (i <- integers; i = z) yield set i; for (y <- x) yield set y }", TestWorlds.simple, CollectionType(SetMonoid(),IntType()))
   }
 
-  test("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r") {
+  ignore("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r") {
     success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", TestWorlds.unknown, CollectionType(SetMonoid(),ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType())))))
   }
 
@@ -694,7 +694,7 @@ class SemanticAnalyzerTest extends FunTest {
         None), ob)); ot.nullable = true; ot })
   }
 
-  test("options in select") {
+  ignore("options in select") {
     success("select s from s in LI", TestWorlds.options, CollectionType(BagMonoid(), IntType()))
     success("select partition from s in LI group by s", TestWorlds.options, CollectionType(BagMonoid(), CollectionType(BagMonoid(), IntType())))
 
@@ -709,7 +709,7 @@ class SemanticAnalyzerTest extends FunTest {
     }
   }
 
-  test("fancy select with options") {
+  ignore("fancy select with options") {
       // more fancy. We join a bag of option(int) with an option bag(int).
       // partition should be an option bag of record with an option int and a non-option int.
       val optionInt = IntType()
@@ -730,7 +730,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("""select s.lastname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, CollectionType(BagMonoid(), StringType()))
   }
 
-  test("wrong field name") {
+  ignore("wrong field name") {
     failure("""select s.astname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, ???)
   }
 
@@ -754,7 +754,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(BagMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
   }
 
-  test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
+  ignore("select dpt, count(partition) as n from students s group by dpt: s.dept") {
     success("select dpt, count(partition) as n from students s group by dpt: s.dept", TestWorlds.professors_students, ???)
   }
 
