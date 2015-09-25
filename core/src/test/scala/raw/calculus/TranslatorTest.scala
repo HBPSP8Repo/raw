@@ -65,4 +65,69 @@ class TranslatorTest extends FunTest {
         """for ($0 <- students) yield bag (_1: $0.age, names: for ($1 <- for ($2 <- students; $0.age = $2.age) yield bag $2) yield bag (_1: $1.name, _2: for ($3 <- for ($2 <- students; $0.age = $2.age) yield bag $2; $1.name = $3.name) yield bag $3))""")
   }
 
+  test("select A from authors A") {
+    compare(
+      process(
+        "select A from authors A", TestWorlds.publications),
+        "for ($0 <- authors) yield bag $0"
+      )
+  }
+
+  test("select P from publications P") {
+    compare(
+      process(
+        "select P from publications P", TestWorlds.publications),
+        "for ($0 <- publications) yield bag $0"
+    )
+  }
+
+  test("select A.title, count(partition) as n from authors A group by A.title") {
+    compare(
+      process(
+        "select A.title, count(partition) as n from authors A group by A.title", TestWorlds.publications),
+        """for ($0 <- authors) yield bag (_1: $0.title, n: \$1 -> for ($2 <- $1) yield sum 1(for ($3 <- authors; $0.title = $3.title) yield bag $3))"""
+    )
+  }
+
+  test("select A.title, partition as people from authors A group by A.title") {
+    compare(
+      process(
+        "select A.title, partition as people from authors A group by A.title", TestWorlds.publications),
+      """for ($0 <- authors) yield bag (_1: $0.title, people: for ($3 <- authors; $0.title = $3.title) yield bag $3)"""
+    )
+  }
+
+  test("select A.title, (select A.year from A in partition) as years from authors A group by A.title") {
+    compare(
+      process(
+        "select A.title, (select A.year from A in partition) as years from authors A group by A.title", TestWorlds.publications),
+      """for ($0 <- authors) yield bag (_1: $0.title, years: for ($3 <- for ($4 <- authors; $0.title = $4.title) yield bag $4) yield bag $3.year)"""
+    )
+  }
+
+  test("distinct leads to a set") {
+    compare(
+      process("select distinct A.title from A in authors", TestWorlds.publications),
+      "for ($0 <- authors) yield set $0"
+    )
+  }
+
+  ignore("select G.title, (select year: v, N: count(partition) from v in G.values group by year: v) as stats from ( select distinct title, (select year from partition) as values from authors A group by title: A.title) G") {
+    compare(
+      process(
+      """select G.title,
+               (select year: v.year,
+                       N: count(partition)
+                from v in G.people
+                group by v.year) as stats
+         from (
+               select distinct title: A.title, partition as people
+               from authors A
+               group by A.title) G""", TestWorlds.publications),
+      """for ($10 <-
+          for ($0 <- authors) yield set (_1: $0.title, people: for ($3 <- authors; $0.title = $3.title) yield bag $3.year)
+         ) yield bag (_1: $10.title, stats: for ($12 <- $10.years) yield bag (year: $12, N: count(partition)))
+      """
+    )
+  }
 }

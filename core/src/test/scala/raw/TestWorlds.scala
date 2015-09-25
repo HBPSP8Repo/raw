@@ -1,6 +1,6 @@
 package raw
 
-import calculus.Symbol
+import raw.calculus.Symbol
 
 object TestWorlds {
 
@@ -15,6 +15,21 @@ object TestWorlds {
       "Items" -> CollectionType(ListMonoid(), UserType(Symbol("Item")))
     )
 
+    new World(sources, tipes)
+  }
+
+  def publications = {
+    val tipes = Map(
+      Symbol("Publication") -> RecordType(List(AttrType("title", StringType()),
+                                               AttrType("authors", CollectionType(BagMonoid(), StringType())),
+                                               AttrType("affiliations", CollectionType(BagMonoid(), StringType())),
+                                               AttrType("controlledterms", CollectionType(BagMonoid(), StringType()))), Some("publication")),
+      Symbol("Author")      -> RecordType(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType())), Some("author"))
+    )
+    val sources = Map(
+      "publications" -> CollectionType(BagMonoid(), UserType(Symbol("Publication"))),
+      "authors" -> CollectionType(BagMonoid(), UserType(Symbol("Author")))
+    )
     new World(sources, tipes)
   }
 

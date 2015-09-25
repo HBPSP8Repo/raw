@@ -2,6 +2,7 @@ package raw
 package calculus
 
 import com.typesafe.scalalogging.LazyLogging
+import org.kiama.rewriting.Rewriter._
 
 /** Desugar SQL to for comprehension
   */
@@ -30,7 +31,7 @@ trait Translator extends Transformer {
   private lazy val selectGroupBy = rule[Exp] {
     case s @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
       logger.debug(s"Applying selectGroupBy")
-      val ns = rewriteIdns(deepclone(s))
+      val ns = rewriteInternalIdns(deepclone(s))
 
       assert(ns.from.nonEmpty)
 
@@ -53,6 +54,26 @@ trait Translator extends Transformer {
 
       Select(from, distinct, None, projWithoutPart, where, None, None)
   }
+
+
+  private def rewriteInternalIdns[T <: RawNode](n: T): T = {
+    val collectIdnDefs = collect[Seq, Idn] {
+      case IdnDef(idn) => idn
+    }
+    val internalIdns = collectIdnDefs(n)
+
+    val ids = scala.collection.mutable.Map[String, String]()
+
+    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn) }
+
+    rewrite(
+      everywhere(rule[IdnNode] {
+        case IdnDef(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnDef(newIdn(idn))
+        case IdnUse(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnUse(newIdn(idn))
+      }))(n)
+
+  }
+
 }
 
 object Translator extends LazyLogging {
