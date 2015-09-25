@@ -19,12 +19,12 @@ import scala.reflect.runtime.universe._
 
 
 object RawScanner {
-  def apply[T: TypeTag : ClassTag](schema: RawSchema, m: Manifest[T]): RawScanner[T] = {
+  def apply[T: TypeTag : ClassTag : Manifest](schema: RawSchema): RawScanner[T] = {
     val p = schema.dataFile
     if (p.toString.endsWith(".json")) {
-      new JsonRawScanner(schema, m)
+      new JsonRawScanner(schema)
     } else if (p.toString.endsWith(".csv")) {
-      new CsvRawScanner(schema, m)
+      new CsvRawScanner(schema)
     } else {
       throw new IllegalArgumentException("Unsupported file type: " + p)
     }
@@ -86,7 +86,7 @@ object CsvRawScanner {
   }
 }
 
-class CsvRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with Instrumented with StrictLogging {
+class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with Instrumented with StrictLogging {
 
   import CsvRawScanner._
 
@@ -94,6 +94,7 @@ class CsvRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) ex
 
   private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
   private[this] val ctor = {
+    val m = manifest[T]
     logger.info("Type manifest: " + m)
     val ctors = m.runtimeClass.getConstructors
     assert(ctors.size == 1, "Expected a single constructor. Found: " + ctors)
@@ -106,8 +107,6 @@ class CsvRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) ex
     val properties = schema.properties
     logger.info(s"Creating iterator for CSV resource: $p. Properties: ${properties}")
 
-    // TODO: Potential resource leak. Who closes the InputStream once the client code is done with the
-    // iterator? There is no close() method on the Iterator interface
     val is: InputStream = Files.newInputStream(schema.dataFile)
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
@@ -122,8 +121,6 @@ class CsvRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) ex
   // Buffer reused in calls to newValue().
   private[this] val args = new Array[AnyRef](ctor.getParameterCount)
 
-  // TODO: Analyze the schema at construction of this instance and create an array with the functions needed to parse each
-  // element, to avoid the lookup in every call to newValue
   private[this] def newValue(data: Array[String]): T = {
     var i = 0
     // Note: This can be optimized by code-generating the construction code and avoiding the per-instance lookup
@@ -151,7 +148,7 @@ object JsonRawScanner {
   mapper.registerModule(DefaultScalaModule)
 }
 
-class JsonRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
+class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
 
   import JsonRawScanner._
 
@@ -161,14 +158,14 @@ class JsonRawScanner[T: ClassTag : TypeTag](schema: RawSchema, m: Manifest[T]) e
   override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
     val properties = schema.properties
-    logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: $m, TyppeTag: ${typeTag[T]}")
+    logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: ${manifest[T]}, TyppeTag: ${typeTag[T]}")
 
     val is: InputStream = Files.newInputStream(schema.dataFile)
     val jp = jsonFactory.createParser(is)
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
     assert(jp.nextToken() == JsonToken.START_OBJECT)
-    val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues(jp)(m))
+    val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues[T](jp))
     new ClosableIterator[T](iter, is)
   }
 }
