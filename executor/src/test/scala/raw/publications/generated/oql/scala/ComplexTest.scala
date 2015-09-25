@@ -1,4 +1,4 @@
-package raw.publications.generated.scala
+package raw.publications.generated.oql.scala
 
 import raw._
 

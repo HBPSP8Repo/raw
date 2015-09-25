@@ -1,11 +1,12 @@
-package raw.publications.generated.scala
+package raw.publications.generated.oql.scala
 
 import raw._
 
 class AssignTest extends AbstractScalaTest {
 
   test("Assign0") {
-    val oql = """
+    val queryLanguage = "oql"
+    val query = """
       select G.title,
       (select year: v,
               N: count(partition)
@@ -16,7 +17,7 @@ from (
       from authors A
       group by title: A.title) G
     """
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "Assign0", result)
   }
 

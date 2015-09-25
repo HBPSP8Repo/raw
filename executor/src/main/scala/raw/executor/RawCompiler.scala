@@ -103,7 +103,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
   }
 
 
-  private[this] def compile(queryFieldName: String, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
+  def compile(queryFieldName: String, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
     logger.info("Scanners: " + scanners)
     val queryName = RawCompiler.newClassName()
     val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)

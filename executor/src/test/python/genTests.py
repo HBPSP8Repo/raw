@@ -19,10 +19,11 @@ class %(name)sTest extends Abstract%(testType)sTest {
 
 templateTestMethod = """
   test("%(name)s") {
-    val oql = \"\"\"
+    val queryLanguage = \"%(queryLanguage)s\"
+    val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     val actual = convertToString(result)
 
     val expected = convertExpected(\"\"\"
@@ -35,10 +36,11 @@ templateTestMethod = """
 
 templateTestMethodJsonCompare = """
   test("%(name)s") {
-    val oql = \"\"\"
+    val queryLanguage = \"%(queryLanguage)s\"
+    val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compileOQL(oql, scanners).computeResult
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual(\"%(dataset)s\", \"%(name)s\", result)
   }
 """
@@ -51,19 +53,22 @@ class TestGenerator:
     def indent(self, lines, level):
         return [(" " * level) + line for line in lines]
 
-    def processQuery(self, dataset, testName, testDef):
+    def processQuery(self, dataset, testName, testDef, queryLanguage):
         disabledAttr = testDef.get('disabled')
         if disabledAttr != None:
             print "Test disabled:", testName, ". Reason:", disabledAttr
             return ""
-        qe = testDef.find("oql")
-        oql = qe.text.strip()
+        qe = testDef.find(queryLanguage)
+        # If there is no element in the XML matching this query language, skip code generation.
+        if qe == None:
+            return None
+        query = qe.text.strip()
 
         # Generate test method
         # resultElem = testDef.find("result")
         # if resultElem == None:
         testMethod = templateTestMethodJsonCompare % \
-                     {"dataset": dataset, "name": testName, "query": oql}
+                     {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "query": query}
         # else:
         #     expectedResults = resultElem.text.strip()
         #     testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
@@ -77,12 +82,12 @@ class TestGenerator:
         outFile.write(code)
         outFile.close()
 
-    def processFile(self, root, filename):
+    def processFile(self, root, filename, queryLanguage):
         package = re.split('src/test/scala/', root)[1]
         package = package.replace("/", ".")
 
         # Generated test source files
-        generatedDirectory = os.path.join(root, "generated")
+        generatedDirectory = os.path.join(root, "generated", queryLanguage)
         utils.createDirIfNotExists(generatedDirectory)
 
         queryFilename = os.path.join(root, filename)
@@ -104,14 +109,20 @@ class TestGenerator:
         i = 0
         for child in root:
             testName = name + str(i)
-            testMethod = self.processQuery(dataset, testName, child)
+            testMethod = self.processQuery(dataset, testName, child, queryLanguage)
+            if (testMethod == None):
+                continue
             testMethods += testMethod
             i += 1
+
+        #No tests in the current XML file for this query language. Do not generate a scala file
+        if i == 0:
+            return
 
         sparkTestsDirectory = os.path.join(generatedDirectory, "spark")
         code = self.template % {
             "name": name,
-            "package": package + ".generated.spark",
+            "package": package + ".generated." + queryLanguage + ".spark",
             "testMethods": testMethods,
             "dataset": dataset,
             "testType": "Spark"}
@@ -120,7 +131,7 @@ class TestGenerator:
         scalaTestsDirectory = os.path.join(generatedDirectory, "scala")
         code = self.template % {
             "name": name,
-            "package": package + ".generated.scala",
+            "package": package + ".generated." + queryLanguage +".scala",
             "testMethods": testMethods,
             "dataset": dataset,
             "testType": "Scala"}
@@ -147,7 +158,10 @@ class TestGenerator:
                     # if file.startswith("join"):
                     while True:
                         try:
-                            self.processFile(root, file)
+                            # Places scala files in generated.oql.[scala|spark]
+                            self.processFile(root, file, "oql")
+                            # Places scala files in generated.qrawl.[scala|spark]
+                            self.processFile(root, file, "qrawl")
                             break
                         except RuntimeWarning:
                             pass
