@@ -189,6 +189,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Avg(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1) => make_nullable(te, Seq(), Seq(tipe(e1)))
       }
+      nt.pos = te.pos
       nt
     }
   }
@@ -583,7 +584,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Some(s) => selectTypeVar(s)
         case None    =>
           unifyErrors += UnknownPartition(p)
-          NothingType()
+          val n = NothingType()
+          n.pos = p.pos
+          n
       }
 
     // Rule 1
@@ -839,7 +842,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 CollectionType(BagMonoid(), innerType)
               case _ =>
                 unifyErrors += CollectionRequired(walk(t))
-                NothingType()
+                val n = NothingType()
+                n.pos = from.head.e.pos
+                n
             }
           }
           else if (from.length > 1) {
@@ -850,7 +855,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                   innerType
                 case _ =>
                   unifyErrors += CollectionRequired(walk(t))
-                  NothingType()
+                  val n = NothingType()
+                  n.pos = f.e.pos
+                  n
               }
             }
             CollectionType(BagMonoid(), RecordType(from.zip(innerTypes).map { case (Iterator(Some(PatternIdn(IdnDef(idn))), _), innerType) => AttrType(idn, innerType) }, None))

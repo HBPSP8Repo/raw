@@ -31,7 +31,7 @@ trait Desugarer extends Uniquifier {
     case Sum(e) =>
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), UnaryExp(ToBag(), IdnExp(IdnUse(xs))))), IdnExp(IdnUse(x)))), e)
   }
 
   /** De-sugar max
@@ -49,7 +49,7 @@ trait Desugarer extends Uniquifier {
     case Count(e) =>
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IntConst("1"))), e)
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), UnaryExp(ToBag(), IdnExp(IdnUse(xs))))), IntConst("1"))), e)
   }
 
   /** De-sugar pattern function abstractions into expression blocks.
