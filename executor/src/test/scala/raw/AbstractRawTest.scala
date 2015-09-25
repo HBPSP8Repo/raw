@@ -18,7 +18,6 @@ abstract class AbstractRawTest
   with StrictLogging
   with BeforeAndAfterAll
   with ResultConverter
-  with LDBDockerContainer
   with RawClassLoader {
 
   var queryCompiler: RawCompiler = _
