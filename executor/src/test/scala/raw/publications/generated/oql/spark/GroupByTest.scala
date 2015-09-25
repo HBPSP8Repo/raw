@@ -1,8 +1,9 @@
 package raw.publications.generated.oql.spark
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class GroupByTest extends AbstractSparkTest {
+class GroupByTest extends AbstractSparkTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("GroupBy0") {
     val queryLanguage = "oql"

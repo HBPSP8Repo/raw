@@ -1,8 +1,9 @@
 package raw.publications.generated.oql.spark
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class SelectTest extends AbstractSparkTest {
+class SelectTest extends AbstractSparkTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Select0") {
     val queryLanguage = "oql"

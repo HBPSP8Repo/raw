@@ -1,8 +1,9 @@
 package raw.publications.generated.oql.scala
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class JoinTest extends AbstractScalaTest {
+class JoinTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Join0") {
     val queryLanguage = "oql"

@@ -1,9 +1,8 @@
 package raw
 
 import scala.collection.immutable.Map
-import raw.calculus.{CalculusPrettyPrinter, TypesPrettyPrinter, Symbol}
+import raw.calculus.{TypesPrettyPrinter, Symbol}
 
-import scala.util.parsing.input.Position
 import com.typesafe.scalalogging.LazyLogging
 
 class Group[A](val root: A, val elements: Set[A])
@@ -62,7 +61,6 @@ object World extends LazyLogging {
 
         m = nm.toList
       }
-      logger.debug(s"mymap: ${toString()}")
       this
     }
 

@@ -100,9 +100,9 @@ object SchemaParser extends StrictLogging {
     private[this] def defineCaseClasses(t: raw.Type): Unit = {
       t match {
         case r@RecordType(atts, Some(idn)) => defineCaseClass(r)
-        case BagType(innerType) => defineCaseClasses(innerType)
-        case ListType(innerType) => defineCaseClasses(innerType)
-        case SetType(innerType) => defineCaseClasses(innerType)
+        case CollectionType(BagMonoid(), innerType) => defineCaseClasses(innerType)
+        case CollectionType(ListMonoid(), innerType) => defineCaseClasses(innerType)
+        case CollectionType(SetMonoid(), innerType) => defineCaseClasses(innerType)
         case _ => // Ignore all types which don't contain other inner types.
       }
     }
@@ -114,9 +114,9 @@ object SchemaParser extends StrictLogging {
         case _: IntType => "Int"
         case _: FloatType => "Float"
         case r@RecordType(atts, Some(idn)) => idn
-        case BagType(innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
-        case ListType(innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
-        case SetType(innerType) => s"Set[${buildScalaDeclaration(innerType)}]"
+        case CollectionType(BagMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
+        case CollectionType(ListMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
+        case CollectionType(SetMonoid(), innerType) => s"Set[${buildScalaDeclaration(innerType)}]"
         case UserType(idn) => ???
         case TypeVariable(v) => ???
         case FunType(t1, t2) => ???
@@ -147,7 +147,7 @@ object SchemaParser extends StrictLogging {
         elem.label match {
           case "list" =>
             val innerType: Elem = getSingleChild(elem)
-            ListType(toRawType(innerType))
+            CollectionType(ListMonoid(), toRawType(innerType))
 
           case "record" =>
             val name: String = getAttributeText(elem, "name")

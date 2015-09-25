@@ -3,6 +3,9 @@
         <oql>
             count(authors)
         </oql>
+        <qrawl>
+            count(authors)
+        </qrawl>
         <result>
             50
         </result>
@@ -12,6 +15,9 @@
         <oql>
             count(publications)
         </oql>
+        <qrawl>
+            count(publications)
+        </qrawl>
         <result>
             1000
         </result>

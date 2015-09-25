@@ -3,11 +3,11 @@ package calculus
 
 import org.kiama.rewriting.Rewriter._
 
-trait Optimizer extends Transformer {
+trait Optimizer extends Unnester {
 
   import Calculus._
 
-  def strategy = optimize
+  override def strategy = attempt(super.strategy) <* optimize
 
   lazy val optimize = reduce(removeFilters)
 
@@ -27,4 +27,15 @@ trait Optimizer extends Transformer {
 
 object Optimizer {
 
+  import org.kiama.rewriting.Rewriter.rewriteTree
+  import Calculus.Calculus
+
+  def apply(tree: Calculus, world: World): Calculus = {
+    val t1 = Desugarer(tree, world)
+    val a = new SemanticAnalyzer(t1, world)
+    val optimizer = new Optimizer {
+      override def analyzer: SemanticAnalyzer = a
+    }
+    rewriteTree(optimizer.strategy)(t1)
+  }
 }

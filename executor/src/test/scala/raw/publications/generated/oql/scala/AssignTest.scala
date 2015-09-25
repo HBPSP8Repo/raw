@@ -1,8 +1,9 @@
 package raw.publications.generated.oql.scala
 
+import org.scalatest.BeforeAndAfterAll
 import raw._
 
-class AssignTest extends AbstractScalaTest {
+class AssignTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Assign0") {
     val queryLanguage = "oql"
