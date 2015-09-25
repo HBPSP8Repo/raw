@@ -30,7 +30,8 @@ object TestScanners extends StrictLogging {
     val p = Paths.get(Resources.getResource(dataFileResource).toURI)
     val schemaName = getSchemaName(p)
     val schema = new RawSchema(schemaName, null, null, p)
-    val scanner = RawScanner(schema, manifest[T])
+//    val scanner = RawScanner(schema, manifest[T])
+    val scanner = RawScanner[T](schema)
     scanners += scanner
     logger.info("Scanner: " + scanner)
     scanner
