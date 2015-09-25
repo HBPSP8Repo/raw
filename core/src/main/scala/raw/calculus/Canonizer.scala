@@ -55,11 +55,8 @@ object Canonizer {
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
-    val canonizer = new Canonizer {
-      override def analyzer: SemanticAnalyzer = a
-    }
+    val t1 = Simplifier(tree, world)
+    val canonizer = new Canonizer {}
     rewriteTree(canonizer.strategy)(t1)
   }
 }
