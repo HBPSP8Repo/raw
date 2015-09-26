@@ -6,7 +6,7 @@ import org.kiama.attribution.Attribution
 /** Normalize a comprehension by transforming a tree into its normalized form.
   * The normalization rules are described in [1] (Fig. 4, page 17).
   */
-class Normalizer extends Attribution with Transformer {
+class Normalizer extends Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
