@@ -6,13 +6,13 @@ import org.kiama.attribution.Attribution
 /** Normalize a comprehension by transforming a tree into its normalized form.
   * The normalization rules are described in [1] (Fig. 4, page 17).
   */
-trait Normalizer extends Attribution with Simplifier {
+trait Normalizer extends Attribution with Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* normalize
+  def strategy = normalize
 
   private lazy val normalize =
     doloop(
@@ -165,11 +165,8 @@ object Normalizer {
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
-    val normalizer = new Normalizer {
-      override def analyzer: SemanticAnalyzer = a
-    }
+    val t1 = Simplifier(tree, world)
+    val normalizer = new Normalizer {}
     rewriteTree(normalizer.strategy)(t1)
   }
 }

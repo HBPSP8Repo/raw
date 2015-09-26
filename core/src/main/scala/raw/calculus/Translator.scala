@@ -13,8 +13,6 @@ trait Translator extends Transformer {
 
   def strategy = translate
 
-  def analyzer: SemanticAnalyzer
-
   private def translate = reduce(selectGroupBy) <* reduce(selectToComp)
 
   // TODO: Add case classes ToSet, ToBag, ToList and apply them here so that the output Comp still types properly
@@ -30,6 +28,7 @@ trait Translator extends Transformer {
   private lazy val selectGroupBy = rule[Exp] {
     case s @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
       logger.debug(s"Applying selectGroupBy")
+      logger.debug(s"Input is ${CalculusPrettyPrinter(s)}")
       val ns = rewriteInternalIdns(deepclone(s))
 
       assert(ns.from.nonEmpty)
@@ -51,7 +50,9 @@ trait Translator extends Transformer {
           deepclone(partition)
       }))(proj)
 
-      Select(from, distinct, None, projWithoutPart, where, None, None)
+      val os = Select(from, distinct, None, projWithoutPart, where, None, None)
+      logger.debug(s"Output is ${CalculusPrettyPrinter(os)}")
+      os
   }
 
 
@@ -82,10 +83,7 @@ object Translator extends LazyLogging {
 
   def apply(tree: Calculus, world: World): Calculus = {
     val t1 = Desugarer(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
-    val translator = new Translator {
-      override def analyzer: SemanticAnalyzer = a
-    }
+    val translator = new Translator {}
     rewriteTree(translator.strategy)(t1)
   }
 }

@@ -5,17 +5,19 @@ package calculus
   * - by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
   * - by removing useless conversions to bag/list/set.
   */
-trait Simplifier extends Translator {
+trait Simplifier extends Transformer {
 
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* simplify
+  def strategy = simplify
+
+  def analyzer: SemanticAnalyzer
 
   // TODO: Compute expressions like "if (true) then 1 else 2"
   // TODO: Fold constants
 
-  lazy val simplify = manytd(removeUselessTos) + reduce(
+  lazy val simplify = reduce(removeUselessTos +
     ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
@@ -374,8 +376,8 @@ object Simplifier {
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree, world)
-    val t2 = Translator(t1, world)
+    val t1 = Translator(tree, world)
+    val t2 = Uniquifier(t1, world)
     val a = new SemanticAnalyzer(t2, world)
     val simplifier = new Simplifier {
       override def analyzer: SemanticAnalyzer = a

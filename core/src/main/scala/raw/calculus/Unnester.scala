@@ -183,11 +183,8 @@ object Unnester {
   import Calculus.Calculus
 
   def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
-    val unnester = new Unnester {
-      override def analyzer: SemanticAnalyzer = a
-    }
+    val t1 = Simplifier(tree, world)
+    val unnester = new Unnester {}
     rewriteTree(unnester.strategy)(t1)
   }
 }
