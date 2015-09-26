@@ -1,12 +1,13 @@
 package raw.executor
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.StrictLogging
 import nl.grons.metrics.scala.Timer
 import org.apache.spark.rdd.RDD
+import raw.QueryLanguages.{LogicalPlan, OQL, QueryLanguage}
 import raw.utils.{Instrumented, RawUtils}
 import raw.{QueryLogger, RawQuery}
 
@@ -80,11 +81,11 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
    * @throws RuntimeException If compilation fails
    */
   def compileOQL(oql: String, scanners: Seq[RawScanner[_]]): RawQuery = {
-    compile("oql", oql, scanners)
+    compile(OQL, oql, scanners)
   }
 
   def compileLogicalPlan(plan: String, scanners: Seq[RawScanner[_]]): RawQuery = {
-    compile("plan", plan, scanners)
+    compile(LogicalPlan, plan, scanners)
   }
 
 
@@ -103,7 +104,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
   }
 
 
-  def compile(queryFieldName: String, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
+  def compile(queryLanguage: QueryLanguage, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
     logger.info("Scanners: " + scanners)
     val queryName = RawCompiler.newClassName()
     val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)
@@ -139,7 +140,7 @@ $imports
 
 @rawQueryAnnotation
 class $queryName($args) extends RawQuery {
-  val $queryFieldName =
+  val ${queryLanguage.name} =
   \"\"\"
   $query
   \"\"\"

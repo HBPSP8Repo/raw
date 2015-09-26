@@ -13,6 +13,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.QueryLanguages.OQL
 import raw.rest.RawRestServer
 import raw.utils.RawUtils
 
@@ -127,15 +128,20 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     post
   }
 
+  def newQueryPost(logicalPlan:String): HttpPost = {
+    val queryPost = new HttpPost("http://localhost:54321/query")
+    queryPost.setHeader("Raw-User", "joedoe")
+    queryPost.setHeader("Raw-Query-Language", "qrawl")
+    queryPost.setEntity(new StringEntity(logicalPlan))
+    queryPost
+  }
 
   test("JSON register && query") {
     stageResourceDir("data/patients", "downloaddata")
     val post = newRegisterPost("patients", "joedoe", "downloaddata")
     executeRequest(post)
 
-    val queryPost = new HttpPost("http://localhost:54321/query")
-    queryPost.setHeader("Raw-User", "joedoe")
-    queryPost.setEntity(new StringEntity(patientsPlan))
+    val queryPost = newQueryPost(patientsPlan)
     executeRequest(queryPost)
   }
 
@@ -144,9 +150,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val post = newRegisterPost("students", "joedoe", "downloaddata")
     executeRequest(post)
 
-    val queryPost = new HttpPost("http://localhost:54321/query")
-    queryPost.setHeader("Raw-User", "joedoe")
-    queryPost.setEntity(new StringEntity(studentsPlan))
+    val queryPost = newQueryPost(studentsPlan)
     val resp = executeRequest(queryPost)
     assert(resp == "7")
   }
@@ -156,9 +160,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val post = newRegisterPost("students", "joedoe", "downloaddata")
     executeRequest(post)
 
-    val queryPost = new HttpPost("http://localhost:54321/query")
-    queryPost.setHeader("Raw-User", "joedoe")
-    queryPost.setEntity(new StringEntity(studentsPlan))
+    val queryPost = newQueryPost(studentsPlan)
     val resp = executeRequest(queryPost)
     assert(resp == "7")
   }
@@ -168,9 +170,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val post = newRegisterPost("brain_feature_set", "joedoe", "downloaddata")
     executeRequest(post)
 
-    val queryPost = new HttpPost("http://localhost:54321/query")
-    queryPost.setHeader("Raw-User", "joedoe")
-    queryPost.setEntity(new StringEntity(brainFeatureSetPlan))
+    val queryPost = newQueryPost(brainFeatureSetPlan)
     val resp = executeRequest(queryPost)
     assert(resp == "1099")
   }
@@ -185,7 +185,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val schemas = storageManager.listUserSchemas(rawUser)
     logger.info("Found schemas: " + schemas.mkString(", "))
     val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
-    val result = CodeGenerator.query(brainFeatureSetPlan, scanners)
+    val result = CodeGenerator.query(OQL, brainFeatureSetPlan, scanners)
     logger.info("Result: " + result)
   }
 }

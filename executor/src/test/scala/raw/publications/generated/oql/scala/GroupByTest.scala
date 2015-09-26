@@ -6,7 +6,7 @@ import raw._
 class GroupByTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("GroupBy0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select distinct title, count(partition) as n from authors A group by title: A.title
     """
@@ -15,7 +15,7 @@ class GroupByTest extends AbstractScalaTest with LDBDockerContainer with BeforeA
   }
 
   test("GroupBy1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
     """
@@ -24,7 +24,7 @@ class GroupByTest extends AbstractScalaTest with LDBDockerContainer with BeforeA
   }
 
   test("GroupBy2") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
     """
@@ -33,7 +33,7 @@ class GroupByTest extends AbstractScalaTest with LDBDockerContainer with BeforeA
   }
 
   test("GroupBy3") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select title,
        (select A from partition) as people

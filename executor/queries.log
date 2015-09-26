@@ -1,36 +1,382 @@
-3936 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+8093 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.name, a.title, a.year from authors a where a.year = 1973
+8282 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
+8405 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select a.title from authors a where a.year = 1959
+8489 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.title from authors a where a.year = 1959
+10074 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      min(select a.year from a in authors)
+    
+  
+10622 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+min({ $18 := to_bag(authors); reduce(bag, $15 <- $18, $15.year) })
+10762 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      max(select a.year from a in authors)
+    
+  
+10923 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ $79 := to_bag(authors); reduce(max, $72 <- $79, $72.year) }
+11077 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      sum(select a.year from a in authors)
+    
+  
+11230 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ $137 := to_bag({ $136 := to_bag(authors); reduce(bag, $129 <- $136, $129.year) }); reduce(sum, $127 <- $137, $127) }
+11323 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(select a.year from a in authors)
+    
+  
+11512 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ $215 := to_bag({ $214 := to_bag(authors); reduce(bag, $207 <- $214, $207.year) }); reduce(sum, $205 <- $215, 1) }
+12373 [pool-1-thread-1-ScalaTest-running-ExecutionServerTest] INFO  raw.queries - Query (OQL):
+count(authors)
+13017 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
 
   
       count(authors)
     
   
-4417 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
-reduce(sum, $6 <- authors, 1)
-4455 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Scala code:
-{
-  val start = "************ ScalaReduce ************";
-  val res = ({
-  val f = ((___arg6: raw.datasets.Publication) => 1);
-  openScanner(authors).map(f)
-}).foldLeft(0)(((a, b) => a.+(b)));
-  val end = "************ ScalaReduce ************";
-  res
-}
-5075 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+13078 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+{ $278 := to_bag(authors); reduce(sum, $274 <- $278, 1) }
+13172 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
 
   
       count(publications)
     
   
-5138 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
-reduce(sum, $25 <- publications, 1)
-5142 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Scala code:
-{
-  val start = "************ ScalaReduce ************";
-  val res = ({
-  val f = ((___arg25: raw.datasets.Publication) => 1);
-  openScanner(publications).map(f)
-}).foldLeft(0)(((a, b) => a.+(b)));
-  val end = "************ ScalaReduce ************";
-  res
-}
+13235 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+{ $317 := to_bag(publications); reduce(sum, $313 <- $317, 1) }
+13859 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(authors)
+    
+  
+13940 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+{ $356 := to_bag(authors); reduce(sum, $352 <- $356, 1) }
+14030 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(publications)
+    
+  
+14345 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Logical tree:
+{ $395 := to_bag(publications); reduce(sum, $391 <- $395, 1) }
+17545 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select distinct a.year, a.name as n1, b.name as n2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+17583 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+17639 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select P as publication,
+      (select A
+       from P.authors a, authors A
+       where A.name = a and A.title = "professor") as profs
+from publications P
+17679 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select article: P,
+       (select A
+        from P.authors a, authors A
+        where A.name = a
+              and A.title = "professor") as profs
+from publications P
+where "particle detectors" in P.controlledterms
+20768 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select distinct a.year, a.name as n1, b.name as n2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+20815 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+20864 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select P as publication,
+      (select A
+       from P.authors a, authors A
+       where A.name = a and A.title = "professor") as profs
+from publications P
+20906 [pool-1-thread-1-ScalaTest-running-JoinTest] INFO  raw.queries - Query (OQL):
+select article: P,
+       (select A
+        from P.authors a, authors A
+        where A.name = a
+              and A.title = "professor") as profs
+from publications P
+where "particle detectors" in P.controlledterms
+24014 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct title, count(partition) as n from authors A group by title: A.title
+24062 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
+24095 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
+24119 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select title,
+       (select A from partition) as people
+from authors A
+group by title: A.title
+28106 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select a from authors a where a.title = "PhD"
+28161 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select a from authors a
+            where a.year = 1973 or a.year = 1975
+28206 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select P from publications P
+            where "particle detectors" in P.controlledterms
+            and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
+            and "Sarigiannidou, E." in P.authors
+28247 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select P from publications P
+where "particle detectors" in P.controlledterms
+and "elemental semiconductors" in P.controlledterms
+and "magnetic levitation" in P.controlledterms
+and "titanium" in P.controlledterms
+and "torque" in P.controlledterms
+29118 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.title, count(partition) as n from authors A group by A.title
+    
+  
+29536 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.title, (select distinct a.year from a in partition) as years from authors A group by A.title
+    
+  
+29889 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.year, (select distinct A from partition A) as people from authors A group by A.year
+    
+  
+30210 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select A.title,
+       partition as people
+from authors A
+group by A.title
+    
+  
+32886 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select a from authors a where a.title = "PhD"
+32947 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select a from authors a
+            where a.year = 1973 or a.year = 1975
+32991 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select P from publications P
+            where "particle detectors" in P.controlledterms
+            and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
+            and "Sarigiannidou, E." in P.authors
+33028 [pool-1-thread-1-ScalaTest-running-SelectWhereTest] INFO  raw.queries - Query (OQL):
+select P from publications P
+where "particle detectors" in P.controlledterms
+and "elemental semiconductors" in P.controlledterms
+and "magnetic levitation" in P.controlledterms
+and "titanium" in P.controlledterms
+and "torque" in P.controlledterms
+35451 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct title, count(partition) as n from authors A group by title: A.title
+35475 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
+35492 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
+35517 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (OQL):
+select title,
+       (select A from partition) as people
+from authors A
+group by title: A.title
+37771 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.name, a.title, a.year from authors a where a.year = 1973
+37795 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
+37849 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select a.title from authors a where a.year = 1959
+37887 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select distinct a.title from authors a where a.year = 1959
+40836 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+count(patients)
+40865 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
+40887 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
+41647 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(patients)
+    
+  
+41696 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Logical tree:
+{ $894 := to_bag(patients); reduce(sum, $890 <- $894, 1) }
+44106 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+min(select year from authors)
+44129 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+max(select year from authors)
+44143 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+sum(select year from authors)
+44157 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+count(select year from authors)
+44181 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+EXISTS (select year from authors)
+46825 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+min(select year from authors)
+46850 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+max(select year from authors)
+46869 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+sum(select year from authors)
+46888 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+count(select year from authors)
+46915 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (OQL):
+EXISTS (select year from authors)
+49622 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (OQL):
+count(authors)
+49644 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (OQL):
+count(publications)
+50193 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(patients)
+    
+  
+50244 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Logical tree:
+{ $933 := to_bag(patients); reduce(sum, $929 <- $933, 1) }
+50595 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      min(select a.year from a in authors)
+    
+  
+50645 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+min({ $976 := to_bag(authors); reduce(bag, $973 <- $976, $973.year) })
+50687 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      max(select a.year from a in authors)
+    
+  
+50764 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ $1037 := to_bag(authors); reduce(max, $1030 <- $1037, $1030.year) }
+50800 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      sum(select a.year from a in authors)
+    
+  
+50965 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ 
+    $1095 := to_bag({ $1094 := to_bag(authors); reduce(bag, $1087 <- $1094, $1087.year) });
+    reduce(sum, $1085 <- $1095, $1085) }
+51021 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      count(select a.year from a in authors)
+    
+  
+51125 [pool-1-thread-1-ScalaTest-running-CollectionExprTest] INFO  raw.queries - Logical tree:
+{ $1173 := to_bag({ $1172 := to_bag(authors); reduce(bag, $1165 <- $1172, $1165.year) }); reduce(sum, $1163 <- $1173, 1) }
+53714 [pool-1-thread-1-ScalaTest-running-AssignTest] INFO  raw.queries - Query (OQL):
+select G.title,
+      (select year: v,
+              N: count(partition)
+       from v in G.values
+       group by year: v) as stats
+from (
+      select distinct title, (select year from partition) as values
+      from authors A
+      group by title: A.title) G
+56702 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (OQL):
+count(authors)
+56730 [pool-1-thread-1-ScalaTest-running-CountTest] INFO  raw.queries - Query (OQL):
+count(publications)
+59808 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+count(patients)
+59834 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
+59849 [pool-1-thread-1-ScalaTest-running-SelectTest] INFO  raw.queries - Query (OQL):
+select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
+64210 [simple-routing-app-akka.actor.default-dispatcher-5] INFO  raw.queries - Query (Qrawl):
+
+  Reduce(SumMonoid(), IntConst(1), BoolConst(true), Select(BoolConst(true), Scan(patients, BagType(RecordType(Seq(AttrType(city,StringType()), AttrType(country,StringType()), AttrType(patient_id,StringType()), AttrType(year_of_birth,IntType()), AttrType(diagnosis, ListType(RecordType(Seq(AttrType(diag_id, StringType()), AttrType(code, StringType()), AttrType(diag_date, StringType()), AttrType(description, StringType()), AttrType(patient_id, StringType())), Diagnostic))), AttrType(gender,StringType())), Patient)))))
+  
+65056 [simple-routing-app-akka.actor.default-dispatcher-8] INFO  raw.queries - Query (Qrawl):
+
+  Reduce(SumMonoid(), IntConst(1), BoolConst(true), Select(BoolConst(true), Scan(students, BagType(RecordType(Seq(AttrType(v1,StringType()), AttrType(v2,IntType()), AttrType(v3,StringType()), AttrType(v4,StringType())), students_1)))))
+  
+65662 [simple-routing-app-akka.actor.default-dispatcher-8] INFO  raw.queries - Query (Qrawl):
+
+  Reduce(SumMonoid(), IntConst(1), BoolConst(true), Select(BoolConst(true), Scan(students, BagType(RecordType(Seq(AttrType(v1,StringType()), AttrType(v2,IntType()), AttrType(v3,StringType()), AttrType(v4,StringType())), students_1)))))
+  
+65961 [simple-routing-app-akka.actor.default-dispatcher-4] INFO  raw.queries - Query (Qrawl):
+
+  Reduce(SumMonoid(), IntConst(1), BoolConst(true), Select(BoolConst(true), Scan(brain_feature_set, BagType(RecordType(Seq(AttrType(anonymization_method_version,StringType()), AttrType(description,StringType()), AttrType(brain_atlas_id,StringType()), AttrType(pipeline_version,StringType()), AttrType(anonymization_method,StringType()), AttrType(pipeline_name,StringType()), AttrType(extracted_from,StringType()), AttrType(exam_date,StringType()), AttrType(record_creation,StringType()), AttrType(patient_id,StringType()), AttrType(extraction_method,StringType()), AttrType(id,StringType()), AttrType(extraction_method_version,StringType())), brain_feature_set_1)))))
+  
+66377 [pool-1-thread-1-ScalaTest-running-RawRestServerTest] INFO  raw.queries - Query (OQL):
+Reduce(SumMonoid(),
+       IntConst(1),
+       BoolConst(true),
+       Select(BoolConst(true),
+              Scan(brain_feature_set,
+                   BagType(RecordType(Seq(AttrType(anonymization_method_version,StringType()),
+                                          AttrType(description,StringType()),
+                                          AttrType(brain_atlas_id,StringType()),
+                                          AttrType(pipeline_version,StringType()),
+                                          AttrType(anonymization_method,StringType()),
+                                          AttrType(pipeline_name,StringType()),
+                                          AttrType(extracted_from,StringType()),
+                                          AttrType(exam_date,StringType()),
+                                          AttrType(record_creation,StringType()),
+                                          AttrType(patient_id,StringType()),
+                                          AttrType(extraction_method,StringType()),
+                                          AttrType(id,StringType()),
+                                          AttrType(extraction_method_version,StringType())),
+                                      brain_feature_set_1)))))
+68639 [pool-1-thread-1-ScalaTest-running-AssignTest] INFO  raw.queries - Query (OQL):
+select G.title,
+      (select year: v,
+              N: count(partition)
+       from v in G.values
+       group by year: v) as stats
+from (
+      select distinct title, (select year from partition) as values
+      from authors A
+      group by title: A.title) G
+69444 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.title, count(partition) as n from authors A group by A.title
+    
+  
+69711 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.title, (select distinct a.year from a in partition) as years from authors A group by A.title
+    
+  
+69942 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select distinct A.year, (select distinct A from partition A) as people from authors A group by A.year
+    
+  
+70172 [pool-1-thread-1-ScalaTest-running-GroupByTest] INFO  raw.queries - Query (Qrawl):
+
+  
+      select A.title,
+       partition as people
+from authors A
+group by A.title
+    
+  

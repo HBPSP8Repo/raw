@@ -5,7 +5,7 @@ import raw._
 class CollectionExprTest extends AbstractSparkTest {
 
   test("CollectionExpr0") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       min(select a.year from a in authors)
     """
@@ -14,7 +14,7 @@ class CollectionExprTest extends AbstractSparkTest {
   }
 
   test("CollectionExpr1") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       max(select a.year from a in authors)
     """
@@ -23,7 +23,7 @@ class CollectionExprTest extends AbstractSparkTest {
   }
 
   test("CollectionExpr2") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       sum(select a.year from a in authors)
     """
@@ -32,7 +32,7 @@ class CollectionExprTest extends AbstractSparkTest {
   }
 
   test("CollectionExpr4") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       count(select a.year from a in authors)
     """

@@ -58,8 +58,43 @@ object RawImpl {
   }
 }
 
+object QueryLanguages {
+  def apply(qlString:String): QueryLanguage = {
+    qlString match {
+      case "oql" => OQL
+      case "plan" => LogicalPlan
+      case "qrawl" => Qrawl
+      case _ => throw new IllegalArgumentException(s"Unknown query language: $qlString. Expected one of ${names}")
+    }
+  }
+
+  sealed trait QueryLanguage {
+    /**
+     * @param name Name of the query language. This is used as the name of the val holding the query in the macro
+     *             generated for the query.
+     */
+    val name:String
+  }
+
+  case object Qrawl extends QueryLanguage {
+    val name = "qrawl"
+  }
+
+  case object OQL extends QueryLanguage {
+    val name = "oql"
+  }
+
+  case object LogicalPlan extends QueryLanguage {
+    val name = "plan"
+  }
+
+  val names = List(Qrawl.name, OQL.name, LogicalPlan.name)
+}
+
+
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
+  import QueryLanguages._
 
   import c.universe._
 
@@ -153,7 +188,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     val queryAnonRecordTypes = query[Calculus.Exp] {
       case e => analyzer.tipe(e) match {
-        case r @ RecordType(_, None) => anonRecordTypes += r
+        case r@RecordType(_, None) => anonRecordTypes += r
         case _ =>
       }
     }
@@ -290,7 +325,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
 
       def patternRecord(p: Pattern): String = p match {
-        case PatternProd(ps)         => s"(${ps.map(patternRecord).mkString(",")})"
+        case PatternProd(ps) => s"(${ps.map(patternRecord).mkString(",")})"
         case PatternIdn(idn: IdnDef) => s"${idnName(idn)}: raw.datasets.Publication" // TODO: Add Scala type from IdnDef
       }
 
@@ -393,441 +428,441 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ ScalaReduce ************"
         res
         """
-//
-//      /** Scala Join
-//        */
-//      case Join(Gen(PatternIdn(leftIdn), leftChild), Gen(PatternIdn(rightIdn), rightChild), p) =>
-//        val leftChildCode = q"""val ${idnName(leftIdn)} = ${build(leftChild)}"""
-//        val leftCode = q"""$leftChildCode"""
-//        val rightChildCode = q"""val ${idnName(rightIdn)} = ${build(rightChild)}"""
-//        val rightCode = q"""$rightChildCode"""
-//
-//        val pCode = build(p)
-//        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-//
-//        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
-//         would be more efficient in the cases where p filters part of the results because the tuples
-//         are created only for the pairs that pass the filter. But our p function expects a tuple as its
-//         single argument, while the form above requires a p function that takes two arguments.
-//          */
-//        q"""
-//          val left = $leftCode
-//          val right = ${rightCode}.toSeq
-//          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-//        """
+      //
+      //      /** Scala Join
+      //        */
+      //      case Join(Gen(PatternIdn(leftIdn), leftChild), Gen(PatternIdn(rightIdn), rightChild), p) =>
+      //        val leftChildCode = q"""val ${idnName(leftIdn)} = ${build(leftChild)}"""
+      //        val leftCode = q"""$leftChildCode"""
+      //        val rightChildCode = q"""val ${idnName(rightIdn)} = ${build(rightChild)}"""
+      //        val rightCode = q"""$rightChildCode"""
+      //
+      //        val pCode = build(p)
+      //        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
+      //
+      //        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
+      //         would be more efficient in the cases where p filters part of the results because the tuples
+      //         are created only for the pairs that pass the filter. But our p function expects a tuple as its
+      //         single argument, while the form above requires a p function that takes two arguments.
+      //          */
+      //        q"""
+      //          val left = $leftCode
+      //          val right = ${rightCode}.toSeq
+      //          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
+      //        """
 
-//
-//      case Nest(logicalNode, m, e, f, p, g, child) =>
-//        val eCode = exp(e)
-//        val fCode = exp(f)
-//        val pCode = exp(p)
-//        logger.info(s"[ScalaNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
-//        val t = analyzer.tipe(e)
-//        val st: String = buildScalaType(t, world)
-//        val childTree: Tree = build(child)
-//
-//        def computeG(l: Seq[Exp]): Exp = l match {
-//          case Nil => BoolConst(false)
-//          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
-//        }
-//
-//        val gExp = g match {
-//          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
-//          case _ => {
-//            assert(false);
-//            BoolConst(true)
-//          }
-//        }
-//
-//        val code = m match {
-//          case m1: PrimitiveMonoid =>
-//            val z1 = zeroExp(m1)
-//            val f1 = IfThenElse(gExp, z1, e)
-//            q"""
-//              val grouped = $childTree.groupBy($fCode)
-//              grouped.mapValues(v => v
-//                  .filter($pCode)
-//                  .map(${exp(f1)})
-//                  .fold(${zero(m1)})(${fold(m1)}))
-//            """
-//          case m1: CollectionMonoid =>
-//            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
-//            val monoidReduceCode = m1 match {
-//              case m2: SetMonoid => q"""mappedByE.toSet"""
-//              // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
-//              case m1: BagMonoid => q"""mappedByE.toList"""
-//              case m1: ListMonoid => q"""mappedByE.toList"""
-//            }
-//            val commonCode = q"""
-//            val grouped = $childTree.groupBy($fCode)
-//            grouped.mapValues(v => {
-//                val filteredByP = v.filter($pCode)
-//                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
-//                val mappedByE = filteredByG.map($eCode)
-//                ${monoidReduceCode}
-//            })
-//            """
-//            commonCode
-//        }
-//        q"""
-//          val start = "************ ScalaNest ************"
-//          val scalaNest = $code
-//          val end = "************ ScalaNest ************"
-//          scalaNest"""
-//
-//      case OuterJoin(logicalNode, p, left, right) =>
-//        q"""
-//  val rightCache = ${build(right)}.toSeq
-//  ${build(left)}.flatMap(l =>
-//    if (l == null)
-//      List((null, null))
-//    else {
-//      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
-//      if (ok.isEmpty)
-//        List((l, null))
-//      else
-//        ok
-//    }
-//  )
-//  """
-//
-//
-//      case Join(logicalNode, p, left, right) =>
-//        val pCode = exp(p)
-//        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-//        val leftCode = build(left)
-//        val rightCode = build(right)
-//        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
-//         would be more efficient in the cases where p filters part of the results because the tuples
-//         are created only for the pairs that pass the filter. But our p function expects a tuple as its
-//         single argument, while the form above requires a p function that takes two arguments.
-//          */
-//        q"""
-//          val left = $leftCode
-//          val right = ${rightCode}.toSeq
-//          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-//        """
-//
-////      case Merge(logicalNode, m, left, right) => ???
-//      case OuterUnnest(logicalNode, path, pred, child) => ???
-//
-//      case Unnest(logicalNode, path, pred, child) =>
-//        val childTypeName = nodeScalaType(child.logicalNode)
-//        val pathCode = exp(path, Some(childTypeName))
-//        val pathType = expScalaType(path)
-//        //        val pathType = exp(path)
-//        val predCode = exp(pred)
-//        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
-//        val childCode = build(child)
-//        //            logger.debug("{}.path = {} \n{}", x, pathValues)
-//        val code = q"""
-//          $childCode.flatMap(x => {
-//            val pathValues = $pathCode(x)
-//            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
-//            }
-//          )
-//        """
-//
-//        q"""
-//        val start = "************ ScalaUnnest ************"
-//        val res = $code
-//        val end= "************ ScalaUnnest ************"
-//        res
-//        """
+      //
+      //      case Nest(logicalNode, m, e, f, p, g, child) =>
+      //        val eCode = exp(e)
+      //        val fCode = exp(f)
+      //        val pCode = exp(p)
+      //        logger.info(s"[ScalaNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
+      //        val t = analyzer.tipe(e)
+      //        val st: String = buildScalaType(t, world)
+      //        val childTree: Tree = build(child)
+      //
+      //        def computeG(l: Seq[Exp]): Exp = l match {
+      //          case Nil => BoolConst(false)
+      //          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+      //        }
+      //
+      //        val gExp = g match {
+      //          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
+      //          case _ => {
+      //            assert(false);
+      //            BoolConst(true)
+      //          }
+      //        }
+      //
+      //        val code = m match {
+      //          case m1: PrimitiveMonoid =>
+      //            val z1 = zeroExp(m1)
+      //            val f1 = IfThenElse(gExp, z1, e)
+      //            q"""
+      //              val grouped = $childTree.groupBy($fCode)
+      //              grouped.mapValues(v => v
+      //                  .filter($pCode)
+      //                  .map(${exp(f1)})
+      //                  .fold(${zero(m1)})(${fold(m1)}))
+      //            """
+      //          case m1: CollectionMonoid =>
+      //            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
+      //            val monoidReduceCode = m1 match {
+      //              case m2: SetMonoid => q"""mappedByE.toSet"""
+      //              // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
+      //              case m1: BagMonoid => q"""mappedByE.toList"""
+      //              case m1: ListMonoid => q"""mappedByE.toList"""
+      //            }
+      //            val commonCode = q"""
+      //            val grouped = $childTree.groupBy($fCode)
+      //            grouped.mapValues(v => {
+      //                val filteredByP = v.filter($pCode)
+      //                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
+      //                val mappedByE = filteredByG.map($eCode)
+      //                ${monoidReduceCode}
+      //            })
+      //            """
+      //            commonCode
+      //        }
+      //        q"""
+      //          val start = "************ ScalaNest ************"
+      //          val scalaNest = $code
+      //          val end = "************ ScalaNest ************"
+      //          scalaNest"""
+      //
+      //      case OuterJoin(logicalNode, p, left, right) =>
+      //        q"""
+      //  val rightCache = ${build(right)}.toSeq
+      //  ${build(left)}.flatMap(l =>
+      //    if (l == null)
+      //      List((null, null))
+      //    else {
+      //      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
+      //      if (ok.isEmpty)
+      //        List((l, null))
+      //      else
+      //        ok
+      //    }
+      //  )
+      //  """
+      //
+      //
+      //      case Join(logicalNode, p, left, right) =>
+      //        val pCode = exp(p)
+      //        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
+      //        val leftCode = build(left)
+      //        val rightCode = build(right)
+      //        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
+      //         would be more efficient in the cases where p filters part of the results because the tuples
+      //         are created only for the pairs that pass the filter. But our p function expects a tuple as its
+      //         single argument, while the form above requires a p function that takes two arguments.
+      //          */
+      //        q"""
+      //          val left = $leftCode
+      //          val right = ${rightCode}.toSeq
+      //          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
+      //        """
+      //
+      ////      case Merge(logicalNode, m, left, right) => ???
+      //      case OuterUnnest(logicalNode, path, pred, child) => ???
+      //
+      //      case Unnest(logicalNode, path, pred, child) =>
+      //        val childTypeName = nodeScalaType(child.logicalNode)
+      //        val pathCode = exp(path, Some(childTypeName))
+      //        val pathType = expScalaType(path)
+      //        //        val pathType = exp(path)
+      //        val predCode = exp(pred)
+      //        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
+      //        val childCode = build(child)
+      //        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+      //        val code = q"""
+      //          $childCode.flatMap(x => {
+      //            val pathValues = $pathCode(x)
+      //            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
+      //            }
+      //          )
+      //        """
+      //
+      //        q"""
+      //        val start = "************ ScalaUnnest ************"
+      //        val res = $code
+      //        val end= "************ ScalaUnnest ************"
+      //        res
+      //        """
 
-//      case ScalaAssign(logicalNode, assigns, child) =>
-//        var block: c.universe.Tree = q""
-//        assigns.foreach({ case (key, node) => {
-//          val colName = TermName(key)
-//          val code = build(node)
-//          block = q"..$block; val $colName = $code"
-//        }
-//        })
-//        q"""..$block; ${build(child)}"""
+      //      case ScalaAssign(logicalNode, assigns, child) =>
+      //        var block: c.universe.Tree = q""
+      //        assigns.foreach({ case (key, node) => {
+      //          val colName = TermName(key)
+      //          val code = build(node)
+      //          block = q"..$block; val $colName = $code"
+      //        }
+      //        })
+      //        q"""..$block; ${build(child)}"""
 
     }
 
     /** Build code for Spark algebra nodes
       */
     def buildSpark(a: AlgebraNode) = ??? //a match {
-//      //            q"""${accessPaths(name)}"""
-//      /*
-//      * Fegaras: Ch 6. Basic Algebra O1
-//      * Join(X, Y, p), joins the collections X and Y using the join predicate p.
-//      * This join is not necessarily between two sets; if, for example, X is a list
-//      * and Y is a bag, then, according to Eq. (D4), the output is a bag.
-//      */
-//      case r@SparkJoin(logicalNode, p, left, right) =>
-//        val leftCode = build(left)
-//        val rightCode = build(right)
-//        q"""
-//     val rddLeft = $leftCode
-//     val rddRight = $rightCode
-//     val res = rddLeft.cartesian(rddRight).filter(${exp(p)})
-//     res
-//   """
-//
-//      /* Fegaras: Ch 6. Basic Algebra O2
-//      * Select(X, p), selects all elements of X that satisfy the predicate p.
-//      */
-//      case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
-//        val childTypeName = nodeScalaType(child.logicalNode)
-//        val pCode = exp(p, Some(childTypeName))
-//        logger.info(s"[SELECT] p: $pCode")
-//        q"""${build(child)}.filter($pCode)"""
-//
-//      /*
-//      * Fegaras: Ch 6. Basic Algebra O3
-//      * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
-//      * that satisfy the predicate p(x, y).
-//      */
-//      case SparkUnnest(logicalNode, path, pred, child) =>
-//        val childTypeName = nodeScalaType(child.logicalNode)
-//        val pathCode = exp(path, Some(childTypeName))
-//        val pathType = expScalaType(path)
-//        //        val pathType = exp(path)
-//        val predCode = exp(pred)
-//        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
-//        val childCode = build(child)
-//        //            logger.debug("{}.path = {} \n{}", x, pathValues)
-//        val code = q"""
-//          $childCode.flatMap(x => {
-//            val pathValues = $pathCode(x)
-//            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
-//            }
-//          )
-//        """
-//
-//        q"""
-//        val start = "************ SparkUnnest ************"
-//        val res = $code
-//        val end= "************ SparkUnnest ************"
-//        res
-//        """
-//      /* Fegaras: Ch 6. Basic Algebra O4
-//      Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
-//      The reduce operator can be thought of as a generalized version of the relational projection operator.
-//      */
-//      case SparkReduce(logicalNode, m, e, p, child) =>
-//        val pCode = exp(p)
-//        val eCode = exp(e)
-//        val childCode = build(child)
-//        logger.info(s"[SparkReduce] $m, e: $eCode, p: $pCode")
-//        val filterMapCode = q"""
-//     val childRDD = $childCode
-//     childRDD
-//       .filter($pCode)
-//       .map($eCode)
-//     """
-//        val code = m match {
-//          case m1: MaxMonoid => q"""$filterMapCode.max()"""
-//          case m1: MinMonoid => q"""$filterMapCode.min()"""
-//          case m1: PrimitiveMonoid =>
-//            /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
-//             * Compare the Spark implementations versus a generic code generator based on fold
-//             */
-//            q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
-//
-//          case _: ListMonoid => q"""$filterMapCode"""
-//          case _: BagMonoid => q"""$filterMapCode"""
-//          case _: SetMonoid => q"""$filterMapCode.distinct"""
-//        }
-//        q"""
-//        val start = "************ SparkReduce ************"
-//        val res = $code
-//        val end= "************ SparkReduce ************"
-//        res
-//        """
-//
-//      case SparkNest(logicalNode, m, e, f, p, g, child) =>
-//        val eCode = exp(e)
-//        val fCode = exp(f)
-//        val pCode = exp(p)
-//        logger.info(s"[SparkNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
-//        val t = analyzer.expressionType(e)
-//        val st: String = buildScalaType(t, world)
-//        val childTree: Tree = build(child)
-//
-//        //        val tp = c.parse(st)
-//
-//        def computeG(l: Seq[Exp]): Exp = l match {
-//          case Nil => BoolConst(false)
-//          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
-//        }
-//
-//        val gExp = g match {
-//          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
-//          case _ => {
-//            assert(false);
-//            BoolConst(true)
-//          }
-//        }
-//
-//        val code = m match {
-//          case m1: MinMonoid =>
-//            q"""
-//            val grouped = $childTree.groupBy($fCode)
-//            grouped.mapValues(v => v
-//                .filter($pCode)
-//                .map($eCode)
-//                .min)
-//            """
-//          case m1: MaxMonoid =>
-//            q"""
-//            val grouped = $childTree.groupBy($fCode)
-//            grouped.mapValues(v => v
-//                .filter($pCode)
-//                .map($eCode)
-//                .max)
-//            """
-//
-//          case m1: PrimitiveMonoid =>
-//            val z1 = zeroExp(m1)
-//            val f1 = IfThenElse(gExp, z1, e)
-//            //  logger.debug("groupBy:\n{}", toString(grouped))
-//            //  logger.debug("filteredP:\n{}", toString(filteredP))
-//            //  logger.debug("mapped:\n{}", toString(mapped))
-//            //  logger.debug("folded:\n{}", toString(folded))
-//            q"""
-//            val grouped = $childTree.groupBy($fCode)
-//            grouped.mapValues(v => v
-//                .filter($pCode)
-//                .map(${exp(f1)})
-//                .fold(${zero(m1)})(${fold(m1)}))
-//            """
-//          case m1: CollectionMonoid =>
-//            // TODO: Does not handle dotequality.
-//            /* TODO: The filter by p probably can be applied at the start of this operator implementation,
-//             * in a common code path before branching to handle the different monoids.
-//             */
-//            // Since the zero element of a collection monoid is an empty collection,
-//            // instead of using fold we can just filter any elements such that g(w) == null
-//            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
-//            val monoidReduceCode = m1 match {
-//              case m2: SetMonoid =>
-//                q"""mappedByE.toSet"""
-//              //              case m1: BagMonoid =>
-//              //                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
-//              case m1: BagMonoid =>
-//                // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
-//                q"""mappedByE.toList"""
-//              //              case m1: BagMonoid =>
-//              //                q"""
-//              //                def bagBuilderIter[T:scala.reflect.ClassTag](iter:Iterable[T]): scala.collection.immutable.Bag[T] = {
-//              //                  import scala.collection.immutable.Bag
-//              //                  Bag.newBuilder(Bag.configuration.compact[T])
-//              //                    .++=(iter)
-//              //                    .result()
-//              //                }
-//              //                bagBuilderIter(mappedByE)
-//              //                """
-//              case m1: ListMonoid =>
-//                q"""mappedByE.toList"""
-//            }
-//            val commonCode =
-//            //            logger.debug("groupBy:\n{}", toString(grouped))
-//            //            logger.debug("filteredP:\n{}", toString(filteredP))
-//            //            logger.debug("filteredG:\n{}", toString(filteredG))
-//            //            logger.debug("mapped:\n{}", toString(mapped))
-//              q"""
-//            val grouped = $childTree.groupBy($fCode)
-//            grouped.mapValues(v => {
-//                val filteredByP = v.filter($pCode)
-//                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
-//                val mappedByE = filteredByG.map($eCode)
-//                ${monoidReduceCode}
-//            })
-//            """
-//            commonCode
-//        }
-//
-//        q"""
-//          val start = "************ SparkNest ************"
-//          val sparkNest = $code
-//          val end = "************ SparkNest ************"
-//          sparkNest"""
-//
-//      case SparkMerge(logicalNode, m, left, right) => ???
-//      /*
-//      outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
-//      predicate p. The domain of the second generator (the generator of w) in
-//      Eq. (O5) is always nonempty. If Y is empty or there are no elements that
-//      can be joined with v (this condition is tested by universal quantification),
-//      then the domain is the singleton value [NULL], i.e., w becomes null.
-//      Otherwise each qualified element w of Y is joined with v.
-//
-//      Delegates to PairRDDFunctions#leftOuterJoin. We cannot use this method directly, because
-//      it takes RDDs in the following form: (k, v), (k, w) => (k, (v, Option(w)), using k to make the
-//      matching. While we have (p, left, right) and want  (v, w) with p used to match the elements.
-//      The code bellow does the following transformations:
-//      1. Compute RDD(v, w) such that v!=null and p(v, w) is true.
-//      2. Apply PairRDDFunctions#leftOuterJoin.
-//      RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
-//      3. Transform in the output format of this operator.
-//      (v, (v, Some[w])) -> (v, w)
-//      (v, (v, None)) -> (v, null)
-//      */
-//
-//      // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
-//      case SparkOuterJoin(logicalNode, p, left, right) =>
-//        val leftNodeType = nodeScalaType(left.logicalNode)
-//        val rightNodeType = nodeScalaType(right.logicalNode)
-//        val expP: c.universe.Tree = exp(p)
-//        logger.info(s"[SparkOuterJoin] exp(p) = ${showCode(expP)}")
-//
-//        val code = q"""
-//            val start = "************ SparkOuterJoin ************"
-//            val leftRDD:RDD[$leftNodeType] = ${build(left)}
-//            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
-//
-//            val rightRDD:RDD[$rightNodeType] = ${build(right)}
-//            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
-//
-//            val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
-//              .cartesian(rightRDD)
-//              .filter(tuple => tuple._1 != null)
-//              .filter($expP)
-//            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
-//
-//            val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
-//              .map(v => (v, v))
-//              .leftOuterJoin(matching)
-//            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
-//
-//            val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
-//              case (v1, (v2, None)) => (v1, null)
-//              case (v1, (v2, Some(w))) => (v1, w)
-//            })
-//            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
-//            val end = "************ SparkOuterJoin ************"
-//            res
-//            """
-//        code
-//      case SparkOuterUnnest(logicalNode, path, pred, child) => ???
-//      /*
-//      The assign node contains one more more assignments. Each is transformed into
-//      a statement in the form: val key = `build(code)`
-//       */
-//      case SparkAssign(logicalNode, assigns, child) => {
-//        var block: c.universe.Tree = q""
-//        assigns.foreach({ case (key, node) => {
-//          val rddName = TermName(key)
-//          val rddCode = build(node)
-//          // Appends the additional statements to the block. Without the "..$", this would generate independent blocks:
-//          // "{val rdd1 =...; rdd1.cache()}; {val rdd2 =...; rdd2.cache()}" , and the RDDs defined in one block would
-//          // not be visible outside. The "..$" creates a single block with the concatenation of all the expressions.
-//          block = q"..$block; val $rddName = $rddCode; $rddName.cache()"
-//        }
-//        })
-//        q"""..$block; ${build(child)}"""
-//      }
-//    }
+    //      //            q"""${accessPaths(name)}"""
+    //      /*
+    //      * Fegaras: Ch 6. Basic Algebra O1
+    //      * Join(X, Y, p), joins the collections X and Y using the join predicate p.
+    //      * This join is not necessarily between two sets; if, for example, X is a list
+    //      * and Y is a bag, then, according to Eq. (D4), the output is a bag.
+    //      */
+    //      case r@SparkJoin(logicalNode, p, left, right) =>
+    //        val leftCode = build(left)
+    //        val rightCode = build(right)
+    //        q"""
+    //     val rddLeft = $leftCode
+    //     val rddRight = $rightCode
+    //     val res = rddLeft.cartesian(rddRight).filter(${exp(p)})
+    //     res
+    //   """
+    //
+    //      /* Fegaras: Ch 6. Basic Algebra O2
+    //      * Select(X, p), selects all elements of X that satisfy the predicate p.
+    //      */
+    //      case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
+    //        val childTypeName = nodeScalaType(child.logicalNode)
+    //        val pCode = exp(p, Some(childTypeName))
+    //        logger.info(s"[SELECT] p: $pCode")
+    //        q"""${build(child)}.filter($pCode)"""
+    //
+    //      /*
+    //      * Fegaras: Ch 6. Basic Algebra O3
+    //      * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
+    //      * that satisfy the predicate p(x, y).
+    //      */
+    //      case SparkUnnest(logicalNode, path, pred, child) =>
+    //        val childTypeName = nodeScalaType(child.logicalNode)
+    //        val pathCode = exp(path, Some(childTypeName))
+    //        val pathType = expScalaType(path)
+    //        //        val pathType = exp(path)
+    //        val predCode = exp(pred)
+    //        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
+    //        val childCode = build(child)
+    //        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+    //        val code = q"""
+    //          $childCode.flatMap(x => {
+    //            val pathValues = $pathCode(x)
+    //            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
+    //            }
+    //          )
+    //        """
+    //
+    //        q"""
+    //        val start = "************ SparkUnnest ************"
+    //        val res = $code
+    //        val end= "************ SparkUnnest ************"
+    //        res
+    //        """
+    //      /* Fegaras: Ch 6. Basic Algebra O4
+    //      Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
+    //      The reduce operator can be thought of as a generalized version of the relational projection operator.
+    //      */
+    //      case SparkReduce(logicalNode, m, e, p, child) =>
+    //        val pCode = exp(p)
+    //        val eCode = exp(e)
+    //        val childCode = build(child)
+    //        logger.info(s"[SparkReduce] $m, e: $eCode, p: $pCode")
+    //        val filterMapCode = q"""
+    //     val childRDD = $childCode
+    //     childRDD
+    //       .filter($pCode)
+    //       .map($eCode)
+    //     """
+    //        val code = m match {
+    //          case m1: MaxMonoid => q"""$filterMapCode.max()"""
+    //          case m1: MinMonoid => q"""$filterMapCode.min()"""
+    //          case m1: PrimitiveMonoid =>
+    //            /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
+    //             * Compare the Spark implementations versus a generic code generator based on fold
+    //             */
+    //            q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
+    //
+    //          case _: ListMonoid => q"""$filterMapCode"""
+    //          case _: BagMonoid => q"""$filterMapCode"""
+    //          case _: SetMonoid => q"""$filterMapCode.distinct"""
+    //        }
+    //        q"""
+    //        val start = "************ SparkReduce ************"
+    //        val res = $code
+    //        val end= "************ SparkReduce ************"
+    //        res
+    //        """
+    //
+    //      case SparkNest(logicalNode, m, e, f, p, g, child) =>
+    //        val eCode = exp(e)
+    //        val fCode = exp(f)
+    //        val pCode = exp(p)
+    //        logger.info(s"[SparkNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
+    //        val t = analyzer.expressionType(e)
+    //        val st: String = buildScalaType(t, world)
+    //        val childTree: Tree = build(child)
+    //
+    //        //        val tp = c.parse(st)
+    //
+    //        def computeG(l: Seq[Exp]): Exp = l match {
+    //          case Nil => BoolConst(false)
+    //          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+    //        }
+    //
+    //        val gExp = g match {
+    //          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
+    //          case _ => {
+    //            assert(false);
+    //            BoolConst(true)
+    //          }
+    //        }
+    //
+    //        val code = m match {
+    //          case m1: MinMonoid =>
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map($eCode)
+    //                .min)
+    //            """
+    //          case m1: MaxMonoid =>
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map($eCode)
+    //                .max)
+    //            """
+    //
+    //          case m1: PrimitiveMonoid =>
+    //            val z1 = zeroExp(m1)
+    //            val f1 = IfThenElse(gExp, z1, e)
+    //            //  logger.debug("groupBy:\n{}", toString(grouped))
+    //            //  logger.debug("filteredP:\n{}", toString(filteredP))
+    //            //  logger.debug("mapped:\n{}", toString(mapped))
+    //            //  logger.debug("folded:\n{}", toString(folded))
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map(${exp(f1)})
+    //                .fold(${zero(m1)})(${fold(m1)}))
+    //            """
+    //          case m1: CollectionMonoid =>
+    //            // TODO: Does not handle dotequality.
+    //            /* TODO: The filter by p probably can be applied at the start of this operator implementation,
+    //             * in a common code path before branching to handle the different monoids.
+    //             */
+    //            // Since the zero element of a collection monoid is an empty collection,
+    //            // instead of using fold we can just filter any elements such that g(w) == null
+    //            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
+    //            val monoidReduceCode = m1 match {
+    //              case m2: SetMonoid =>
+    //                q"""mappedByE.toSet"""
+    //              //              case m1: BagMonoid =>
+    //              //                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
+    //              case m1: BagMonoid =>
+    //                // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
+    //                q"""mappedByE.toList"""
+    //              //              case m1: BagMonoid =>
+    //              //                q"""
+    //              //                def bagBuilderIter[T:scala.reflect.ClassTag](iter:Iterable[T]): scala.collection.immutable.Bag[T] = {
+    //              //                  import scala.collection.immutable.Bag
+    //              //                  Bag.newBuilder(Bag.configuration.compact[T])
+    //              //                    .++=(iter)
+    //              //                    .result()
+    //              //                }
+    //              //                bagBuilderIter(mappedByE)
+    //              //                """
+    //              case m1: ListMonoid =>
+    //                q"""mappedByE.toList"""
+    //            }
+    //            val commonCode =
+    //            //            logger.debug("groupBy:\n{}", toString(grouped))
+    //            //            logger.debug("filteredP:\n{}", toString(filteredP))
+    //            //            logger.debug("filteredG:\n{}", toString(filteredG))
+    //            //            logger.debug("mapped:\n{}", toString(mapped))
+    //              q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => {
+    //                val filteredByP = v.filter($pCode)
+    //                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
+    //                val mappedByE = filteredByG.map($eCode)
+    //                ${monoidReduceCode}
+    //            })
+    //            """
+    //            commonCode
+    //        }
+    //
+    //        q"""
+    //          val start = "************ SparkNest ************"
+    //          val sparkNest = $code
+    //          val end = "************ SparkNest ************"
+    //          sparkNest"""
+    //
+    //      case SparkMerge(logicalNode, m, left, right) => ???
+    //      /*
+    //      outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
+    //      predicate p. The domain of the second generator (the generator of w) in
+    //      Eq. (O5) is always nonempty. If Y is empty or there are no elements that
+    //      can be joined with v (this condition is tested by universal quantification),
+    //      then the domain is the singleton value [NULL], i.e., w becomes null.
+    //      Otherwise each qualified element w of Y is joined with v.
+    //
+    //      Delegates to PairRDDFunctions#leftOuterJoin. We cannot use this method directly, because
+    //      it takes RDDs in the following form: (k, v), (k, w) => (k, (v, Option(w)), using k to make the
+    //      matching. While we have (p, left, right) and want  (v, w) with p used to match the elements.
+    //      The code bellow does the following transformations:
+    //      1. Compute RDD(v, w) such that v!=null and p(v, w) is true.
+    //      2. Apply PairRDDFunctions#leftOuterJoin.
+    //      RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
+    //      3. Transform in the output format of this operator.
+    //      (v, (v, Some[w])) -> (v, w)
+    //      (v, (v, None)) -> (v, null)
+    //      */
+    //
+    //      // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
+    //      case SparkOuterJoin(logicalNode, p, left, right) =>
+    //        val leftNodeType = nodeScalaType(left.logicalNode)
+    //        val rightNodeType = nodeScalaType(right.logicalNode)
+    //        val expP: c.universe.Tree = exp(p)
+    //        logger.info(s"[SparkOuterJoin] exp(p) = ${showCode(expP)}")
+    //
+    //        val code = q"""
+    //            val start = "************ SparkOuterJoin ************"
+    //            val leftRDD:RDD[$leftNodeType] = ${build(left)}
+    //            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
+    //
+    //            val rightRDD:RDD[$rightNodeType] = ${build(right)}
+    //            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
+    //
+    //            val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
+    //              .cartesian(rightRDD)
+    //              .filter(tuple => tuple._1 != null)
+    //              .filter($expP)
+    //            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
+    //
+    //            val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
+    //              .map(v => (v, v))
+    //              .leftOuterJoin(matching)
+    //            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
+    //
+    //            val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
+    //              case (v1, (v2, None)) => (v1, null)
+    //              case (v1, (v2, Some(w))) => (v1, w)
+    //            })
+    //            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
+    //            val end = "************ SparkOuterJoin ************"
+    //            res
+    //            """
+    //        code
+    //      case SparkOuterUnnest(logicalNode, path, pred, child) => ???
+    //      /*
+    //      The assign node contains one more more assignments. Each is transformed into
+    //      a statement in the form: val key = `build(code)`
+    //       */
+    //      case SparkAssign(logicalNode, assigns, child) => {
+    //        var block: c.universe.Tree = q""
+    //        assigns.foreach({ case (key, node) => {
+    //          val rddName = TermName(key)
+    //          val rddCode = build(node)
+    //          // Appends the additional statements to the block. Without the "..$", this would generate independent blocks:
+    //          // "{val rdd1 =...; rdd1.cache()}; {val rdd2 =...; rdd2.cache()}" , and the RDDs defined in one block would
+    //          // not be visible outside. The "..$" creates a single block with the concatenation of all the expressions.
+    //          block = q"..$block; val $rddName = $rddCode; $rddName.cache()"
+    //        }
+    //        })
+    //        q"""..$block; ${build(child)}"""
+    //      }
+    //    }
 
     def build(e: Exp): Tree = e match {
       case a: AlgebraNode if !analyzer.spark(a) => buildScala(a)
-      case a: AlgebraNode                       => buildSpark(a)
-      case i: IdnExp if analyzer.isSource(i)    => buildScan(i)
-      case _                                    => exp(e, None) // TODO: Drop None when default is set
+      case a: AlgebraNode => buildSpark(a)
+      case i: IdnExp if analyzer.isSource(i) => buildScan(i)
+      case _ => exp(e, None) // TODO: Drop None when default is set
     }
 
     logger.info("Building code. User types: " + world.tipes.mkString("\n"))
@@ -903,14 +938,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   }
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
-
-  sealed trait QueryLanguage
-
-  case object Qrawl extends QueryLanguage
-
-  case object OQL extends QueryLanguage
-
-  case object LogicalPlan extends QueryLanguage
 
   def extractQueryAndAccessPath(makro: Tree): (String, QueryLanguage, List[AccessPath]) = {
     /**
@@ -1019,7 +1046,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
     val parseResult: Either[QueryError, Calculus.Calculus] = queryLanguage match {
-      case OQL   => ???
+      case OQL => ???
       case Qrawl => Query(query, world)
       case LogicalPlan => ???
     }
@@ -1027,7 +1054,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     parseResult match {
       case Right(tree) =>
         val treeExp = tree.root
-        
+
         var expStr = CalculusPrettyPrinter(treeExp)
         loggerQueries.info(s"Logical tree:\n$expStr")
 

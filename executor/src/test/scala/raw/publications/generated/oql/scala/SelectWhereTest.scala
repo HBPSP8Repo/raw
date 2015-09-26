@@ -6,7 +6,7 @@ import raw._
 class SelectWhereTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("SelectWhere0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select a from authors a where a.title = "PhD"
     """
@@ -15,7 +15,7 @@ class SelectWhereTest extends AbstractScalaTest with LDBDockerContainer with Bef
   }
 
   test("SelectWhere1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select a from authors a
             where a.year = 1973 or a.year = 1975
@@ -25,7 +25,7 @@ class SelectWhereTest extends AbstractScalaTest with LDBDockerContainer with Bef
   }
 
   test("SelectWhere2") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select P from publications P
             where "particle detectors" in P.controlledterms
@@ -37,7 +37,7 @@ class SelectWhereTest extends AbstractScalaTest with LDBDockerContainer with Bef
   }
 
   test("SelectWhere3") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select P from publications P
 where "particle detectors" in P.controlledterms

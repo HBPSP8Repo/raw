@@ -7,6 +7,7 @@ import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
+import raw.QueryLanguages
 import raw.executor.{CodeGenerator, RawServer, StorageManager}
 import raw.spark._
 import spray.can.Http.Bound
@@ -103,17 +104,21 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     startServer("0.0.0.0", port = port) {
       (path(queryPath) & post) {
         headerValueByName("Raw-User") { rawUser =>
-          entity(as[String]) { query =>
-            try {
-              val result = rawServer.doQuery(query, rawUser)
-              logger.info("Query succeeded. Returning result: " + result.take(30))
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete(result)
+          headerValueByName("Raw-Query-Language") { queryLanguageString =>
+            entity(as[String]) { query =>
+              logger.info(s"Query request received. User: $rawUser, QueryLanguage: $queryLanguageString, Query:\n$query")
+              try {
+                val queryLanguage = QueryLanguages(queryLanguageString)
+                val result = rawServer.doQuery(queryLanguage, query, rawUser)
+                logger.info("Query succeeded. Returning result: " + result.take(30))
+                respondWithMediaType(MediaTypes.`application/json`) {
+                  complete(result)
+                }
+              } catch {
+                case ex: RuntimeException =>
+                  logger.warn(s"Failed to process request", ex)
+                  complete(StatusCodes.BadRequest, ex.getMessage)
               }
-            } catch {
-              case ex: RuntimeException =>
-                logger.warn(s"Failed to process request", ex)
-                complete(StatusCodes.BadRequest, ex.getMessage)
             }
           }
         }

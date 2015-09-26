@@ -6,7 +6,7 @@ import raw._
 class SelectTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Select0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       count(patients)
     """
@@ -15,7 +15,7 @@ class SelectTest extends AbstractScalaTest with LDBDockerContainer with BeforeAn
   }
 
   test("Select1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """
@@ -24,7 +24,7 @@ class SelectTest extends AbstractScalaTest with LDBDockerContainer with BeforeAn
   }
 
   test("Select2") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     """

@@ -5,7 +5,7 @@ import raw._
 class GroupByTest extends AbstractScalaTest {
 
   test("GroupBy0") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       select distinct A.title, count(partition) as n from authors A group by A.title
     """
@@ -14,7 +14,7 @@ class GroupByTest extends AbstractScalaTest {
   }
 
   test("GroupBy1") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       select distinct A.title, (select distinct a.year from a in partition) as years from authors A group by A.title
     """
@@ -23,7 +23,7 @@ class GroupByTest extends AbstractScalaTest {
   }
 
   test("GroupBy2") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       select distinct A.year, (select distinct A from partition A) as people from authors A group by A.year
     """
@@ -32,7 +32,7 @@ class GroupByTest extends AbstractScalaTest {
   }
 
   test("GroupBy3") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       select A.title,
        partition as people

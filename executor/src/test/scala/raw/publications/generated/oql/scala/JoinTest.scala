@@ -6,7 +6,7 @@ import raw._
 class JoinTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Join0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select distinct a.year, a.name as n1, b.name as n2
 from authors a, authors b
@@ -17,7 +17,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
   }
 
   test("Join1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
 from authors a, authors b
@@ -28,7 +28,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
   }
 
   test("Join2") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select P as publication,
       (select A
@@ -41,7 +41,7 @@ from publications P
   }
 
   test("Join3") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select article: P,
        (select A

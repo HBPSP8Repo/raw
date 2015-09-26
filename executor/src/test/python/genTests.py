@@ -29,7 +29,7 @@ class %(name)sTest extends Abstract%(testType)sTest with LDBDockerContainer with
 
 templateTestMethod = """
   test("%(name)s") {
-    val queryLanguage = \"%(queryLanguage)s\"
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
     val query = \"\"\"
       %(query)s
     \"\"\"
@@ -46,7 +46,7 @@ templateTestMethod = """
 
 templateTestMethodJsonCompare = """
   test("%(name)s") {
-    val queryLanguage = \"%(queryLanguage)s\"
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
     val query = \"\"\"
       %(query)s
     \"\"\"

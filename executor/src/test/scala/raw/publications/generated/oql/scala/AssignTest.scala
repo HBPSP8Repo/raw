@@ -6,7 +6,7 @@ import raw._
 class AssignTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Assign0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       select G.title,
       (select year: v,

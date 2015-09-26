@@ -6,7 +6,7 @@ import raw._
 class CollectionExprTest extends AbstractScalaTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("CollectionExpr0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       min(select year from authors)
     """
@@ -15,7 +15,7 @@ class CollectionExprTest extends AbstractScalaTest with LDBDockerContainer with 
   }
 
   test("CollectionExpr1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       max(select year from authors)
     """
@@ -24,7 +24,7 @@ class CollectionExprTest extends AbstractScalaTest with LDBDockerContainer with 
   }
 
   test("CollectionExpr2") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       sum(select year from authors)
     """
@@ -33,7 +33,7 @@ class CollectionExprTest extends AbstractScalaTest with LDBDockerContainer with 
   }
 
   test("CollectionExpr4") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       count(select year from authors)
     """
@@ -42,7 +42,7 @@ class CollectionExprTest extends AbstractScalaTest with LDBDockerContainer with 
   }
 
   test("CollectionExpr6") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       EXISTS (select year from authors)
     """

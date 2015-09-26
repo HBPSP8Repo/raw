@@ -5,7 +5,7 @@ import raw._
 class CountTest extends AbstractSparkTest {
 
   test("Count0") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       count(authors)
     """
@@ -14,7 +14,7 @@ class CountTest extends AbstractSparkTest {
   }
 
   test("Count1") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       count(publications)
     """

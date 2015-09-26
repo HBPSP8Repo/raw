@@ -6,7 +6,7 @@ import raw._
 class CountTest extends AbstractSparkTest with LDBDockerContainer with BeforeAndAfterAll {
 
   test("Count0") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       count(authors)
     """
@@ -15,7 +15,7 @@ class CountTest extends AbstractSparkTest with LDBDockerContainer with BeforeAnd
   }
 
   test("Count1") {
-    val queryLanguage = "oql"
+    val queryLanguage = QueryLanguages("oql")
     val query = """
       count(publications)
     """

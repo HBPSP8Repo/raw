@@ -5,7 +5,7 @@ import raw._
 class SelectTest extends AbstractSparkTest {
 
   test("Select0") {
-    val queryLanguage = "qrawl"
+    val queryLanguage = QueryLanguages("qrawl")
     val query = """
       count(patients)
     """

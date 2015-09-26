@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
+import raw.QueryLanguages.QueryLanguage
 
 import scala.reflect._
 import scala.reflect.runtime.universe._
@@ -83,8 +84,8 @@ object CodeGenerator extends StrictLogging with ResultConverter {
   //"""
   //  }
 
-  def query(logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
-    val query = queryCompiler.compileLogicalPlan(logicalPlan, queryPaths)
+  def query(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
+    val query = queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
     val result = query.computeResult
     convertToJson(result)
   }
