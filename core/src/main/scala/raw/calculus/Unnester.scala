@@ -130,7 +130,13 @@ trait Unnester extends Attribution with Canonizer {
 
   /** Fold predicates into single ANDed predicate.
     */
-  private def foldPreds(ps: Seq[Exp]) = ps.foldLeft(BoolConst(true).asInstanceOf[Exp])((a, b) => MergeMonoid(AndMonoid(), a, b))
+  private def foldPreds(ps: Seq[Exp]) =
+    if (ps.isEmpty)
+      BoolConst(true)
+    else if (ps.length == 1)
+      ps.head
+    else
+      ps.tail.foldLeft(ps.head)((a, b) => MergeMonoid(AndMonoid(), a, b))
 
   /** Create a record expression from a pattern (used by Nest).
     */

@@ -19,6 +19,7 @@ trait Optimizer extends Unnester {
     case Filter(child, BoolConst(true)) => child.e
   }
 
+  // TODO: Now that the Unnester doesn't add fake ANDs, this is likely no longer needed!
   lazy val removeAndTrue = rule[Exp] {
     case MergeMonoid(AndMonoid(), BoolConst(true), e) => e
     case MergeMonoid(AndMonoid(), e, BoolConst(true)) => e

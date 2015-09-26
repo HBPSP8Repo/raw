@@ -52,7 +52,7 @@ class UnnesterTest extends FunTest {
           ($0, $1) <- join(
             $0 <- filter($0 <- Departments, true),
             $1 <- filter($1 <- Departments, true),
-            true and $0.dno = $1.dno),
+            $0.dno = $1.dno),
           true),
         (a1: $0, b1: $1))
       """)
@@ -71,7 +71,7 @@ class UnnesterTest extends FunTest {
           ($0, $1) <- join(
             $0 <- filter($0 <- speed_limits, true),
             $1 <- filter($1 <- radar, true),
-            true and $0.location = $1.location and $1.speed > $0.max_speed),
+            $0.location = $1.location and $1.speed > $0.max_speed),
           true),
         (name: $1.person, location: $1.location))
       """)
@@ -90,7 +90,7 @@ class UnnesterTest extends FunTest {
           ($0, $1) <- join(
             $0 <- filter($0 <- speed_limits, true),
             $1 <- filter($1 <- radar, true),
-            true and $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+            $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
           true),
         (name: $1.person, location: $1.location))
     """)
@@ -110,9 +110,9 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- join(
               $0 <- filter($0 <- students, true),
               $1 <- filter($1 <- profs, true),
-              true and $0.office = $1.office),
+              $0.office = $1.office),
             $2 <-  filter($2 <- departments, true),
-            true and $1.name = $2.prof),
+            $1.name = $2.prof),
           true),
         $0)
       """
@@ -133,9 +133,9 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- join(
               $0 <- filter($0 <- students, true),
               $1 <- filter($1 <- profs, true),
-              true and $0.office = $1.office),
+              $0.office = $1.office),
             $2 <- filter($2 <- departments, true),
-            true and $1.name = $2.prof),
+            $1.name = $2.prof),
           true),
         $0)
       """
@@ -162,7 +162,7 @@ class UnnesterTest extends FunTest {
             $0,
             true,
             $1.age),
-          true and $0.age < $2),
+          $0.age < $2),
         $0.name)
       """
     )
@@ -189,11 +189,11 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- outer_join(
               $0 <- filter($0 <- students, true),
               $1 <- filter($1 <- professors, true),
-              true and $1.age = $0.age),
+              $1.age = $0.age),
             $0,
             true,
             1),
-          true and $0.age = $2),
+          $0.age = $2),
         $0.name)
       """)
   }
@@ -235,11 +235,11 @@ class UnnesterTest extends FunTest {
               true,
               1),
             $2 <- filter($2 <- students, true),
-            true and $2.age = $6),
+            $2.age = $6),
           (_1: $0, _2: $4),
           true,
           $2.age),
-        true and $0.age < $4 and $0.age = $5),
+        $0.age < $4 and $0.age = $5),
       $0.name)
     """
     )
@@ -262,7 +262,7 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- outer_join(
               $0 <- filter($0 <- Departments, true),
               $1 <- filter($1 <- Employees, true),
-              true and $1.dno = $0.dno),
+              $1.dno = $0.dno),
             $0,
             true,
             $1),
@@ -287,7 +287,7 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- outer_join(
               $0 <- filter($0 <- Departments, true),
               $1 <- filter($1 <- Employees, true),
-              true and $1.dno = $0.dno),
+              $1.dno = $0.dno),
             $0,
             true,
             $1.dno),
@@ -312,7 +312,7 @@ class UnnesterTest extends FunTest {
             ($0, $1) <- outer_join(
               $0 <- filter($0 <- A, true),
               $1 <- filter($1 <- B, true),
-              true and $0 = $1),
+              $0 = $1),
             $0,
             true,
             true),
@@ -347,7 +347,7 @@ class UnnesterTest extends FunTest {
               true,
               $1.age > $2.age),
             $0,
-            true and $4,
+            $4,
             1),
           true),
         (E: $0, M: $3))
@@ -372,17 +372,17 @@ class UnnesterTest extends FunTest {
               (($0, $1), $2) <- outer_join(
                 ($0, $1) <- outer_join(
                   $0 <- filter($0 <- Students, true),
-                  $1 <- filter($1 <- Courses, true and $1.title = "DB"),
+                  $1 <- filter($1 <- Courses, $1.title = "DB"),
                   true),
                 $2 <- filter($2 <- Transcripts, true),
-                true and $2.id = $0.id and $2.cno = $1.cno),
+                $2.id = $0.id and $2.cno = $1.cno),
               (_1: $0, _2: $1),
               true,
               true),
             $0,
             true,
             $4),
-          true and $3),
+          $3),
         $0)
       """
     )
