@@ -58,8 +58,16 @@ class OptimizerTest extends FunTest {
 
   test("publications: should do an efficient group by #3") {
     // here the project of $38.title is rewritten into $38 since we nest on that now
+    // TODO could get rid of the reduce! See test below
     check("select distinct A.title, (select x.year from partition x) from A in authors group by A.title", TestWorlds.publications,
       """to_set(reduce(bag, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122)))""")
+  }
+
+  test("publications: should do an efficient group by #3++") {
+    // here the project of $38.title is rewritten into $38 since we nest on that now
+    // and TODO reduce is removed (see test above)
+    check("select distinct A.title, (select x.year from partition x) from A in authors group by A.title", TestWorlds.publications,
+      """to_set(nest(bag, $38 <- authors, $38.title, true, $38.year))""")
   }
 
   test("publications: should do an efficient group by") {
@@ -68,7 +76,7 @@ class OptimizerTest extends FunTest {
   }
 
   ignore("publications: count of authors grouped by title and then year") {
-    // our rule is not yet handling this case
+    // TODO our rule is not yet handling this case
     check("select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
           TestWorlds.publications, """
           """)

@@ -11,7 +11,7 @@ trait Optimizer extends Unnester {
 
   override def strategy = attempt(super.strategy) <* optimize
 
-    lazy val optimize = reduce(removeFilters + removeAndTrue + removeUselessReduce) <* reduce(doClassicGroupBy)
+  lazy val optimize = reduce(removeFilters + removeAndTrue + removeUselessReduce) <* reduce(doClassicGroupBy)
 
   /** Remove redundant filters
     */
@@ -66,6 +66,9 @@ trait Optimizer extends Unnester {
     logger.debug(s"$x1 == $x2")
     x1 == x2
   }
+
+  // TODO if predicate is an And of Eq() (e1=e2 && f1=f2) which are all OK it should group by (e1, f1), we have queries like that
+  // TODO what if BoolConst(true) is not a true?
 
   lazy val doClassicGroupBy = rule[Exp] {
     case x @ UnaryExp(ToSet(),
