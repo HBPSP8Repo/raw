@@ -1,13 +1,24 @@
 package raw
 package calculus
 
-trait Canonizer extends Normalizer {
+class Canonizer extends Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* canonize
+  /**
+   *
+   * the canonizer should really split things up completely, at the root level.
+   *  only idnexp or recordproj left
+   *  and btw, what is the root of the record proj? should become an idnexp
+   *
+   *
+   *
+   * @return
+   */
+
+  def strategy = canonize
 
   lazy val canonize = reduce(ruleFlattenPreds + convertTosToExpBlock)
 
@@ -47,16 +58,4 @@ trait Canonizer extends Normalizer {
 
   // TODO: If ToSet, create ExpBlock!!!
 
-}
-
-object Canonizer {
-
-  import org.kiama.rewriting.Rewriter.rewriteTree
-  import Calculus.Calculus
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Simplifier(tree, world)
-    val canonizer = new Canonizer {}
-    rewriteTree(canonizer.strategy)(t1)
-  }
 }

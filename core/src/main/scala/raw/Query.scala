@@ -49,7 +49,7 @@ object Query extends LazyLogging {
   }
 
   private def process(tree: Calculus.Calculus, world: World): Calculus.Calculus = {
-    val optimized = Optimizer(tree, world)
+    val optimized = Phases(tree, world)
     logger.debug(
       s"""
          |Optimized query:

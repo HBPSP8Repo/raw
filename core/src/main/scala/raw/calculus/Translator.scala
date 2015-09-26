@@ -1,12 +1,11 @@
 package raw
 package calculus
 
-import com.typesafe.scalalogging.LazyLogging
-import org.kiama.rewriting.Rewriter._
+import org.kiama.rewriting.Strategy
 
 /** Desugar SQL to for comprehension
   */
-trait Translator extends Transformer {
+class Translator extends Transformer {
 
   import org.kiama.rewriting.Cloner._
   import Calculus._
@@ -74,16 +73,4 @@ trait Translator extends Transformer {
 
   }
 
-}
-
-object Translator extends LazyLogging {
-
-  import org.kiama.rewriting.Rewriter.rewriteTree
-  import Calculus.Calculus
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Desugarer(tree, world)
-    val translator = new Translator {}
-    rewriteTree(translator.strategy)(t1)
-  }
 }

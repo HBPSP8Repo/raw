@@ -1,8 +1,6 @@
 package raw
 package calculus
 
-import org.kiama.util.Positions
-
 class SyntaxAnalyzerTest extends FunTest {
   def matches(q: String, expected: String): Unit = {
     matches(q, Some(expected))

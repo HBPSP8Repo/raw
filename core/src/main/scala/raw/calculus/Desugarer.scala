@@ -5,13 +5,13 @@ package calculus
   * - Expression blocks
   * - Sugar expression (e.g. Count, ...)
   */
-trait Desugarer extends Uniquifier {
+class Desugarer extends Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* desugar
+  def strategy = desugar
 
   private lazy val desugar =
     reduce(
@@ -128,21 +128,6 @@ trait Desugarer extends Uniquifier {
     case ExpBlock(Nil, e) =>
       logger.debug("Applying desugar ruleEmptyExpBlock")
       e
-  }
-
-}
-
-object Desugarer {
-
-  import Calculus.Calculus
-  import org.kiama.rewriting.Rewriter.rewriteTree
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val a = new SemanticAnalyzer(tree, world)
-    val desugarer = new Desugarer {
-      override def analyzer: SemanticAnalyzer = a
-    }
-    rewriteTree(desugarer.strategy)(tree)
   }
 
 }

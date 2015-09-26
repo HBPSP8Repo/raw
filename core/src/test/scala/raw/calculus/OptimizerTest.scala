@@ -5,21 +5,24 @@ class OptimizerTest extends FunTest {
 
   def process(w: World, q: String) = {
     val ast = parse(q)
+
     val t = new Calculus.Calculus(ast)
+
     val analyzer = new calculus.SemanticAnalyzer(t, w)
-    logger.debug(calculus.CalculusPrettyPrinter(ast))
     val t_q = analyzer.tipe(t.root)
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
     logger.debug(s"t_q $t_q")
 
-    val algebra = Optimizer(t, w)
-    logger.debug(s"algebra\n${CalculusPrettyPrinter(algebra.root)}")
+    val algebra = Phases(t, w, lastTransform = Some("Optimizer"))
+
     val analyzer2 = new calculus.SemanticAnalyzer(algebra, w)
     analyzer2.errors.foreach(err => logger.error(err.toString))
     assert(analyzer2.errors.length === 0)
     val t_alg = analyzer2.tipe(algebra.root)
+
     compare(TypesPrettyPrinter(t_alg), TypesPrettyPrinter(t_q))
+
     algebra
   }
 

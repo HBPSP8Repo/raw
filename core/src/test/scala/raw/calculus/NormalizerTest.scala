@@ -6,8 +6,7 @@ class NormalizerTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val t1 = Normalizer(t, w)
-    logger.debug(s"Normalized tree:\n${CalculusPrettyPrinter(t1.root)}")
+    val t1 = Phases(t, w, lastTransform = Some("Normalizer"))
 
     val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))

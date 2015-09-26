@@ -17,12 +17,12 @@ case class AlgebraTerm(t: LogicalAlgebraNode) extends Term
 /** Algorithm that converts a calculus expression (in canonical form) into the logical algebra.
   * The algorithm is described in Fig. 10 of [1], page 34.
   */
-trait Unnester extends Attribution with Canonizer {
+class Unnester extends Attribution with Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
 
-  override def strategy = attempt(super.strategy) <* unnester
+  def strategy = unnester
 
   private lazy val unnester = manytd(unnest)
 
@@ -180,17 +180,5 @@ trait Unnester extends Attribution with Canonizer {
   private def variables(e: Exp): Set[String] = {
     val collectIdns = collect[Set, String] { case IdnExp(idn) => idn.idn }
     collectIdns(e)
-  }
-}
-
-object Unnester {
-
-  import org.kiama.rewriting.Rewriter.rewriteTree
-  import Calculus.Calculus
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Simplifier(tree, world)
-    val unnester = new Unnester {}
-    rewriteTree(unnester.strategy)(t1)
   }
 }

@@ -6,8 +6,11 @@ import com.typesafe.scalalogging.LazyLogging
 trait Transformer extends LazyLogging {
 
   import scala.collection.immutable.Seq
+  import org.kiama.rewriting.Strategy
   import org.kiama.rewriting.Rewriter._
   import Calculus._
+
+  def strategy: Strategy
 
   /** Splits a list using a partial function.
     */

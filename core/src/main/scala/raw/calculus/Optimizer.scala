@@ -5,24 +5,19 @@ import org.kiama.rewriting.Rewriter._
 
 import scala.collection.immutable.Seq
 
-trait Optimizer extends Unnester {
+class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
 
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* optimize
+  def strategy = optimize
 
-  lazy val optimize = reduce(removeFilters + removeAndTrue + removeUselessReduce) <* reduce(doClassicGroupBy)
+  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* reduce(doClassicGroupBy)
 
   /** Remove redundant filters
     */
+  // TODO: Move this to the Simplifier?
   lazy val removeFilters = rule[Exp] {
     case Filter(child, BoolConst(true)) => child.e
-  }
-
-  // TODO: Now that the Unnester doesn't add fake ANDs, this is likely no longer needed!
-  lazy val removeAndTrue = rule[Exp] {
-    case MergeMonoid(AndMonoid(), BoolConst(true), e) => e
-    case MergeMonoid(AndMonoid(), e, BoolConst(true)) => e
   }
 
   def sameExp(p: Pattern, e: Exp): Boolean = (p, e) match {
@@ -34,8 +29,6 @@ trait Optimizer extends Unnester {
     case _ => false
   }
 
-  // TODO copy of the one in Simplifier (since they don't inherit?)
-  def analyzer: SemanticAnalyzer
   private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
     analyzer.tipe(e) match {
       case CollectionType(`m`, _) => true
@@ -100,19 +93,4 @@ trait Optimizer extends Unnester {
 //    case Join(left, right, p)
 //  }
 
-}
-
-object Optimizer {
-
-  import org.kiama.rewriting.Rewriter.rewriteTree
-  import Calculus.Calculus
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val t1 = Simplifier(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
-    val optimizer = new Optimizer {
-      override def analyzer: SemanticAnalyzer = a
-    }
-    rewriteTree(optimizer.strategy)(t1)
-  }
 }

@@ -6,7 +6,7 @@ class UniquifierTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val t1 = Uniquifier(t, w)
+    val t1 = Phases(t, w, lastTransform = Some("Uniquifier1"))
 
     val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))

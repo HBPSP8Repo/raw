@@ -9,9 +9,7 @@ case class UniquifierError(err: String) extends RawException(err)
 
 /** Uniquify names
   */
-trait Uniquifier extends Transformer {
-
-  def analyzer: SemanticAnalyzer
+class Uniquifier(val analyzer: SemanticAnalyzer) extends Transformer {
 
   def strategy = uniquify
 
@@ -27,19 +25,4 @@ trait Uniquifier extends Transformer {
       case e                   => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
     }
   })
-}
-
-object Uniquifier {
-
-  import org.kiama.rewriting.Rewriter._
-  import Calculus._
-
-  def apply(tree: Calculus, world: World): Calculus = {
-    val a = new SemanticAnalyzer(tree, world)
-    val uniquifier = new Uniquifier {
-      override def analyzer: SemanticAnalyzer = a
-    }
-    rewriteTree(uniquifier.strategy)(tree)
-  }
-
 }

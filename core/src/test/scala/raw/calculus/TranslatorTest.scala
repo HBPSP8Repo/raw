@@ -10,9 +10,7 @@ class TranslatorTest extends FunTest {
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
 
-    val t1 = Translator(t, w)
-    val pt = CalculusPrettyPrinter(t1.root, 200)
-    logger.debug(s"Result: $pt")
+    val t1 = Phases(t, w, lastTransform = Some("Translator"))
 
     val analyzer1 = new SemanticAnalyzer(t1, w)
     analyzer1.errors.foreach(err => logger.error(err.toString))
@@ -20,7 +18,7 @@ class TranslatorTest extends FunTest {
 
     assert(analyzer.tipe(t.root) === analyzer1.tipe(t1.root))
 
-    pt
+    CalculusPrettyPrinter(t1.root, 200)
   }
 
   test("select s.name from students s") {

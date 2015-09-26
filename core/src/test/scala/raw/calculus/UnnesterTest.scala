@@ -5,17 +5,19 @@ class UnnesterTest extends FunTest {
 
   def process(w: World, q: String) = {
     val ast = parse(q)
+
     val t = new Calculus.Calculus(ast)
+
     val analyzer = new calculus.SemanticAnalyzer(t, w)
-    logger.debug(calculus.CalculusPrettyPrinter(ast))
     analyzer.errors.foreach(err => logger.error(err.toString))
     assert(analyzer.errors.length === 0)
-    val algebra = Unnester(t, w)
-    logger.debug(s"algebra\n${CalculusPrettyPrinter(algebra.root)}")
-    logger.debug(s"algebra\n${(algebra.root)}")
+
+    val algebra = Phases(t, w, lastTransform = Some("Unnester"))
+
     val analyzer2 = new calculus.SemanticAnalyzer(algebra, w)
     analyzer2.errors.foreach(err => logger.error(err.toString))
     assert(analyzer2.errors.length === 0)
+
     compare(TypesPrettyPrinter(analyzer2.tipe(algebra.root)), TypesPrettyPrinter(analyzer.tipe(t.root)))
     algebra
   }
