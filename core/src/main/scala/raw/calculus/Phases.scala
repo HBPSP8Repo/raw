@@ -38,7 +38,6 @@ object Phases extends LazyLogging {
       var strategy = id
       logger.debug(s"***** BEGIN PHASE $phase *****")
       logger.debug(s"Input: ${CalculusPrettyPrinter(input.root)}")
-      logger.debug(s"Input: ${CalculusPrettyPrinter(input.root)}")
       val semanticAnalyzer = new SemanticAnalyzer(input, world)
       var firstInPhase = true // The first transformation in a Phase needs the SemanticAnalyzer.
                               // (That's why it is a separate phase!)
@@ -50,15 +49,19 @@ object Phases extends LazyLogging {
           } else
             transform.newInstance()
         strategy = attempt(strategy) <* t.strategy
-        logger.debug(s"Added strategy $name")
+        logger.debug(s"Adding rewrite strategy $name")
         if (lastTransform.isDefined && name == lastTransform.get) {
+          logger.debug(s"Begin rewriting tree...")
           val output = rewriteTree(strategy)(input)
+          logger.debug(s"... done rewriting tree.")
           logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
           logger.debug(s"***** DONE DUE TO lastTransform *****")
           return output
         }
       }
+      logger.debug(s"Begin rewriting tree...")
       val output = rewriteTree(strategy)(input)
+      logger.debug(s"... done rewriting tree.")
       logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
       logger.debug(s"***** END PHASE $phase *****")
       if (lastPhase.isDefined && phase == lastPhase.get) {

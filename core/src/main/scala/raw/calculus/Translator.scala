@@ -26,8 +26,7 @@ class Translator extends Transformer {
 
   private lazy val selectGroupBy = rule[Exp] {
     case s @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
-      logger.debug(s"Applying selectGroupBy")
-      logger.debug(s"Input is ${CalculusPrettyPrinter(s)}")
+      logger.debug(s"Applying selectGroupBy to ${CalculusPrettyPrinter(s)}")
       val ns = rewriteInternalIdns(deepclone(s))
 
       assert(ns.from.nonEmpty)
