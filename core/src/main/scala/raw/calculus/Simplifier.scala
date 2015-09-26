@@ -24,7 +24,7 @@ trait Simplifier extends Translator {
 
   /** Remove useless conversions.
     */
-  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+  def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
     analyzer.tipe(e) match {
       case CollectionType(`m`, _) => true
       case _ => false
@@ -375,10 +375,11 @@ object Simplifier {
 
   def apply(tree: Calculus, world: World): Calculus = {
     val t1 = Desugarer(tree, world)
-    val a = new SemanticAnalyzer(t1, world)
+    val t2 = Translator(t1, world)
+    val a = new SemanticAnalyzer(t2, world)
     val simplifier = new Simplifier {
       override def analyzer: SemanticAnalyzer = a
     }
-    rewriteTree(simplifier.strategy)(t1)
+    rewriteTree(simplifier.strategy)(t2)
   }
 }
