@@ -26,7 +26,7 @@ trait Simplifier extends Transformer {
 
   /** Remove useless conversions.
     */
-  def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
     analyzer.tipe(e) match {
       case CollectionType(`m`, _) => true
       case _ => false

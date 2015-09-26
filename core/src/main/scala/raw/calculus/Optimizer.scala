@@ -33,6 +33,14 @@ trait Optimizer extends Unnester {
     case _ => false
   }
 
+  // TODO copy of the one in Simplifier (since they don't inherit?)
+  def analyzer: SemanticAnalyzer
+  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+    analyzer.tipe(e) match {
+      case CollectionType(`m`, _) => true
+      case _ => false
+    }
+
   lazy val removeUselessReduce = rule[Exp] {
     case Reduce(m: CollectionMonoid, g, e) if sameExp(g.p, e) && isCollectionMonoid(g.e, m) => g.e
   }
@@ -97,7 +105,10 @@ object Optimizer {
 
   def apply(tree: Calculus, world: World): Calculus = {
     val t1 = Simplifier(tree, world)
-    val optimizer = new Optimizer {}
+    val a = new SemanticAnalyzer(t1, world)
+    val optimizer = new Optimizer {
+      override def analyzer: SemanticAnalyzer = a
+    }
     rewriteTree(optimizer.strategy)(t1)
   }
 }
