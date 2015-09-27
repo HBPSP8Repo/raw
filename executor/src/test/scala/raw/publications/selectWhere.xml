@@ -3,6 +3,9 @@
         <oql>
             select a from authors a where a.title = "PhD"
         </oql>
+        <qrawl>
+            select a from authors a where a.title = "PhD"
+        </qrawl>
         <result>
             <![CDATA[
 [name: Anderson, C.C., title: PhD, year: 1992]
@@ -30,6 +33,10 @@
             select a from authors a
             where a.year = 1973 or a.year = 1975
         </oql>
+        <qrawl>
+            select a from authors a
+            where a.year = 1973 or a.year = 1975
+        </qrawl>
         <reult>
             <![CDATA[
 [name: Neuhauser, B., title: professor, year: 1973]
@@ -46,6 +53,12 @@
             and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
             and "Sarigiannidou, E." in P.authors
         </oql>
+        <qrawl>
+            select P from publications P
+            where "particle detectors" in P.controlledterms
+            and "Hewlett-Packard Lab., Palo Alto, CA, USA" in P.affiliations
+            and "Sarigiannidou, E." in P.authors
+        </qrawl>
         <result>
             <![CDATA[
 [affiliations: [CEA-Grenoble, INAC/SP2M/NPSC, 17 Rue des Martyrs, 38054 Grenoble cedex 9, France, Hewlett-Packard Lab., Palo Alto, CA, USA], authors: [McVittie, J.P., Sarigiannidou, E.], controlledterms: [neutrino detection and measurement, particle detectors, scanning electron microscope examination of materials, superconducting junction devices, superconductive tunnelling, titanium, torque], title: [Front cover]]
@@ -70,6 +83,16 @@ and "titanium" in P.controlledterms
 and "torque" in P.controlledterms
 ]]>
         </oql>
+        <qrawl>
+            <![CDATA[
+select P from publications P
+where "particle detectors" in P.controlledterms
+and "elemental semiconductors" in P.controlledterms
+and "magnetic levitation" in P.controlledterms
+and "titanium" in P.controlledterms
+and "torque" in P.controlledterms
+]]>
+        </qrawl>
         <result>
             <![CDATA[
 [affiliations: [Dept. of Electr. & Electron. Eng., Middle East Tech. Univ., Ankara, Turkey, Key Laboratory of Materials for High Power Laser, Shanghai Institute of Optics and Fine Mechanics, Chinese Academy of Sciences, Shanghai 201800, People&#x2019], authors: [Cabrera, B., Dickson, S.C., Johnson, R.T., Lee, A., Matsumoto, Y., Xu, Rongrong], controlledterms: [elemental semiconductors, magnetic flux, magnetic levitation, particle detectors, silicon, superconducting junction devices, titanium, torque], title: On Communication Over Unknown Sparse Frequency-Selective Block-Fading Channels]

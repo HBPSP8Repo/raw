@@ -40,4 +40,13 @@ class CollectionExprTest extends AbstractScalaTest {
     assertJsonEqual("publications", "CollectionExpr4", result)
   }
 
+  test("CollectionExpr6") {
+    val queryLanguage = QueryLanguages("qrawl")
+    val query = """
+      EXISTS (select year from authors)
+    """
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    assertJsonEqual("publications", "CollectionExpr6", result)
+  }
+
 }

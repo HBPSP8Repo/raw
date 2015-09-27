@@ -63,6 +63,9 @@
         <oql>
             unique(select year from authors)
         </oql>
+        <qrawl>
+            unique(select year from authors)
+        </qrawl>
         <result>
             false
         </result>
@@ -72,6 +75,9 @@
         <oql>
             EXISTS (select year from authors)
         </oql>
+        <qrawl>
+            EXISTS (select year from authors)
+        </qrawl>
         <result>
             true
         </result>

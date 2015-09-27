@@ -3,6 +3,9 @@
         <oql>
             select distinct a.name, a.title, a.year from authors a where a.year = 1973
         </oql>
+        <qrawl>
+            select distinct a.name, a.title, a.year from authors a where a.year = 1973
+        </qrawl>
         <result>
             [name: Neuhauser, B., title: professor, year: 1973]
             [name: Takeno, K., title: PhD, year: 1973]
@@ -13,6 +16,9 @@
         <oql>
             select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
         </oql>
+        <qrawl>
+            select distinct a.name as nom, a.title as titre, a.year as annee from authors a where a.year = 1973
+        </qrawl>
         <result>
             [annee: 1973, nom: Neuhauser, B., titre: professor]
             [annee: 1973, nom: Takeno, K., titre: PhD]
@@ -23,6 +29,9 @@
         <oql>
             select a.title from authors a where a.year = 1959
         </oql>
+        <qrawl>
+            select a.title from authors a where a.year = 1959
+        </qrawl>
         <result>
             PhD
             assistant professor
@@ -35,6 +44,9 @@
         <oql>
             select distinct a.title from authors a where a.year = 1959
         </oql>
+        <qrawl>
+            select distinct a.title from authors a where a.year = 1959
+        </qrawl>
         <result>
             PhD
             assistant professor

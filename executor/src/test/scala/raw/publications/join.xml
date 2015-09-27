@@ -6,6 +6,12 @@ from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
            ]]>
         </oql>
+        <qrawl><![CDATA[
+select distinct a.year, a.name as n1, b.name as n2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+           ]]>
+        </qrawl>
     </query>
 
     <query>
@@ -15,6 +21,12 @@ from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
                ]]>
         </oql>
+        <qrawl><![CDATA[
+select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+               ]]>
+        </qrawl>
     </query>
 
     <query>
@@ -26,6 +38,14 @@ select P as publication,
 from publications P
            ]]>
         </oql>
+        <qrawl><![CDATA[
+select P as publication,
+      (select A
+       from P.authors a, authors A
+       where A.name = a and A.title = "professor") as profs
+from publications P
+           ]]>
+        </qrawl>
     </query>
 
     <query>
@@ -39,5 +59,15 @@ from publications P
 where "particle detectors" in P.controlledterms
            ]]>
         </oql>
+        <qrawl><![CDATA[
+select article: P,
+       (select A
+        from P.authors a, authors A
+        where A.name = a
+              and A.title = "professor") as profs
+from publications P
+where "particle detectors" in P.controlledterms
+           ]]>
+        </qrawl>
     </query>
 </queries>
