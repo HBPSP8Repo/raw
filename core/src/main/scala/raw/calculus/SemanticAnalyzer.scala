@@ -425,18 +425,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** Return the declaration of an identifier definition.
     */
-  private lazy val decl: IdnDef => Option[RawNode] = attr {
+  protected lazy val decl: IdnDef => Option[Decl] = attr {
     case idn: IdnDef =>
-      def getDecl(n: RawNode): Option[RawNode] = n match {
-        case b: Bind                          => Some(b)
-        case g: Gen                           => Some(g)
-        case i: Iterator                      => Some(i)
-        case f: FunAbs                        => Some(f)
-        case tree.parent.pair(_: Pattern, n1) => getDecl(n1)
+      def getDecl(n: RawNode): Option[Decl] = n match {
+        case b: Bind                 => Some(b)
+        case g: Gen                  => Some(g)
+        case i: Iterator             => Some(i)
+        case f: FunAbs               => Some(f)
+        case tree.parent.pair(_, n1) => getDecl(n1)
+        case _                       => None
       }
-
-      // TODO: This is ugly!!!
-      getDecl(tree.parent(idn).head.asInstanceOf[Pattern])
+      getDecl(idn)
   }
 
   /** Return the type of an entity.
