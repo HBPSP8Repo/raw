@@ -15,12 +15,17 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
 
   /** Remove redundant filters
     */
-  // TODO: Move this to the Simplifier?
   lazy val removeFilters = rule[Exp] {
     case Filter(child, BoolConst(true)) => child.e
   }
 
-  def sameExp(p: Pattern, e: Exp): Boolean = (p, e) match {
+  /** Remove redundant reduce nodes, e.g.
+    * `to_set(reduce(bag, ($0, $1) <- nest(bag, $0 <- authors, $0.title, true, $0.year), (_1: $0, _2: $1)))`
+    *   becomes
+    * `to_set(nest(bag, $0 <- authors, $0.title, true, $0.year))`
+    */
+
+  private def sameExp(p: Pattern, e: Exp): Boolean = (p, e) match {
     case (i1: PatternIdn, i2: IdnExp) => i1.idn.idn == i2.idn.idn
     case (p1: PatternProd, r: RecordCons) if p1.ps.length == r.atts.length =>
       r.atts.map(a => a.idn).zipWithIndex.forall{case (i, idx) => i == s"_${idx+1}"}
@@ -36,8 +41,11 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
     }
 
   lazy val removeUselessReduce = rule[Exp] {
-    case Reduce(m: CollectionMonoid, g, e) if sameExp(g.p, e) && isCollectionMonoid(g.e, m) => g.e
+    case r @ Reduce(m: CollectionMonoid, g, e) if { logger.debug(s"__> $r ${sameExp(g.p, e)}"); sameExp(g.p, e) } && { logger.debug(s"--> ${isCollectionMonoid(g.e, m)}"); isCollectionMonoid(g.e, m) } => g.e
   }
+
+  /**
+   */
 
   private def rewriteExp[T <: RawNode](n: T, remap:Map[Exp, Exp]): T = {
     rewrite(
