@@ -4,8 +4,10 @@ package calculus
 import com.typesafe.scalalogging.LazyLogging
 
 sealed abstract class Phase
+case object ExpressionsDesugarPhase extends Phase
 case object DesugarPhase extends Phase
 case object UniquifierPhase extends Phase
+case object ReUniquifierPhase extends Phase
 case object NormalizerPhase extends Phase
 case object UnnesterPhase extends Phase
 case object SimplifierPhase extends Phase
@@ -19,10 +21,11 @@ object Phases extends LazyLogging {
   //       phase requires (e.g. unique names or fresh tree) are not ensured. And this should be done at compile time!
 
   private val phases = Seq(
-    DesugarPhase                  -> Seq( "Uniquifier1" -> classOf[Uniquifier],
-                                          "Desugarer"   -> classOf[Desugarer],
-                                          "Translator"  -> classOf[Translator]),
-    UniquifierPhase               -> Seq( "Uniquifier2" -> classOf[Uniquifier]),
+    UniquifierPhase               -> Seq( "Uniquifier1" -> classOf[Uniquifier]),
+    DesugarPhase                  -> Seq( "ExpressionsDesugarer"  -> classOf[ExpressionsDesugarer],
+                                          "BlocksDesugarer"       -> classOf[BlocksDesugarer],
+                                          "Translator"            -> classOf[Translator]),
+    ReUniquifierPhase             -> Seq( "Uniquifier2" -> classOf[Uniquifier]),
     NormalizerPhase               -> Seq( "Simplifier1" -> classOf[Simplifier],
                                           "Normalizer"  -> classOf[Normalizer]),
     UnnesterPhase                 -> Seq( "Simplifier2" -> classOf[Simplifier],
@@ -34,11 +37,12 @@ object Phases extends LazyLogging {
 
   def apply(tree: Calculus.Calculus, world: World, lastPhase: Option[Phase] = None, lastTransform: Option[String] = None): Calculus.Calculus = {
     var input = tree
+    logger.debug(s"Input: ${CalculusPrettyPrinter(input.root)}")
     for ((phase, transformers) <- phases) {
       var strategy = id
       logger.debug(s"***** BEGIN PHASE $phase *****")
-      logger.debug(s"Input: ${CalculusPrettyPrinter(input.root)}")
       val semanticAnalyzer = new SemanticAnalyzer(input, world)
+      semanticAnalyzer.tipe(input.root)
       var firstInPhase = true // The first transformation in a Phase needs the SemanticAnalyzer.
                               // (That's why it is a separate phase!)
       for ((name, transform) <- transformers) {
@@ -54,16 +58,16 @@ object Phases extends LazyLogging {
           logger.debug(s"Begin rewriting tree...")
           val output = rewriteTree(strategy)(input)
           logger.debug(s"... done rewriting tree.")
-          logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
           logger.debug(s"***** DONE DUE TO lastTransform *****")
+          logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
           return output
         }
       }
       logger.debug(s"Begin rewriting tree...")
       val output = rewriteTree(strategy)(input)
       logger.debug(s"... done rewriting tree.")
-      logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
       logger.debug(s"***** END PHASE $phase *****")
+      logger.debug(s"Output: ${CalculusPrettyPrinter(output.root)}")
       if (lastPhase.isDefined && phase == lastPhase.get) {
         logger.debug(s"***** DONE DUE TO lastPhase *****")
         return output

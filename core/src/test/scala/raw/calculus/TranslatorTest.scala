@@ -87,7 +87,7 @@ class TranslatorTest extends FunTest {
     compare(
       process(
         "select A.title, count(partition) as n from authors A group by A.title", TestWorlds.publications),
-        """for ($0 <- to_bag(authors)) yield bag (_1: $0.title, n: \$1 -> for ($2 <- to_bag($1)) yield sum 1(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3))"""
+        """for ($0 <- to_bag(authors)) yield bag (_1: $0.title, n: \$1 -> for ($2 <- $1) yield sum 1(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3))"""
     )
   }
 
@@ -128,7 +128,7 @@ class TranslatorTest extends FunTest {
                  from authors A
                  group by A.title) G""", TestWorlds.publications),
       """for ($10 <- to_bag(for ($0 <- to_bag(authors)) yield bag (title: $0.title, people: for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3)))
-          yield bag (_1: $10.title, stats: to_set(for ($12 <- to_bag($10.people)) yield bag (year: $12.year, N: \$13 -> for ($14 <- to_bag($13)) yield sum 1(for ($22 <- to_bag($10.people); $12.year = $22.year) yield bag $22))))
+          yield bag (_1: $10.title, stats: to_set(for ($12 <- to_bag($10.people)) yield bag (year: $12.year, N: \$13 -> for ($14 <- $13) yield sum 1(for ($22 <- to_bag($10.people); $12.year = $22.year) yield bag $22))))
       """
     )
   }
@@ -138,7 +138,7 @@ class TranslatorTest extends FunTest {
       process("""
         select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title
       """, TestWorlds.publications),"""
-        to_set(for ($0 <- to_bag(authors)) yield bag (title: $0.title,stats: for ($1 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3)) yield bag (year: $1.year, N: \$9 -> for ($4 <- to_bag($9)) yield sum 1(for ($5 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3); $1.year = $5.year) yield bag $5))))""")
+        to_set(for ($0 <- to_bag(authors)) yield bag (title: $0.title,stats: for ($1 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3)) yield bag (year: $1.year, N: \$9 -> for ($4 <- $9) yield sum 1(for ($5 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3); $1.year = $5.year) yield bag $5))))""")
   }
 
 }

@@ -1166,6 +1166,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
       }
 
+      // TODO: Make the following more precise, since not all collections may be summed, counted, etc!!!!
+
       case n @ Sum(e) =>
         val tn = NumberType()
         Seq(
@@ -1191,10 +1193,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(n, tn))
 
       case n @ Count(e) =>
-        val tn = NumberType()
         Seq(
           HasType(e, CollectionType(MonoidVariable(), TypeVariable())),
-          HasType(n, tn))
+          HasType(n, NumberType()))
 
       case _ =>
         Seq()
@@ -1224,6 +1225,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n: Const => constraint(n)
     case n @ RecordCons(atts) => atts.flatMap { case att => constraints(att.e) } ++ constraint(n)
     case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
+    case n @ ZeroCollectionMonoid(_) => constraint(n)
     case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
     case n: Partition => constraint(n)

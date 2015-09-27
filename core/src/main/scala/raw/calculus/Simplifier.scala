@@ -15,7 +15,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends Transformer {
   // TODO: Compute expressions like "if (true) then 1 else 2"
   // TODO: Fold constants
 
-  lazy val simplify = reduce(removeUselessTos +
+  lazy val simplify = reduce(removeUselessTos) + reduce(
     ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +

@@ -1,12 +1,12 @@
 package raw
 package calculus
 
-class DesugarerTest extends FunTest {
+class BlocksDesugarerTest extends FunTest {
 
   def process(q: String, w: World = TestWorlds.empty) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val t1 = Phases(t, w, lastTransform = Some("Desugarer"))
+    val t1 = Phases(t, w, lastTransform = Some("BlocksDesugarer"))
 
     val analyzer = new SemanticAnalyzer(t1, w)
     analyzer.errors.foreach(err => logger.error(err.toString))
@@ -49,28 +49,6 @@ class DesugarerTest extends FunTest {
       process(
         """{ a := 1; { a := 2; a } + a }"""),
         """2 + 1""")
-  }
-
-  test("sum") {
-    compare(
-      process(
-        """sum(list(1))"""),
-         """\$0 -> for ($1 <- to_bag($0)) yield sum $1(list(1))""")
-  }
-
-  test("max") {
-    compare(
-      process(
-        """max(list(1))"""),
-      """\$0 -> for ($1 <- $0) yield max $1(list(1))""")
-  }
-
-
-  test("count") {
-    compare(
-      process(
-        """count(list(1))"""),
-      """\$0 -> for ($1 <- to_bag($0)) yield sum 1(list(1))""")
   }
 
 }

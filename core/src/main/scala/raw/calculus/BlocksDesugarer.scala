@@ -5,7 +5,7 @@ package calculus
   * - Expression blocks
   * - Sugar expression (e.g. Count, ...)
   */
-class Desugarer extends Transformer {
+class BlocksDesugarer extends Transformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
@@ -15,42 +15,12 @@ class Desugarer extends Transformer {
 
   private lazy val desugar =
     reduce(
-      ruleSum +
-      ruleMax +
-      ruleCount +
       rulePatternFunAbs +
       rulePatternGen +
       rulePatternBindExpBlock +
       rulePatternBindComp +
       ruleExpBlocks +
       ruleEmptyExpBlock)
-
-  /** De-sugar sum
-    */
-  private lazy val ruleSum = rule[Exp] {
-    case Sum(e) =>
-      val xs = SymbolTable.next().idn
-      val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), UnaryExp(ToBag(), IdnExp(IdnUse(xs))))), IdnExp(IdnUse(x)))), e)
-  }
-
-  /** De-sugar max
-    */
-  private lazy val ruleMax = rule[Exp] {
-    case Max(e) =>
-      val xs = SymbolTable.next().idn
-      val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MaxMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
-  }
-
-  /** De-sugar count
-    */
-  private lazy val ruleCount = rule[Exp] {
-    case Count(e) =>
-      val xs = SymbolTable.next().idn
-      val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), UnaryExp(ToBag(), IdnExp(IdnUse(xs))))), IntConst("1"))), e)
-  }
 
   /** De-sugar pattern function abstractions into expression blocks.
     * e.g. `\((a,b),c) -> a + b + c` becomes `\x -> { (a,b) := x._1; c := x._2; a + b + c }`
