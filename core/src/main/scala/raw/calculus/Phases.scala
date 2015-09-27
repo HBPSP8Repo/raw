@@ -42,7 +42,9 @@ object Phases extends LazyLogging {
       var strategy = id
       logger.debug(s"***** BEGIN PHASE $phase *****")
       val semanticAnalyzer = new SemanticAnalyzer(input, world)
-      semanticAnalyzer.tipe(input.root)
+      semanticAnalyzer.tipe(input.root)   // Typing the root is *required*, since some of the rules will be asking
+                                          // the types of inner nodes, and those are only fully typed if the whole
+                                          // program has been typed.
       var firstInPhase = true // The first transformation in a Phase needs the SemanticAnalyzer.
                               // (That's why it is a separate phase!)
       for ((name, transform) <- transformers) {
