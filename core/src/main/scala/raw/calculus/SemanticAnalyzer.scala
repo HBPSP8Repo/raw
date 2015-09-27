@@ -106,7 +106,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         ConstraintRecordType(attributes, sym)
     }
     t.nullable = nullable.getOrElse(t.nullable || nulls.collect{case t if t.nullable => t}.nonEmpty) // TODO: nulls.exists ?
-    t.pos = source.pos
     t
   }
 
@@ -310,6 +309,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case e: Exp => env.in(e)
   }
 
+  // TODO: Move this to the Types.scala and have it used inside the TypeScheme definition for uniformity!
   case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol])
 
   /** Type the rhs of a Bind declaration.
@@ -435,11 +435,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case tree.parent.pair(_: Pattern, n1) => getDecl(n1)
       }
 
+      // TODO: This is ugly!!!
       getDecl(tree.parent(idn).head.asInstanceOf[Pattern])
   }
 
   /** Return the type of an entity.
-    * Implements let-polymorphism.
+    * Supports let-polymorphism.
     */
   private lazy val entityType: Entity => Type = attr {
     case VariableEntity(idn, t) =>
@@ -527,7 +528,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case PatternIdn(idn) =>
       entity(idn) match {
         case VariableEntity(_, t) => t
-        case _ => NothingType()
+        case _                    => NothingType()
       }
     case PatternProd(ps) =>
       RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
@@ -986,7 +987,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Rule 13
       case n @ Comp(m: NumberMonoid, qs, e) =>
-        qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
+        qs.collect { case Gen(_, e1) => e1 }.map(e => ExpMonoidSubsetOf(e, m)) ++
         Seq(
           HasType(e, NumberType()),
           SameType(n, e)
@@ -1070,34 +1071,35 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ Reduce(m: BoolMonoid, g, e) => Seq(HasType(e, BoolType()), HasType(n, BoolType()))
 
       case n @ Filter(g, p) => Seq(SameType(n, g.e), HasType(p, BoolType()))
-      case n @ Nest(rm: CollectionMonoid, g, k, p, e) => {
+
+      case n @ Nest(rm: CollectionMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         Seq(HasType(g.e, CollectionType(m, TypeVariable())), HasType(p, BoolType()),
             HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e)))), None))))
-      }
-      case n @ Nest(rm: NumberMonoid, g, k, p, e) => {
+
+      case n @ Nest(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val nt = NumberType()
         Seq(HasType(g.e, CollectionType(m, TypeVariable())),
             HasType(e, nt), HasType(p, BoolType()),
             HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", nt)), None))))
-      }
-      case n @ Nest(rm: BoolMonoid, g, k, p, e) => {
+
+      case n @ Nest(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val bt = BoolType()
         Seq(HasType(g.e, CollectionType(m, TypeVariable())),
           HasType(e, bt), HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)), None))))
-      }
-      case n @ Join(g1, g2, p) => {
+
+      case n @ Join(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         val m  = MonoidVariable()
         Seq(HasType(g1.e, CollectionType(m, t1)),
             HasType(g2.e, CollectionType(m, t2)), HasType(p, BoolType()),
             HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
-      }
-      case n @ OuterJoin(g1, g2, p) => {
+
+      case n @ OuterJoin(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         t2.nullable = true
@@ -1105,8 +1107,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(HasType(g1.e, CollectionType(m, t1)),
           HasType(g2.e, CollectionType(m, t2)), HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
-      }
-      case n @ OuterUnnest(g1, g2, p) => {
+
+      case n @ OuterUnnest(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         t2.nullable = true
@@ -1114,7 +1116,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(HasType(g1.e, CollectionType(m, t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)), HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
-      }
 
       case n @ Sum(e) =>
         val tn = NumberType()
