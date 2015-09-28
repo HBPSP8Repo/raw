@@ -186,12 +186,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     val anonRecordTypes = scala.collection.mutable.Set[RecordType]()
 
-    val queryAnonRecordTypes = query[Calculus.Exp] {
-      case e => analyzer.tipe(e) match {
-        case r@RecordType(_, None) => anonRecordTypes += r
+    val queryAnonRecordTypes = everywhere(query[Calculus.Exp] {
+      case e => logger.debug(s"Exp ${CalculusPrettyPrinter(e)} has type ${PrettyPrinter(analyzer.tipe(e))}"); analyzer.tipe(e) match {
+        case r @ RecordType(_, None) => anonRecordTypes += r
         case _ =>
       }
-    }
+    })
 
     queryAnonRecordTypes(tree)
 
@@ -203,12 +203,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
     val resultRecords = collectAnonRecordTypes(tree, world, analyzer)
+      logger.debug(s"buildCaseClasses $resultRecords")
 
     // Create a map between RecordType and case class names
     this.userCaseClassesMap = {
       var i = 0
       resultRecords.map(recType => {
-        i = i + 1;
+        i = i + 1
         RawImpl.toCannonicalForm(recType) -> s"UserRecord$i"
       }).toMap
     }
