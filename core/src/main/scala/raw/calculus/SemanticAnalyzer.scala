@@ -1296,14 +1296,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
 
     val collectMaps = collect[List, (Type, Position)] {
-      case e: Exp => {
+      case e: Exp =>
         val t = expType(e)
         if (!typesVarMap.contains(t)) {
           t -> e.pos
         } else {
           walk(typesVarMap(t).root) -> e.pos
         }
-      }
     }
 
     for ((t, items) <- collectMaps(tree.root).groupBy(_._1)) {
@@ -1313,6 +1312,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 }
 
+// TODO: Change constraints to do proper collect in order, so that we don't ever forget anything. Exceptions (if any) can be handled in a pattern match at the beginning
 // TODO: Add support for new Algebra nodes: in constraint and in constraints
 // TODO: Add detailed description of the type checker: the flow, the unification, partial records, how are errors handled, ...
 // TODO: Add more tests to the SemanticAnalyzer:
@@ -1334,7 +1334,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 // TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
 //       This should only happen for a single col I guess?. It helps write the map function.
-// TODO: I think monoidsVarMap has to be handled during instantiateTypeScheme, just like monoidsVarMAp? Write test case that breaks 1st!!!
 // TODO: We also said that we need to drop ConstrainedRecordType. It will instead do a local scope lookup based on the field name and attach itself to that type.
 //       This lookup will use a lazy val chain in Kiama and then also be re-used by the OQL Select parser when looking up (Select name) although here name is an Exp so it's not exatly the same.
 //       This replaces the RecordProj constraint...
