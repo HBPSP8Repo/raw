@@ -160,6 +160,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           x
         case Nest(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
+        case Nest2(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) =>
           val output_type = tipe(proj) match {
             case _: IntType => IntType()
@@ -279,6 +280,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case o: OuterJoin => enter(in(o))
     case o: OuterUnnest => enter(in(o))
     case n: Nest => enter(in(n))
+    case n: Nest2 => enter(in(n))
     case s: Select => enter(in(s))
     case b: ExpBlock => enter(in(b))
 
@@ -305,6 +307,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case o: OuterJoin => leave(out(o))
     case o: OuterUnnest => leave(out(o))
     case n: Nest => leave(out(n))
+    case n: Nest2 => leave(out(n))
     case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
@@ -1110,6 +1113,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e)))), None))))
 
+      case n @ Nest2(rm: CollectionMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val inner = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, inner)),
+          HasType(p, BoolType()),
+          // the _1 type of the output record is the same as the child inner type, not the key type
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+
       case n @ Nest(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val nt = NumberType()
@@ -1119,6 +1131,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", nt)), None))))
 
+      case n @ Nest2(rm: NumberMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val nt = NumberType()
+        val inner = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, inner)),
+          HasType(e, nt),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", nt)), None))))
+
       case n @ Nest(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val bt = BoolType()
@@ -1127,6 +1149,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e, bt),
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)), None))))
+
+      case n @ Nest2(rm: BoolMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val bt = BoolType()
+        val inner = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, inner)),
+          HasType(e, bt),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", bt)), None))))
 
       case n @ Join(g1, g2, p) =>
         val t1 = TypeVariable()
@@ -1223,6 +1255,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Reduce(m, g, e) => constraints(g.e) ++ constraint(g) ++ constraints(e) ++ constraint(n)
     case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
+    case n @ Nest2(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ Unnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
