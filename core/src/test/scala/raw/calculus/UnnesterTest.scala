@@ -412,6 +412,18 @@ class UnnesterTest extends FunTest {
           """)
   }
 
+  ignore("nested nests") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/nest/outer-join/nest/outer-join....
+    check("select distinct A.title, sum(select a.year from a in partition), count(partition), max(select a.year from a in partition) from A in authors group by A.title",
+          TestWorlds.publications, "")
+  }
+
+  ignore("nested nests 2") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    check("select distinct A.title, (select distinct A.year, (select distinct A.name, count(partition) from partition A group by A.name) from A in partition group by A.year) from A in authors group by A.title",
+      TestWorlds.publications, "")
+  }
+
 
   //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
