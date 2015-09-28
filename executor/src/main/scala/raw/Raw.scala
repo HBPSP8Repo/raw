@@ -270,17 +270,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case RecordProj(e1, idn) =>
         val id = TermName(idn)
         q"${build(e1)}.$id"
-      //      case RecordCons(atts) =>
-      //        val tt = analyzer.tipe(e).asInstanceOf[RecordType]
-      //        val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
-      //          case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
-      //          case _ => ""
-      //        }
-      //        val vals = atts
-      //          .map(att => build(att.e))
-      //          .mkString(",")
-      //        //            logger.info(s"exp(): $atts => $vals")
-      //        s"""$sym($vals)"""
+      case RecordCons(atts) =>
+        val tt = analyzer.tipe(e).asInstanceOf[RecordType]
+        val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
+          case Some(caseClassName) => logger.info(s"Record: $tt -> $caseClassName"); caseClassName
+          case _ => ""
+        }
+        val vals = atts
+          .map(att => build(att.e))
+          .mkString(",")
+        //            logger.info(s"exp(): $atts => $vals")
+        c.parse(s"""$sym($vals)""")
       case IfThenElse(e1, e2, e3) => q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
         case _: Eq  => q" ${build(e1)} == ${build(e2)}"
@@ -1061,6 +1061,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
 
         val physicalAnalyzer = new PhysicalAnalyzer(tree, world, isSpark)
+        physicalAnalyzer.tipe(tree.root)  // Type the root of the tree to force all nodes to be typed
 
         val caseClasses: Set[Tree] = buildCaseClasses(treeExp, world, physicalAnalyzer)
         logger.info("case classes:\n{}", caseClasses.map(showCode(_)).mkString("\n"))

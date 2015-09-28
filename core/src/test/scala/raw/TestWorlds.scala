@@ -362,4 +362,18 @@ object TestWorlds {
     )
   }
   )
+
+  def authors_publications = {
+    val tipes = Map(
+      Symbol("author") -> RecordType(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType())), Some("author")),
+      Symbol("publication") -> RecordType(List(AttrType("title", StringType()), AttrType("authors", CollectionType(BagMonoid(), StringType())), AttrType("affiliations", CollectionType(BagMonoid(), StringType())), AttrType("controlledterms", CollectionType(BagMonoid(), StringType()))), Some("publication")),
+      Symbol("authors") -> CollectionType(BagMonoid(), UserType(Symbol("author"))),
+      Symbol("publicatons") -> CollectionType(BagMonoid(), UserType(Symbol("publication"))))
+
+    val sources = Map(
+      "authors" -> UserType(Symbol("authors")),
+      "publications" -> UserType(Symbol("publications")))
+
+    new World(sources, tipes)
+  }
 }

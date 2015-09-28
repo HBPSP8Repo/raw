@@ -9,13 +9,13 @@ class UnnesterTest extends FunTest {
     val t = new Calculus.Calculus(ast)
 
     val analyzer = new calculus.SemanticAnalyzer(t, w)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer.errors.length === 0)
 
     val algebra = Phases(t, w, lastTransform = Some("Unnester"))
 
     val analyzer2 = new calculus.SemanticAnalyzer(algebra, w)
-    analyzer2.errors.foreach(err => logger.error(err.toString))
+    analyzer2.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer2.errors.length === 0)
 
     compare(TypesPrettyPrinter(analyzer2.tipe(algebra.root)), TypesPrettyPrinter(analyzer.tipe(t.root)))

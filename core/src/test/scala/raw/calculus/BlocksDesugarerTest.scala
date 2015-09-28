@@ -9,7 +9,7 @@ class BlocksDesugarerTest extends FunTest {
     val t1 = Phases(t, w, lastTransform = Some("BlocksDesugarer"))
 
     val analyzer = new SemanticAnalyzer(t1, w)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     logger.debug(CalculusPrettyPrinter(t1.root, 200))
     assert(analyzer.errors.length === 0)
 

@@ -9,7 +9,7 @@ class NormalizerTest extends FunTest {
     val t1 = Phases(t, w, lastTransform = Some("Normalizer"))
 
     val analyzer = new SemanticAnalyzer(t1, w)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer.errors.length === 0)
 
     CalculusPrettyPrinter(t1.root, 200)

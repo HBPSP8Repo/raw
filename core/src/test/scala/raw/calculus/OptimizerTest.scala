@@ -10,14 +10,14 @@ class OptimizerTest extends FunTest {
 
     val analyzer = new calculus.SemanticAnalyzer(t, w)
     val t_q = analyzer.tipe(t.root)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer.errors.length === 0)
     logger.debug(s"t_q $t_q")
 
     val algebra = Phases(t, w, lastTransform = Some("Optimizer"))
 
     val analyzer2 = new calculus.SemanticAnalyzer(algebra, w)
-    analyzer2.errors.foreach(err => logger.error(err.toString))
+    analyzer2.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer2.errors.length === 0)
     val t_alg = analyzer2.tipe(algebra.root)
 
@@ -83,6 +83,16 @@ class OptimizerTest extends FunTest {
     check("select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
           TestWorlds.publications, """
           """)
+  }
+
+  test("bug?") {
+    check("""
+    select P as publication,
+    (select A
+      from P.authors a, authors A
+      where A.name = a and A.title = "professor") as profs
+      from publications P
+""", TestWorlds.authors_publications, """""")
   }
 
 }

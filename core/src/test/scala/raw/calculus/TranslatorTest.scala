@@ -7,13 +7,13 @@ class TranslatorTest extends FunTest {
     val t = new Calculus.Calculus(parse(q))
 
     val analyzer = new SemanticAnalyzer(t, w)
-    analyzer.errors.foreach(err => logger.error(err.toString))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer.errors.length === 0)
 
     val t1 = Phases(t, w, lastTransform = Some("Translator"))
 
     val analyzer1 = new SemanticAnalyzer(t1, w)
-    analyzer1.errors.foreach(err => logger.error(err.toString))
+    analyzer1.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer1.errors.length === 0)
 
     assert(analyzer.tipe(t.root) === analyzer1.tipe(t1.root))

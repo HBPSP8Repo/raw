@@ -14,7 +14,7 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
     val analyzer = new SemanticAnalyzer(t, world, Some(query))
-    analyzer.errors.foreach(e => logger.error(ErrorsPrettyPrinter(e)))
+    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     analyzer.printTypedTree()
     analyzer
   }
@@ -41,17 +41,17 @@ class SemanticAnalyzerTest extends FunTest {
       //
 
       // Incompatible types can be t1,t2 or t2, t1
-      case IncompatibleTypes(t1, t2) =>
+      case IncompatibleTypes(t1, t2, _, _) =>
         assert(analyzer.errors.exists {
-          case IncompatibleTypes(`t1`, `t2`) => true
-          case IncompatibleTypes(`t2`, `t1`) => true
+          case IncompatibleTypes(`t1`, `t2`, _, _) => true
+          case IncompatibleTypes(`t2`, `t1`, _, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
       // Ignore text description in expected types, even if defined
-      case UnexpectedType(t, expected, _) =>
+      case UnexpectedType(t, expected, _, _) =>
         assert(analyzer.errors.exists {
-          case UnexpectedType(t, expected, _) => true
+          case UnexpectedType(t, expected, _, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
@@ -775,7 +775,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("sum(1)") {
-    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
   }
 
   test("max(list(1))") {
@@ -787,7 +787,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("max(1)") {
-    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
   }
 
   test("min(list(1))") {
@@ -799,7 +799,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("min(1)") {
-    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
   }
 
   test("avg(list(1))") {
@@ -811,7 +811,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("avg(1)") {
-    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType()), None))
+    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
   }
 
   test("count(list(1))") {
@@ -827,7 +827,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""count(1)""") {
-    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable()), None))
+    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable())))
   }
 
   test("to_bag(list(1))") {

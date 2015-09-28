@@ -194,7 +194,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Avg(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
       }
-      nt.pos = te.pos
       nt
     }
   }
@@ -348,7 +347,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val t = expType(e)
       val expected = patternType(p)
       if (!unify(t, expected)) {
-        tipeErrors += UnexpectedType(walk(t), walk(expected), Some("Bind"))
+        tipeErrors += UnexpectedType(walk(t), walk(expected), Some("Bind"), Some(e.pos))
         None
       } else {
         // Find all type variables used in the type
@@ -557,9 +556,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Some(s) => selectTypeVar(s)
         case None    =>
           tipeErrors += UnknownPartition(p)
-          val n = NothingType()
-          n.pos = p.pos
-          n
+          NothingType()
       }
 
     // Rule 1
@@ -774,14 +771,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val t2 = expType(e2)
         val r = unify(t1, t2)
         if (!r) {
-          tipeErrors += IncompatibleTypes(walk(t1), walk(t2))
+          tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(e1.pos), Some(e2.pos))
         }
         r
       case HasType(e, expected, desc) =>
         val t = expType(e)
         val r = unify(t, expected)
         if (!r) {
-          tipeErrors += UnexpectedType(walk(t), walk(expected), desc)
+          tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
         }
         r
       case ExpMonoidSubsetOf(e, m) =>
@@ -791,51 +788,48 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val ri = if (m.idempotent.isDefined && m.idempotent.get) None else m.idempotent
         val r = unify(t, CollectionType(MonoidVariable(rc, ri), TypeVariable()))
         if (!r) {
-          tipeErrors += IncompatibleMonoids(m, walk(t))
+          tipeErrors += IncompatibleMonoids(m, walk(t), Some(e.pos))
         }
         r
 
       case PartitionHasType(s) =>
-        val t = selectTypeVar(s)
-
         // TODO: This sounds like it's redundant code to a future type checker of the Join operator...
 
         def fromType(from: Seq[Iterator]): Type =
           if (from.length == 1) {
+            val e = from.head.e
             val t = expType(from.head.e)
             find(t) match {
               case CollectionType(_, innerType) =>
                 CollectionType(BagMonoid(), innerType)
               case _ =>
-                tipeErrors += CollectionRequired(walk(t))
-                val n = NothingType()
-                n.pos = from.head.e.pos
-                n
+                tipeErrors += CollectionRequired(walk(t), Some(e.pos))
+                NothingType()
             }
           }
           else if (from.length > 1) {
             val innerTypes = from.map { case f =>
-              val t = expType(f.e)
+              val e = f.e
+              val t = expType(e)
               find(t) match {
                 case CollectionType(_, innerType) =>
                   innerType
                 case _ =>
-                  tipeErrors += CollectionRequired(walk(t))
-                  val n = NothingType()
-                  n.pos = f.e.pos
-                  n
+                  tipeErrors += CollectionRequired(walk(t), Some(e.pos))
+                  NothingType()
               }
             }
             CollectionType(BagMonoid(), RecordType(from.zip(innerTypes).map { case (Iterator(Some(PatternIdn(IdnDef(idn))), _), innerType) => AttrType(idn, innerType) }, None))
           } else
             ??? // Add error: we're using a partition over an empty generator(?)
 
+        val t = selectTypeVar(s)
         val t1 = fromType(s.from)
 //        logger.debug(s"t1 is $t1")
 //        logger.debug(s"t is $t")
         val r = unify(t, t1)
         if (!r) {
-          tipeErrors += IncompatibleTypes(walk(t), walk(t1))
+          tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(s.pos))
         }
         r
 
