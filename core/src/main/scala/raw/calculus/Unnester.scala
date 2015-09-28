@@ -37,7 +37,7 @@ class Unnester extends Attribution with Transformer {
 
   private def recurse(t: Term): Term = t match {
 
-    /** Rule C11.
+    /** Rule C11: Nested predicate in comprehension
       */
 
     case CalculusTerm(CanComp(m, s, p, e1), u, Some(w), child) if hasNestedComp(p) && areIndependent(getNestedComp(p), s) =>
@@ -51,7 +51,7 @@ class Unnester extends Attribution with Transformer {
       })))(_))
       recurse(CalculusTerm(CanComp(m, s, npred, e1), u, Some(pat_w_v), recurse(CalculusTerm(c, Some(w), Some(w), child))))
 
-    /** Rule C12.
+    /** Rule C12: Nested comprehension in the projection
       */
 
     case CalculusTerm(CanComp(m, Nil, p, f), u, Some(w), child) if hasNestedComp(Seq(f)) =>
@@ -65,33 +65,8 @@ class Unnester extends Attribution with Transformer {
       }))(f)
       recurse(CalculusTerm(CanComp(m, Nil, p, nf), u, Some(pat_w_v), recurse(CalculusTerm(c, Some(w), Some(w), child))))
 
-    /** Rule C4.
-      */
 
-    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x: IdnExp) :: r, p, e), None, None, EmptyTerm) =>
-      logger.debug(s"Applying unnester rule C4")
-      val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
-      recurse(CalculusTerm(CanComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(Filter(Gen(pat_v, x), foldPreds(pred_v)))))
-
-    /** Rule C5
-      */
-
-    case CalculusTerm(CanComp(m, Nil, p, e), None, Some(w), AlgebraTerm(child)) =>
-      logger.debug(s"Applying unnester rule C5")
-      AlgebraTerm(Reduce(m, Gen(w, Filter(Gen(deepclone(w), child), foldPreds(p))), e))
-
-    /** Rule C6
-      */
-
-    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x: IdnExp) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
-      logger.debug(s"Applying unnester rule C6")
-      val pat_w_v = PatternProd(Seq(w, pat_v))
-      val pred_v = p.filter(variables(_) == Set(v))
-      val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(idns(pat_w_v).toSet))
-      val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
-      recurse(CalculusTerm(CanComp(m, r, pred_rest, e), None, Some(pat_w_v), AlgebraTerm(Join(Gen(w, child), Gen(pat_v, Filter(Gen(deepclone(pat_v), x), foldPreds(pred_v))), foldPreds(pred_w_v)))))
-
-    /** Rule C7
+    /** Rule C7: Unnest
       */
 
     case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path: RecordProj) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
@@ -100,25 +75,33 @@ class Unnester extends Attribution with Transformer {
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
       recurse(CalculusTerm(CanComp(m, r, pred_not_v, e), None, Some(pat_w_v), AlgebraTerm(Unnest(Gen(w, child), Gen(pat_v, path), foldPreds(pred_v)))))
 
-    /** Rule C8
+    /** Rule C4: Scan/Filter
       */
 
-    case CalculusTerm(CanComp(m, Nil, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
-      logger.debug(s"Applying unnester rule C8")
-      AlgebraTerm(Nest(m, Gen(w, child), createRecord(u), foldPreds(p), e))
+    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x) :: r, p, e), None, None, EmptyTerm) =>
+      logger.debug(s"Applying unnester rule C4")
+      val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
+      recurse(CalculusTerm(CanComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(Filter(Gen(pat_v, x), foldPreds(pred_v)))))
 
-    /** Rule C9
+    /** Rule C6: Join
       */
 
-    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x: IdnExp) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
-      logger.debug(s"Applying unnester rule C9")
+    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+      logger.debug(s"Applying unnester rule C6")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val pred_v = p.filter(variables(_) == Set(v))
       val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(idns(pat_w_v).toSet))
       val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
-      recurse(CalculusTerm(CanComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(OuterJoin(Gen(w, child), Gen(pat_v, Filter(Gen(deepclone(pat_v), x), foldPreds(pred_v))), foldPreds(pred_w_v)))))
+      recurse(CalculusTerm(CanComp(m, r, pred_rest, e), None, Some(pat_w_v), AlgebraTerm(Join(Gen(w, child), Gen(pat_v, Filter(Gen(deepclone(pat_v), x), foldPreds(pred_v))), foldPreds(pred_w_v)))))
 
-    /** Rule C10
+    /** Rule C5: Reduce
+      */
+
+    case CalculusTerm(CanComp(m, Nil, p, e), None, Some(w), AlgebraTerm(child)) =>
+      logger.debug(s"Applying unnester rule C5")
+      AlgebraTerm(Reduce(m, Gen(w, Filter(Gen(deepclone(w), child), foldPreds(p))), e))
+
+    /** Rule C10: OuterUnnest
       */
 
     case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), path: RecordProj) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
@@ -126,6 +109,24 @@ class Unnester extends Attribution with Transformer {
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
       recurse(CalculusTerm(CanComp(m, r, pred_not_v, e), Some(u), Some(pat_w_v), AlgebraTerm(OuterUnnest(Gen(w, child), Gen(pat_v, path), foldPreds(pred_v)))))
+
+    /** Rule C9: OuterJoin
+      */
+
+    case CalculusTerm(CanComp(m, Gen(pat_v @ PatternIdn(IdnDef(v)), x) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+      logger.debug(s"Applying unnester rule C9")
+      val pat_w_v = PatternProd(Seq(w, pat_v))
+      val pred_v = p.filter(variables(_) == Set(v))
+      val pred_w_v = p.filter(pred => !pred_v.contains(pred) && variables(pred).subsetOf(idns(pat_w_v).toSet))
+      val pred_rest = p.filter(pred => !pred_v.contains(pred) && !pred_w_v.contains(pred))
+      recurse(CalculusTerm(CanComp(m, r, pred_rest, e), Some(u), Some(pat_w_v), AlgebraTerm(OuterJoin(Gen(w, child), Gen(pat_v, Filter(Gen(deepclone(pat_v), x), foldPreds(pred_v))), foldPreds(pred_w_v)))))
+
+    /** Rule C8: Nest
+      */
+
+    case CalculusTerm(CanComp(m, Nil, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+      logger.debug(s"Applying unnester rule C8")
+      AlgebraTerm(Nest(m, Gen(w, child), createRecord(u), foldPreds(p), e))
   }
 
   /** Fold predicates into single ANDed predicate.

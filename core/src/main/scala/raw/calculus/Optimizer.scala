@@ -41,7 +41,7 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
     }
 
   lazy val removeUselessReduce = rule[Exp] {
-    case r @ Reduce(m: CollectionMonoid, g, e) if { logger.debug(s"__> $r ${sameExp(g.p, e)}"); sameExp(g.p, e) } && { logger.debug(s"--> ${isCollectionMonoid(g.e, m)}"); isCollectionMonoid(g.e, m) } => g.e
+    case r @ Reduce(m: CollectionMonoid, g, e) if sameExp(g.p, e) && isCollectionMonoid(g.e, m) => g.e
   }
 
   /**

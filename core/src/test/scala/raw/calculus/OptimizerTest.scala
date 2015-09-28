@@ -28,9 +28,9 @@ class OptimizerTest extends FunTest {
 
   def check(query: String, world: World, algebra: String) = compare(CalculusPrettyPrinter(process(world, query).root), algebra)
 
-  test("exp block is created because of to_bag and to_set found in the tree") {
+  test("to_set found") {
     check("select A.title from A in (select distinct A from A in authors)", TestWorlds.publications,
-      """{ $32 := to_bag(to_set(authors)); reduce(bag, $14 <- $32, $14.title) }""")
+      """reduce(bag, $313 <- to_bag(to_set(authors)), $313.title)""")
   }
 
   test("publications: select A from A in authors") {
@@ -85,14 +85,28 @@ class OptimizerTest extends FunTest {
           """)
   }
 
-  test("bug?") {
+  test("professors in publications") {
     check("""
     select P as publication,
     (select A
       from P.authors a, authors A
       where A.name = a and A.title = "professor") as profs
-      from publications P
-""", TestWorlds.authors_publications, """""")
+      from publications P 
+    """, TestWorlds.authors_publications, 
+    """
+    reduce(
+      bag,
+      ($0, $3) <- nest(
+        bag,
+        (($0, $1), $2) <- outer_join(
+          ($0, $1) <- outer_unnest($0 <- to_bag(publications), $1 <- $0.authors, true),
+          $2 <- filter($2 <- to_bag(authors), $2.title = "professor"),
+          $2.name = $1),
+        $0,
+        true,
+        $2),
+      (publication: $0, profs: $3))
+    """)
   }
 
 }
