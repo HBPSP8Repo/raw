@@ -454,6 +454,44 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
+      /** Scala OuterUnnest
+        */
+      case OuterUnnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+        val childArg = c.parse(s"child: ${patternType(patChild)}")
+        val pathArg = c.parse(s"path: ${patternType(patPath)}")
+        q"""
+        val start = "************ OuterUnnest (Scala) ************"
+        val res =
+          ${build(child)}
+            .flatMap($childArg =>
+              child match { case (..${patternTerms(patChild)}) =>
+                val matches = ${build(path)}
+                  .map($pathArg =>
+                    path match { case (..${patternTerms(patPath)}) =>
+                      ( (..${patternIdents(patChild)}), (..${patternIdents(patPath)}) ) })
+                  .filter(${lambda2(patChild, patPath, pred)})
+                if (matches.isEmpty)
+                  None
+                else
+                  matches.map(Some(_)) })
+        val end = "************ OuterUnnest (Scala) ************"
+        res
+        """
+
+      /** Scala Join
+        */
+      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
+        q"""
+        val start = "************ Join (Scala) ************"
+        val left = ${build(leftChild)}
+        val right = ${build(rightChild)}.toSeq
+        val res = left.flatMap(x1 => right.map(x2 => (x1, x2))).filter(${lambda2(leftPat, rightPat, p)})
+        val end = "************ Join (Scala)************"
+        res
+        """
+
+      // TODO: Scala OuterJoin
+
       /** Scala Reduce
         */
       case Reduce(m, Gen(pat, child), e) =>
@@ -478,17 +516,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
-      /** Scala Join
-        */
-      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
-        q"""
-        val start = "************ Join (Scala) ************"
-        val left = ${build(leftChild)}
-        val right = ${build(rightChild)}.toSeq
-        val res = left.flatMap(x1 => right.map(x2 => (x1, x2))).filter(${lambda2(leftPat, rightPat, p)})
-        val end = "************ Join (Scala)************"
-        res
-        """
+      // TODO: Scala Nest
+
 
       //
       //      case Nest(logicalNode, m, e, f, p, g, child) =>
@@ -566,36 +595,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       //  """
       //
       //
-      //      case Join(logicalNode, p, left, right) =>
-      //        val pCode = exp(p)
-      //        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-      //        val leftCode = build(left)
-      //        val rightCode = build(right)
-      //        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
-      //         would be more efficient in the cases where p filters part of the results because the tuples
-      //         are created only for the pairs that pass the filter. But our p function expects a tuple as its
-      //         single argument, while the form above requires a p function that takes two arguments.
-      //          */
-      //        q"""
-      //          val left = $leftCode
-      //          val right = ${rightCode}.toSeq
-      //          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-      //        """
-      //
-      ////      case Merge(logicalNode, m, left, right) => ???
-      //      case OuterUnnest(logicalNode, path, pred, child) => ???
-      //
-
-      //      case ScalaAssign(logicalNode, assigns, child) =>
-      //        var block: c.universe.Tree = q""
-      //        assigns.foreach({ case (key, node) => {
-      //          val colName = TermName(key)
-      //          val code = build(node)
-      //          block = q"..$block; val $colName = $code"
-      //        }
-      //        })
-      //        q"""..$block; ${build(child)}"""
-
     }
 
     /** Build code for Spark algebra nodes
