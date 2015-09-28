@@ -32,11 +32,11 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
     case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
-    case CollectionRequired(t, Some(p)) => s"expected collection but got ${FriendlierPrettyPrinter(t)} ($p)"
-    case IncompatibleMonoids(m, t, Some(p)) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} ($p)"
-    case IncompatibleTypes(t1, t2, Some(p1), Some(p2)) =>
-      if (p2.line < p1.line || (p1.line == p2.line && p2.column < p1.column))
-        show(IncompatibleTypes(t2, t1, Some(p2), Some(p1)))
+    case CollectionRequired(t, p) => s"expected collection but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
+    case IncompatibleMonoids(m, t, p) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
+    case IncompatibleTypes(t1, t2, p1, p2) =>
+      if (p1.isDefined && p2.isDefined && (p2.get.line < p1.get.line || (p1.get.line == p2.get.line && p2.get.column < p1.get.column)))
+        show(IncompatibleTypes(t2, t1, p2, p1))
       else
         (t1, t2) match {
           case (RecordType(_, name1), RecordType(_, name2)) if name1 != name2 =>
@@ -44,12 +44,12 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
           case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
             s"records with different attributes"
           case _ =>
-            s"incompatible types: ${FriendlierPrettyPrinter(t1)} ($p1) and ${FriendlierPrettyPrinter(t2)} ($p2)"
+            s"incompatible types: ${FriendlierPrettyPrinter(t1)} (${p1.getOrElse("no position")}) and ${FriendlierPrettyPrinter(t2)} (${p2.getOrElse("no position")})"
         }
-    case UnexpectedType(t, _, Some(desc), Some(p)) =>
-      s"$desc but got ${FriendlierPrettyPrinter(t)} ($p)"
-    case UnexpectedType(t, expected, None, Some(p)) =>
-      s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)} ($p)"
+    case UnexpectedType(t, _, Some(desc), p) =>
+      s"$desc but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
+    case UnexpectedType(t, expected, None, p) =>
+      s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
   }
 }
 
@@ -78,14 +78,33 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
   }
 
   override def tipe(t: Type) = t match {
-      case CollectionType(m: MonoidVariable, innerType) =>
-        opt(t.nullable) <> monoid(m) <> "collection of" <+> parens(tipe(innerType))
-    case ConstraintRecordType(atts, _) =>
+    // TODO: Replace this by a more useful description of possible alternative types with the given properties (e.g. expected a bag or a list)
+    case CollectionType(m: MonoidVariable, innerType) =>
+      def mdesc(m: Monoid) = m match {
+        case MonoidVariable(c, i, _) =>
+          val c = m.commutative match {
+            case Some(true)  => Seq("commutative")
+            case Some(false) => Seq("non-commutative")
+            case _           => Seq()
+          }
+          val i = m.idempotent match {
+            case Some(true)  => Seq("idempotent")
+            case Some(false) => Seq("non-idempotent")
+            case _           => Seq()
+          }
+          c ++ i
+      }
+      if (mdesc(m).nonEmpty)
+        monoid(m) <+> opt(t.nullable) <> "collection of" <+> tipe(innerType)
+      else
+        opt(t.nullable) <> "collection of" <+> tipe(innerType)
+    case ConstraintRecordType(atts, _)                =>
       val satts = atts.map { case att => s"attribute ${att.idn} of type ${FriendlierPrettyPrinter(att.tipe)}" }.mkString(" and ")
       if (satts.nonEmpty)
         s"record with $satts"
       else
         s"record"
-    case _ => PrettyPrinter(t)
+    case _                                            => PrettyPrinter(t)
   }
+
 }

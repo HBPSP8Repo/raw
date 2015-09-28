@@ -31,27 +31,54 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   def failure(query: String, world: World, error: Error) = {
+    def typesEq(t1: Type, t2: Type): Boolean =
+      if (t1 == t2)
+        true
+      else
+        (t1, t2) match {
+          case (_: PrimitiveType, _: PrimitiveType) => t1 == t2
+          case (_: NumberType, _: NumberType) => true
+          case (_: TypeVariable, _: TypeVariable) => true
+          case (RecordType(atts1, name1), RecordType(atts2, name2)) if name1 == name2 && atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn) =>
+            atts1.zip(atts2).map{ case (att1, att2) => typesEq(att1.tipe, att2.tipe) }.forall(_ == true)
+          case (CollectionType(MonoidVariable(c1, i1, _), inner1), CollectionType(MonoidVariable(c2, i2, _), inner2)) if c1 == c2 && i1 == i2 =>
+            typesEq(inner1, inner2)
+          case (FunType(t11, t12), FunType(t21, t22)) =>
+            typesEq(t11, t21) && typesEq(t12, t22)
+          case (_: AnyType, _: AnyType) => true
+          case (_: NothingType, _: NothingType) => true
+          case (UserType(sym1), UserType(sym2)) if sym1 == sym2 => true
+          case (ConstraintRecordType(atts1, _), ConstraintRecordType(atts2, _)) if atts1 == atts2 => true
+          case _ => false
+        }
+
     val analyzer = go(query, world)
     assert(analyzer.errors.nonEmpty)
-    logger.debug(analyzer.errors.toString)
     error match {
 
       //
-      // Test case helpers
+      // Test case helpers: e..g ignore positions
       //
 
-      // Incompatible types can be t1,t2 or t2, t1
+      // Incompatible types can be specified in the tests in either order
+      // Positions are also ignored
       case IncompatibleTypes(t1, t2, _, _) =>
         assert(analyzer.errors.exists {
-          case IncompatibleTypes(`t1`, `t2`, _, _) => true
-          case IncompatibleTypes(`t2`, `t1`, _, _) => true
+          case IncompatibleTypes(ta, tb, _, _) if typesEq(t1, ta) && typesEq(t2, tb) => true
+          case IncompatibleTypes(tb, ta, _, _) if typesEq(t1, ta) && typesEq(t2, tb) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
-      // Ignore text description in expected types, even if defined
+      // Ignore text description and position
       case UnexpectedType(t, expected, _, _) =>
         assert(analyzer.errors.exists {
-          case UnexpectedType(t, expected, _, _) => true
+          case UnexpectedType(t1, expected1, _, _) if typesEq(t, t1) && typesEq(expected, expected1) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+
+      case IncompatibleMonoids(m, t, _) =>
+        assert(analyzer.errors.exists {
+          case IncompatibleMonoids(`m`, `t`, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
