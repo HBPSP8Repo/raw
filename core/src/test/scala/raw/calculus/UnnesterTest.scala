@@ -18,7 +18,7 @@ class UnnesterTest extends FunTest {
     analyzer2.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
     assert(analyzer2.errors.length === 0)
 
-    compare(TypesPrettyPrinter(analyzer2.tipe(algebra.root)), TypesPrettyPrinter(analyzer.tipe(t.root)))
+    compare(FriendlierPrettyPrinter(analyzer2.tipe(algebra.root)), FriendlierPrettyPrinter(analyzer.tipe(t.root)))
     algebra
   }
 

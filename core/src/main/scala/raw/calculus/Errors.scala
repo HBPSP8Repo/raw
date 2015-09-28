@@ -32,8 +32,8 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
     case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
-    case CollectionRequired(t, Some(p)) => s"expected collection but got ${TypesPrettyPrinter(t)} ($p)"
-    case IncompatibleMonoids(m, t, Some(p)) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${TypesPrettyPrinter(t)} ($p)"
+    case CollectionRequired(t, Some(p)) => s"expected collection but got ${FriendlierPrettyPrinter(t)} ($p)"
+    case IncompatibleMonoids(m, t, Some(p)) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} ($p)"
     case IncompatibleTypes(t1, t2, Some(p1), Some(p2)) =>
       if (p2.line < p1.line || (p1.line == p2.line && p2.column < p1.column))
         show(IncompatibleTypes(t2, t1, Some(p2), Some(p1)))
@@ -44,34 +44,44 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
           case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
             s"records with different attributes"
           case _ =>
-            s"incompatible types: ${TypesPrettyPrinter(t1)} ($p1) and ${TypesPrettyPrinter(t2)} ($p2)"
+            s"incompatible types: ${FriendlierPrettyPrinter(t1)} ($p1) and ${FriendlierPrettyPrinter(t2)} ($p2)"
         }
     case UnexpectedType(t, _, Some(desc), Some(p)) =>
-      s"$desc but got ${TypesPrettyPrinter(t)} ($p)"
+      s"$desc but got ${FriendlierPrettyPrinter(t)} ($p)"
     case UnexpectedType(t, expected, None, Some(p)) =>
-      s"expected ${TypesPrettyPrinter(expected)} but got ${TypesPrettyPrinter(t)} ($p)"
+      s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)} ($p)"
   }
 }
 
-// TODO: Change signatures of Errors to take the positions when relevant: we now have the expression and constraint position to use.
-
-/** TypesPrettyPrinter
+/** FriendlierPrettyPrinter
   * A more user-friendly representation of types, used for error reporting.
   */
-object TypesPrettyPrinter extends org.kiama.output.PrettyPrinter {
+object FriendlierPrettyPrinter extends PrettyPrinter {
 
-  def apply(t: Type): String =
-    super.pretty(show(t)).layout
+  def apply(n: RawNode): String =
+    super.pretty(show(n)).layout
 
-  private def p(v: Option[Boolean], s: String) = v match {
-    case Some(true) => Some(s)
-    case Some(false) => Some(s"non-$s")
-    case _ => None
+  override def monoid(m: Monoid) = m match {
+    case MonoidVariable(c, i, _) =>
+      val c = m.commutative match {
+        case Some(true) => Seq("commutative")
+        case Some(false) => Seq("non-commutative")
+        case _ => Seq()
+      }
+      val i = m.idempotent match {
+        case Some(true)  => Seq("idempotent")
+        case Some(false) => Seq("non-idempotent")
+        case _           => Seq()
+      }
+      (c ++ i).mkString(" and ")
+    case _ => super.monoid(m)
   }
 
-  def show(t: Type): Doc = t match {
+  override def tipe(t: Type) = t match {
+      case CollectionType(m: MonoidVariable, innerType) =>
+        opt(t.nullable) <> monoid(m) <> "collection of" <+> parens(tipe(innerType))
     case ConstraintRecordType(atts, _) =>
-      val satts = atts.map { case att => s"attribute ${att.idn} of type ${TypesPrettyPrinter(att.tipe)}" }.mkString(" and ")
+      val satts = atts.map { case att => s"attribute ${att.idn} of type ${FriendlierPrettyPrinter(att.tipe)}" }.mkString(" and ")
       if (satts.nonEmpty)
         s"record with $satts"
       else

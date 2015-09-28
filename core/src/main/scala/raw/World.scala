@@ -1,7 +1,7 @@
 package raw
 
 import scala.collection.immutable.Map
-import raw.calculus.{TypesPrettyPrinter, Symbol}
+import raw.calculus.{FriendlierPrettyPrinter, Symbol}
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -88,10 +88,10 @@ object World extends LazyLogging {
       val keys = m.map(_._1).sortBy(_.toString)
       for (k <- keys) {
         val g = apply(k)
-        s += s"${TypesPrettyPrinter(k)} => ${TypesPrettyPrinter(g.root)} (${
+        s += s"${FriendlierPrettyPrinter(k)} => ${FriendlierPrettyPrinter(g.root)} (${
           g.elements.map {
-            case t: VariableType => s"[${t.sym.idn}] ${TypesPrettyPrinter(t)}"
-            case t => TypesPrettyPrinter(t)
+            case t: VariableType => s"[${t.sym.idn}] ${FriendlierPrettyPrinter(t)}"
+            case t => FriendlierPrettyPrinter(t)
           }.mkString(", ")
         })\n"
       }

@@ -1278,7 +1278,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     def printMap(pos: Set[Position], t: Type) = {
       val posPerLine = pos.groupBy(_.line)
-      var output = s"Type: ${TypesPrettyPrinter(t)}\n"
+      var output = s"Type: ${FriendlierPrettyPrinter(t)}\n"
       for ((line, lineno) <- q.split("\n").zipWithIndex) {
         output += line + "\n"
         if (posPerLine.contains(lineno + 1)) {

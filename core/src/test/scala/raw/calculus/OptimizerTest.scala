@@ -21,7 +21,7 @@ class OptimizerTest extends FunTest {
     assert(analyzer2.errors.length === 0)
     val t_alg = analyzer2.tipe(algebra.root)
 
-    compare(TypesPrettyPrinter(t_alg), TypesPrettyPrinter(t_q))
+    compare(FriendlierPrettyPrinter(t_alg), FriendlierPrettyPrinter(t_q))
 
     algebra
   }

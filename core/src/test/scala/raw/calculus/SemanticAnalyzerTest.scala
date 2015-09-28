@@ -24,10 +24,10 @@ class SemanticAnalyzerTest extends FunTest {
     val inferredType = analyzer.tipe(analyzer.tree.root)
     assert(analyzer.errors.isEmpty)
     analyzer.printTypedTree()
-    logger.debug(s"Actual type: ${TypesPrettyPrinter(inferredType)}")
-    logger.debug(s"Expected type: ${TypesPrettyPrinter(expectedType)}")
+    logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
+    logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
     compare(inferredType.toString, expectedType.toString)
-    compare(TypesPrettyPrinter(inferredType), TypesPrettyPrinter(expectedType))
+    compare(FriendlierPrettyPrinter(inferredType), FriendlierPrettyPrinter(expectedType))
   }
 
   def failure(query: String, world: World, error: Error) = {
