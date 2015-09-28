@@ -64,7 +64,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case CanComp(m, gs, ps, e)          => "for" <+> parens(group(nest(lsep((gs ++ ps).map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
         case Reduce(m, child, e)            => "reduce" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(e)), comma))))
         case Nest(m, child, k, p, e)        => "nest" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(k), apply(p), apply(e)), comma))))
-        case Nest2(m, child, k, p, e)       => "nest2" <> parens(nest(group(lsep(List(monoid(m), nest(apply(child)), apply(k), apply(p), apply(e)), comma))))
+        case MultiNest(child, params)       => "m-nest" <> parens(nest(group(lsep(List(nest(apply(child))) ++ params.map{case p: NestParams => parens(group(lsep(List(monoid(p.m), apply(p.k), apply(p.p), apply(p.e)), comma)))}, comma))))
         case Filter(child, p)               => "filter" <> parens(nest(group(lsep(List(nest(apply(child)), apply(p)), comma))))
         case Join(left, right, p)           => "join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
         case OuterJoin(left, right, p)      => "outer_join" <> parens(nest(group(lsep(List(nest(apply(left)), nest(apply(right)), apply(p)), comma))))
@@ -79,7 +79,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
               group((if (g.isDefined) "group by" <+> apply(g.get) else "")),
               group((if (o.isDefined) "order" <+> apply(o.get) else "")),
               group((if (h.isDefined) "having" <+> apply(h.get) else ""))), space)
-      })
+      }
+      )
 
     apply(n)
   }

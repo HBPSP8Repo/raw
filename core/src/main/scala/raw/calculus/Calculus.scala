@@ -181,9 +181,10 @@ object Calculus {
     */
   case class Nest(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
 
-  /** Nest2
+  /** MultiNest
     */
-  case class Nest2(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class NestParams(m: Monoid, k: Exp, p: Exp, e: Exp) extends RawNode
+  case class MultiNest(child: Gen, params: Seq[NestParams]) extends LogicalAlgebraNode
 
   /** Filter
     */
