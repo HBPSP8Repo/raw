@@ -3,6 +3,21 @@
         <oql><![CDATA[
 select distinct a.year, a.name as n1, b.name as n2
 from authors a, authors b
+where a.year = b.year and a.name != b.name
+           ]]>
+        </oql>
+        <qrawl><![CDATA[
+select distinct a.year, a.name as n1, b.name as n2
+from authors a, authors b
+where a.year = b.year and a.name != b.name
+           ]]>
+        </qrawl>
+    </query>
+
+    <query>
+        <oql><![CDATA[
+select distinct a.year, a.name as n1, b.name as n2
+from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
            ]]>
         </oql>
@@ -22,7 +37,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
                ]]>
         </oql>
         <qrawl><![CDATA[
-select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+select distinct a.year, (name:a.name, title:a.title) as p1, (name:b.name, title:b.title) as p2
 from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
                ]]>

@@ -451,6 +451,22 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       getDecl(idn)
   }
 
+  // TODO: Refactor decl vs patDecl: there's repetition
+
+  /** Return the declaration of a pattern.
+    */
+  protected lazy val patDecl: Pattern => Option[Decl] = attr {
+    case p: Pattern =>
+      def getDecl(n: RawNode): Option[Decl] = n match {
+        case b: Bind                 => Some(b)
+        case g: Gen                  => Some(g)
+        case i: Iterator             => Some(i)
+        case f: FunAbs               => Some(f)
+        case tree.parent.pair(_, n1) => getDecl(n1)
+        case _                       => None
+      }
+      getDecl(p)
+  }
   /** Return the type of an entity.
     * Supports let-polymorphism.
     */

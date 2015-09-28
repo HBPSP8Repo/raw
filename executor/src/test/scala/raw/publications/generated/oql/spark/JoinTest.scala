@@ -10,7 +10,7 @@ class JoinTest extends AbstractSparkTest with LDBDockerContainer with BeforeAndA
     val query = """
       select distinct a.year, a.name as n1, b.name as n2
 from authors a, authors b
-where a.year = b.year and a.name != b.name and a.name < b.name
+where a.year = b.year and a.name != b.name
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publicationsSmall", "Join0", result)
@@ -19,7 +19,7 @@ where a.year = b.year and a.name != b.name and a.name < b.name
   test("Join1") {
     val queryLanguage = QueryLanguages("oql")
     val query = """
-      select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+      select distinct a.year, a.name as n1, b.name as n2
 from authors a, authors b
 where a.year = b.year and a.name != b.name and a.name < b.name
     """
@@ -30,6 +30,17 @@ where a.year = b.year and a.name != b.name and a.name < b.name
   test("Join2") {
     val queryLanguage = QueryLanguages("oql")
     val query = """
+      select distinct a.year, struct(name:a.name, title:a.title) as p1, struct(name:b.name, title:b.title) as p2
+from authors a, authors b
+where a.year = b.year and a.name != b.name and a.name < b.name
+    """
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    assertJsonEqual("publicationsSmall", "Join2", result)
+  }
+
+  test("Join3") {
+    val queryLanguage = QueryLanguages("oql")
+    val query = """
       select P as publication,
       (select A
        from P.authors a, authors A
@@ -37,10 +48,10 @@ where a.year = b.year and a.name != b.name and a.name < b.name
 from publications P
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqual("publicationsSmall", "Join2", result)
+    assertJsonEqual("publicationsSmall", "Join3", result)
   }
 
-  test("Join3") {
+  test("Join4") {
     val queryLanguage = QueryLanguages("oql")
     val query = """
       select article: P,
@@ -52,7 +63,7 @@ from publications P
 where "particle detectors" in P.controlledterms
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqual("publicationsSmall", "Join3", result)
+    assertJsonEqual("publicationsSmall", "Join4", result)
   }
 
 }

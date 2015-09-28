@@ -334,14 +334,35 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         """
     }
 
-    def lambda(p: Pattern, e: Exp): Tree = {
+    def patternTerms(p: Pattern): Seq[Tree] = p match {
+      case PatternProd(ps)         => ps.flatMap(patternTerms)
+      case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
+    }
 
-      def patternRecord(p: Pattern): String = p match {
-        case PatternProd(ps)         => s"(${ps.map(patternRecord).mkString(",")})"
-        case PatternIdn(idn: IdnDef) => s"${idnName(idn)}: ${buildScalaType(analyzer.idnDefType(idn), world)}"
+    def patType(p: Pattern) = p match {
+      case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
+      case p: PatternProd  => buildScalaType(analyzer.patternType(p), world)
+    }
+
+    def lambda1(p: Pattern, e: Exp): Tree = {
+      p match {
+        // Handle case of single pattren idn separately to generate more readable code
+        case PatternIdn(idn) =>
+          val arg = c.parse(s"${idnName(idn)}: ${patType(p)}")
+          q"($arg => ${build(e)})"
+        case p: PatternProd =>
+          val arg = c.parse(s"__arg: ${patType(p)}")
+          val pcase = pq"(..${patternTerms(p)})" // pq"(..${patternTerms(p)})"
+          q"($arg => __arg match { case $pcase => ${build(e)} })"
       }
+    }
 
-      q"( (${c.parse(patternRecord(p))}) => ${build(e)} )"
+    def lambda2(p1: Pattern, p2: Pattern, e: Exp): Tree = {
+      val arg = c.parse(s"__arg: (${patType(p1)}, ${patType(p2)})")
+      val pcase1 = pq"(..${patternTerms(p1)})"
+      val pcase2 = pq"(..${patternTerms(p2)})"
+      val pcase = pq"($pcase1, $pcase2)"
+      q"($arg => (__arg._1, __arg._2) match { case $pcase => ${build(e)} })"
     }
 
     /** Zero of a primitive monoid.
@@ -406,14 +427,41 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       /** Scala Filter
         */
       case Filter(Gen(pat, child), pred) =>
-        q"""${build(child)}.filter(${lambda(pat, pred)})"""
+        q"""${build(child)}.filter(${lambda1(pat, pred)})"""
+//
+//      /** Scala Unnest
+//        */
+//      case Unnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+//        val childCode = q"""${build(child)}.map(${lambda1(patChild, e)})"""
+//        val childTypeName = nodeScalaType(child.logicalNode)
+//        val pathCode = exp(path, Some(childTypeName))
+//        val pathType = expScalaType(path)
+//        //        val pathType = exp(path)
+//        val predCode = exp(pred)
+//        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
+//        val childCode = build(child)
+//        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+//        val code = q"""
+//          ${build(child)}.flatMap(${lambda1(patChild, path)}
+//
+//          x => {
+//            val pathValues = $pathCode(x)
+//            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
+//            }
+//          )
+//        """
+//
+//        q"""
+//        val start = "************ Unnest (Scala) ************"
+//        val res = $code
+//        val end= "************ Unnest (Scala) ************"
+//        res
+//        """
 
       /** Scala Reduce
         */
       case Reduce(m, Gen(pat, child), e) =>
-        val childCode = q"""
-        ${build(child)}.map(${lambda(pat, e)})
-        """
+        val childCode = q"""${build(child)}.map(${lambda1(pat, e)})"""
         val code = m match {
           case _: MaxMonoid => q"""$childCode.max"""
           case _: MinMonoid => q"""$childCode.min"""
@@ -428,28 +476,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case _: SetMonoid => q"""$childCode.to[scala.collection.immutable.Set]"""
         }
         q"""
-        val start = "************ ScalaReduce ************"
+        val start = "************ Reduce (Scala) ************"
         val res = $code
-        val end = "************ ScalaReduce ************"
+        val end = "************ Reduce (Scala) ************"
         res
         """
 
-//      /** Scala Join
-//        */
-//      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
-//        val leftChildCode = q"""val ${idnName(leftIdn)} = ${build(leftChild)}"""
-//        val leftCode = q"""$leftChildCode"""
-//        val rightChildCode = q"""val ${idnName(rightIdn)} = ${build(rightChild)}"""
-//        val rightCode = q"""$rightChildCode"""
-//
-//        val pCode = build(p)
-//        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-//
-//        q"""
-//          val left = $leftCode
-//          val right = ${rightCode}.toSeq
-//          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-//        """
+      /** Scala Join
+        */
+      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
+        q"""
+        val start = "************ Join (Scala) ************"
+        val left = ${build(leftChild)}
+        val right = ${build(rightChild)}.toSeq
+        val res = left.flatMap(x1 => right.map(x2 => (x1, x2))).filter(${lambda2(leftPat, rightPat, p)})
+        val end = "************ Join (Scala)************"
+        res
+        """
 
       //
       //      case Nest(logicalNode, m, e, f, p, g, child) =>
@@ -546,29 +589,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       ////      case Merge(logicalNode, m, left, right) => ???
       //      case OuterUnnest(logicalNode, path, pred, child) => ???
       //
-      //      case Unnest(logicalNode, path, pred, child) =>
-      //        val childTypeName = nodeScalaType(child.logicalNode)
-      //        val pathCode = exp(path, Some(childTypeName))
-      //        val pathType = expScalaType(path)
-      //        //        val pathType = exp(path)
-      //        val predCode = exp(pred)
-      //        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
-      //        val childCode = build(child)
-      //        //            logger.debug("{}.path = {} \n{}", x, pathValues)
-      //        val code = q"""
-      //          $childCode.flatMap(x => {
-      //            val pathValues = $pathCode(x)
-      //            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
-      //            }
-      //          )
-      //        """
-      //
-      //        q"""
-      //        val start = "************ ScalaUnnest ************"
-      //        val res = $code
-      //        val end= "************ ScalaUnnest ************"
-      //        res
-      //        """
 
       //      case ScalaAssign(logicalNode, assigns, child) =>
       //        var block: c.universe.Tree = q""
