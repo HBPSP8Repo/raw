@@ -143,8 +143,22 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Reduce(m, g, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Filter(g, p) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Join(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
-        case OuterJoin(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
-        case OuterUnnest(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        case OuterJoin(g1, g2, p) =>
+          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+          x match {
+            case CollectionType(_, RecordType(atts, _)) =>
+              assert(atts.length == 2)
+              atts(1).tipe.nullable = true
+          }
+          x
+        case OuterUnnest(g1, g2, p) =>
+          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+          x match {
+            case CollectionType(_, RecordType(atts, _)) =>
+              assert(atts.length == 2)
+              atts(1).tipe.nullable = true
+          }
+          x
         case Nest(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) =>
           val output_type = tipe(proj) match {
@@ -1108,7 +1122,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ OuterJoin(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        t2.nullable = true
         val m  = MonoidVariable()
         Seq(
           HasType(g1.e, CollectionType(m, t1)),
@@ -1119,7 +1132,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ OuterUnnest(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        t2.nullable = true
         val m  = MonoidVariable()
         Seq(
           HasType(g1.e, CollectionType(m, t1)),
