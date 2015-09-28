@@ -85,6 +85,21 @@ class OptimizerTest extends FunTest {
           """)
   }
 
+  test("a in publications.authors") {
+    check("""select p from p in publications where "Donald Knuth" in p.authors""", TestWorlds.publications,
+      """reduce(
+    bag,
+    ($38, $82) <- filter(
+            ($38, $82) <- nest(
+                    or,
+                    ($38, $43) <- outer_unnest($38 <- publications, $43 <- $38.authors, true),
+                    $38,
+                    true,
+                    $43 = "Donald Knuth"),
+            $82),
+    $38)""")
+  }
+
   test("professors in publications") {
     check("""
     select P as publication,

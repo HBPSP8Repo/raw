@@ -89,6 +89,10 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("1 + 2 + 3")
   }
 
+  test("1 in list(1)") {
+    matches("1 in list(1)")
+  }
+
   test("1 * 2") {
     matches("1 * 2")
   }

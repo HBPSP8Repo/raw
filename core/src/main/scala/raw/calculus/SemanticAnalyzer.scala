@@ -170,6 +170,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           output_type.nullable = false
           makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1)})
         case BinaryExp(_, e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
+        case InExp(e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case ExpBlock(_, e1) =>
           val t1 = tipe(e1)
@@ -1024,6 +1025,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           SameType(e1, e2),
           HasType(e2, NumberType()))
 
+      // Binary Expression
+      case n @ InExp(e1, e2) =>
+        val inner = TypeVariable()
+        Seq(
+          HasType(e2, CollectionType(MonoidVariable(), inner)),
+          HasType(e1, inner),
+          HasType(n, BoolType()))
+
       // Unary Expression type
 
       case n @ UnaryExp(_: Not, e) =>
@@ -1200,6 +1209,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ ExpBlock(binds, e) => binds.toList.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ BinaryExp(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
+    case n @ InExp(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ UnaryExp(_, e) => constraints(e) ++ constraint(n)
     case n: IdnExp => constraint(n)
     case n @ RecordProj(e, _) => constraints(e) ++ constraint(n)
