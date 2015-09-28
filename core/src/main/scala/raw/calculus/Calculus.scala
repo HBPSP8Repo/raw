@@ -181,6 +181,10 @@ object Calculus {
     */
   case class Nest(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
 
+  /** Nest2
+    */
+  case class Nest2(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+
   /** Filter
     */
   case class Filter(child: Gen, p: Exp) extends LogicalAlgebraNode

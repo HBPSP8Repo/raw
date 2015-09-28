@@ -43,19 +43,19 @@ class OptimizerTest extends FunTest {
 
   test("publications: should do an efficient group by #0") {
     check("select distinct partition from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
-      """reduce(set, ($25, $92) <- nest(bag, $25 <- filter($25 <- authors, $25.year = 1992), $25.title, true, $25), $92)""")
+      """reduce(set, ($25, $92) <- nest2(bag, $25 <- filter($25 <- authors, $25.year = 1992), $25.title, true, $25), $92)""")
   }
 
   test("publications: should do an efficient group by #1") {
     check("select distinct count(partition) from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
-      """reduce(set, ($40, $151) <- nest(sum, $40 <- filter($40 <- authors, $40.year = 1992), $40.title, true, 1), $151)""")
+      """reduce(set, ($40, $151) <- nest2(sum, $40 <- filter($40 <- authors, $40.year = 1992), $40.title, true, 1), $151)""")
   }
 
   test("publications: should do an efficient group by #2") {
     check("select distinct (select x.name from partition x) from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
       """reduce(
                   set,
-                  ($39, $137) <- nest(bag, $39 <- filter($39 <- authors, $39.year = 1992), $39.title, true, $39.name),
+                  ($39, $137) <- nest2(bag, $39 <- filter($39 <- authors, $39.year = 1992), $39.title, true, $39.name),
                   $137)""")
   }
 
@@ -63,7 +63,7 @@ class OptimizerTest extends FunTest {
     // here the project of $38.title is rewritten into $38 since we nest on that now
     // TODO could get rid of the reduce! See test below
     check("select distinct A.title, (select x.year from partition x) from A in authors group by A.title", TestWorlds.publications,
-      """reduce(set, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
+      """reduce(set, ($38, $122) <- nest2(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
   }
 
   test("publications: should do an efficient group by #3++") {
@@ -75,10 +75,10 @@ class OptimizerTest extends FunTest {
 
   test("publications: should do an efficient group by") {
     check("select distinct A.title, select x.year from x in partition from A in authors group by A.title", TestWorlds.publications,
-      """reduce(set, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
+      """reduce(set, ($38, $122) <- nest2(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
   }
 
-  ignore("publications: count of authors grouped by title and then year") {
+  test("publications: count of authors grouped by title and then year") {
     // TODO our rule is not yet handling this case
     check("select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
           TestWorlds.publications, """
@@ -123,5 +123,18 @@ class OptimizerTest extends FunTest {
       (publication: $0, profs: $3))
     """)
   }
+
+  test("nested nests") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/nest/outer-join/nest/outer-join....
+    check("select distinct A.title, sum(select a.year from a in partition), count(partition), max(select a.year from a in partition) from A in authors group by A.title",
+      TestWorlds.publications, "")
+  }
+
+  test("nested nests 2") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    check("select distinct A.title, (select distinct A.year, (select distinct A.name, count(partition) from partition A group by A.name) from A in partition group by A.year) from A in authors group by A.title",
+      TestWorlds.publications, "")
+  }
+
 
 }
