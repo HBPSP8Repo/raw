@@ -30,7 +30,7 @@ class OptimizerTest extends FunTest {
 
   test("to_set found") {
     check("select A.title from A in (select distinct A from A in authors)", TestWorlds.publications,
-      """reduce(bag, $313 <- to_bag(to_set(authors)), $313.title)""")
+      """reduce(set, $313 <- authors, $313.title)""")
   }
 
   test("publications: select A from A in authors") {
@@ -43,27 +43,27 @@ class OptimizerTest extends FunTest {
 
   test("publications: should do an efficient group by #0") {
     check("select distinct partition from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
-      """to_set(reduce(bag, ($25, $92) <- nest(bag, $25 <- filter($25 <- authors, $25.year = 1992), $25.title, true, $25), $92))""")
+      """reduce(set, ($25, $92) <- nest(bag, $25 <- filter($25 <- authors, $25.year = 1992), $25.title, true, $25), $92)""")
   }
 
   test("publications: should do an efficient group by #1") {
     check("select distinct count(partition) from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
-      """to_set(reduce(bag, ($40, $151) <- nest(sum, $40 <- filter($40 <- authors, $40.year = 1992), $40.title, true, 1), $151))""")
+      """reduce(set, ($40, $151) <- nest(sum, $40 <- filter($40 <- authors, $40.year = 1992), $40.title, true, 1), $151)""")
   }
 
   test("publications: should do an efficient group by #2") {
     check("select distinct (select x.name from partition x) from A in authors where A.year = 1992 group by A.title", TestWorlds.publications,
-      """to_set(reduce(
-                  bag,
+      """reduce(
+                  set,
                   ($39, $137) <- nest(bag, $39 <- filter($39 <- authors, $39.year = 1992), $39.title, true, $39.name),
-                  $137))""")
+                  $137)""")
   }
 
   test("publications: should do an efficient group by #3") {
     // here the project of $38.title is rewritten into $38 since we nest on that now
     // TODO could get rid of the reduce! See test below
     check("select distinct A.title, (select x.year from partition x) from A in authors group by A.title", TestWorlds.publications,
-      """to_set(reduce(bag, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122)))""")
+      """reduce(set, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
   }
 
   test("publications: should do an efficient group by #3++") {
@@ -75,7 +75,7 @@ class OptimizerTest extends FunTest {
 
   test("publications: should do an efficient group by") {
     check("select distinct A.title, select x.year from x in partition from A in authors group by A.title", TestWorlds.publications,
-      """to_set(reduce(bag, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122)))""")
+      """reduce(set, ($38, $122) <- nest(bag, $38 <- authors, $38.title, true, $38.year), (_1: $38, _2: $122))""")
   }
 
   ignore("publications: count of authors grouped by title and then year") {
@@ -114,8 +114,8 @@ class OptimizerTest extends FunTest {
       ($0, $3) <- nest(
         bag,
         (($0, $1), $2) <- outer_join(
-          ($0, $1) <- outer_unnest($0 <- to_bag(publications), $1 <- $0.authors, true),
-          $2 <- filter($2 <- to_bag(authors), $2.title = "professor"),
+          ($0, $1) <- outer_unnest($0 <- publications, $1 <- $0.authors, true),
+          $2 <- filter($2 <- authors, $2.title = "professor"),
           $2.name = $1),
         $0,
         true,

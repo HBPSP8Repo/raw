@@ -749,12 +749,24 @@ class SemanticAnalyzerTest extends FunTest {
       success("select s+r, partition from s in OLI, r in LOI where s = r group by s+r", TestWorlds.options, selectType)
     }
 
-  test("select") {
-    success("select s from s in students", TestWorlds.professors_students, CollectionType(BagMonoid(), UserType(Symbol("student"))))
+  test("select s from s in students") {
+    success("select s from s in students", TestWorlds.professors_students, CollectionType(ListMonoid(), UserType(Symbol("student"))))
+  }
+
+  test("select distinct s from s in students") {
     success("select distinct s from s in students", TestWorlds.professors_students, CollectionType(SetMonoid(), UserType(Symbol("student"))))
+  }
+
+  test("select distinct s.age from s in students") {
     success("select distinct s.age from s in students", TestWorlds.professors_students, CollectionType(SetMonoid(), IntType()))
+  }
+
+  test("select s.age from s in students order by s.age") {
     success("select s.age from s in students order by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), IntType()))
-    success("""select s.lastname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, CollectionType(BagMonoid(), StringType()))
+  }
+
+  test("select s.lastname from s in (select s.name as lastname from s in students)") {
+    success("""select s.lastname from s in (select s.name as lastname from s in students)""", TestWorlds.professors_students, CollectionType(ListMonoid(), StringType()))
   }
 
   ignore("wrong field name") {
@@ -770,15 +782,15 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age, partition from students s group by s.age") {
-    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("_2", CollectionType(BagMonoid(), UserType(Symbol("student"))))), None)))
+    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("_2", UserType(Symbol("students")))), None)))
   }
 
   test("select s.age, (select p.name from partition p) from students s group by s.age") {
-    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("names", CollectionType(BagMonoid(), StringType()))), None)))
+    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Seq(AttrType("_1", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType()))), None)))
   }
 
   test("select s.dept, count(partition) as n from students s group by s.dept") {
-    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(BagMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
+    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(ListMonoid(),RecordType(List(AttrType("_1", StringType()), AttrType("n", IntType())), None)))
   }
 
   ignore("select dpt, count(partition) as n from students s group by dpt: s.dept") {
@@ -786,11 +798,11 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
-    success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(BagMonoid(),RecordType(List(AttrType("decade",IntType()), AttrType("names",CollectionType(BagMonoid(),StringType()))),None)))
+    success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("decade",IntType()), AttrType("names",CollectionType(ListMonoid(),StringType()))),None)))
   }
 
   test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
-    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(BagMonoid(),RecordType(List(AttrType("_1",IntType()), AttrType("names",CollectionType(BagMonoid(),RecordType(List(AttrType("_1",StringType()), AttrType("_2",CollectionType(BagMonoid(),UserType(Symbol("student"))))),None)))),None)))
+    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(List(AttrType("_1",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(List(AttrType("_1",StringType()), AttrType("_2",UserType(Symbol("students")))),None)))),None)))
   }
 
   test("sum(list(1))") {

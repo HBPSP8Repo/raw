@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.LazyLogging
 sealed abstract class Phase
 case object ExpressionsDesugarPhase extends Phase
 case object DesugarPhase extends Phase
+case object TranslatorPhase extends Phase
 case object UniquifierPhase extends Phase
 case object ReUniquifierPhase extends Phase
 case object NormalizerPhase extends Phase
@@ -23,8 +24,8 @@ object Phases extends LazyLogging {
   private val phases = Seq(
     UniquifierPhase               -> Seq( "Uniquifier1" -> classOf[Uniquifier]),
     DesugarPhase                  -> Seq( "ExpressionsDesugarer"  -> classOf[ExpressionsDesugarer],
-                                          "BlocksDesugarer"       -> classOf[BlocksDesugarer],
-                                          "Translator"            -> classOf[Translator]),
+                                          "BlocksDesugarer"       -> classOf[BlocksDesugarer]),
+    TranslatorPhase               -> Seq( "Translator"            -> classOf[Translator]),
     ReUniquifierPhase             -> Seq( "Uniquifier2" -> classOf[Uniquifier]),
     NormalizerPhase               -> Seq( "Simplifier1" -> classOf[Simplifier],
                                           "Normalizer"  -> classOf[Normalizer]),

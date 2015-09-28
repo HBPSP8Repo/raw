@@ -570,7 +570,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     case p: Partition =>
       partitionSelect(p) match {
-        case Some(s) => selectTypeVar(s)
+        case Some(s) => selectFromsTypeVar(s)
         case None    =>
           tipeErrors += UnknownPartition(p)
           NothingType()
@@ -777,6 +777,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     recurse(t1, t2, Set())
   }
 
+  private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid = {
+    val ms: Seq[CollectionMonoid] = ts.map(_.m).map(mFind)
+    logger.debug(s"ms is $ms")
+    ms.collectFirst { case m: SetMonoid => m }.getOrElse(
+      ms.collectFirst { case m: BagMonoid => m }.getOrElse(
+        ms.collectFirst { case m: ListMonoid => m }.get))
+  }
+
   /** Type Checker constraint solver.
     * Solves a sequence of AND constraints.
     */
@@ -798,6 +806,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
         }
         r
+
       case ExpMonoidSubsetOf(e, m) =>
         val t = expType(e)
         // Subset of monoid
@@ -809,45 +818,65 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
         r
 
-      case PartitionHasType(s) =>
-        // TODO: This sounds like it's redundant code to a future type checker of the Join operator...
-
-        def fromType(from: Seq[Iterator]): Type =
-          if (from.length == 1) {
-            val e = from.head.e
-            val t = expType(from.head.e)
-            find(t) match {
-              case CollectionType(_, innerType) =>
-                CollectionType(BagMonoid(), innerType)
+      case MaxOfMonoids(s) =>
+        val t = expType(s)
+        find(t) match {
+          case CollectionType(m, inner) =>
+            val fromMs = s.from.map {
+              case Iterator(p, e) =>
+                val t1 = expType(e)
+                find(t1) match {
+                  case t: CollectionType => t
+                  case _: NothingType    => return true
+                }
+            }
+            val nm = maxMonoid(fromMs)
+            m match {
+              case _: MonoidVariable =>
+                val r = unifyMonoids(m, nm)
+                if (!r) {
+                  // TODO: Fix error message: should have m and nm?
+                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(s.pos))
+                }
+                r
               case _ =>
-                tipeErrors += CollectionRequired(walk(t), Some(e.pos))
-                NothingType()
+                val r = (m.commutative.get || !nm.commutative.get) && (m.idempotent.get || !nm.idempotent.get)
+                if (!r) {
+                  // TODO: Fix error message: should have m and nm?
+                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(s.pos))
+                }
+                r
             }
-          }
-          else if (from.length > 1) {
-            val innerTypes = from.map { case f =>
-              val e = f.e
-              val t = expType(e)
-              find(t) match {
-                case CollectionType(_, innerType) =>
-                  innerType
-                case _ =>
-                  tipeErrors += CollectionRequired(walk(t), Some(e.pos))
-                  NothingType()
-              }
-            }
-            CollectionType(BagMonoid(), RecordType(from.zip(innerTypes).map { case (Iterator(Some(PatternIdn(IdnDef(idn))), _), innerType) => AttrType(idn, innerType) }, None))
-          } else
-            ??? // Add error: we're using a partition over an empty generator(?)
+          case _: NothingType => true
+        }
 
-        val t = selectTypeVar(s)
-        val t1 = fromType(s.from)
+      case PartitionHasType(s) =>
+        logger.debug(s"PartitionHasType ${CalculusPrettyPrinter(s)}")
+        val t = selectFromsTypeVar(s)
+        val fromTypes = s.from.map { case f =>
+          val e = f.e
+          val t = expType(e)
+          find(t) match {
+            case t: CollectionType => t
+            //case CollectionType(m, inner) => CollectionType(m, inner)
+            case _ => return true
+          }
+        }
+//        logger.debug(s"fromTypes $fromTypes")
+        val t1 =
+          if (fromTypes.length == 1)
+            fromTypes.head
+          else {
+            val idns = s.from.map { case Iterator(Some(PatternIdn(IdnDef(idn))), _) => idn }
+            CollectionType(maxMonoid(fromTypes), RecordType(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }, None))
+          }
 //        logger.debug(s"t1 is $t1")
 //        logger.debug(s"t is $t")
         val r = unify(t, t1)
         if (!r) {
           tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(s.pos))
         }
+        logger.debug(s"r $s tfind ${walk(t)} t1find ${walk(t1)}")
         r
 
       case InheritType(b @ Bind(p, e)) =>
@@ -948,10 +977,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Select
       case n @ Select(froms, d, g, proj, w, o, h) =>
-        val m = if (o.isDefined) ListMonoid() else if (d) SetMonoid() else BagMonoid()
+        val m =
+          if (o.isDefined)
+            ListMonoid()
+          else if (d)
+            SetMonoid()
+          else
+            MonoidVariable()
         Seq(
           PartitionHasType(n),
-          HasType(n, CollectionType(m, expType(proj))))
+          HasType(n, CollectionType(m, expType(proj))),
+          MaxOfMonoids(n))
 
       // Rule 4
       case n @ RecordProj(e, idn) =>
@@ -1204,7 +1240,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val gc = if (g.isDefined) constraints(g.get) else Nil
       val oc = if (o.isDefined) constraints(o.get) else Nil
       val hc = if (h.isDefined) constraints(h.get) else Nil
-      fc ++ wc ++ gc ++ oc ++ hc ++ constraints(proj) ++ constraint(n)
+      fc ++ wc ++ gc ++ oc ++ hc ++ constraint(n) ++ constraints(proj)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
     case n @ ExpBlock(binds, e) => binds.toList.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
@@ -1234,8 +1270,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Count(e) => constraints(e) ++ constraint(n)
   }
 
-  private lazy val selectTypeVar: Select => Type = attr {
-    case Select(from, _, _, _, _, _, _) => TypeVariable()
+  /** Create a type variable for the FROMs part of a SELECT.
+    * Used for unification in the PartitionHasType() constraint.
+    */
+  private lazy val selectFromsTypeVar: Select => Type = attr {
+    _ => TypeVariable()
   }
 
   /** Walk up tree until we find a Select, if it exists.
