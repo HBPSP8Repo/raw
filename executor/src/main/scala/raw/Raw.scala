@@ -235,15 +235,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import Calculus._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-      //      logger.info(s"rawToScalaType: $t")
+            logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-      //      logger.info(s"typeName: $typeName")
+            logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
-      //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+            logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
           //          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
           targ
+        case _ => tq"$parsed"
       }
     }
 
@@ -259,83 +260,88 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       rawToScalaType(analyzer.tipe(expression))
     }
 
-    def exp(e: Exp, p: Option[Pattern]): Tree = {
-
-      def binaryOp(op: BinaryOperator): String = op match {
-        case _: Eq => "=="
-        case _: Neq => "!="
-        case _: Ge => ">="
-        case _: Gt => ">"
-        case _: Le => "<="
-        case _: Lt => "<"
-        case _: Sub => "-"
-        case _: Div => "/"
-        case _: Mod => "%"
+    def exp(e: Exp): Tree = e match {
+      case _: Null             => q"null"
+      case BoolConst(v)        => q"$v"
+      case IntConst(v)         => q"${v.toInt}"
+      case FloatConst(v)       => q"${v.toFloat}"
+      case StringConst(v)      => q"$v"
+      case IdnExp(idn)         => Ident(TermName(idnName(idn)))
+      case RecordProj(e1, idn) =>
+        val id = TermName(idn)
+        q"${build(e1)}.$id"
+      //      case RecordCons(atts) =>
+      //        val tt = analyzer.tipe(e).asInstanceOf[RecordType]
+      //        val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
+      //          case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
+      //          case _ => ""
+      //        }
+      //        val vals = atts
+      //          .map(att => build(att.e))
+      //          .mkString(",")
+      //        //            logger.info(s"exp(): $atts => $vals")
+      //        s"""$sym($vals)"""
+      case IfThenElse(e1, e2, e3) => q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
+      case BinaryExp(op, e1, e2) => op match {
+        case _: Eq  => q" ${build(e1)} == ${build(e2)}"
+        case _: Neq => q" ${build(e1)} != ${build(e2)}"
+        case _: Ge  => q" ${build(e1)} >= ${build(e2)}"
+        case _: Gt  => q" ${build(e1)} > ${build(e2)}"
+        case _: Le  => q" ${build(e1)} <= ${build(e2)}"
+        case _: Lt  => q" ${build(e1)} < ${build(e2)}"
+        case _: Sub => q" ${build(e1)} - ${build(e2)}"
+        case _: Div => q" ${build(e1)} / ${build(e2)}"
+        case _: Mod => q" ${build(e1)} % ${build(e2)}"
       }
-
-      def recurse(e: Exp): String = {
-        val res = e match {
-          case _: Null => "null"
-          case BoolConst(v) => v.toString
-          case IntConst(v) => v
-          case FloatConst(v) => v
-          case StringConst(v) => s""""$v""""
-          case IdnExp(idn) => idnName(idn)
-          case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
-          case RecordCons(atts) =>
-            val tt = analyzer.tipe(e).asInstanceOf[RecordType]
-            val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
-              case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
-              case _ => ""
-            }
-            val vals = atts
-              .map(att => recurse(att.e))
-              .mkString(",")
-            //            logger.info(s"exp(): $atts => $vals")
-            s"""$sym($vals)"""
-          case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
-          case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
-          case MergeMonoid(m, e1, e2) => m match {
-            case _: SumMonoid => s"${recurse(e1)} + ${recurse(e2)}"
-            case _: MaxMonoid => ???
-            case _: MultiplyMonoid => ???
-            case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
-            case _: OrMonoid => s"${recurse(e1)} || ${recurse(e2)}"
-            case _: SetMonoid => s"${recurse(e1)} ++ ${recurse(e2)}"
-            case _: BagMonoid => ???
-            case _: ListMonoid => ???
-          }
-          case UnaryExp(op, e1) => op match {
-            case _: Not => s"!${recurse(e1)}"
-            case _: Neg => s"-${recurse(e1)}"
-            case _: ToBool => s"${recurse(e1)}.toBoolean"
-            case _: ToInt => s"${recurse(e1)}.toInt"
-            case _: ToFloat => s"${recurse(e1)}.toFloat"
-            case _: ToString => s"${recurse(e1)}.toString"
-          }
-          case ConsCollectionMonoid(m: SetMonoid, e) => s"Set(${recurse(e)})"
-          case ConsCollectionMonoid(m: BagMonoid, e) => ???
-          case ConsCollectionMonoid(m: ListMonoid, e) => s"List(${recurse(e)})"
-          case ZeroCollectionMonoid(m: SetMonoid) => s"Set()"
-          case ZeroCollectionMonoid(m: BagMonoid) => ???
-          case ZeroCollectionMonoid(m: ListMonoid) => s"List()"
+      case MergeMonoid(m, e1, e2) => m match {
+        case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
+        case _: MaxMonoid => ???
+        case _: MultiplyMonoid => ???
+        case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
+        case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
+        case _: SetMonoid => q"${build(e1)} ++ ${build(e2)}"
+        case _: BagMonoid => ???
+        case _: ListMonoid => ???
+      }
+      case UnaryExp(op, e1) => op match {
+        case _: Not => q"!${build(e1)}"
+        case _: Neg => q"-${build(e1)}"
+        case _: ToBool => q"${build(e1)}.toBoolean"
+        case _: ToInt => q"${build(e1)}.toInt"
+        case _: ToFloat => q"${build(e1)}.toFloat"
+        case _: ToString => q"${build(e1)}.toString"
+        case _: ToBag => q"${build(e1)}" // .toList" // TODO
+        case _: ToList => q"${build(e1)}.toList"
+        case _: ToSet => q"${build(e1)}.toSet"
+      }
+      case ConsCollectionMonoid(m, e1) => m match {
+        case _: SetMonoid => q"Set(${build(e1)})"
+        case _: BagMonoid => ???
+        case _: ListMonoid => q"List(${build(e1)})"
+      }
+      case ZeroCollectionMonoid(m) => m match {
+        case _: SetMonoid => q"Set()"
+        case _: BagMonoid => ???
+        case _: ListMonoid => q"List()"
+      }
+      case ExpBlock(bs, e1) =>
+        val vals = bs.map { case Bind(PatternIdn(idn), e1) => q"val ${TermName(idnName(idn))} = ${{build(e1)}}"}
+        q"""
+        {
+          ..$vals
+          ${build(e1)}
         }
-        //        logger.info(s"Creating expression: $e => $res")
-        res
-      }
+        """
+    }
+
+    def lambda(p: Pattern, e: Exp): Tree = {
 
       def patternRecord(p: Pattern): String = p match {
-        case PatternProd(ps) => s"(${ps.map(patternRecord).mkString(",")})"
-        case PatternIdn(idn: IdnDef) => s"${idnName(idn)}: raw.datasets.Publication" // TODO: Add Scala type from IdnDef
+        case PatternProd(ps)         => s"(${ps.map(patternRecord).mkString(",")})"
+        case PatternIdn(idn: IdnDef) => s"${idnName(idn)}: ${buildScalaType(analyzer.idnDefType(idn), world)}"
       }
 
-      val expression = recurse(e)
-      //      logger.info(s"Expression type: ${typer.expressionType(e)}")
-
-      p match {
-        case Some(p1) => c.parse(s"( (${patternRecord(p1)}) => $expression )")
-        case None => c.parse(expression)
-      }
+      q"( (${c.parse(patternRecord(p))}) => ${build(e)} )"
     }
 
     /** Zero of a primitive monoid.
@@ -400,15 +406,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       /** Scala Filter
         */
       case Filter(Gen(pat, child), pred) =>
-        q"""${build(child)}.map(${exp(pred, Some(pat))})"""
+        q"""${build(child)}.filter(${lambda(pat, pred)})"""
 
       /** Scala Reduce
         */
       case Reduce(m, Gen(pat, child), e) =>
         val childCode = q"""
-        val f = ${exp(e, Some(pat))}
-        ${build(child)}.map(f)
-          """
+        ${build(child)}.map(${lambda(pat, e)})
+        """
         val code = m match {
           case _: MaxMonoid => q"""$childCode.max"""
           case _: MinMonoid => q"""$childCode.min"""
@@ -428,28 +433,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ ScalaReduce ************"
         res
         """
-      //
-      //      /** Scala Join
-      //        */
-      //      case Join(Gen(PatternIdn(leftIdn), leftChild), Gen(PatternIdn(rightIdn), rightChild), p) =>
-      //        val leftChildCode = q"""val ${idnName(leftIdn)} = ${build(leftChild)}"""
-      //        val leftCode = q"""$leftChildCode"""
-      //        val rightChildCode = q"""val ${idnName(rightIdn)} = ${build(rightChild)}"""
-      //        val rightCode = q"""$rightChildCode"""
-      //
-      //        val pCode = build(p)
-      //        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-      //
-      //        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
-      //         would be more efficient in the cases where p filters part of the results because the tuples
-      //         are created only for the pairs that pass the filter. But our p function expects a tuple as its
-      //         single argument, while the form above requires a p function that takes two arguments.
-      //          */
-      //        q"""
-      //          val left = $leftCode
-      //          val right = ${rightCode}.toSeq
-      //          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-      //        """
+
+//      /** Scala Join
+//        */
+//      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
+//        val leftChildCode = q"""val ${idnName(leftIdn)} = ${build(leftChild)}"""
+//        val leftCode = q"""$leftChildCode"""
+//        val rightChildCode = q"""val ${idnName(rightIdn)} = ${build(rightChild)}"""
+//        val rightCode = q"""$rightChildCode"""
+//
+//        val pCode = build(p)
+//        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
+//
+//        q"""
+//          val left = $leftCode
+//          val right = ${rightCode}.toSeq
+//          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
+//        """
 
       //
       //      case Nest(logicalNode, m, e, f, p, g, child) =>
@@ -862,7 +862,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case a: AlgebraNode if !analyzer.spark(a) => buildScala(a)
       case a: AlgebraNode => buildSpark(a)
       case i: IdnExp if analyzer.isSource(i) => buildScan(i)
-      case _ => exp(e, None) // TODO: Drop None when default is set
+      case _ => exp(e)
     }
 
     logger.info("Building code. User types: " + world.tipes.mkString("\n"))
