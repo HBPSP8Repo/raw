@@ -36,14 +36,13 @@ abstract class RawQuery extends StrictLogging {
 
   def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
     logger.info("Opening iterator: " + scanner)
-    new RawIterable(scanner, openIters)
+    new RawIterable(scanner, openIters).view
   }
 
   def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
     logger.info("Bypassing: " + iterable)
     iterable
   }
-
 
   def closeAllIterators(): Unit = {
     logger.info("Closing iterators: " + openIters)

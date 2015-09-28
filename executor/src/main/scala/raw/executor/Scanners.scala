@@ -13,7 +13,7 @@ import org.apache.spark.SparkContext
 import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
-import scala.collection.{AbstractIterator, Iterator, JavaConversions}
+import scala.collection.{IterableView, AbstractIterator, Iterator, JavaConversions}
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
@@ -102,6 +102,25 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   }
   private[this] var parTypes = ctor.getParameterTypes
 
+  // Precompute the functions used to convert each value read from the file into Scala objects. This should save
+  // some time during the parsing of the file
+  private[this] val mapFunctions: Array[(String) => AnyRef] = {
+    val functions = new Array[(String) => AnyRef](ctor.getParameterCount)
+    var i = 0
+    while (i < ctor.getParameterCount) {
+      mapperFunctions.get(parTypes(i).getName) match {
+        case Some(f) => functions.update(i, f)
+        case None => {
+          logger.warn("Unknown type: " + parTypes(i))
+          // Try using the string value found on the CSV file (identity function)
+          functions.update(i, s => s)
+        }
+      }
+      i += 1
+    }
+    functions
+  }
+
   override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
     val properties = schema.properties
@@ -118,22 +137,16 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
     new ClosableIterator(mappedIter, is)
   }
 
-  // Buffer reused in calls to newValue().
+  // Buffer reused by calls to newValue().
   private[this] val args = new Array[AnyRef](ctor.getParameterCount)
 
+  // Can be sped by using a code-generator callback.
   private[this] def newValue(data: Array[String]): T = {
     var i = 0
-    // Note: This can be optimized by code-generating the construction code and avoiding the per-instance lookup
-    // of the conversion functions and avoiding the use of reflection.
     while (i < ctor.getParameterCount) {
-      mapperFunctions.get(parTypes(i).getName) match {
-        case Some(f) => args.update(i, f(data(i)))
-        case None => {
-          logger.warn("Unknown type: " + parTypes(i))
-          // Try using the string value found on the CSV file
-          args.update(i, data(i))
-        }
-      }
+      val value = data(i).trim
+      val mapperFunction = mapFunctions(i)
+      args.update(i, mapperFunction(value))
       i += 1
     }
     ctor.newInstance(args: _*).asInstanceOf[T]
