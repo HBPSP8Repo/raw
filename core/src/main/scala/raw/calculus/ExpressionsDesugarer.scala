@@ -15,7 +15,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
     reduce(
       ruleSum +
       ruleMax +
-      ruleCount)
+      ruleCount +
+      inToComp)
 
   /** De-sugar sum
     */
@@ -52,4 +53,11 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
       }
   }
 
+  /** De-sugar IN to a comprehension
+    */
+  private lazy val inToComp = rule[Exp] {
+    case s @ InExp(e1, e2) =>
+      val x = SymbolTable.next().idn
+      Comp(OrMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
+  }
 }

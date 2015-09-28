@@ -13,16 +13,7 @@ class Translator extends Transformer {
 
   def strategy = translate
 
-  private def translate = reduce(inToComp + selectGroupBy) <* reduce(selectToComp)
-
-  // TODO: Add case classes ToSet, ToBag, ToList and apply them here so that the output Comp still types properly
-
-  private lazy val inToComp = rule[Exp] {
-    case s @ InExp(e1, e2) => {
-      val x = SymbolTable.next().idn
-      Comp(OrMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
-    }
-  }
+  private def translate = reduce(selectGroupBy) <* reduce(selectToComp)
 
   private lazy val selectToComp = rule[Exp] {
     case s @ Select(from, distinct, None, proj, where, None, None) =>
