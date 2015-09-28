@@ -100,7 +100,7 @@ group by title: A.title
         </oql>
         <qrawl>
             <![CDATA[
-select A.title,
+select A.title as title,
        partition as people
 from authors A
 group by A.title

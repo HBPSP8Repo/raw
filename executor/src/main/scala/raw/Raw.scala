@@ -150,7 +150,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   }
 
   def buildScalaType(t: raw.Type, world: World): String = {
-    val tt = t match {
+    val baseType = t match {
       case _: BoolType => "Boolean"
       case FunType(t1, t2) => ???
       case _: StringType => "String"
@@ -166,8 +166,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         }
       //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
       //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
-      case CollectionType(BagMonoid(), innerType) => s"Seq[${buildScalaType(innerType, world)}]"
-      case CollectionType(ListMonoid(), innerType) => s"Seq[${buildScalaType(innerType, world)}]"
+      case CollectionType(BagMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(ListMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
       case CollectionType(SetMonoid(), innerType) => s"Set[${buildScalaType(innerType, world)}]"
       case UserType(idn) => buildScalaType(world.tipes(idn), world)
       case TypeVariable(v) => ???
@@ -176,7 +176,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: CollectionType => ???
     }
     //    logger.info(s"Type: $tt")
-    tt
+    if (t.nullable)
+      s"Option[$baseType]"
+    else
+      baseType
   }
 
   /** Collect all anonymous record types in the tree.
@@ -350,6 +353,40 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case p: PatternProd  => buildScalaType(analyzer.patternType(p), world)
     }
 
+    /** Get the nullable identifiers from a pattern.
+      * Used by the Nest to filter out Option[...]
+      */
+    def patternNullable(p: Pattern): Seq[Tree] = {
+      def recurse(p: Pattern, t: raw.Type): Seq[Option[Tree]] = p match {
+        case PatternProd(ps) =>
+          val t1 = t.asInstanceOf[RecordType]
+          ps.zip(t1.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
+        case PatternIdn(idn: IdnDef) if t.nullable =>
+          Seq(Some(q"${Ident(TermName(idnName(idn)))}"))
+        case _ =>
+          Seq(None)
+      }
+
+      recurse(p, analyzer.patternType(p)).flatten
+    }
+
+    /** Return the denullable for a pattern.
+     */
+    def patternDenullable(p: Pattern): Tree = {
+      def recurse(p: Pattern, t: raw.Type): Tree = p match {
+        case PatternProd(ps) =>
+          val t1 = t.asInstanceOf[RecordType]
+          q"(..${ps.zip(t1.atts).map { case (p1, att) => recurse(p1, att.tipe) }})"
+        case PatternIdn(idn) =>
+          if (t.nullable)
+            q"${Ident(TermName(idnName(idn)))}.get"
+          else
+            q"${Ident(TermName(idnName(idn)))}"
+      }
+
+      recurse(p, analyzer.patternType(p))
+    }
+
     def lambda1(p: Pattern, e: Exp): Tree = {
       p match {
         // Handle case of single pattren idn separately to generate more readable code
@@ -466,7 +503,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           ${build(child)}
             .flatMap($childArg =>
               child match { case (..${patternTerms(patChild)}) =>
-                val matches = ${build(path)}
+                val matches =
+                  ${build(path)}
                   .map($pathArg =>
                     path match { case (..${patternTerms(patPath)}) =>
                       ( (..${patternIdents(patChild)}), (..${patternIdents(patPath)}) ) })
@@ -491,7 +529,26 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
-      // TODO: Scala OuterJoin
+      /** Scala OuterJoin
+        */
+      case OuterJoin(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
+        val leftArg = c.parse(s"l: ${patternType(leftPat)}")
+        val rightArg = c.parse(s"r: ${patternType(rightPat)}")
+        val bothArg = c.parse(s"arg: (${patternType(leftPat)}, ${patternType(rightPat)})")
+        q"""
+        val start = "************ OuterJoin (Scala) ************"
+        val lhs = ${build(leftChild)}
+        val rhs = ${build(rightChild)}.toSeq
+        val res = lhs.flatMap($leftArg => {
+          val ok = rhs.map($rightArg => (l, r)).filter(${lambda2(leftPat, rightPat, p)})
+          if (ok.isEmpty)
+            List((l, None))
+          else
+            ok.map($bothArg => arg match { case (l, r) => (l, Some(r)) })
+        })
+        val end = "************ OuterJoin (Scala)************"
+        res
+        """
 
       /** Scala Reduce
         */
@@ -517,85 +574,93 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
-      // TODO: Scala Nest
+      /** Scala Nest
+        */
+      case Nest(m: PrimitiveMonoid, Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val nullables = patternNullable(pat)
+        val nullableFilter =
+          if (nullables.isEmpty)
+            q"true"
+          else {
+            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
+          }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .map($groupedArg =>
+              ( arg._1,
+                arg._2
+                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
+                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .fold(${zero(m)})(${fold(m)}) ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Primitive Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Primitive Monoid (Scala) ************"
+        res"""
 
+      case Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val nullables = patternNullable(pat)
+        val nullableFilter =
+          if (nullables.isEmpty)
+            q"true"
+          else {
+            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
+          }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .map($groupedArg =>
+              ( arg._1,
+                arg._2
+                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
+                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .toList
+                  .toIterable ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Set Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Set Monoid (Scala) ************"
+        res"""
 
-      //
-      //      case Nest(logicalNode, m, e, f, p, g, child) =>
-      //        val eCode = exp(e)
-      //        val fCode = exp(f)
-      //        val pCode = exp(p)
-      //        logger.info(s"[ScalaNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
-      //        val t = analyzer.tipe(e)
-      //        val st: String = buildScalaType(t, world)
-      //        val childTree: Tree = build(child)
-      //
-      //        def computeG(l: Seq[Exp]): Exp = l match {
-      //          case Nil => BoolConst(false)
-      //          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
-      //        }
-      //
-      //        val gExp = g match {
-      //          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
-      //          case _ => {
-      //            assert(false);
-      //            BoolConst(true)
-      //          }
-      //        }
-      //
-      //        val code = m match {
-      //          case m1: PrimitiveMonoid =>
-      //            val z1 = zeroExp(m1)
-      //            val f1 = IfThenElse(gExp, z1, e)
-      //            q"""
-      //              val grouped = $childTree.groupBy($fCode)
-      //              grouped.mapValues(v => v
-      //                  .filter($pCode)
-      //                  .map(${exp(f1)})
-      //                  .fold(${zero(m1)})(${fold(m1)}))
-      //            """
-      //          case m1: CollectionMonoid =>
-      //            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
-      //            val monoidReduceCode = m1 match {
-      //              case m2: SetMonoid => q"""mappedByE.toSet"""
-      //              // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
-      //              case m1: BagMonoid => q"""mappedByE.toList"""
-      //              case m1: ListMonoid => q"""mappedByE.toList"""
-      //            }
-      //            val commonCode = q"""
-      //            val grouped = $childTree.groupBy($fCode)
-      //            grouped.mapValues(v => {
-      //                val filteredByP = v.filter($pCode)
-      //                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
-      //                val mappedByE = filteredByG.map($eCode)
-      //                ${monoidReduceCode}
-      //            })
-      //            """
-      //            commonCode
-      //        }
-      //        q"""
-      //          val start = "************ ScalaNest ************"
-      //          val scalaNest = $code
-      //          val end = "************ ScalaNest ************"
-      //          scalaNest"""
-      //
-      //      case OuterJoin(logicalNode, p, left, right) =>
-      //        q"""
-      //  val rightCache = ${build(right)}.toSeq
-      //  ${build(left)}.flatMap(l =>
-      //    if (l == null)
-      //      List((null, null))
-      //    else {
-      //      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
-      //      if (ok.isEmpty)
-      //        List((l, null))
-      //      else
-      //        ok
-      //    }
-      //  )
-      //  """
-      //
-      //
+      case Nest((_: BagMonoid | _: ListMonoid), Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val nullables = patternNullable(pat)
+        val nullableFilter =
+          if (nullables.isEmpty)
+            q"true"
+          else {
+            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
+          }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .map($groupedArg =>
+              ( arg._1,
+                arg._2
+                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
+                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .toList
+                  .toIterable ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Bag/List Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Bag/List Monoid (Scala) ************"
+        res"""
     }
 
     /** Build code for Spark algebra nodes

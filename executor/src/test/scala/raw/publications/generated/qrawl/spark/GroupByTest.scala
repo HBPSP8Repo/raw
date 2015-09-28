@@ -34,7 +34,7 @@ class GroupByTest extends AbstractSparkTest {
   test("GroupBy3") {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
-      select A.title,
+      select A.title as title,
        partition as people
 from authors A
 group by A.title
