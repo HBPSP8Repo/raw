@@ -139,7 +139,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(kwAnd ^^^ AndMonoid())
 
   lazy val comparisonExp: PackratParser[Exp] =
-    positioned(plusMinusExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+    positioned(inExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
   lazy val comparisonOp: PackratParser[ComparisonOperator] =
     positioned(
@@ -150,6 +150,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       "<" ^^^ Lt() |
       ">=" ^^^ Ge() |
       ">" ^^^ Gt())
+
+  lazy val inExp: PackratParser[Exp] =
+    positioned(plusMinusExp * ("in" ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
 
   lazy val plusMinusExp: PackratParser[Exp] =
     positioned(minus ~ plusMinusExp ^^ { case op ~ e => UnaryExp(op, e)}) |

@@ -868,4 +868,17 @@ class SemanticAnalyzerTest extends FunTest {
   test("to_list(set(1))") {
     success("""to_list(set(1))""", TestWorlds.empty, CollectionType(ListMonoid(), IntType()))
   }
+
+  test("1 in list(1)") {
+    success("1 in list(1)", TestWorlds.empty, BoolType())
+  }
+
+  test("1 in list(true)") {
+    failure("1 in list(true)", TestWorlds.empty, UnexpectedType(IntType(), BoolType()))
+  }
+
+  test("\\x -> x in list(1)") {
+    success("{ f := \\x -> x in list(1); for (x <- unknown ; f(x)) yield set x }", TestWorlds.unknown, CollectionType(SetMonoid(), IntType()))
+  }
+
 }

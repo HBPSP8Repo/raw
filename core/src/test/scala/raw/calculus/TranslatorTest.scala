@@ -141,4 +141,30 @@ class TranslatorTest extends FunTest {
         to_set(for ($0 <- to_bag(authors)) yield bag (title: $0.title,stats: for ($1 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3)) yield bag (year: $1.year, N: \$9 -> for ($4 <- $9) yield sum 1(for ($5 <- to_bag(for ($3 <- to_bag(authors); $0.title = $3.title) yield bag $3); $1.year = $5.year) yield bag $5))))""")
   }
 
+  test("x in L") {
+    compare(
+      process("0 in select A.year from A in authors", TestWorlds.publications),
+      "for ($1 <- for ($0 <- to_bag(authors)) yield bag $0.year) yield or $1 = 0"
+    )
+  }
+
+  test("select x in L from x in something") {
+    // select all students having a birthyear matching any of the ones found for professors
+    compare(
+      process("""select A.name from A in authors where A.title = "PhD" and A.year in select B.year from B in authors where B.title = "professor"""", TestWorlds.publications),
+      """for ($30 <- to_bag(authors);
+              $30.title = "PhD"
+              and for ($84 <- for ($37 <- to_bag(authors); $37.title = "professor")
+                              yield bag $37.year)
+                  yield or $84 = $30.year
+              )
+         yield bag $30.name"""
+    )
+  }
+
+  test("a in publications.authors") {
+    compare(process("""select p from p in publications where "Donald Knuth" in p.authors""", TestWorlds.publications),
+            """for ($13 <- to_bag(publications); for ($33 <- $13.authors) yield or $33 = "Donald Knuth") yield bag $13""")
+  }
+
 }
