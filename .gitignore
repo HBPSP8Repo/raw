@@ -16,3 +16,5 @@ metastore_db/
 .src-*/
 *.iml
 executor/queries.log
+test/resources/queryresults/
+test/scala/raw/*/generated/

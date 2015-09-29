@@ -36,6 +36,14 @@ class TranslatorTest extends FunTest {
   }
 
   test("select s.age/10, partition from students s group by s.age/10") {
+    // TODO: The issue is that the SemanticAnalyzer has removed some uses of UserType.
+    // TODO: This is convenient because later on I do pattern match based on e.g. ColllectionType, instead of having
+    // TODO: to always unwrap potentially recursive UserTypes. On the other hand, as the test code shows, we do leave
+    // TODO: some user types in place, so we won't be able to infer that, e.g. the thing is a RecordType.
+    // TODO: So I think we need a more coherent strategy, which is likely to report the UserType but then add another
+    // TODO: type function, which is used by everyone else, that walks the user type when it is seen. Of course
+    // TODO: having this handle recursive behaviour isn't easy.. humm.. Most likely just leave a single UserType
+    // TODO: to walk it once?
     compare(
       process(
         """select s.age/10, partition from students s group by s.age/10""", TestWorlds.professors_students),
