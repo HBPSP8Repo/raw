@@ -82,13 +82,13 @@ abstract class AbstractRawTest
     Paths.get(System.getProperty("java.io.tmpdir"), filename)
   }
 
-  def assertJsonEqualsFile(dataset: String, testName: String, queryResult: Any) = {
+  def assertJsonEqualsFile(dataset: String, testName: String, testMethodName:String, queryResult: Any) = {
     val expected: JsonNode = loadTestResult(dataset, testName)
     val expectedOrdered: String = toStringOrdered(expected)
     val actual: JsonNode = convertToJsonNode(queryResult)
     val actualOrdered: String = toStringOrdered(actual)
     if (expectedOrdered != actualOrdered) {
-      logTestFailure(testName, actualOrdered, expectedOrdered)
+      logTestFailure(testName, testMethodName, actualOrdered, expectedOrdered)
     }
   }
 
@@ -98,12 +98,12 @@ abstract class AbstractRawTest
     val actual: JsonNode = convertToJsonNode(queryResult)
     val actualOrdered: String = toStringOrdered(actual)
     if (expectedOrdered != actualOrdered) {
-      logTestFailure(testName, actualOrdered, expectedOrdered)
+      logTestFailure(testName, testName, actualOrdered, expectedOrdered)
     }
   }
 
-  def logTestFailure(testName: String, actualOrdered: String, expectedOrdered: String) = {
-    val actualPath = getTempFile(testName + "_actual.json")
+  def logTestFailure(testName:String, testMethodName: String, actualOrdered: String, expectedOrdered: String) = {
+    val actualPath = getTempFile(testMethodName + "_actual.json")
     val expectedPath = getTempFile(testName + "_expected.json")
     val actualOrderedPretty = prettyPrintTree(actualOrdered)
     val expectedOrderedPretty = prettyPrintTree(expectedOrdered)
