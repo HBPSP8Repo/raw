@@ -51,7 +51,7 @@ templateTestMethodJsonCompareToFile = """
       %(query)s
     \"\"\"
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqualsFile(\"%(dataset)s\", \"%(resultfilename)s\", result)
+    assertJsonEqualsFile(\"%(dataset)s\", \"%(resultfilename)s\", \"%(name)s\", result)
   }
 """
 
