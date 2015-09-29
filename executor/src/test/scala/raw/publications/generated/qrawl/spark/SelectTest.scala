@@ -7,7 +7,7 @@ class SelectTest extends AbstractSparkTest {
   test("Select0") {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
-      select distinct a.name, a.title, a.year from authors a where a.year = 1973
+      select distinct a.name AS name, a.title As title, a.year aS year from authors a where a.year = 1973
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "Select0", result)

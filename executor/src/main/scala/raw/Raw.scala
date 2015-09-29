@@ -168,7 +168,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
       case CollectionType(BagMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
       case CollectionType(ListMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(SetMonoid(), innerType) => s"Set[${buildScalaType(innerType, world)}]"
+      case CollectionType(SetMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
       case UserType(idn) => buildScalaType(world.tipes(idn), world)
       case TypeVariable(v) => ???
       case _: AnyType => ???
@@ -557,15 +557,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = m match {
           case _: MaxMonoid => q"""$childCode.max"""
           case _: MinMonoid => q"""$childCode.min"""
-          case m1: PrimitiveMonoid =>
-            // TODO: Replace foldLeft with fold?
-            q"""$childCode.foldLeft(${zero(m1)})(${fold(m1)})"""
-          case _: BagMonoid =>
-            // TODO: There is no Bag implementation on the Scala or Java standard libs. For the time being, we use a
-            //       List, but this is less efficient than a real Bag.
-            q"""$childCode.to[scala.collection.immutable.List]"""
-          case _: ListMonoid => q"""$childCode.to[scala.collection.immutable.List]"""
-          case _: SetMonoid => q"""$childCode.to[scala.collection.immutable.Set]"""
+          case m1: PrimitiveMonoid => q"""$childCode.foldLeft(${zero(m1)})(${fold(m1)})"""
+          case _: BagMonoid => q"""$childCode.toList.toIterable"""
+          case _: ListMonoid => q"""$childCode.toList.toIterable"""
+          case _: SetMonoid => q"""$childCode.toSet.toIterable"""
         }
         q"""
         val start = "************ Reduce (Scala) ************"
@@ -623,7 +618,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
                   .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
                   .map { case (..${patternTerms(pat)}) => ${build(e)} }
-                  .toList
+                  .toSet
                   .toIterable ))
           .toIterable
         """

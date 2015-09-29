@@ -7,7 +7,7 @@ class GroupByTest extends AbstractScalaTest {
   test("GroupBy0") {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
-      select distinct A.title, count(partition) as n from authors A group by A.title
+      select distinct A.title AS title, count(partition) as n from authors A group by A.title
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "GroupBy0", result)
@@ -16,7 +16,7 @@ class GroupByTest extends AbstractScalaTest {
   test("GroupBy1") {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
-      select distinct A.title, (select distinct a.year from a in partition) as years from authors A group by A.title
+      select distinct A.title AS title, (select distinct a.year from a in partition) as years from authors A group by A.title
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "GroupBy1", result)
@@ -25,7 +25,7 @@ class GroupByTest extends AbstractScalaTest {
   test("GroupBy2") {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
-      select distinct A.year, (select distinct A from partition A) as people from authors A group by A.year
+      select distinct A.year as year, (select distinct A from partition A) as people from authors A group by A.year
     """
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
     assertJsonEqual("publications", "GroupBy2", result)
