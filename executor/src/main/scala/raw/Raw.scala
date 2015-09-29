@@ -515,9 +515,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                       ( (..${patternIdents(patChild)}), (..${patternIdents(patPath)}) ) })
                   .filter(${lambda2(patChild, patPath, pred)})
                 if (matches.isEmpty)
-                  None
+                  (child, None)
                 else
-                  matches.map(Some(_)) })
+                  (child, Some(matches)) })
         val end = "************ OuterUnnest (Scala) ************"
         res
         """
