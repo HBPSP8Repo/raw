@@ -1,0 +1,5384 @@
+   <queries dataset="patients">
+   <query>
+   <oql>
+<![CDATA[count(patients)]]>   </oql>
+   <qrawl>
+<![CDATA[count(patients)]]>   </qrawl>
+   <result>
+<![CDATA[100]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select p
+from patients p
+where p.gender = "male"
+      and p.country = "Switzerland"]]>   </oql>
+   <qrawl>
+<![CDATA[select p
+from patients p
+where p.gender = "male"
+      and p.country = "Switzerland"]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "city": "Zurich", 
+        "surname": "Hughes", 
+        "name": "Foster", 
+        "gender": "male", 
+        "birthDate": "1998/07/08", 
+        "patient_id": "P00012", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10024
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Human parainfluenza virus infection", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Kawasaki disease", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10025
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "18", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L85.2", 
+                    "sub_category": "Other disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2010/07/08", 
+                    "description": "Keratosis punctata (palmaris et plantaris)"
+                }, 
+                {
+                    "diag_id": "19", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L50.6", 
+                    "sub_category": "Urticaria and erythema", 
+                    "diag_date": "2004/05/13", 
+                    "description": "Contact urticaria"
+                }, 
+                {
+                    "diag_id": "20", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L56.3", 
+                    "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2005/08/23", 
+                    "description": "Solar urticaria"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 9, 
+                    "wardId": 9686, 
+                    "roomNumber": 174, 
+                    "validUntill": "2014/07/22", 
+                    "validFrom": "2014/07/20"
+                }, 
+                {
+                    "bedNumber": 7, 
+                    "wardId": 9686, 
+                    "roomNumber": 256, 
+                    "validUntill": "2002/05/01", 
+                    "validFrom": "2002/04/28"
+                }, 
+                {
+                    "bedNumber": 1, 
+                    "wardId": 9686, 
+                    "roomNumber": 196, 
+                    "validUntill": "2009/08/18", 
+                    "validFrom": "2009/08/17"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 20, 
+                    "totalMinutes": 20, 
+                    "reportDateTime": "2012/01/12 13:06:00", 
+                    "nurseCount": 1
+                }, 
+                {
+                    "minutesPerNurse": 20, 
+                    "totalMinutes": 20, 
+                    "reportDateTime": "2004/01/02 15:00:00", 
+                    "nurseCount": 1
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Lisinopril 200 mg", 
+                    "orderDate": "2010/04/17 00:01:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Generic Glucophage (metformin) 60 mg", 
+                    "orderDate": "2013/06/25 09:49:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Advair Diskus 120 mg", 
+                    "orderDate": "2011/03/03 23:15:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Bern", 
+        "surname": "Barnes", 
+        "name": "Earl", 
+        "gender": "male", 
+        "birthDate": "1968/10/14", 
+        "patient_id": "P00019", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10038
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Listeriosis", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Aspergillosis", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10039
+                }
+            ], 
+            "diagnosis": [], 
+            "stays": [
+                {
+                    "bedNumber": 8, 
+                    "wardId": 9591, 
+                    "roomNumber": 44, 
+                    "validUntill": "2005/05/08", 
+                    "validFrom": "2005/05/05"
+                }, 
+                {
+                    "bedNumber": 2, 
+                    "wardId": 9591, 
+                    "roomNumber": 126, 
+                    "validUntill": "2002/11/13", 
+                    "validFrom": "2002/11/12"
+                }, 
+                {
+                    "bedNumber": 3, 
+                    "wardId": 9591, 
+                    "roomNumber": 229, 
+                    "validUntill": "2008/04/24", 
+                    "validFrom": "2008/04/22"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 8, 
+                    "totalMinutes": 25, 
+                    "reportDateTime": "2014/10/13 02:49:00", 
+                    "nurseCount": 3
+                }, 
+                {
+                    "minutesPerNurse": 20, 
+                    "totalMinutes": 20, 
+                    "reportDateTime": "2010/04/20 18:18:00", 
+                    "nurseCount": 1
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Epogen 140 mg", 
+                    "orderDate": "2001/12/01 18:08:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Lipitor 60 mg", 
+                    "orderDate": "2007/02/25 23:00:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Generic Prilosec (omeprazole) 120 mg", 
+                    "orderDate": "2013/08/11 20:25:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Bern", 
+        "surname": "Miller", 
+        "name": "Glen", 
+        "gender": "male", 
+        "birthDate": "1979/12/22", 
+        "patient_id": "P00020", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10040
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Creutzfeldt-Jakob disease (CJD)", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10041
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "37", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L41.4", 
+                    "sub_category": "Papulosquamous disorders", 
+                    "diag_date": "2011/01/12", 
+                    "description": "Large plaque parapsoriasis"
+                }, 
+                {
+                    "diag_id": "38", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L51.0", 
+                    "sub_category": "Urticaria and erythema", 
+                    "diag_date": "2013/12/05", 
+                    "description": "Nonbullous erythema multiforme"
+                }, 
+                {
+                    "diag_id": "39", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L55.2", 
+                    "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2004/09/09", 
+                    "description": "Sunburn of third degree"
+                }, 
+                {
+                    "diag_id": "40", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L65.2", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2003/01/06", 
+                    "description": "Alopecia mucinosa"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 1, 
+                    "wardId": 10301, 
+                    "roomNumber": 263, 
+                    "validUntill": "2013/07/10", 
+                    "validFrom": "2013/07/09"
+                }, 
+                {
+                    "bedNumber": 5, 
+                    "wardId": 10301, 
+                    "roomNumber": 240, 
+                    "validUntill": "2003/04/26", 
+                    "validFrom": "2003/04/24"
+                }, 
+                {
+                    "bedNumber": 2, 
+                    "wardId": 10301, 
+                    "roomNumber": 182, 
+                    "validUntill": "2011/11/09", 
+                    "validFrom": "2011/11/07"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 10, 
+                    "totalMinutes": 20, 
+                    "reportDateTime": "2012/08/18 05:20:00", 
+                    "nurseCount": 2
+                }, 
+                {
+                    "minutesPerNurse": 5, 
+                    "totalMinutes": 5, 
+                    "reportDateTime": "2003/12/20 16:22:00", 
+                    "nurseCount": 1
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Lisinopril 100 mg", 
+                    "orderDate": "2001/07/08 02:51:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Crestor 120 mg", 
+                    "orderDate": "2012/01/23 19:29:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Plavix 180 mg", 
+                    "orderDate": "2005/09/15 21:47:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Zurich", 
+        "surname": "Smith", 
+        "name": "Humphrey", 
+        "gender": "male", 
+        "birthDate": "1958/08/24", 
+        "patient_id": "P00024", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }, 
+                        {
+                            "name": "Tegretol (carbamazepine)", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10048
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Pelvic inflammatory disease (PID)", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Argentine hemorrhagic fever", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10049
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "44", 
+                    "category": "Diseases of the digestive system", 
+                    "code": "K76.0", 
+                    "sub_category": "Diseases of liver", 
+                    "diag_date": "2012/05/21", 
+                    "description": "Fatty (change of) liver, not elsewhere classified"
+                }, 
+                {
+                    "diag_id": "45", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L88.", 
+                    "sub_category": "Other disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2007/04/26", 
+                    "description": "Pyoderma gangrenosum"
+                }, 
+                {
+                    "diag_id": "46", 
+                    "category": "Diseases of the musculoskeletal system and connective tissue", 
+                    "code": "M06.9", 
+                    "sub_category": "Inflammatory polyarthropathies", 
+                    "diag_date": "2006/03/04", 
+                    "description": "Rheumatoid arthritis, unspecified"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 4, 
+                    "wardId": 10026, 
+                    "roomNumber": 231, 
+                    "validUntill": "2001/09/09", 
+                    "validFrom": "2001/09/06"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 12, 
+                    "totalMinutes": 25, 
+                    "reportDateTime": "2004/07/28 08:44:00", 
+                    "nurseCount": 2
+                }, 
+                {
+                    "minutesPerNurse": 5, 
+                    "totalMinutes": 10, 
+                    "reportDateTime": "2014/11/28 18:11:00", 
+                    "nurseCount": 2
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Lisinopril 20 mg", 
+                    "orderDate": "2012/11/15 07:19:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Advair Diskus 100 mg", 
+                    "orderDate": "2000/08/04 23:37:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Advair Diskus 160 mg", 
+                    "orderDate": "2003/09/03 22:22:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Zurich", 
+        "surname": "Ross", 
+        "name": "Randall", 
+        "gender": "male", 
+        "birthDate": "2001/12/10", 
+        "patient_id": "P00035", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }, 
+                        {
+                            "name": "Intravenous contrast dye", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10070
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Zygomycosis", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Ebola hemorrhagic fever", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10071
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "70", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L68.2", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2014/03/22", 
+                    "description": "Localized hypertrichosis"
+                }, 
+                {
+                    "diag_id": "71", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L24.1", 
+                    "sub_category": "Dermatitis and eczema", 
+                    "diag_date": "2007/03/09", 
+                    "description": "Irritant contact dermatitis due to oils and greases"
+                }, 
+                {
+                    "diag_id": "72", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L10.0", 
+                    "sub_category": "Bullous disorders", 
+                    "diag_date": "2009/11/27", 
+                    "description": "Pemphigus vulgaris"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 2, 
+                    "wardId": 9337, 
+                    "roomNumber": 265, 
+                    "validUntill": "2014/12/18", 
+                    "validFrom": "2014/12/16"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 15, 
+                    "totalMinutes": 15, 
+                    "reportDateTime": "2006/08/01 18:47:00", 
+                    "nurseCount": 1
+                }, 
+                {
+                    "minutesPerNurse": 7, 
+                    "totalMinutes": 15, 
+                    "reportDateTime": "2009/02/14 03:32:00", 
+                    "nurseCount": 2
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Lipitor 180 mg", 
+                    "orderDate": "2011/01/05 19:41:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "lausanne", 
+        "surname": "Scott", 
+        "name": "Carlton", 
+        "gender": "male", 
+        "birthDate": "1993/07/17", 
+        "patient_id": "P00042", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10084
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Keratitis", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Clonorchiasis", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10085
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "80", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L95.1", 
+                    "sub_category": "Other disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2009/10/05", 
+                    "description": "Erythema elevatum diutinum"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 3, 
+                    "wardId": 10018, 
+                    "roomNumber": 57, 
+                    "validUntill": "2008/01/08", 
+                    "validFrom": "2008/01/07"
+                }, 
+                {
+                    "bedNumber": 7, 
+                    "wardId": 10018, 
+                    "roomNumber": 218, 
+                    "validUntill": "2014/03/12", 
+                    "validFrom": "2014/03/10"
+                }, 
+                {
+                    "bedNumber": 7, 
+                    "wardId": 10018, 
+                    "roomNumber": 290, 
+                    "validUntill": "2003/06/27", 
+                    "validFrom": "2003/06/25"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 5, 
+                    "totalMinutes": 10, 
+                    "reportDateTime": "2007/06/05 20:21:00", 
+                    "nurseCount": 2
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Azithromycin  100 mg", 
+                    "orderDate": "2008/06/23 08:18:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Nexium 180 mg", 
+                    "orderDate": "2008/06/19 08:40:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "lausanne", 
+        "surname": "Foster", 
+        "name": "Lorin", 
+        "gender": "male", 
+        "birthDate": "1955/05/26", 
+        "patient_id": "P00056", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [
+                        {
+                            "name": "ALLERGIES_COMMENT", 
+                            "value": "some warning"
+                        }
+                    ], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10112
+                }, 
+                {
+                    "items": [], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10113
+                }
+            ], 
+            "diagnosis": [], 
+            "stays": [
+                {
+                    "bedNumber": 8, 
+                    "wardId": 10264, 
+                    "roomNumber": 262, 
+                    "validUntill": "2003/12/08", 
+                    "validFrom": "2003/12/06"
+                }, 
+                {
+                    "bedNumber": 2, 
+                    "wardId": 10264, 
+                    "roomNumber": 195, 
+                    "validUntill": "2011/05/22", 
+                    "validFrom": "2011/05/20"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 15, 
+                    "totalMinutes": 15, 
+                    "reportDateTime": "2014/09/08 02:18:00", 
+                    "nurseCount": 1
+                }, 
+                {
+                    "minutesPerNurse": 8, 
+                    "totalMinutes": 25, 
+                    "reportDateTime": "2001/05/10 22:45:00", 
+                    "nurseCount": 3
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Abilify 160 mg", 
+                    "orderDate": "2012/07/17 06:08:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Bern", 
+        "surname": "Russell", 
+        "name": "Stuart", 
+        "gender": "male", 
+        "birthDate": "1986/08/10", 
+        "patient_id": "P00073", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10146
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Trichuriasis (Whipworm infection)", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Monkeypox", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10147
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "139", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L60.0", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2010/05/12", 
+                    "description": "Ingrowing nail"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 9, 
+                    "wardId": 10020, 
+                    "roomNumber": 300, 
+                    "validUntill": "2003/12/27", 
+                    "validFrom": "2003/12/25"
+                }, 
+                {
+                    "bedNumber": 6, 
+                    "wardId": 10020, 
+                    "roomNumber": 295, 
+                    "validUntill": "2005/02/17", 
+                    "validFrom": "2005/02/15"
+                }, 
+                {
+                    "bedNumber": 9, 
+                    "wardId": 10020, 
+                    "roomNumber": 4, 
+                    "validUntill": "2001/10/16", 
+                    "validFrom": "2001/10/15"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 25, 
+                    "totalMinutes": 25, 
+                    "reportDateTime": "2013/08/07 16:12:00", 
+                    "nurseCount": 1
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Epogen 200 mg", 
+                    "orderDate": "2002/09/19 13:37:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Generic Norvasc (amlodipine besylate) 20 mg", 
+                    "orderDate": "2003/08/11 22:25:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "Geneva", 
+        "surname": "Martinez", 
+        "name": "Lillie", 
+        "gender": "male", 
+        "birthDate": "1955/02/19", 
+        "patient_id": "P00091", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10182
+                }, 
+                {
+                    "items": [], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10183
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "188", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L70.3", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2011/04/25", 
+                    "description": "Acne tropica"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 4, 
+                    "wardId": 10304, 
+                    "roomNumber": 8, 
+                    "validUntill": "2009/07/07", 
+                    "validFrom": "2009/07/04"
+                }, 
+                {
+                    "bedNumber": 8, 
+                    "wardId": 10304, 
+                    "roomNumber": 253, 
+                    "validUntill": "2009/03/16", 
+                    "validFrom": "2009/03/13"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 7, 
+                    "totalMinutes": 15, 
+                    "reportDateTime": "2008/07/13 01:05:00", 
+                    "nurseCount": 2
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Generic Zocor (simvastatin) 120 mg", 
+                    "orderDate": "2003/10/25 08:46:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Singulair 40 mg", 
+                    "orderDate": "2009/02/23 08:36:00"
+                }, 
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Nexium 40 mg", 
+                    "orderDate": "2011/07/01 10:33:00"
+                }
+            ]
+        }
+    }, 
+    {
+        "city": "lausanne", 
+        "surname": "Roberts", 
+        "name": "Mitchel", 
+        "gender": "male", 
+        "birthDate": "1996/02/21", 
+        "patient_id": "P00092", 
+        "country": "Switzerland", 
+        "patientBasedData": {
+            "formData": [
+                {
+                    "items": [], 
+                    "formType": "ALLERGIES_FORM", 
+                    "FormId": 10184
+                }, 
+                {
+                    "items": [
+                        {
+                            "name": "Botulism (and Infant botulism)", 
+                            "value": "true"
+                        }, 
+                        {
+                            "name": "Leishmaniasis", 
+                            "value": "true"
+                        }
+                    ], 
+                    "formType": "INFECTIOUS_DISEASES_FORM", 
+                    "FormId": 10185
+                }
+            ], 
+            "diagnosis": [
+                {
+                    "diag_id": "189", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L60.2", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2003/08/26", 
+                    "description": "Onychogryphosis"
+                }, 
+                {
+                    "diag_id": "190", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L59.8", 
+                    "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue", 
+                    "diag_date": "2004/10/24", 
+                    "description": "Other specified disorders of skin and subcutaneous tissue related to radiation"
+                }, 
+                {
+                    "diag_id": "191", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L66.8", 
+                    "sub_category": "Disorders of skin appendages", 
+                    "diag_date": "2008/03/04", 
+                    "description": "Other cicatricial alopecia"
+                }, 
+                {
+                    "diag_id": "192", 
+                    "category": "Diseases of the skin and subcutaneous tissue", 
+                    "code": "L03.8", 
+                    "sub_category": "Infections of the skin and subcutaneous tissue", 
+                    "diag_date": "2011/05/17", 
+                    "description": "Cellulitis of other sites"
+                }
+            ], 
+            "stays": [
+                {
+                    "bedNumber": 10, 
+                    "wardId": 9864, 
+                    "roomNumber": 24, 
+                    "validUntill": "2006/01/03", 
+                    "validFrom": "2006/01/02"
+                }
+            ]
+        }, 
+        "chartBasedData": {
+            "nursingReports": [
+                {
+                    "minutesPerNurse": 15, 
+                    "totalMinutes": 15, 
+                    "reportDateTime": "2002/01/03 07:02:00", 
+                    "nurseCount": 1
+                }
+            ], 
+            "medication": [
+                {
+                    "routeOfApplication": "oral", 
+                    "orderer": "Physician", 
+                    "medication": "Azithromycin  40 mg", 
+                    "orderDate": "2002/10/21 15:48:00"
+                }
+            ]
+        }
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select p.patient_id, p.surname,
+       (select d.description from p.patientBasedData.diagnosis d) as diagnosis
+from patients p]]>   </oql>
+   <qrawl>
+<![CDATA[select p.patient_id, p.surname,
+       (select d.description from p.patientBasedData.diagnosis d) as diagnosis
+from patients p]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "surname": "Peterson", 
+        "diagnosis": [
+            "Dermatitis due to other substances taken internally"
+        ], 
+        "patient_id": "P00000"
+    }, 
+    {
+        "surname": "Brown", 
+        "diagnosis": [], 
+        "patient_id": "P00001"
+    }, 
+    {
+        "surname": "Nelson", 
+        "diagnosis": [
+            "Other sunburn"
+        ], 
+        "patient_id": "P00002"
+    }, 
+    {
+        "surname": "Stewart", 
+        "diagnosis": [
+            "Other nail disorders", 
+            "Unspecified contact dermatitis due to dyes"
+        ], 
+        "patient_id": "P00003"
+    }, 
+    {
+        "surname": "Perry", 
+        "diagnosis": [
+            "Telogen effluvium", 
+            "Haematemesis", 
+            "Lichen striatus", 
+            "Lichen striatus"
+        ], 
+        "patient_id": "P00004"
+    }, 
+    {
+        "surname": "Reye", 
+        "diagnosis": [
+            "Nonbullous erythema multiforme", 
+            "Keratosis follicularis et parafollicularis in cutem penetrans [Kyrle]"
+        ], 
+        "patient_id": "P00005"
+    }, 
+    {
+        "surname": "Johnson", 
+        "diagnosis": [
+            "Coxarthrosis, unspecified"
+        ], 
+        "patient_id": "P00006"
+    }, 
+    {
+        "surname": "Fisher", 
+        "diagnosis": [
+            "Acne varioliformis", 
+            "Hydroxyapatite deposition disease"
+        ], 
+        "patient_id": "P00007"
+    }, 
+    {
+        "surname": "Morales", 
+        "diagnosis": [
+            "Photocontact dermatitis [berloque dermatitis]", 
+            "Lymphomatoid papulosis"
+        ], 
+        "patient_id": "P00008"
+    }, 
+    {
+        "surname": "Morgan", 
+        "diagnosis": [
+            "Sclerodactyly", 
+            "Dermatitis herpetiformis"
+        ], 
+        "patient_id": "P00009"
+    }, 
+    {
+        "surname": "Myers", 
+        "diagnosis": [], 
+        "patient_id": "P00010"
+    }, 
+    {
+        "surname": "Allen", 
+        "diagnosis": [
+            "Other chronic figurate erythema"
+        ], 
+        "patient_id": "P00011"
+    }, 
+    {
+        "surname": "Hughes", 
+        "diagnosis": [
+            "Keratosis punctata (palmaris et plantaris)", 
+            "Contact urticaria", 
+            "Solar urticaria"
+        ], 
+        "patient_id": "P00012"
+    }, 
+    {
+        "surname": "Davis", 
+        "diagnosis": [
+            "Erythema ab igne [dermatitis ab igne]", 
+            "Skin changes due to chronic exposure to nonionizing radiation, unspecified", 
+            "Papulosquamous disorder, unspecified", 
+            "Other giant cell arteritis"
+        ], 
+        "patient_id": "P00013"
+    }, 
+    {
+        "surname": "Parker", 
+        "diagnosis": [
+            "Acne excoriee des jeunes filles", 
+            "Pigmented purpuric dermatosis", 
+            "Dermatitis due to other substances taken internally"
+        ], 
+        "patient_id": "P00014"
+    }, 
+    {
+        "surname": "Robinson", 
+        "diagnosis": [
+            "Hepatic sclerosis", 
+            "Disorder of skin and subcutaneous tissue related to radiation, unspecified", 
+            "Urticaria, unspecified", 
+            "Actinic granuloma"
+        ], 
+        "patient_id": "P00015"
+    }, 
+    {
+        "surname": "Lopez", 
+        "diagnosis": [
+            "Psoriasis vulgaris", 
+            "Urticaria due to cold and heat"
+        ], 
+        "patient_id": "P00016"
+    }, 
+    {
+        "surname": "Gonzalez", 
+        "diagnosis": [
+            "Other nail disorders", 
+            "Alopecia areata, unspecified", 
+            "Acquired keratosis follicularis"
+        ], 
+        "patient_id": "P00017"
+    }, 
+    {
+        "surname": "Parker", 
+        "diagnosis": [], 
+        "patient_id": "P00018"
+    }, 
+    {
+        "surname": "Barnes", 
+        "diagnosis": [], 
+        "patient_id": "P00019"
+    }, 
+    {
+        "surname": "Miller", 
+        "diagnosis": [
+            "Large plaque parapsoriasis", 
+            "Nonbullous erythema multiforme", 
+            "Sunburn of third degree", 
+            "Alopecia mucinosa"
+        ], 
+        "patient_id": "P00020"
+    }, 
+    {
+        "surname": "Robinson", 
+        "diagnosis": [
+            "Hypertrophic lichen planus", 
+            "Acne varioliformis"
+        ], 
+        "patient_id": "P00021"
+    }, 
+    {
+        "surname": "Diaz", 
+        "diagnosis": [
+            "Anogenital pruritus, unspecified"
+        ], 
+        "patient_id": "P00022"
+    }, 
+    {
+        "surname": "Flores", 
+        "diagnosis": [], 
+        "patient_id": "P00023"
+    }, 
+    {
+        "surname": "Smith", 
+        "diagnosis": [
+            "Fatty (change of) liver, not elsewhere classified", 
+            "Pyoderma gangrenosum", 
+            "Rheumatoid arthritis, unspecified"
+        ], 
+        "patient_id": "P00024"
+    }, 
+    {
+        "surname": "Hernandez", 
+        "diagnosis": [
+            "Disease of digestive system, unspecified", 
+            "Pemphigus foliaceus", 
+            "Other lichen planus", 
+            "Pemphigus, unspecified"
+        ], 
+        "patient_id": "P00025"
+    }, 
+    {
+        "surname": "Wilson", 
+        "diagnosis": [
+            "Prurigo nodularis"
+        ], 
+        "patient_id": "P00026"
+    }, 
+    {
+        "surname": "Phillips", 
+        "diagnosis": [
+            "Lymphomatoid papulosis", 
+            "Discoid lupus erythematosus", 
+            "Contracture of joint", 
+            "Other psoriasis"
+        ], 
+        "patient_id": "P00027"
+    }, 
+    {
+        "surname": "Moore", 
+        "diagnosis": [
+            "Alopecia universalis", 
+            "Cellulitis of other sites"
+        ], 
+        "patient_id": "P00028"
+    }, 
+    {
+        "surname": "White", 
+        "diagnosis": [
+            "Arthropathic psoriasis", 
+            "Erythema nodosum", 
+            "Exfoliative dermatitis", 
+            "Dermatitis herpetiformis"
+        ], 
+        "patient_id": "P00029"
+    }, 
+    {
+        "surname": "Butler", 
+        "diagnosis": [], 
+        "patient_id": "P00030"
+    }, 
+    {
+        "surname": "Jenkins", 
+        "diagnosis": [
+            "Arthropathy following intestinal bypass", 
+            "Stage III decubitus ulcer"
+        ], 
+        "patient_id": "P00031"
+    }, 
+    {
+        "surname": "Cox", 
+        "diagnosis": [
+            "Ingrowing nail"
+        ], 
+        "patient_id": "P00032"
+    }, 
+    {
+        "surname": "White", 
+        "diagnosis": [
+            "Pruritus ani"
+        ], 
+        "patient_id": "P00033"
+    }, 
+    {
+        "surname": "Thompson", 
+        "diagnosis": [
+            "Lymphomatoid papulosis", 
+            "Cellulitis of face", 
+            "Other alopecia areata", 
+            "Erythema marginatum in acute rheumatic fever"
+        ], 
+        "patient_id": "P00034"
+    }, 
+    {
+        "surname": "Ross", 
+        "diagnosis": [
+            "Localized hypertrichosis", 
+            "Irritant contact dermatitis due to oils and greases", 
+            "Pemphigus vulgaris"
+        ], 
+        "patient_id": "P00035"
+    }, 
+    {
+        "surname": "Rodriguez", 
+        "diagnosis": [
+            "Cicatricial pemphigoid", 
+            "Generalized skin eruption due to drugs and medicaments"
+        ], 
+        "patient_id": "P00036"
+    }, 
+    {
+        "surname": "Bailey", 
+        "diagnosis": [], 
+        "patient_id": "P00037"
+    }, 
+    {
+        "surname": "Edwards", 
+        "diagnosis": [], 
+        "patient_id": "P00038"
+    }, 
+    {
+        "surname": "Fisher", 
+        "diagnosis": [
+            "Other urticaria", 
+            "Trichorrhexis nodosa"
+        ], 
+        "patient_id": "P00039"
+    }, 
+    {
+        "surname": "Baker", 
+        "diagnosis": [
+            "Acne excoriee des jeunes filles", 
+            "Calculus of gallbladder without cholecystitis", 
+            "Other peritonitis"
+        ], 
+        "patient_id": "P00040"
+    }, 
+    {
+        "surname": "Ross", 
+        "diagnosis": [], 
+        "patient_id": "P00041"
+    }, 
+    {
+        "surname": "Scott", 
+        "diagnosis": [
+            "Erythema elevatum diutinum"
+        ], 
+        "patient_id": "P00042"
+    }, 
+    {
+        "surname": "Hernandez", 
+        "diagnosis": [], 
+        "patient_id": "P00043"
+    }, 
+    {
+        "surname": "Butler", 
+        "diagnosis": [
+            "Acute lymphadenitis of other sites"
+        ], 
+        "patient_id": "P00044"
+    }, 
+    {
+        "surname": "Stewart", 
+        "diagnosis": [
+            "Other specified papulosquamous disorders", 
+            "Ophiasis", 
+            "Other forms of systemic lupus erythematosus"
+        ], 
+        "patient_id": "P00045"
+    }, 
+    {
+        "surname": "Richardson", 
+        "diagnosis": [], 
+        "patient_id": "P00046"
+    }, 
+    {
+        "surname": "Walker", 
+        "diagnosis": [
+            "Alcohol-induced chronic pancreatitis", 
+            "Stage II decubitus ulcer", 
+            "Villonodular synovitis (pigmented)", 
+            "Apocrine miliaria"
+        ], 
+        "patient_id": "P00047"
+    }, 
+    {
+        "surname": "Parker", 
+        "diagnosis": [
+            "Chronic bullous disease of childhood", 
+            "Androgenic alopecia, unspecified"
+        ], 
+        "patient_id": "P00048"
+    }, 
+    {
+        "surname": "Rodriguez", 
+        "diagnosis": [
+            "Coeliac disease"
+        ], 
+        "patient_id": "P00049"
+    }, 
+    {
+        "surname": "Moore", 
+        "diagnosis": [
+            "Acquired clawhand, clubhand, clawfoot and clubfoot"
+        ], 
+        "patient_id": "P00050"
+    }, 
+    {
+        "surname": "Kelly", 
+        "diagnosis": [
+            "Secondary biliary cirrhosis", 
+            "Hydrops of gallbladder", 
+            "Decubitus ulcer and pressure area, unspecified", 
+            "Keratoderma in diseases classified elsewhere"
+        ], 
+        "patient_id": "P00051"
+    }, 
+    {
+        "surname": "Wright", 
+        "diagnosis": [
+            "Alcohol-induced chronic pancreatitis", 
+            "Cholangitis", 
+            "Onycholysis"
+        ], 
+        "patient_id": "P00052"
+    }, 
+    {
+        "surname": "Allen", 
+        "diagnosis": [
+            "Folliculitis ulerythematosa reticulata", 
+            "Rheumatoid arthritis with involvement of other organs and systems"
+        ], 
+        "patient_id": "P00053"
+    }, 
+    {
+        "surname": "Allen", 
+        "diagnosis": [
+            "Hidradenitis suppurativa", 
+            "Hypertrophic lichen planus"
+        ], 
+        "patient_id": "P00054"
+    }, 
+    {
+        "surname": "Sanders", 
+        "diagnosis": [
+            "Yellow nail syndrome", 
+            "Lichen planopilaris", 
+            "Pyoderma gangrenosum", 
+            "Acne tropica"
+        ], 
+        "patient_id": "P00055"
+    }, 
+    {
+        "surname": "Foster", 
+        "diagnosis": [], 
+        "patient_id": "P00056"
+    }, 
+    {
+        "surname": "Baker", 
+        "diagnosis": [
+            "Actinic reticuloid", 
+            "Irritant contact dermatitis due to food in contact with skin"
+        ], 
+        "patient_id": "P00057"
+    }, 
+    {
+        "surname": "Evans", 
+        "diagnosis": [], 
+        "patient_id": "P00058"
+    }, 
+    {
+        "surname": "Cook", 
+        "diagnosis": [
+            "Acquired ichthyosis", 
+            "Pseudopelade", 
+            "Chronic bullous disease of childhood", 
+            "Ulcer of lower limb, not elsewhere classified"
+        ], 
+        "patient_id": "P00059"
+    }, 
+    {
+        "surname": "Walker", 
+        "diagnosis": [
+            "Lichen nitidus"
+        ], 
+        "patient_id": "P00060"
+    }, 
+    {
+        "surname": "Thomas", 
+        "diagnosis": [
+            "Localized connective tissue disorder, unspecified", 
+            "Lichen planopilaris", 
+            "Other sunburn", 
+            "Drug-induced acute pancreatitis"
+        ], 
+        "patient_id": "P00061"
+    }, 
+    {
+        "surname": "Taylor", 
+        "diagnosis": [
+            "Juvenile rheumatoid arthritis", 
+            "Cutis laxa senilis", 
+            "Felty syndrome", 
+            "Seborrhoeic keratosis"
+        ], 
+        "patient_id": "P00062"
+    }, 
+    {
+        "surname": "Long", 
+        "diagnosis": [], 
+        "patient_id": "P00063"
+    }, 
+    {
+        "surname": "Ross", 
+        "diagnosis": [
+            "Lichen nitidus", 
+            "Acute lymphadenitis of face, head and neck"
+        ], 
+        "patient_id": "P00064"
+    }, 
+    {
+        "surname": "Howard", 
+        "diagnosis": [
+            "Allergic contact dermatitis due to other agents"
+        ], 
+        "patient_id": "P00065"
+    }, 
+    {
+        "surname": "Rodriguez", 
+        "diagnosis": [
+            "Other pemphigus", 
+            "Acute radiodermatitis", 
+            "Juvenile ankylosing spondylitis", 
+            "Diaper [napkin] dermatitis"
+        ], 
+        "patient_id": "P00066"
+    }, 
+    {
+        "surname": "Harris", 
+        "diagnosis": [], 
+        "patient_id": "P00067"
+    }, 
+    {
+        "surname": "Long", 
+        "diagnosis": [
+            "Rhinophyma", 
+            "Localized scleroderma [morphea]", 
+            "Other acne"
+        ], 
+        "patient_id": "P00068"
+    }, 
+    {
+        "surname": "Martin", 
+        "diagnosis": [
+            "Localized hypertrichosis"
+        ], 
+        "patient_id": "P00069"
+    }, 
+    {
+        "surname": "Russell", 
+        "diagnosis": [], 
+        "patient_id": "P00070"
+    }, 
+    {
+        "surname": "Brown", 
+        "diagnosis": [
+            "Other specified follicular disorders", 
+            "Acanthosis nigricans"
+        ], 
+        "patient_id": "P00071"
+    }, 
+    {
+        "surname": "Cox", 
+        "diagnosis": [
+            "Subacute (active) lichen planus", 
+            "Cellulitis of trunk", 
+            "Erythema in other diseases classified elsewhere"
+        ], 
+        "patient_id": "P00072"
+    }, 
+    {
+        "surname": "Russell", 
+        "diagnosis": [
+            "Ingrowing nail"
+        ], 
+        "patient_id": "P00073"
+    }, 
+    {
+        "surname": "Taylor", 
+        "diagnosis": [
+            "Sclerodactyly"
+        ], 
+        "patient_id": "P00074"
+    }, 
+    {
+        "surname": "Mitchell", 
+        "diagnosis": [
+            "Enteroptosis", 
+            "Polymorphous light eruption", 
+            "Other specified diseases of digestive system"
+        ], 
+        "patient_id": "P00075"
+    }, 
+    {
+        "surname": "Baker", 
+        "diagnosis": [
+            "Androgenic alopecia, unspecified", 
+            "Acquired ichthyosis", 
+            "Acute radiodermatitis", 
+            "Erythema ab igne [dermatitis ab igne]"
+        ], 
+        "patient_id": "P00076"
+    }, 
+    {
+        "surname": "Watson", 
+        "diagnosis": [
+            "Chondromalacia patellae", 
+            "Erythema multiforme, unspecified", 
+            "Generalized pustular psoriasis", 
+            "Photocontact dermatitis [berloque dermatitis]"
+        ], 
+        "patient_id": "P00077"
+    }, 
+    {
+        "surname": "Sanchez", 
+        "diagnosis": [], 
+        "patient_id": "P00078"
+    }, 
+    {
+        "surname": "Garcia", 
+        "diagnosis": [
+            "Psoriasis vulgaris", 
+            "Pemphigoid, unspecified", 
+            "Contact urticaria"
+        ], 
+        "patient_id": "P00079"
+    }, 
+    {
+        "surname": "Adams", 
+        "diagnosis": [
+            "Arthropathy in amyloidosis", 
+            "Unspecified contact dermatitis due to plants, except food", 
+            "Androgenic alopecia, unspecified", 
+            "Erythema marginatum in acute rheumatic fever"
+        ], 
+        "patient_id": "P00080"
+    }, 
+    {
+        "surname": "Jones", 
+        "diagnosis": [], 
+        "patient_id": "P00081"
+    }, 
+    {
+        "surname": "Harris", 
+        "diagnosis": [
+            "Irritant contact dermatitis due to cosmetics", 
+            "Irritant contact dermatitis due to food in contact with skin", 
+            "Localized connective tissue disorder, unspecified"
+        ], 
+        "patient_id": "P00082"
+    }, 
+    {
+        "surname": "Brooks", 
+        "diagnosis": [
+            "Unspecified contact dermatitis due to dyes", 
+            "Pityriasis rosea", 
+            "Acquired epidermolysis bullosa", 
+            "Chloasma"
+        ], 
+        "patient_id": "P00083"
+    }, 
+    {
+        "surname": "Moore", 
+        "diagnosis": [
+            "Small plaque parapsoriasis", 
+            "Follicular disorder, unspecified", 
+            "Actinic keratosis"
+        ], 
+        "patient_id": "P00084"
+    }, 
+    {
+        "surname": "Gomez", 
+        "diagnosis": [
+            "Rhinophyma", 
+            "Atrophoderma of Pasini and Pierini", 
+            "Miliaria crystallina", 
+            "Acrodermatitis chronica atrophicans"
+        ], 
+        "patient_id": "P00085"
+    }, 
+    {
+        "surname": "Baker", 
+        "diagnosis": [
+            "Papulosquamous disorder, unspecified", 
+            "Seborrhoeic dermatitis, unspecified", 
+            "Subacute cutaneous lupus erythematosus", 
+            "Radiodermatitis, unspecified"
+        ], 
+        "patient_id": "P00086"
+    }, 
+    {
+        "surname": "Campbell", 
+        "diagnosis": [
+            "Acquired ichthyosis", 
+            "Coeliac disease"
+        ], 
+        "patient_id": "P00087"
+    }, 
+    {
+        "surname": "Powell", 
+        "diagnosis": [
+            "Allergic urticaria", 
+            "Decubitus ulcer and pressure area, unspecified", 
+            "Hypertrophic lichen planus", 
+            "Other pruritus"
+        ], 
+        "patient_id": "P00088"
+    }, 
+    {
+        "surname": "Flores", 
+        "diagnosis": [
+            "Cicatricial alopecia, unspecified", 
+            "Dermatographic urticaria", 
+            "Urticaria, unspecified"
+        ], 
+        "patient_id": "P00089"
+    }, 
+    {
+        "surname": "Thomas", 
+        "diagnosis": [
+            "Polymorphous light eruption", 
+            "Solar urticaria"
+        ], 
+        "patient_id": "P00090"
+    }, 
+    {
+        "surname": "Martinez", 
+        "diagnosis": [
+            "Acne tropica"
+        ], 
+        "patient_id": "P00091"
+    }, 
+    {
+        "surname": "Roberts", 
+        "diagnosis": [
+            "Onychogryphosis", 
+            "Other specified disorders of skin and subcutaneous tissue related to radiation", 
+            "Other cicatricial alopecia", 
+            "Cellulitis of other sites"
+        ], 
+        "patient_id": "P00092"
+    }, 
+    {
+        "surname": "Sanders", 
+        "diagnosis": [
+            "Ulcer of lower limb, not elsewhere classified", 
+            "Keratosis follicularis et parafollicularis in cutem penetrans [Kyrle]", 
+            "Erythema in other diseases classified elsewhere"
+        ], 
+        "patient_id": "P00093"
+    }, 
+    {
+        "surname": "Thomas", 
+        "diagnosis": [
+            "Trichorrhexis nodosa", 
+            "Allergic contact dermatitis due to dyes", 
+            "Keratoderma in diseases classified elsewhere"
+        ], 
+        "patient_id": "P00094"
+    }, 
+    {
+        "surname": "Young", 
+        "diagnosis": [
+            "Actinic keratosis", 
+            "Allergic contact dermatitis due to cosmetics", 
+            "Onycholysis", 
+            "Folliculitis decalvans"
+        ], 
+        "patient_id": "P00095"
+    }, 
+    {
+        "surname": "Baker", 
+        "diagnosis": [
+            "Toxic erythema", 
+            "Photocontact dermatitis [berloque dermatitis]", 
+            "Disease of digestive system, unspecified", 
+            "Other specified papulosquamous disorders"
+        ], 
+        "patient_id": "P00096"
+    }, 
+    {
+        "surname": "Murphy", 
+        "diagnosis": [
+            "Arthropathic psoriasis", 
+            "Other specified acantholytic disorders"
+        ], 
+        "patient_id": "P00097"
+    }, 
+    {
+        "surname": "Nelson", 
+        "diagnosis": [
+            "Seborrhoea capitis", 
+            "Other cicatricial alopecia"
+        ], 
+        "patient_id": "P00098"
+    }, 
+    {
+        "surname": "Kelly", 
+        "diagnosis": [
+            "Telogen effluvium", 
+            "Lichen sclerosus et atrophicus"
+        ], 
+        "patient_id": "P00099"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select p.name, p.surname,
+       (select d.description from p.patientBasedData.diagnosis d) as diagnosis,
+       (select i.name from p.patientBasedData.formData f, f.items i ) as forms
+from patients p where p.surname = "Thomas"]]>   </oql>
+   <qrawl>
+<![CDATA[select p.name, p.surname,
+       (select d.description from p.patientBasedData.diagnosis d) as diagnosis,
+       (select i.name from p.patientBasedData.formData f, f.items i ) as forms
+from patients p where p.surname = "Thomas"]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "forms": [
+            "Geotrichosis", 
+            "Marburg hemorrhagic fever (MHF)"
+        ], 
+        "surname": "Thomas", 
+        "name": "Leslie", 
+        "diagnosis": [
+            "Localized connective tissue disorder, unspecified", 
+            "Lichen planopilaris", 
+            "Other sunburn", 
+            "Drug-induced acute pancreatitis"
+        ]
+    }, 
+    {
+        "forms": [
+            "ALLERGIES_COMMENT", 
+            "Non-steroidal anti-inflammatories"
+        ], 
+        "surname": "Thomas", 
+        "name": "Jesse", 
+        "diagnosis": [
+            "Polymorphous light eruption", 
+            "Solar urticaria"
+        ]
+    }, 
+    {
+        "forms": [
+            "Yellow fever", 
+            "Bolivian hemorrhagic fever"
+        ], 
+        "surname": "Thomas", 
+        "name": "Douglas", 
+        "diagnosis": [
+            "Trichorrhexis nodosa", 
+            "Allergic contact dermatitis due to dyes", 
+            "Keratoderma in diseases classified elsewhere"
+        ]
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select gender, city, (select d from partition) as diagnosis from (
+       select p.gender, p.city,
+              (select d.description from p.patientBasedData.diagnosis d) as diagnosis
+       from patients p where p.country = "Portugal"
+       ) T, T.diagnosis d
+group by gender: T.gender, city: T.city]]>   </oql>
+   <qrawl>
+<![CDATA[select gender, city, (select d from partition) as diagnosis from (
+       select p.gender, p.city,
+              (select d.description from p.patientBasedData.diagnosis d) as diagnosis
+       from patients p where p.country = "Portugal"
+       ) T, T.diagnosis d
+group by gender: T.gender, city: T.city]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "gender": "female", 
+        "diagnosis": [
+            "Folliculitis ulerythematosa reticulata", 
+            "Rheumatoid arthritis with involvement of other organs and systems", 
+            "Telogen effluvium", 
+            "Lichen sclerosus et atrophicus"
+        ], 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "female", 
+        "diagnosis": [
+            "Hidradenitis suppurativa", 
+            "Hypertrophic lichen planus"
+        ], 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "female", 
+        "diagnosis": [
+            "Yellow nail syndrome", 
+            "Lichen planopilaris", 
+            "Pyoderma gangrenosum", 
+            "Acne tropica", 
+            "Other specified follicular disorders", 
+            "Acanthosis nigricans", 
+            "Rhinophyma", 
+            "Atrophoderma of Pasini and Pierini", 
+            "Miliaria crystallina", 
+            "Acrodermatitis chronica atrophicans", 
+            "Acquired ichthyosis", 
+            "Coeliac disease", 
+            "Allergic urticaria", 
+            "Decubitus ulcer and pressure area, unspecified", 
+            "Hypertrophic lichen planus", 
+            "Other pruritus"
+        ], 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "diagnosis": [
+            "Other pemphigus", 
+            "Acute radiodermatitis", 
+            "Juvenile ankylosing spondylitis", 
+            "Diaper [napkin] dermatitis", 
+            "Other sunburn", 
+            "Lymphomatoid papulosis", 
+            "Discoid lupus erythematosus", 
+            "Contracture of joint", 
+            "Other psoriasis", 
+            "Arthropathic psoriasis", 
+            "Erythema nodosum", 
+            "Exfoliative dermatitis", 
+            "Dermatitis herpetiformis", 
+            "Pruritus ani", 
+            "Lymphomatoid papulosis", 
+            "Cellulitis of face", 
+            "Other alopecia areata", 
+            "Erythema marginatum in acute rheumatic fever"
+        ], 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "diagnosis": [
+            "Toxic erythema", 
+            "Photocontact dermatitis [berloque dermatitis]", 
+            "Disease of digestive system, unspecified", 
+            "Other specified papulosquamous disorders", 
+            "Acne excoriee des jeunes filles", 
+            "Calculus of gallbladder without cholecystitis", 
+            "Other peritonitis"
+        ], 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "male", 
+        "diagnosis": [
+            "Alopecia universalis", 
+            "Cellulitis of other sites"
+        ], 
+        "city": "Oporto"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select gender, (select d from partition) as diagnosis, (select f from partition) as forms
+from (select p.gender, p.city,
+            (select d.description from p.patientBasedData.diagnosis d) as diagnosis,
+            (select  i.name from p.patientBasedData.formData f, f.items i ) as forms
+      from patients p where p.city = "Oporto"
+     ) T, T.diagnosis d, T.forms f
+group by gender: T.gender, city: T.city]]>   </oql>
+   <qrawl>
+<![CDATA[select gender, (select d from partition) as diagnosis, (select f from partition) as forms
+from (select p.gender, p.city,
+            (select d.description from p.patientBasedData.diagnosis d) as diagnosis,
+            (select  i.name from p.patientBasedData.formData f, f.items i ) as forms
+      from patients p where p.city = "Oporto"
+     ) T, T.diagnosis d, T.forms f
+group by gender: T.gender, city: T.city]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "forms": [
+            "ALLERGIES_COMMENT", 
+            "Desmodesmus infection", 
+            "Sepsis", 
+            "ALLERGIES_COMMENT", 
+            "Desmodesmus infection", 
+            "Sepsis", 
+            "ALLERGIES_COMMENT", 
+            "Desmodesmus infection", 
+            "Sepsis", 
+            "ALLERGIES_COMMENT", 
+            "Desmodesmus infection", 
+            "Sepsis", 
+            "Monkeypox", 
+            "Monkeypox", 
+            "Monkeypox", 
+            "Monkeypox", 
+            "ALLERGIES_COMMENT", 
+            "Dilantin", 
+            "Trichinosis", 
+            "Creutzfeldt-Jakob disease (CJD)", 
+            "ALLERGIES_COMMENT", 
+            "Dilantin", 
+            "Trichinosis", 
+            "Creutzfeldt-Jakob disease (CJD)", 
+            "Enterococcus infection", 
+            "Enterococcus infection", 
+            "Enterococcus infection", 
+            "Enterococcus infection"
+        ], 
+        "gender": "female", 
+        "diagnosis": [
+            "Yellow nail syndrome", 
+            "Yellow nail syndrome", 
+            "Yellow nail syndrome", 
+            "Lichen planopilaris", 
+            "Lichen planopilaris", 
+            "Lichen planopilaris", 
+            "Pyoderma gangrenosum", 
+            "Pyoderma gangrenosum", 
+            "Pyoderma gangrenosum", 
+            "Acne tropica", 
+            "Acne tropica", 
+            "Acne tropica", 
+            "Rhinophyma", 
+            "Atrophoderma of Pasini and Pierini", 
+            "Miliaria crystallina", 
+            "Acrodermatitis chronica atrophicans", 
+            "Acquired ichthyosis", 
+            "Acquired ichthyosis", 
+            "Acquired ichthyosis", 
+            "Acquired ichthyosis", 
+            "Coeliac disease", 
+            "Coeliac disease", 
+            "Coeliac disease", 
+            "Coeliac disease", 
+            "Allergic urticaria", 
+            "Decubitus ulcer and pressure area, unspecified", 
+            "Hypertrophic lichen planus", 
+            "Other pruritus"
+        ]
+    }, 
+    {
+        "forms": [
+            "ALLERGIES_COMMENT", 
+            "Non-steroidal anti-inflammatories", 
+            "Anaplasmosis", 
+            "Schistosomiasis", 
+            "ALLERGIES_COMMENT", 
+            "Non-steroidal anti-inflammatories", 
+            "Anaplasmosis", 
+            "Schistosomiasis"
+        ], 
+        "gender": "male", 
+        "diagnosis": [
+            "Alopecia universalis", 
+            "Alopecia universalis", 
+            "Alopecia universalis", 
+            "Alopecia universalis", 
+            "Cellulitis of other sites", 
+            "Cellulitis of other sites", 
+            "Cellulitis of other sites", 
+            "Cellulitis of other sites"
+        ]
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select city, sum(select p.T.med from partition p) as N
+from (
+      select p.city as city, count(p.chartBasedData.medication) as med
+      from patients p
+     ) T
+group by city: T.city]]>   </oql>
+   <qrawl>
+<![CDATA[select city, sum(select p.T.med from partition p) as N
+from (
+      select p.city as city, count(p.chartBasedData.medication) as med
+      from patients p
+     ) T
+group by city: T.city]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "city": "Bern", 
+        "N": 12
+    }, 
+    {
+        "city": "Bordeaux", 
+        "N": 5
+    }, 
+    {
+        "city": "Florence", 
+        "N": 27
+    }, 
+    {
+        "city": "Geneva", 
+        "N": 9
+    }, 
+    {
+        "city": "Guimaraes", 
+        "N": 26
+    }, 
+    {
+        "city": "Lisbon", 
+        "N": 9
+    }, 
+    {
+        "city": "Lyon", 
+        "N": 11
+    }, 
+    {
+        "city": "Marseille", 
+        "N": 13
+    }, 
+    {
+        "city": "Milan", 
+        "N": 19
+    }, 
+    {
+        "city": "Oporto", 
+        "N": 18
+    }, 
+    {
+        "city": "Paris", 
+        "N": 14
+    }, 
+    {
+        "city": "Rome", 
+        "N": 17
+    }, 
+    {
+        "city": "Zurich", 
+        "N": 13
+    }, 
+    {
+        "city": "lausanne", 
+        "N": 11
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select d.description, d.sub_category, d.category
+from patients p,
+     p.patientBasedData.diagnosis d]]>   </oql>
+   <qrawl>
+<![CDATA[select d.description, d.sub_category, d.category
+from patients p,
+     p.patientBasedData.diagnosis d]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Dermatitis due to other substances taken internally", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other sunburn", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other nail disorders", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Unspecified contact dermatitis due to dyes", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Telogen effluvium", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Haematemesis", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen striatus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen striatus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Nonbullous erythema multiforme", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Keratosis follicularis et parafollicularis in cutem penetrans [Kyrle]", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Coxarthrosis, unspecified", 
+        "sub_category": "Arthrosis"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne varioliformis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Hydroxyapatite deposition disease", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Photocontact dermatitis [berloque dermatitis]", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lymphomatoid papulosis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Sclerodactyly", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Dermatitis herpetiformis", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other chronic figurate erythema", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Keratosis punctata (palmaris et plantaris)", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Contact urticaria", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Solar urticaria", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema ab igne [dermatitis ab igne]", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Skin changes due to chronic exposure to nonionizing radiation, unspecified", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Papulosquamous disorder, unspecified", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Other giant cell arteritis", 
+        "sub_category": "Systemic connective tissue disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne excoriee des jeunes filles", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pigmented purpuric dermatosis", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Dermatitis due to other substances taken internally", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Hepatic sclerosis", 
+        "sub_category": "Diseases of liver"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Disorder of skin and subcutaneous tissue related to radiation, unspecified", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Urticaria, unspecified", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Actinic granuloma", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Psoriasis vulgaris", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Urticaria due to cold and heat", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other nail disorders", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Alopecia areata, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acquired keratosis follicularis", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Large plaque parapsoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Nonbullous erythema multiforme", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Sunburn of third degree", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Alopecia mucinosa", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Hypertrophic lichen planus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne varioliformis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Anogenital pruritus, unspecified", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Fatty (change of) liver, not elsewhere classified", 
+        "sub_category": "Diseases of liver"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pyoderma gangrenosum", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Rheumatoid arthritis, unspecified", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Disease of digestive system, unspecified", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pemphigus foliaceus", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other lichen planus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pemphigus, unspecified", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Prurigo nodularis", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lymphomatoid papulosis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Discoid lupus erythematosus", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Contracture of joint", 
+        "sub_category": "Other joint disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other psoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Alopecia universalis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cellulitis of other sites", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Arthropathic psoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema nodosum", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Exfoliative dermatitis", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Dermatitis herpetiformis", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Arthropathy following intestinal bypass", 
+        "sub_category": "Infectious arthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Stage III decubitus ulcer", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Ingrowing nail", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pruritus ani", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lymphomatoid papulosis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cellulitis of face", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other alopecia areata", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema marginatum in acute rheumatic fever", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Localized hypertrichosis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Irritant contact dermatitis due to oils and greases", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pemphigus vulgaris", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cicatricial pemphigoid", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Generalized skin eruption due to drugs and medicaments", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other urticaria", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Trichorrhexis nodosa", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne excoriee des jeunes filles", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Calculus of gallbladder without cholecystitis", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Other peritonitis", 
+        "sub_category": "Diseases of peritoneum"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema elevatum diutinum", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acute lymphadenitis of other sites", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other specified papulosquamous disorders", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Ophiasis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Other forms of systemic lupus erythematosus", 
+        "sub_category": "Systemic connective tissue disorders"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Alcohol-induced chronic pancreatitis", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Stage II decubitus ulcer", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Villonodular synovitis (pigmented)", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Apocrine miliaria", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Chronic bullous disease of childhood", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Androgenic alopecia, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Coeliac disease", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Acquired clawhand, clubhand, clawfoot and clubfoot", 
+        "sub_category": "Other joint disorders"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Secondary biliary cirrhosis", 
+        "sub_category": "Diseases of liver"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Hydrops of gallbladder", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Decubitus ulcer and pressure area, unspecified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Keratoderma in diseases classified elsewhere", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Alcohol-induced chronic pancreatitis", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Cholangitis", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Onycholysis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Folliculitis ulerythematosa reticulata", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Rheumatoid arthritis with involvement of other organs and systems", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Hidradenitis suppurativa", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Hypertrophic lichen planus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Yellow nail syndrome", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen planopilaris", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pyoderma gangrenosum", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne tropica", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Actinic reticuloid", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Irritant contact dermatitis due to food in contact with skin", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acquired ichthyosis", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pseudopelade", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Chronic bullous disease of childhood", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Ulcer of lower limb, not elsewhere classified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen nitidus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Localized connective tissue disorder, unspecified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen planopilaris", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other sunburn", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Drug-induced acute pancreatitis", 
+        "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Juvenile rheumatoid arthritis", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cutis laxa senilis", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Felty syndrome", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Seborrhoeic keratosis", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen nitidus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acute lymphadenitis of face, head and neck", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Allergic contact dermatitis due to other agents", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other pemphigus", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acute radiodermatitis", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Juvenile ankylosing spondylitis", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Diaper [napkin] dermatitis", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Rhinophyma", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Localized scleroderma [morphea]", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other acne", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Localized hypertrichosis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other specified follicular disorders", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acanthosis nigricans", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Subacute (active) lichen planus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cellulitis of trunk", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema in other diseases classified elsewhere", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Ingrowing nail", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Sclerodactyly", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Enteroptosis", 
+        "sub_category": "Other diseases of intestines"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Polymorphous light eruption", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Other specified diseases of digestive system", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Androgenic alopecia, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acquired ichthyosis", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acute radiodermatitis", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema ab igne [dermatitis ab igne]", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Chondromalacia patellae", 
+        "sub_category": "Other joint disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema multiforme, unspecified", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Generalized pustular psoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Photocontact dermatitis [berloque dermatitis]", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Psoriasis vulgaris", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pemphigoid, unspecified", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Contact urticaria", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "description": "Arthropathy in amyloidosis", 
+        "sub_category": "Inflammatory polyarthropathies"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Unspecified contact dermatitis due to plants, except food", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Androgenic alopecia, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema marginatum in acute rheumatic fever", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Irritant contact dermatitis due to cosmetics", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Irritant contact dermatitis due to food in contact with skin", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Localized connective tissue disorder, unspecified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Unspecified contact dermatitis due to dyes", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Pityriasis rosea", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acquired epidermolysis bullosa", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Chloasma", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Small plaque parapsoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Follicular disorder, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Actinic keratosis", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Rhinophyma", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Atrophoderma of Pasini and Pierini", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Miliaria crystallina", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acrodermatitis chronica atrophicans", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Papulosquamous disorder, unspecified", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Seborrhoeic dermatitis, unspecified", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Subacute cutaneous lupus erythematosus", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Radiodermatitis, unspecified", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acquired ichthyosis", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Coeliac disease", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Allergic urticaria", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Decubitus ulcer and pressure area, unspecified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Hypertrophic lichen planus", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other pruritus", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cicatricial alopecia, unspecified", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Dermatographic urticaria", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Urticaria, unspecified", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Polymorphous light eruption", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Solar urticaria", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Acne tropica", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Onychogryphosis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other specified disorders of skin and subcutaneous tissue related to radiation", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other cicatricial alopecia", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Cellulitis of other sites", 
+        "sub_category": "Infections of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Ulcer of lower limb, not elsewhere classified", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Keratosis follicularis et parafollicularis in cutem penetrans [Kyrle]", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Erythema in other diseases classified elsewhere", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Trichorrhexis nodosa", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Allergic contact dermatitis due to dyes", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Keratoderma in diseases classified elsewhere", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Actinic keratosis", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Allergic contact dermatitis due to cosmetics", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Onycholysis", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Folliculitis decalvans", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Toxic erythema", 
+        "sub_category": "Urticaria and erythema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Photocontact dermatitis [berloque dermatitis]", 
+        "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "description": "Disease of digestive system, unspecified", 
+        "sub_category": "Other diseases of the digestive system"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other specified papulosquamous disorders", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Arthropathic psoriasis", 
+        "sub_category": "Papulosquamous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other specified acantholytic disorders", 
+        "sub_category": "Bullous disorders"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Seborrhoea capitis", 
+        "sub_category": "Dermatitis and eczema"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Other cicatricial alopecia", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Telogen effluvium", 
+        "sub_category": "Disorders of skin appendages"
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "description": "Lichen sclerosus et atrophicus", 
+        "sub_category": "Other disorders of the skin and subcutaneous tissue"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select category, city, count(partition)
+from patients p,
+     p.patientBasedData.diagnosis d
+group by city: p.city, category: d.category]]>   </oql>
+   <qrawl>
+<![CDATA[select category, city, count(partition)
+from patients p,
+     p.patientBasedData.diagnosis d
+group by city: p.city, category: d.category]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Bern", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Bern", 
+        "_X0": 12
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Bordeaux", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Bordeaux", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Bordeaux", 
+        "_X0": 4
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Florence", 
+        "_X0": 3
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Florence", 
+        "_X0": 22
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Geneva", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Geneva", 
+        "_X0": 2
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Geneva", 
+        "_X0": 8
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Guimaraes", 
+        "_X0": 3
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Guimaraes", 
+        "_X0": 19
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Lisbon", 
+        "_X0": 3
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Lisbon", 
+        "_X0": 6
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Lyon", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Lyon", 
+        "_X0": 6
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Marseille", 
+        "_X0": 2
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Marseille", 
+        "_X0": 10
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Milan", 
+        "_X0": 2
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Milan", 
+        "_X0": 2
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Milan", 
+        "_X0": 24
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Oporto", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Oporto", 
+        "_X0": 17
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Paris", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Paris", 
+        "_X0": 17
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Rome", 
+        "_X0": 3
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Rome", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Rome", 
+        "_X0": 13
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "Zurich", 
+        "_X0": 2
+    }, 
+    {
+        "category": "Diseases of the musculoskeletal system and connective tissue", 
+        "city": "Zurich", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "Zurich", 
+        "_X0": 14
+    }, 
+    {
+        "category": "Diseases of the digestive system", 
+        "city": "lausanne", 
+        "_X0": 1
+    }, 
+    {
+        "category": "Diseases of the skin and subcutaneous tissue", 
+        "city": "lausanne", 
+        "_X0": 9
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select p.gender as gender, p.city as city, p.country as country, count(p.chartBasedData.medication) as med
+from patients p]]>   </oql>
+   <qrawl>
+<![CDATA[select p.gender as gender, p.city as city, p.country as country, count(p.chartBasedData.medication) as med
+from patients p]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Geneva"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Geneva"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Lyon"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Geneva"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Bordeaux"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Lyon"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Rome"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Geneva"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Bordeaux"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Lyon"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "France", 
+        "city": "Lyon"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Marseille"
+    }, 
+    {
+        "gender": "male", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Switzerland", 
+        "city": "Bern"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "France", 
+        "city": "Lyon"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Zurich"
+    }, 
+    {
+        "gender": "female", 
+        "med": 3, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Portugal", 
+        "city": "Oporto"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Switzerland", 
+        "city": "Geneva"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "male", 
+        "med": 3, 
+        "country": "Italy", 
+        "city": "Florence"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "France", 
+        "city": "Paris"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "male", 
+        "med": 1, 
+        "country": "Portugal", 
+        "city": "Lisbon"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Italy", 
+        "city": "Milan"
+    }, 
+    {
+        "gender": "female", 
+        "med": 2, 
+        "country": "Switzerland", 
+        "city": "lausanne"
+    }, 
+    {
+        "gender": "female", 
+        "med": 1, 
+        "country": "Portugal", 
+        "city": "Guimaraes"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select T.p.surname, min(T.d) as m, max(T.d) as M, avg(T.d) as a
+from (
+      select p, (select r.totalMinutes from p.chartBasedData.nursingReports r) as d
+      from patients p
+      where p.country = "Italy"
+     ) T
+order by max(T.d)]]>   </oql>
+   <qrawl>
+<![CDATA[select T.p.surname, min(T.d) as m, max(T.d) as M, avg(T.d) as a
+from (
+      select p, (select r.totalMinutes from p.chartBasedData.nursingReports r) as d
+      from patients p
+      where p.country = "Italy"
+     ) T
+order by max(T.d)]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "a": 5, 
+        "m": 5, 
+        "M": 5, 
+        "surname": "Butler"
+    }, 
+    {
+        "a": 5, 
+        "m": 5, 
+        "M": 5, 
+        "surname": "Morgan"
+    }, 
+    {
+        "a": 10, 
+        "m": 10, 
+        "M": 10, 
+        "surname": "Wright"
+    }, 
+    {
+        "a": 10, 
+        "m": 10, 
+        "M": 10, 
+        "surname": "Flores"
+    }, 
+    {
+        "a": 10, 
+        "m": 10, 
+        "M": 10, 
+        "surname": "Cox"
+    }, 
+    {
+        "a": 10, 
+        "m": 10, 
+        "M": 10, 
+        "surname": "Gonzalez"
+    }, 
+    {
+        "a": 10, 
+        "m": 10, 
+        "M": 10, 
+        "surname": "Wilson"
+    }, 
+    {
+        "a": 12, 
+        "m": 10, 
+        "M": 15, 
+        "surname": "Evans"
+    }, 
+    {
+        "a": 15, 
+        "m": 15, 
+        "M": 15, 
+        "surname": "Rodriguez"
+    }, 
+    {
+        "a": 13, 
+        "m": 10, 
+        "M": 15, 
+        "surname": "Long"
+    }, 
+    {
+        "a": 10, 
+        "m": 5, 
+        "M": 15, 
+        "surname": "Peterson"
+    }, 
+    {
+        "a": 15, 
+        "m": 15, 
+        "M": 15, 
+        "surname": "Taylor"
+    }, 
+    {
+        "a": 13, 
+        "m": 10, 
+        "M": 15, 
+        "surname": "Davis"
+    }, 
+    {
+        "a": 10, 
+        "m": 5, 
+        "M": 15, 
+        "surname": "Brown"
+    }, 
+    {
+        "a": 12, 
+        "m": 10, 
+        "M": 15, 
+        "surname": "Thomas"
+    }, 
+    {
+        "a": 8, 
+        "m": 5, 
+        "M": 15, 
+        "surname": "Reye"
+    }, 
+    {
+        "a": 13, 
+        "m": 5, 
+        "M": 20, 
+        "surname": "Cox"
+    }, 
+    {
+        "a": 15, 
+        "m": 10, 
+        "M": 20, 
+        "surname": "Watson"
+    }, 
+    {
+        "a": 10, 
+        "m": 5, 
+        "M": 20, 
+        "surname": "Cook"
+    }, 
+    {
+        "a": 15, 
+        "m": 10, 
+        "M": 20, 
+        "surname": "Murphy"
+    }, 
+    {
+        "a": 20, 
+        "m": 20, 
+        "M": 20, 
+        "surname": "Johnson"
+    }, 
+    {
+        "a": 13, 
+        "m": 5, 
+        "M": 20, 
+        "surname": "Bailey"
+    }, 
+    {
+        "a": 15, 
+        "m": 10, 
+        "M": 20, 
+        "surname": "Jenkins"
+    }, 
+    {
+        "a": 16, 
+        "m": 5, 
+        "M": 25, 
+        "surname": "Young"
+    }, 
+    {
+        "a": 25, 
+        "m": 25, 
+        "M": 25, 
+        "surname": "Sanders"
+    }, 
+    {
+        "a": 25, 
+        "m": 25, 
+        "M": 25, 
+        "surname": "Fisher"
+    }, 
+    {
+        "a": 20, 
+        "m": 15, 
+        "M": 25, 
+        "surname": "Morales"
+    }, 
+    {
+        "a": 25, 
+        "m": 25, 
+        "M": 25, 
+        "surname": "Lopez"
+    }, 
+    {
+        "a": 15, 
+        "m": 5, 
+        "M": 25, 
+        "surname": "Robinson"
+    }, 
+    {
+        "a": 20, 
+        "m": 15, 
+        "M": 25, 
+        "surname": "Hernandez"
+    }, 
+    {
+        "a": 13, 
+        "m": 5, 
+        "M": 25, 
+        "surname": "Stewart"
+    }, 
+    {
+        "a": 13, 
+        "m": 5, 
+        "M": 25, 
+        "surname": "Kelly"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select p.birthDate, count(p.patientBasedData.diagnosis) as n_diag,
+                    sum(select r.nurseCount from p.chartBasedData.nursingReports r) as nurses
+from patients p
+where p.country = "Italy"
+order by p.birthDate]]>   </oql>
+   <qrawl>
+<![CDATA[select p.birthDate, count(p.patientBasedData.diagnosis) as n_diag,
+                    sum(select r.nurseCount from p.chartBasedData.nursingReports r) as nurses
+from patients p
+where p.country = "Italy"
+order by p.birthDate]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "nurses": 8, 
+        "n_diag": 0, 
+        "birthDate": "1951/06/22"
+    }, 
+    {
+        "nurses": 7, 
+        "n_diag": 2, 
+        "birthDate": "1952/08/02"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 0, 
+        "birthDate": "1953/11/10"
+    }, 
+    {
+        "nurses": 1, 
+        "n_diag": 3, 
+        "birthDate": "1965/11/24"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 2, 
+        "birthDate": "1966/04/24"
+    }, 
+    {
+        "nurses": 2, 
+        "n_diag": 2, 
+        "birthDate": "1969/02/04"
+    }, 
+    {
+        "nurses": 2, 
+        "n_diag": 3, 
+        "birthDate": "1970/10/04"
+    }, 
+    {
+        "nurses": 7, 
+        "n_diag": 3, 
+        "birthDate": "1972/03/08"
+    }, 
+    {
+        "nurses": 5, 
+        "n_diag": 3, 
+        "birthDate": "1973/07/05"
+    }, 
+    {
+        "nurses": 2, 
+        "n_diag": 2, 
+        "birthDate": "1977/05/05"
+    }, 
+    {
+        "nurses": 7, 
+        "n_diag": 2, 
+        "birthDate": "1979/10/17"
+    }, 
+    {
+        "nurses": 5, 
+        "n_diag": 1, 
+        "birthDate": "1980/01/03"
+    }, 
+    {
+        "nurses": 6, 
+        "n_diag": 3, 
+        "birthDate": "1980/10/10"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 4, 
+        "birthDate": "1981/04/07"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 2, 
+        "birthDate": "1984/03/27"
+    }, 
+    {
+        "nurses": 5, 
+        "n_diag": 2, 
+        "birthDate": "1985/09/20"
+    }, 
+    {
+        "nurses": 8, 
+        "n_diag": 2, 
+        "birthDate": "1986/03/14"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 1, 
+        "birthDate": "1990/06/26"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 2, 
+        "birthDate": "1990/09/19"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 4, 
+        "birthDate": "1990/10/03"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 1, 
+        "birthDate": "1990/10/20"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 0, 
+        "birthDate": "1990/12/28"
+    }, 
+    {
+        "nurses": 7, 
+        "n_diag": 4, 
+        "birthDate": "1993/05/08"
+    }, 
+    {
+        "nurses": 7, 
+        "n_diag": 4, 
+        "birthDate": "1993/12/20"
+    }, 
+    {
+        "nurses": 1, 
+        "n_diag": 3, 
+        "birthDate": "1994/12/05"
+    }, 
+    {
+        "nurses": 2, 
+        "n_diag": 1, 
+        "birthDate": "1995/11/07"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 4, 
+        "birthDate": "2000/05/08"
+    }, 
+    {
+        "nurses": 6, 
+        "n_diag": 3, 
+        "birthDate": "2002/06/11"
+    }, 
+    {
+        "nurses": 5, 
+        "n_diag": 0, 
+        "birthDate": "2004/04/11"
+    }, 
+    {
+        "nurses": 6, 
+        "n_diag": 4, 
+        "birthDate": "2011/01/10"
+    }, 
+    {
+        "nurses": 4, 
+        "n_diag": 2, 
+        "birthDate": "2011/06/03"
+    }, 
+    {
+        "nurses": 3, 
+        "n_diag": 1, 
+        "birthDate": "2020/09/12"
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[select name, count(partition) as N
+from patients p, p.patientBasedData.formData f, f.items item
+where f.formType = "ALLERGIES_FORM" and item.name != "ALLERGIES_COMMENT" -- ignore that value
+group by name: item.name]]>   </oql>
+   <qrawl>
+<![CDATA[select name, count(partition) as N
+from patients p, p.patientBasedData.formData f, f.items item
+where f.formType = "ALLERGIES_FORM" and item.name != "ALLERGIES_COMMENT" -- ignore that value
+group by name: item.name]]>   </qrawl>
+   <result>
+<![CDATA[[
+    {
+        "name": "Cephalosporins", 
+        "N": 2
+    }, 
+    {
+        "name": "Dilantin", 
+        "N": 6
+    }, 
+    {
+        "name": "Intravenous contrast dye", 
+        "N": 1
+    }, 
+    {
+        "name": "Non-steroidal anti-inflammatories", 
+        "N": 4
+    }, 
+    {
+        "name": "Penicillin", 
+        "N": 4
+    }, 
+    {
+        "name": "Sulfonamides", 
+        "N": 3
+    }, 
+    {
+        "name": "Tegretol (carbamazepine)", 
+        "N": 5
+    }, 
+    {
+        "name": "Tetracycline", 
+        "N": 3
+    }
+]]]>   </result>
+   </query>
+   <query>
+   <oql>
+<![CDATA[struct( a: "hello", 
+        b: 20,
+        chart: struct( 
+            dummy : 5,
+            alergies: select  name,  count(partition) as N
+                from patients p, p.patientBasedData.formData f, f.items i
+                where f.formType = "ALLERGIES_FORM"
+                group by name: i.name), 
+        d: "test",
+        diagnosis : (select d.sub_category, d.category
+                        from patients p,
+                        p.patientBasedData.diagnosis d))]]>   </oql>
+   <qrawl>
+<![CDATA[struct( a: "hello", 
+        b: 20,
+        chart: struct( 
+            dummy : 5,
+            alergies: select  name,  count(partition) as N
+                from patients p, p.patientBasedData.formData f, f.items i
+                where f.formType = "ALLERGIES_FORM"
+                group by name: i.name), 
+        d: "test",
+        diagnosis : (select d.sub_category, d.category
+                        from patients p,
+                        p.patientBasedData.diagnosis d))]]>   </qrawl>
+   <result>
+<![CDATA[{
+    "a": "hello", 
+    "b": 20, 
+    "chart": {
+        "dummy": 5, 
+        "alergies": [
+            {
+                "name": "ALLERGIES_COMMENT", 
+                "N": 55
+            }, 
+            {
+                "name": "Cephalosporins", 
+                "N": 2
+            }, 
+            {
+                "name": "Dilantin", 
+                "N": 6
+            }, 
+            {
+                "name": "Intravenous contrast dye", 
+                "N": 1
+            }, 
+            {
+                "name": "Non-steroidal anti-inflammatories", 
+                "N": 4
+            }, 
+            {
+                "name": "Penicillin", 
+                "N": 4
+            }, 
+            {
+                "name": "Sulfonamides", 
+                "N": 3
+            }, 
+            {
+                "name": "Tegretol (carbamazepine)", 
+                "N": 5
+            }, 
+            {
+                "name": "Tetracycline", 
+                "N": 3
+            }
+        ]
+    }, 
+    "diagnosis": [
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Arthrosis"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Systemic connective tissue disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Diseases of liver"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Diseases of liver"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Other joint disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Infectious arthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Diseases of peritoneum"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Systemic connective tissue disorders"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Other joint disorders"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Diseases of liver"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Disorders of gallbladder, biliary tract and pancreas"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of intestines"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Other joint disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the musculoskeletal system and connective tissue", 
+            "sub_category": "Inflammatory polyarthropathies"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Infections of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Urticaria and erythema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Radiation-related disorders of the skin and subcutaneous tissue"
+        }, 
+        {
+            "category": "Diseases of the digestive system", 
+            "sub_category": "Other diseases of the digestive system"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Papulosquamous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Bullous disorders"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Dermatitis and eczema"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Disorders of skin appendages"
+        }, 
+        {
+            "category": "Diseases of the skin and subcutaneous tissue", 
+            "sub_category": "Other disorders of the skin and subcutaneous tissue"
+        }
+    ], 
+    "d": "test"
+}]]>   </result>
+   </query>
+   </queries>
