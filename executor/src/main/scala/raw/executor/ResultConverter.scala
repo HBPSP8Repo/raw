@@ -7,11 +7,45 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.ImmutableMultiset
+import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.LoggerFactory
 
 import scala.collection.{Bag, JavaConversions}
 
-trait ResultConverter {
+/* Used to limit the size of the responses sent to the REST client.
+ */
+class BoundedStringWriter(val maxSize: Int) extends StringWriter(4096) {
+
+  private[this] def checkLength(appendSize: Int) {
+    if (super.getBuffer.length() + appendSize > maxSize) {
+      throw new IllegalStateException("Output exceeds maximum size: " + maxSize)
+    }
+  }
+
+  override def write(c: Int) {
+    checkLength(1)
+    super.write(c.toChar)
+  }
+
+  override def write(cbuf: Array[Char], off: Int, len: Int) {
+    checkLength(len)
+    super.write(cbuf, off, len)
+  }
+
+  override def write(str: String) {
+    checkLength(str.length)
+    super.write(str)
+  }
+
+  override def write(str: String, off: Int, len: Int) {
+    checkLength(len)
+    super.write(str, off, len)
+  }
+}
+
+
+trait ResultConverter extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
 
   val mapper = {
@@ -31,9 +65,13 @@ trait ResultConverter {
   }
 
   def convertToJson(res: Any): String = {
-    val value = convertToCollection(res)
-    val sw = new StringWriter()
-    mapper.writeValue(sw, value)
+    //    logger.info("Converting result: " + res.getClass)
+    //    val value = convertToCollection(res)
+    //    logger.info("Converted to: " + value.getClass)
+    val size = ConfigFactory.load().getInt("raw.max-rest-response-size")
+    logger.info("Creating buffer with max size: " + size)
+    val sw = new BoundedStringWriter(size)
+    mapper.writeValue(sw, res)
     sw.toString
   }
 
@@ -42,6 +80,8 @@ trait ResultConverter {
     mapper.valueToTree[JsonNode](json)
   }
 
+  // The results returned by the query execution may contains instances of case classes that were generated dynamically
+  // Here we convert these case classes to instances of maps with entries: fieldName -> fieldValue
   def convertToCollection(res: Any): Any = {
     if (res.isInstanceOf[Array[_]]) {
       res.asInstanceOf[Array[_]].map(convertToCollection(_))
@@ -117,7 +157,7 @@ trait ResultConverter {
   }
 
   def convertExpected(expected: String): String = {
-    expected.replaceAll("""\n\s*""", "\n").trim
+    expected.replaceAll( """\n\s*""", "\n").trim
   }
 
   // WARN: There are many classes that implement Product, like List. If this method is called with something other
