@@ -370,6 +370,29 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       recurse(p, analyzer.patternType(p)).flatten
     }
 
+    /** Return the de-nulled identifiers.
+      * e.g. given a `child` with type record(name: string, age: option[int]) returns
+      *   val name = child._1
+      *   val age = child._2.get
+      */
+    def denulledIdns(parent: String, p: Pattern): Seq[Tree] = {
+      def projIdx(idxs: Seq[Int]): String =
+        s"$parent.${idxs.map { case idx => s"_${idx + 1}" }.mkString(".")}"
+
+      def recurse(p: Pattern, t: raw.Type, idxs: Seq[Int]): Seq[Tree] = p match {
+        case PatternProd(ps) =>
+          val t1 = t.asInstanceOf[RecordType]
+          ps.zip(t1.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
+        case PatternIdn(idn) =>
+          if (t.nullable)
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")
+          else
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
+      }
+
+      recurse(p, analyzer.patternType(p), Seq())
+    }
+
     /** Return the denullable for a pattern.
      */
     def patternDenullable(p: Pattern): Tree = {
@@ -588,8 +611,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .fold(${zero(m)})(${fold(m)}) ))
           .toIterable
         """
@@ -598,6 +625,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val res = $code
         val end = "************ Nest Primitive Monoid (Scala) ************"
         res"""
+
+// TODO: test case infrastructure generating the expected XML file when the result tag is present
+// TODO: Fix Nest handling of user yype... is this a general problem?
+//       e.g. when should there be user types, and when not?
 
       case Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
@@ -616,8 +647,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .toSet
                   .toIterable ))
           .toIterable
@@ -645,8 +680,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .toList
                   .toIterable ))
           .toIterable

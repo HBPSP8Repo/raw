@@ -68,19 +68,20 @@ object Query extends LazyLogging {
           val finalTree = process(tree, world)
           analyze(finalTree, world) match {
             case Right(finalRootType) =>
-              if (rootType == finalRootType) {
-                Right(finalTree)
-              } else {
-                logger.debug(
-                  s"""
-                     |ERROR: Root types changed during unnesting!
-                     |Initial root type:
-                     |${PrettyPrinter(rootType)}
-                     |Final root type:
-                     |${PrettyPrinter(finalRootType)}
-                   """.stripMargin)
-                Left(InternalError(s"Root type changed after processing"))
-              }
+              Right(finalTree)
+//              if (rootType == finalRootType) {
+//                Right(finalTree)
+//              } else {
+//                logger.debug(
+//                  s"""
+//                     |ERROR: Root types changed during unnesting!
+//                     |Initial root type:
+//                     |${PrettyPrinter(rootType)}
+//                     |Final root type:
+//                     |${PrettyPrinter(finalRootType)}
+//                   """.stripMargin)
+//                Left(InternalError(s"Root type changed after processing"))
+//              }
             case Left(error) =>
               logger.debug(
                 s"""

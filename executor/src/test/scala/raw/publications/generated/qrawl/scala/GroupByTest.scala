@@ -35,7 +35,7 @@ class GroupByTest extends AbstractScalaTest {
     val queryLanguage = QueryLanguages("qrawl")
     val query = """
       select A.title as title,
-       partition as people
+       (select P from partition P where P = A) as people
 from authors A
 group by A.title
     """
