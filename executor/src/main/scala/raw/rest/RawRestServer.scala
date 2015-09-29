@@ -100,6 +100,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     import RegisterRequestJsonSupport._
     val queryPath = "query"
     val registerPath = "register"
+    val schemasPath = "schemas"
     logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath}")
     startServer("0.0.0.0", port = port) {
       (path(queryPath) & post) {
@@ -143,7 +144,23 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
                 complete(StatusCodes.BadRequest, ex.getMessage)
             }
           }
+        } ~
+        (path(schemasPath) & get) {
+          headerValueByName("Raw-User") { user =>
+            try {
+              logger.info(s"Returning schemas for $user")
+              val schemas: Seq[String] = rawServer.getSchemas(user)
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete(schemas)
+              }
+            } catch {
+              case ex: RuntimeException =>
+                logger.warn(s"Failed to process request.", ex)
+                complete(StatusCodes.BadRequest, ex.getMessage)
+            }
+          }
         }
+
     }
   }
 

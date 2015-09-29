@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.http.NameValuePair
 import org.apache.http.client.entity.UrlEncodedFormEntity
-import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
+import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
@@ -116,9 +116,9 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
       |
     """.stripMargin
 
-  private[this] def executeRequest(post: HttpUriRequest): String = {
-    logger.info("Sending request: " + post)
-    val response = httpclient.execute(post)
+  private[this] def executeRequest(request: HttpUriRequest): String = {
+    logger.info("Sending request: " + request)
+    val response = httpclient.execute(request)
     val body = IOUtils.toString(response.getEntity.getContent)
     logger.info(s"Response: $body")
     body
@@ -201,6 +201,12 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
     val result = CodeGenerator.query(OQL, brainFeatureSetPlan, scanners)
     logger.info("Result: " + result)
+  }
+
+  test("schemas") {
+    val schemasGet = new HttpGet("http://localhost:54321/schemas")
+    schemasGet.setHeader("Raw-User", "joedoe")
+    executeRequest(schemasGet)
   }
 
 //  test("Large") {
