@@ -104,6 +104,8 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
         s"record with $satts"
       else
         s"record"
+    case _: NumberType => "number"
+    case _: PrimitiveType => "primitive (e.g. int, bool, string, float)"
     case _                                            => PrettyPrinter(t)
   }
 
