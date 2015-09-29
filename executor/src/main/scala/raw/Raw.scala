@@ -1057,10 +1057,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     val collectedTree = tree match {
       case a: AlgebraNode if analyzer.spark(a) => collectSpark(tree, treeType)
-      case _ => tree
+      case _ => collectScala(tree, treeType)
     }
 
     collectedTree
+  }
+
+  /** Collect results from in-memory Scala.
+    */
+  def collectScala(tree: Tree, treeType: raw.Type): Tree = treeType match {
+    case _: CollectionType => q"$tree.toList"
+    case _ => tree
   }
 
   /** Collect results from Spark.
