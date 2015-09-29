@@ -91,11 +91,6 @@ class TestGenerator:
             print "Test disabled:", testName, ". Reason:", disabledAttr
             return ""
 
-        # qe = testDef.find(queryLanguage)
-        # # If there is no element in the XML matching this query language, skip code generation.
-        # if qe == None:
-        #     return None
-
         id = ord('A')
         testMethods = ""
         for node in testDef:
@@ -122,7 +117,7 @@ class TestGenerator:
         scalaFilename = os.path.join(directory, name + "Test.scala")
         print "Writing file", scalaFilename
         outFile = open(scalaFilename, "w")
-        outFile.write(code)
+        outFile.write(code.encode("UTF-8"))
         outFile.close()
 
     def processFile(self, root, filename, queryLanguage, classTemplate):
