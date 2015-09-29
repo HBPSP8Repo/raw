@@ -25,4 +25,8 @@ class RawServer(storageDir: Path) extends StrictLogging {
     val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
     CodeGenerator.query(queryLanguage, cleanedQuery, scanners)
   }
+
+  def getSchemas(user: String):Seq[String] = {
+    storageManager.listUserSchemas(user)
+  }
 }
