@@ -918,6 +918,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     if (monoidsVarMap.contains(t)) monoidsVarMap(t).root else t
 
   /** Reconstruct the type by resolving all inner variable types as much as possible.
+    * Also, try to match the type into an existing user type.
     */
   private def walk(t: Type): Type = {
 

@@ -51,7 +51,7 @@ templateTestMethodJsonCompareToFile = """
       %(query)s
     \"\"\"
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqualsFile(\"%(name)s\", \"%(dataset)s\", result)
+    assertJsonEqualsFile(\"%(dataset)s\", \"%(resultfilename)s\", \"%(name)s\", result)
   }
 """
 
@@ -62,7 +62,7 @@ templateTestMethodPrintResult = """
       %(query)s
     \"\"\"
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    writeResult(\"%(name)s\", result)
+    writeResult(\"%(dataset)s_%(name)s\", result)
   }
 """
 
@@ -82,54 +82,80 @@ templateTestMethodJsonCompareToString = """
 
 
 class TestGenerator:
+    def __init__(self, baseDir):
+        self.baseDir = baseDir
+        self.queryResultsPath = os.path.join(baseDir, "resources", "queryresults")
+        print  "Base dir: "  + self.baseDir +", Query results" + self.queryResultsPath
+        try:
+            print "Deleting directory: " + self.queryResultsPath
+            shutil.rmtree(self.queryResultsPath)
+        except OSError:
+            # Directory does not exist. Ignore error
+            pass
+
     def indent(self, lines, level):
         return [(" " * level) + line for line in lines]
 
-    def processQuery(self, dataset, testName, testDef, queryLanguage):
+    def processQuery(self, dataset, testName, testDef, queryLanguage, expectedResultsPath):
         disabledAttr = testDef.get('disabled')
         if disabledAttr != None:
             print "Test disabled:", testName, ". Reason:", disabledAttr
             return ""
-        qe = testDef.find(queryLanguage)
-        # If there is no element in the XML matching this query language, skip code generation.
-        if qe == None:
-            return None
-        query = qe.text.strip()
 
-        # Generate test method
-        resultElem = testDef.find("result")
-        if resultElem == None:
-            testMethod = templateTestMethodPrintResult % \
-                         {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "query": query}
-        else:
-            expectedResults = resultElem.text.strip()
-            testMethod = templateTestMethodJsonCompareToString % \
-                         {"name":testName, "queryLanguage": queryLanguage, "query": query, "expectedResults": expectedResults}
-        return testMethod
+        id = ord('A')
+        testMethods = ""
+        for node in testDef:
+            if node.tag.startswith(queryLanguage):
+                query = node.text.strip()
+
+                # Generate test method
+                resultElem = testDef.find("result")
+                testMethodName = testName + "_" + chr(id)
+
+                if resultElem == None:
+                    # There is no expected result to compare with, so print the results to the console and to a temp file
+                    testMethod = templateTestMethodPrintResult % \
+                                 {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query}
+                else:
+                    # Compare with the expected results. Save the result to a JSON file
+                    expectedResults = resultElem.text.strip()
+                    resultFile = os.path.join(expectedResultsPath, testName+".json")
+                    print "Saving result to file", resultFile
+                    outFile = open(resultFile, "w")
+                    outFile.write(expectedResults.encode("UTF-8"))
+                    outFile.close()
+                    testMethod = templateTestMethodJsonCompareToFile % \
+                                 {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query, "resultfilename": testName}
+                testMethods += testMethod
+                id += 1
+        return testMethods
 
     def writeTestFile(self, directory, name, code):
         utils.createDirIfNotExists(directory)
         scalaFilename = os.path.join(directory, name + "Test.scala")
         print "Writing file", scalaFilename
         outFile = open(scalaFilename, "w")
-        outFile.write(code)
+        outFile.write(code.encode("UTF-8"))
         outFile.close()
 
-    def processFile(self, root, filename, queryLanguage, classTemplate):
-        package = re.split('src/test/scala/', root)[1]
+    def processFile(self, basedirectory, filename, queryLanguage, classTemplate):
+        package = re.split('src/test/scala/', basedirectory)[1]
         package = package.replace("/", ".")
 
         # Generated test source files
-        generatedDirectory = os.path.join(root, "generated", queryLanguage)
+        generatedDirectory = os.path.join(basedirectory, "generated", queryLanguage)
         utils.createDirIfNotExists(generatedDirectory)
 
-        queryFilename = os.path.join(root, filename)
+        queryFilename = os.path.join(basedirectory, filename)
         print "Found query file", queryFilename
 
         root = ET.parse(queryFilename).getroot()
         dataset = root.get('dataset')
         if dataset == None:
             raise Exception('dataset attribute is mandatory')
+
+        expectedResultsPath = os.path.join(self.queryResultsPath, dataset)
+        utils.createDirIfNotExists(expectedResultsPath)
 
         disabledAttr = root.get('disabled')
         if disabledAttr != None:
@@ -142,7 +168,7 @@ class TestGenerator:
         i = 0
         for child in root:
             testName = name + str(i)
-            testMethod = self.processQuery(dataset, testName, child, queryLanguage)
+            testMethod = self.processQuery(dataset, testName, child, queryLanguage, expectedResultsPath)
             if (testMethod == None):
                 continue
             testMethods += testMethod
@@ -170,7 +196,7 @@ class TestGenerator:
             "testType": "Scala"}
         self.writeTestFile(scalaTestsDirectory, name, code)
 
-    def processAllFiles(self, baseDir, matchDir):
+    def processAllFiles(self, matchDir):
         for root, dirs, files in os.walk(baseDir):
             if not root.endswith(matchDir):
                 continue
@@ -206,7 +232,7 @@ if __name__ == '__main__':
     else:
         baseDir = os.path.abspath(".")
 
-    generator = TestGenerator()
+    generator = TestGenerator(baseDir)
     print "Searching for query files in: " + baseDir
-    generator.processAllFiles(baseDir, "scala/raw/patients")
-    generator.processAllFiles(baseDir, "scala/raw/publications")
+    generator.processAllFiles("scala/raw/patients")
+    generator.processAllFiles("scala/raw/publications")

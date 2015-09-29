@@ -83,10 +83,6 @@ object Calculus {
     */
   case class BinaryExp(op: BinaryOperator, e1: Exp, e2: Exp) extends Exp
 
-  /** In Expression
-    */
-  case class InExp(e1: Exp, e2: Exp) extends Exp
-
   /** Function Abstraction
     */
   case class FunAbs(p: Pattern, e: Exp) extends Exp with Decl
@@ -154,6 +150,10 @@ object Calculus {
   /** Count
     */
   case class Count(e: Exp) extends Sugar
+
+  /** In Expression
+    */
+  case class InExp(e1: Exp, e2: Exp) extends Sugar
 
   /** Patterns
     */

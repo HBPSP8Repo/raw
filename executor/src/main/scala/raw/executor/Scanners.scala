@@ -1,6 +1,7 @@
 package raw.executor
 
-import java.io.InputStream
+import java.io._
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
@@ -13,7 +14,7 @@ import org.apache.spark.SparkContext
 import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
-import scala.collection.{AbstractIterator, Iterator, JavaConversions}
+import scala.collection.{IterableView, AbstractIterator, Iterator, JavaConversions}
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
@@ -61,7 +62,7 @@ trait AbstractClosableIterator[A] extends AbstractIterator[A] with Iterator[A] {
 }
 
 
-case class ClosableIterator[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
+case class ClosableIterator[A](underlying: Iterator[A], is: Closeable) extends AbstractClosableIterator[A] {
   def hasNext = underlying.hasNext
 
   def next() = underlying.next()
@@ -93,21 +94,49 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   val tag = typeTag[T]
 
   private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  //  private[this] val csvSchema = {
+  //  Name:String, year:Int, office:String, department:String
+  //    CsvSchema.builder()
+  //      .addColumn("Name")
+  //      .addColumn("year", CsvSchema.ColumnType.NUMBER)
+  //      .addColumn("office")
+  //      .addColumn("department")
+  //      .setSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  //      .build()
+  //  }
   private[this] val ctor = {
     val m = manifest[T]
-    logger.info("Type manifest: " + m)
     val ctors = m.runtimeClass.getConstructors
     assert(ctors.size == 1, "Expected a single constructor. Found: " + ctors)
     ctors.head
   }
   private[this] var parTypes = ctor.getParameterTypes
 
+  // Precompute the functions used to convert each value read from the file into Scala objects. This should save
+  // some time during the parsing of the file
+  private[this] val mapFunctions: Array[(String) => AnyRef] = {
+    val functions = new Array[(String) => AnyRef](ctor.getParameterCount)
+    var i = 0
+    while (i < ctor.getParameterCount) {
+      mapperFunctions.get(parTypes(i).getName) match {
+        case Some(f) => functions.update(i, f)
+        case None => {
+          logger.warn("Unknown type: " + parTypes(i))
+          // Try using the string value found on the CSV file (identity function)
+          functions.update(i, s => s)
+        }
+      }
+      i += 1
+    }
+    logger.info(s"Resource: ${schema.name}, Conversion functions: $functions")
+    functions
+  }
+
   override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
-    val properties = schema.properties
-    logger.info(s"Creating iterator for CSV resource: $p. Properties: ${properties}")
+    logger.info(s"Creating iterator for CSV resource: $p")
 
-    val is: InputStream = Files.newInputStream(schema.dataFile)
+    val is: Reader = new InputStreamReader(Files.newInputStream(schema.dataFile), StandardCharsets.UTF_8)
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
       .`with`(csvSchema)
@@ -118,22 +147,16 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
     new ClosableIterator(mappedIter, is)
   }
 
-  // Buffer reused in calls to newValue().
+  // Buffer reused by calls to newValue().
   private[this] val args = new Array[AnyRef](ctor.getParameterCount)
 
+  // Can be sped by using a code-generator callback.
   private[this] def newValue(data: Array[String]): T = {
     var i = 0
-    // Note: This can be optimized by code-generating the construction code and avoiding the per-instance lookup
-    // of the conversion functions and avoiding the use of reflection.
     while (i < ctor.getParameterCount) {
-      mapperFunctions.get(parTypes(i).getName) match {
-        case Some(f) => args.update(i, f(data(i)))
-        case None => {
-          logger.warn("Unknown type: " + parTypes(i))
-          // Try using the string value found on the CSV file
-          args.update(i, data(i))
-        }
-      }
+      val value = data(i).trim
+      val mapperFunction = mapFunctions(i)
+      args.update(i, mapperFunction(value))
       i += 1
     }
     ctor.newInstance(args: _*).asInstanceOf[T]

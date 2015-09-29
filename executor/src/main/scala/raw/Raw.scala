@@ -33,14 +33,13 @@ abstract class RawQuery extends StrictLogging {
 
   def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
     logger.info("Opening iterator: " + scanner)
-    new RawIterable(scanner, openIters)
+    new RawIterable(scanner, openIters).view
   }
 
   def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
     logger.info("Bypassing: " + iterable)
     iterable
   }
-
 
   def closeAllIterators(): Unit = {
     logger.info("Closing iterators: " + openIters)
@@ -152,7 +151,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildScalaType(t: raw.Type, world: World): String = {
     val baseType = t match {
       case _: BoolType => "Boolean"
-      case FunType(t1, t2) => ???
+      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
@@ -166,14 +165,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         }
       //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
       //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
-      case CollectionType(BagMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(ListMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(SetMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
       case UserType(idn) => buildScalaType(world.tipes(idn), world)
-      case TypeVariable(v) => ???
-      case _: AnyType => ???
-      case _: NothingType => ???
-      case _: CollectionType => ???
+      case _: TypeVariable => throw new UnsupportedOperationException(s"type variables not supported")
+      case _: AnyType => "Any"
+      case _: NothingType => "Nothing"
     }
     //    logger.info(s"Type: $tt")
     if (t.nullable)
@@ -285,7 +284,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .mkString(",")
         //            logger.info(s"exp(): $atts => $vals")
         c.parse(s"""$sym($vals)""")
-      case IfThenElse(e1, e2, e3) => q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
+      case IfThenElse(e1, e2, e3) =>
+        q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
         case _: Eq  => q" ${build(e1)} == ${build(e2)}"
         case _: Neq => q" ${build(e1)} != ${build(e2)}"
@@ -297,15 +297,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Div => q" ${build(e1)} / ${build(e2)}"
         case _: Mod => q" ${build(e1)} % ${build(e2)}"
       }
+      case FunApp(f, e) =>
+        q"""${build(f)}(${build(e)})"""
+      case ZeroCollectionMonoid(m) => m match {
+        case _: SetMonoid => q"Set().toIterable"
+        case _: BagMonoid => q"List().toIterable"
+        case _: ListMonoid => q"List().toIterable"
+      }
+      case ConsCollectionMonoid(m, e1) => m match {
+        case _: SetMonoid => q"Set(${build(e1)})"
+        case _: BagMonoid => q"List(${build(e1)}).toIterable"
+        case _: ListMonoid => q"List(${build(e1)}).toIterable"
+      }
       case MergeMonoid(m, e1, e2) => m match {
         case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
-        case _: MaxMonoid => ???
-        case _: MultiplyMonoid => ???
+        case _: MaxMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
+        case _: MultiplyMonoid => q"${build(e1)} * ${build(e2)}"
         case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
         case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
         case _: SetMonoid => q"${build(e1)} ++ ${build(e2)}"
-        case _: BagMonoid => ???
-        case _: ListMonoid => ???
+        case _: BagMonoid => q"${build(e1)} ++ ${build(e2)}"
+        case _: ListMonoid => q"${build(e1)} ++ ${build(e2)}"
       }
       case UnaryExp(op, e1) => op match {
         case _: Not => q"!${build(e1)}"
@@ -314,22 +326,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: ToInt => q"${build(e1)}.toInt"
         case _: ToFloat => q"${build(e1)}.toFloat"
         case _: ToString => q"${build(e1)}.toString"
-        case _: ToBag => q"${build(e1)}" // .toList" // TODO
-        case _: ToList => q"${build(e1)}.toList"
-        case _: ToSet => q"${build(e1)}.toSet"
-      }
-      case ConsCollectionMonoid(m, e1) => m match {
-        case _: SetMonoid => q"Set(${build(e1)})"
-        case _: BagMonoid => ???
-        case _: ListMonoid => q"List(${build(e1)})"
-      }
-      case ZeroCollectionMonoid(m) => m match {
-        case _: SetMonoid => q"Set()"
-        case _: BagMonoid => ???
-        case _: ListMonoid => q"List()"
+        case _: ToBag => q"${build(e1)}.toList.toIterable"
+        case _: ToList => q"${build(e1)}.toList.toIterable"
+        case _: ToSet => q"${build(e1)}.toSet.toIterable"
       }
       case ExpBlock(bs, e1) =>
-        val vals = bs.map { case Bind(PatternIdn(idn), e1) => q"val ${TermName(idnName(idn))} = ${{build(e1)}}"}
+        val vals = bs.map { case Bind(PatternIdn(idn), be) => q"val ${TermName(idnName(idn))} = ${{build(be)}}"}
         q"""
         {
           ..$vals
@@ -370,23 +372,32 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       recurse(p, analyzer.patternType(p)).flatten
     }
 
-    /** Return the denullable for a pattern.
-     */
-    def patternDenullable(p: Pattern): Tree = {
-      def recurse(p: Pattern, t: raw.Type): Tree = p match {
+    /** Return the de-nulled identifiers.
+      * e.g. given a `child` with type record(name: string, age: option[int]) returns
+      *   val name = child._1
+      *   val age = child._2.get
+      * Used by the Nest to handle Option[...]
+      */
+    def denulledIdns(parent: String, p: Pattern): Seq[Tree] = {
+      def projIdx(idxs: Seq[Int]): String =
+        s"$parent.${idxs.map { case idx => s"_${idx + 1}" }.mkString(".")}"
+
+      def recurse(p: Pattern, t: raw.Type, idxs: Seq[Int]): Seq[Tree] = p match {
         case PatternProd(ps) =>
           val t1 = t.asInstanceOf[RecordType]
-          q"(..${ps.zip(t1.atts).map { case (p1, att) => recurse(p1, att.tipe) }})"
+          ps.zip(t1.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
         case PatternIdn(idn) =>
           if (t.nullable)
-            q"${Ident(TermName(idnName(idn)))}.get"
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")
           else
-            q"${Ident(TermName(idnName(idn)))}"
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
       }
 
-      recurse(p, analyzer.patternType(p))
+      recurse(p, analyzer.patternType(p), Seq())
     }
 
+    /** Generate lambda with a single argument.
+     */
     def lambda1(p: Pattern, e: Exp): Tree = {
       p match {
         // Handle case of single pattren idn separately to generate more readable code
@@ -400,6 +411,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
     }
 
+    /** Generate lambda with a two arguments.
+      */
     def lambda2(p1: Pattern, p2: Pattern, e: Exp): Tree = {
       val arg = c.parse(s"__arg: (${patternType(p1)}, ${patternType(p2)})")
       val pcase1 = pq"(..${patternTerms(p1)})"
@@ -427,14 +440,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MultiplyMonoid => q"((a, b) => a * b)"
       //      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
       case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
-    }
-
-    def zeroExp(m: PrimitiveMonoid): Const = m match {
-      case _: AndMonoid => BoolConst(true)
-      case _: OrMonoid => BoolConst(false)
-      case _: SumMonoid => IntConst("0")
-      case _: MultiplyMonoid => IntConst("1")
-      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
     /** Get identifier name
@@ -588,8 +593,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .fold(${zero(m)})(${fold(m)}) ))
           .toIterable
         """
@@ -616,8 +625,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .toSet
                   .toIterable ))
           .toIterable
@@ -645,8 +658,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ( arg._1,
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
-                  .map { case (..${patternTerms(pat)}) => ${build(e)} }
+                  .filter($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(p)} })
+                  .map($childArg => {
+                    ..${denulledIdns("child", pat)}
+                    ${build(e)} })
                   .toList
                   .toIterable ))
           .toIterable
@@ -941,30 +958,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _ => exp(e)
     }
 
-    logger.info("Building code. User types: " + world.tipes.mkString("\n"))
+    logger.info("Building code.")
     val tree = build(treeExp)
 
     val treeType = analyzer.tipe(treeExp)
     logger.info(s"TreeType: $treeType")
-    val reducedTree = tree match {
-      case a: AlgebraNode if analyzer.spark(a) => reduceSpark(tree, treeType)
-      case a: AlgebraNode => reduceScala(tree, treeType)
+
+    val collectedTree = tree match {
+      case a: AlgebraNode if analyzer.spark(a) => collectSpark(tree, treeType)
       case _ => tree
     }
 
-    reducedTree
+    collectedTree
   }
 
-  def reduceScala(tree: Tree, treeType: raw.Type): Tree = {
-    treeType match {
-      case CollectionType(BagMonoid(), _) => tree
-      case CollectionType(ListMonoid(), _) => tree
-      case n@CollectionType(SetMonoid(), _) => tree
-      case _ => tree
-    }
-  }
-
-  def reduceSpark(tree: Tree, treeType: raw.Type): Tree = {
+  /** Collect results from Spark.
+    */
+  def collectSpark(tree: Tree, treeType: raw.Type): Tree = {
     treeType match {
       /*
        Currently, we do not take advantage of the Bag semantics to optimize an RDD representing a BagType. So an RDD
@@ -998,19 +1008,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case _ => tree
     }
-  }
-
-
-  def extractParams(tree: Tree): (Tree, Tree) = tree match {
-    case q"new $name( ..$params )" =>
-      logger.info(s"Extracted params: $params")
-      params match {
-        case List(queryTree, catalogTree) =>
-          logger.info(s"query: $queryTree, catalog: $catalogTree")
-          (queryTree.asInstanceOf[Tree], catalogTree.asInstanceOf[Tree])
-        //        case List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-        //        case q"($query:String, $catalog:HList)"  List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-      }
   }
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
@@ -1122,9 +1119,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
     val parseResult: Either[QueryError, Calculus.Calculus] = queryLanguage match {
-      case OQL => ???
       case Qrawl => Query(query, world)
-      case LogicalPlan => ???
+      case _ => throw new UnsupportedOperationException(s"$queryLanguage not yet supported")
     }
 
     parseResult match {
