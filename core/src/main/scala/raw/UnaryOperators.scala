@@ -1,5 +1,10 @@
 package raw
 
+/** The unary operators.
+  * Do NOT include sugar nodes, since these are the basic set of operations needed in code generation.
+  * (Sugared operators should have their own Calculus node inheriting from Sugar.)
+  */
+
 /** Unary Operator
  */
 sealed abstract class UnaryOperator extends RawNode

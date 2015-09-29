@@ -16,7 +16,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
       ruleSum +
       ruleMax +
       ruleCount +
-      inToComp +
+      ruleIn +
+      ruleExists +
       selectGroupBy)
 
   /** De-sugar sum
@@ -54,12 +55,20 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
       }
   }
 
-  /** De-sugar IN to a comprehension
+  /** De-sugar in
     */
-  private lazy val inToComp = rule[Exp] {
+  private lazy val ruleIn = rule[Exp] {
     case s @ InExp(e1, e2) =>
       val x = SymbolTable.next().idn
       Comp(OrMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
+  }
+
+  /** De-sugar exists
+    */
+  private lazy val ruleExists = rule[Exp] {
+    case Exists(e) =>
+      val x = SymbolTable.next().idn
+      Comp(OrMonoid(), Seq(Gen(PatternIdn(IdnDef(x)), e)), BoolConst(true))
   }
 
   /** De-sugar a SELECT with a GROUP BY

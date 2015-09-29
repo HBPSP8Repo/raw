@@ -59,6 +59,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case Min(e)                         => "min" <> parens(apply(e))
         case Avg(e)                         => "avg" <> parens(apply(e))
         case Count(e)                       => "count" <> parens(apply(e))
+        case Exists(e)                      => "exists" <> parens(apply(e))
         case PatternIdn(idn)                => apply(idn)
         case PatternProd(ps)                => parens(group(nest(lsep(ps.map(apply), comma))))
         case CanComp(m, gs, ps, e)          => "for" <+> parens(group(nest(lsep((gs ++ ps).map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)

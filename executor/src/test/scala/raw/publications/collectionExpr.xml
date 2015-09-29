@@ -76,7 +76,7 @@
             EXISTS (select year from authors)
         </oql>
         <qrawl>
-            EXISTS (select year from authors)
+            EXISTS (select a.year from authors a where year > 1950)
         </qrawl>
         <result>
             true

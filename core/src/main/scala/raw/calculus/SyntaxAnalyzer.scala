@@ -61,6 +61,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwFrom = "(?i)from\\b".r
   val kwAs = "(?i)as\\b".r
   val kwIn = "(?i)in\\b".r
+  val kwExists = "(?i)exists\\b".r
   val kwWhere = "(?i)where\\b".r
   val kwGroup = "(?i)group\\b".r
   val kwOrder = "(?i)order\\b".r
@@ -356,7 +357,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwMax ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Max(e) } |
       kwMin ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Min(e) } |
       kwAvg ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Avg(e) } |
-      kwCount ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Count(e) })
+      kwCount ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Count(e) } |
+      kwExists ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Exists(e) })
 
   lazy val funAbs: PackratParser[FunAbs] =
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })

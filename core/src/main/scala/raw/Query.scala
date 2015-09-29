@@ -11,8 +11,8 @@ case class ParserError(desc: String) extends QueryError {
   def err = s"Invalid Query Input: $desc"
 }
 
-case class SemanticErrors(messages: Seq[Error]) extends QueryError {
-  def err = s"Invalid Query: $messages"
+case class SemanticErrors(errors: Seq[Error]) extends QueryError {
+  def err = s"Error(s) found:\n${errors.map { case e => ErrorsPrettyPrinter(e) }.mkString("\n")}"
 }
 
 case class InternalError(desc: String) extends QueryError {

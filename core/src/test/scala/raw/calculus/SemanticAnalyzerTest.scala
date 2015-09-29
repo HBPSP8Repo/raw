@@ -974,4 +974,8 @@ class SemanticAnalyzerTest extends FunTest {
     success("{ f := \\x -> x in list(1); for (x <- unknown ; f(x)) yield set x }", TestWorlds.unknown, CollectionType(SetMonoid(), IntType()))
   }
 
+  test("exists(list(1))") {
+    success("exists(list(1))", TestWorlds.empty, BoolType())
+  }
+
 }

@@ -33,14 +33,13 @@ abstract class RawQuery extends StrictLogging {
 
   def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
     logger.info("Opening iterator: " + scanner)
-    new RawIterable(scanner, openIters)
+    new RawIterable(scanner, openIters).view
   }
 
   def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
     logger.info("Bypassing: " + iterable)
     iterable
   }
-
 
   def closeAllIterators(): Unit = {
     logger.info("Closing iterators: " + openIters)
@@ -53,13 +52,15 @@ abstract class RawQuery extends StrictLogging {
 }
 
 object RawImpl {
+  final val COMPILATION_ABORT = "COMPILATION ABORT"
+  
   def toCannonicalForm(recordType: RecordType): Seq[AttrType] = {
     recordType.atts.sortBy(_.idn)
   }
 }
 
 object QueryLanguages {
-  def apply(qlString:String): QueryLanguage = {
+  def apply(qlString: String): QueryLanguage = {
     qlString match {
       case "oql" => OQL
       case "plan" => LogicalPlan
@@ -73,7 +74,7 @@ object QueryLanguages {
      * @param name Name of the query language. This is used as the name of the val holding the query in the macro
      *             generated for the query.
      */
-    val name:String
+    val name: String
   }
 
   case object Qrawl extends QueryLanguage {
@@ -94,6 +95,7 @@ object QueryLanguages {
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
+
   import QueryLanguages._
 
   import c.universe._
@@ -152,7 +154,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildScalaType(t: raw.Type, world: World): String = {
     val baseType = t match {
       case _: BoolType => "Boolean"
-      case FunType(t1, t2) => ???
+      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
@@ -166,14 +168,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         }
       //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
       //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
-      case CollectionType(BagMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(ListMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(SetMonoid(), innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
       case UserType(idn) => buildScalaType(world.tipes(idn), world)
-      case TypeVariable(v) => ???
-      case _: AnyType => ???
-      case _: NothingType => ???
-      case _: CollectionType => ???
+      case _: AnyType => "Any"
+      case _: NothingType => "Nothing"
+      case _: VariableType => throw new UnsupportedOperationException(s"type variables not supported")
     }
     //    logger.info(s"Type: $tt")
     if (t.nullable)
@@ -190,7 +192,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val anonRecordTypes = scala.collection.mutable.Set[RecordType]()
 
     val queryAnonRecordTypes = everywhere(query[Calculus.Exp] {
-      case e => logger.debug(s"Exp ${CalculusPrettyPrinter(e)} has type ${PrettyPrinter(analyzer.tipe(e))}"); analyzer.tipe(e) match {
+      case e => analyzer.tipe(e) match {
         case r @ RecordType(_, None) => anonRecordTypes += r
         case _ =>
       }
@@ -206,7 +208,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
     val resultRecords = collectAnonRecordTypes(tree, world, analyzer)
-      logger.debug(s"buildCaseClasses $resultRecords")
+    logger.debug(s"buildCaseClasses $resultRecords")
 
     // Create a map between RecordType and case class names
     this.userCaseClassesMap = {
@@ -239,11 +241,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import Calculus._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-            logger.info(s"rawToScalaType: $t")
+      logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-            logger.info(s"typeName: $typeName")
+      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
-            logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
           //          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
@@ -264,48 +266,64 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       rawToScalaType(analyzer.tipe(expression))
     }
 
+    def userRecordName(t: RecordType): Option[String] =
+      userCaseClassesMap.get(RawImpl.toCannonicalForm(t)) match {
+        case Some(caseClassName) => logger.info(s"Record: $t -> $caseClassName"); Some(caseClassName)
+        case _ => None
+      }
+
     def exp(e: Exp): Tree = e match {
-      case _: Null             => q"null"
-      case BoolConst(v)        => q"$v"
-      case IntConst(v)         => q"${v.toInt}"
-      case FloatConst(v)       => q"${v.toFloat}"
-      case StringConst(v)      => q"$v"
-      case IdnExp(idn)         => Ident(TermName(idnName(idn)))
+      case _: Null => q"null"
+      case BoolConst(v) => q"$v"
+      case IntConst(v) => q"${v.toInt}"
+      case FloatConst(v) => q"${v.toFloat}"
+      case StringConst(v) => q"$v"
+      case IdnExp(idn) => Ident(TermName(idnName(idn)))
       case RecordProj(e1, idn) =>
         val id = TermName(idn)
         q"${build(e1)}.$id"
       case RecordCons(atts) =>
-        val tt = analyzer.tipe(e).asInstanceOf[RecordType]
-        val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
-          case Some(caseClassName) => logger.info(s"Record: $tt -> $caseClassName"); caseClassName
-          case _ => ""
-        }
+        val t = analyzer.tipe(e).asInstanceOf[RecordType]
+        val sym = userRecordName(t).getOrElse("")
         val vals = atts
           .map(att => build(att.e))
           .mkString(",")
         //            logger.info(s"exp(): $atts => $vals")
-        c.parse(s"""$sym($vals)""")
-      case IfThenElse(e1, e2, e3) => q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
+        c.parse( s"""$sym($vals)""")
+      case IfThenElse(e1, e2, e3) =>
+        q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
-        case _: Eq  => q" ${build(e1)} == ${build(e2)}"
+        case _: Eq => q" ${build(e1)} == ${build(e2)}"
         case _: Neq => q" ${build(e1)} != ${build(e2)}"
-        case _: Ge  => q" ${build(e1)} >= ${build(e2)}"
-        case _: Gt  => q" ${build(e1)} > ${build(e2)}"
-        case _: Le  => q" ${build(e1)} <= ${build(e2)}"
-        case _: Lt  => q" ${build(e1)} < ${build(e2)}"
+        case _: Ge => q" ${build(e1)} >= ${build(e2)}"
+        case _: Gt => q" ${build(e1)} > ${build(e2)}"
+        case _: Le => q" ${build(e1)} <= ${build(e2)}"
+        case _: Lt => q" ${build(e1)} < ${build(e2)}"
         case _: Sub => q" ${build(e1)} - ${build(e2)}"
         case _: Div => q" ${build(e1)} / ${build(e2)}"
         case _: Mod => q" ${build(e1)} % ${build(e2)}"
       }
+      case FunApp(f, e) =>
+        q"""${build(f)}(${build(e)})"""
+      case ZeroCollectionMonoid(m) => m match {
+        case _: SetMonoid => q"Set().toIterable"
+        case _: BagMonoid => q"List().toIterable"
+        case _: ListMonoid => q"List().toIterable"
+      }
+      case ConsCollectionMonoid(m, e1) => m match {
+        case _: SetMonoid => q"Set(${build(e1)})"
+        case _: BagMonoid => q"List(${build(e1)}).toIterable"
+        case _: ListMonoid => q"List(${build(e1)}).toIterable"
+      }
       case MergeMonoid(m, e1, e2) => m match {
         case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
-        case _: MaxMonoid => ???
-        case _: MultiplyMonoid => ???
+        case _: MaxMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
+        case _: MultiplyMonoid => q"${build(e1)} * ${build(e2)}"
         case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
         case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
         case _: SetMonoid => q"${build(e1)} ++ ${build(e2)}"
-        case _: BagMonoid => ???
-        case _: ListMonoid => ???
+        case _: BagMonoid => q"${build(e1)} ++ ${build(e2)}"
+        case _: ListMonoid => q"${build(e1)} ++ ${build(e2)}"
       }
       case UnaryExp(op, e1) => op match {
         case _: Not => q"!${build(e1)}"
@@ -314,22 +332,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: ToInt => q"${build(e1)}.toInt"
         case _: ToFloat => q"${build(e1)}.toFloat"
         case _: ToString => q"${build(e1)}.toString"
-        case _: ToBag => q"${build(e1)}" // .toList" // TODO
-        case _: ToList => q"${build(e1)}.toList"
-        case _: ToSet => q"${build(e1)}.toSet"
-      }
-      case ConsCollectionMonoid(m, e1) => m match {
-        case _: SetMonoid => q"Set(${build(e1)})"
-        case _: BagMonoid => ???
-        case _: ListMonoid => q"List(${build(e1)})"
-      }
-      case ZeroCollectionMonoid(m) => m match {
-        case _: SetMonoid => q"Set()"
-        case _: BagMonoid => ???
-        case _: ListMonoid => q"List()"
+        case _: ToBag => q"${build(e1)}.toList.toIterable"
+        case _: ToList => q"${build(e1)}.toList.toIterable"
+        case _: ToSet => q"${build(e1)}.toSet.toIterable"
       }
       case ExpBlock(bs, e1) =>
-        val vals = bs.map { case Bind(PatternIdn(idn), e1) => q"val ${TermName(idnName(idn))} = ${{build(e1)}}"}
+        val vals = bs.map { case Bind(PatternIdn(idn), be) => q"val ${TermName(idnName(idn))} = ${
+          {
+            build(be)
+          }
+        }"
+        }
         q"""
         {
           ..$vals
@@ -339,18 +352,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def patternTerms(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps)         => ps.flatMap(patternTerms)
+      case PatternProd(ps) => ps.flatMap(patternTerms)
       case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
     }
 
     def patternIdents(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps)         => ps.flatMap(patternTerms)
+      case PatternProd(ps) => ps.flatMap(patternTerms)
       case PatternIdn(idn: IdnDef) => Seq(q"${Ident(TermName(idnName(idn)))}")
     }
 
     def patternType(p: Pattern) = p match {
       case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
-      case p: PatternProd  => buildScalaType(analyzer.patternType(p), world)
+      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
     }
 
     /** Get the nullable identifiers from a pattern.
@@ -370,21 +383,25 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       recurse(p, analyzer.patternType(p)).flatten
     }
 
-    /** Return the de-nulled identifiers.
-      * e.g. given a `child` with type record(name: string, age: option[int]) returns
+    /** Return the identifiers, optionally de-nullable.
+      * e.g. given a `child` with type record(name: string, age: option[int]) returns:
       *   val name = child._1
       *   val age = child._2.get
+      * Used by the Nest to handle Option[...]
       */
-    def denulledIdns(parent: String, p: Pattern): Seq[Tree] = {
+    def idnVals(parent: String, p: Pattern, denulled: Boolean): Seq[Tree] = {
       def projIdx(idxs: Seq[Int]): String =
-        s"$parent.${idxs.map { case idx => s"_${idx + 1}" }.mkString(".")}"
+        if (idxs.isEmpty)
+          parent
+        else
+          s"$parent.${idxs.map { case idx => s"_${idx + 1}" }.mkString(".")}"
 
       def recurse(p: Pattern, t: raw.Type, idxs: Seq[Int]): Seq[Tree] = p match {
         case PatternProd(ps) =>
           val t1 = t.asInstanceOf[RecordType]
           ps.zip(t1.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
         case PatternIdn(idn) =>
-          if (t.nullable)
+          if (denulled && t.nullable)
             Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")
           else
             Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
@@ -393,23 +410,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       recurse(p, analyzer.patternType(p), Seq())
     }
 
-    /** Return the denullable for a pattern.
-     */
-    def patternDenullable(p: Pattern): Tree = {
-      def recurse(p: Pattern, t: raw.Type): Tree = p match {
-        case PatternProd(ps) =>
-          val t1 = t.asInstanceOf[RecordType]
-          q"(..${ps.zip(t1.atts).map { case (p1, att) => recurse(p1, att.tipe) }})"
-        case PatternIdn(idn) =>
-          if (t.nullable)
-            q"${Ident(TermName(idnName(idn)))}.get"
-          else
-            q"${Ident(TermName(idnName(idn)))}"
-      }
-
-      recurse(p, analyzer.patternType(p))
-    }
-
+    /** Generate lambda with a single argument.
+      */
     def lambda1(p: Pattern, e: Exp): Tree = {
       p match {
         // Handle case of single pattren idn separately to generate more readable code
@@ -423,6 +425,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
     }
 
+    /** Generate lambda with a two arguments.
+      */
     def lambda2(p1: Pattern, p2: Pattern, e: Exp): Tree = {
       val arg = c.parse(s"__arg: (${patternType(p1)}, ${patternType(p2)})")
       val pcase1 = pq"(..${patternTerms(p1)})"
@@ -452,14 +456,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
-    def zeroExp(m: PrimitiveMonoid): Const = m match {
-      case _: AndMonoid => BoolConst(true)
-      case _: OrMonoid => BoolConst(false)
-      case _: SumMonoid => IntConst("0")
-      case _: MultiplyMonoid => IntConst("1")
-      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
-    }
-
     /** Get identifier name
       */
     def idnName(idnNode: IdnNode) = {
@@ -469,6 +465,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         s"___arg${idn.drop(1)}"
       else
         idn
+    }
+
+    /** Get nullable filter.
+      */
+    def nullableFilter(p: Pattern): Tree = {
+      val nullables = patternNullable(p)
+      if (nullables.isEmpty)
+        q"true"
+      else
+        nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
     }
 
     /** Build code for scanner nodes
@@ -493,82 +499,141 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       /** Scala Filter
         */
       case Filter(Gen(pat, child), pred) =>
-        q"""${build(child)}.filter(${lambda1(pat, pred)})"""
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val code = q"""
+        ${build(child)}.filter($childArg => {
+          ..${idnVals("child", pat, false)}
+          ${build(pred)} })
+        """
+        q"""
+        val start = "************ Filter (Scala) ************"
+        val res = $code
+        val end = "************ Filter (Scala) ************"
+        res
+        """
 
       /** Scala Unnest
         */
-      case Unnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+      case n @ Unnest(Gen(patChild, child), Gen(patPath, path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        ${build(child)}
+          .flatMap($childArg => {
+            ..${idnVals("child", patChild, false)}
+              ${build(path)}
+                .filter($pathArg => {
+                  ..${idnVals("path", patPath, false)}
+                  ${build(pred)} })
+                .map($pathArg => {
+                  $rt(child, path) })})
+        """
         q"""
         val start = "************ Unnest (Scala) ************"
-        val res =
-          ${build(child)}
-            .flatMap($childArg =>
-              child match { case (..${patternTerms(patChild)}) =>
-                ${build(path)}
-                  .map($pathArg =>
-                    path match { case (..${patternTerms(patPath)}) =>
-                      ( (..${patternIdents(patChild)}), (..${patternIdents(patPath)}) ) }) })
-            .filter(${lambda2(patChild, patPath, pred)})
+        val res = $code
         val end = "************ Unnest (Scala) ************"
         res
         """
 
       /** Scala OuterUnnest
         */
-      case OuterUnnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+      case n @ OuterUnnest(Gen(patChild, child), Gen(patPath, path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        ${build(child)}
+          .flatMap($childArg => {
+            ..${idnVals("child", patChild, false)}
+            val matches =
+              ${build(path)}
+              .filter($pathArg => {
+                ..${idnVals("path", patPath, false)}
+                ${nullableFilter(patPath)} })
+              .filter($pathArg => {
+                ..${idnVals("path", patPath, true)}
+                ${build(pred)} })
+            if (matches.isEmpty)
+              List( $rt(child, None) )
+            else
+              matches.map(path => $rt(child, Some(path))) })
+        """
         q"""
         val start = "************ OuterUnnest (Scala) ************"
-        val res =
-          ${build(child)}
-            .flatMap($childArg =>
-              child match { case (..${patternTerms(patChild)}) =>
-                val matches =
-                  ${build(path)}
-                  .map($pathArg =>
-                    path match { case (..${patternTerms(patPath)}) =>
-                      ( (..${patternIdents(patChild)}), (..${patternIdents(patPath)}) ) })
-                  .filter(${lambda2(patChild, patPath, pred)})
-                if (matches.isEmpty)
-                  None
-                else
-                  matches.map(Some(_)) })
+        val res = $code
         val end = "************ OuterUnnest (Scala) ************"
         res
         """
 
       /** Scala Join
         */
-      case Join(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
+      case n @ Join(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+        val leftArg = c.parse(s"left: ${patternType(patLeft)}")
+        val rightArg = c.parse(s"right: ${patternType(patRight)}")
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        val rightCode = ${build(childRight)}.toSeq
+        ${build(childLeft)}
+          .flatMap($leftArg => {
+            ..${idnVals("left", patLeft, false)}
+            rightCode
+              .filter($rightArg => {
+                ..${idnVals("right", patRight, false)}
+                ${build(p)} })
+              .map($rightArg => {
+                $rt(left, right) })})
+        """
         q"""
         val start = "************ Join (Scala) ************"
-        val left = ${build(leftChild)}
-        val right = ${build(rightChild)}.toSeq
-        val res = left.flatMap(x1 => right.map(x2 => (x1, x2))).filter(${lambda2(leftPat, rightPat, p)})
+        val res = $code
         val end = "************ Join (Scala)************"
         res
         """
 
       /** Scala OuterJoin
         */
-      case OuterJoin(Gen(leftPat, leftChild), Gen(rightPat, rightChild), p) =>
-        val leftArg = c.parse(s"l: ${patternType(leftPat)}")
-        val rightArg = c.parse(s"r: ${patternType(rightPat)}")
-        val bothArg = c.parse(s"arg: (${patternType(leftPat)}, ${patternType(rightPat)})")
+      case n @ OuterJoin(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+        val leftArg = c.parse(s"left: ${patternType(patLeft)}")
+        val rightArg = c.parse(s"right: ${patternType(patRight)}")
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        val rightCode = ${build(childRight)}.toSeq
+        ${build(childLeft)}
+          .flatMap($leftArg => {
+            ..${idnVals("left", patLeft, false)}
+            val matches =
+              rightCode
+                .filter($rightArg => {
+                  ..${idnVals("right", patRight, false)}
+                  ${nullableFilter(patRight)} })
+                .filter($rightArg => {
+                  ..${idnVals("right", patRight, true)}
+                  ${build(p)} })
+            if (matches.isEmpty)
+              List( $rt(left, None) )
+            else
+              matches.map(right => $rt(left, Some(right))) })
+        """
         q"""
         val start = "************ OuterJoin (Scala) ************"
-        val lhs = ${build(leftChild)}
-        val rhs = ${build(rightChild)}.toSeq
-        val res = lhs.flatMap($leftArg => {
-          val ok = rhs.map($rightArg => (l, r)).filter(${lambda2(leftPat, rightPat, p)})
-          if (ok.isEmpty)
-            List((l, None))
-          else
-            ok.map($bothArg => arg match { case (l, r) => (l, Some(r)) })
-        })
+        val res = $code
         val end = "************ OuterJoin (Scala)************"
         res
         """
@@ -576,14 +641,19 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       /** Scala Reduce
         */
       case Reduce(m, Gen(pat, child), e) =>
-        val childCode = q"""${build(child)}.map(${lambda1(pat, e)})"""
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val projected = q"""
+        ${build(child)}.map($childArg => {
+          ..${idnVals("child", pat, false)}
+          ${build(e)} })
+        """
         val code = m match {
-          case _: MaxMonoid => q"""$childCode.max"""
-          case _: MinMonoid => q"""$childCode.min"""
-          case m1: PrimitiveMonoid => q"""$childCode.foldLeft(${zero(m1)})(${fold(m1)})"""
-          case _: BagMonoid => q"""$childCode.toList.toIterable"""
-          case _: ListMonoid => q"""$childCode.toList.toIterable"""
-          case _: SetMonoid => q"""$childCode.toSet.toIterable"""
+          case _: MaxMonoid => q"""$projected.max"""
+          case _: MinMonoid => q"""$projected.min"""
+          case m1: PrimitiveMonoid => q"""$projected.foldLeft(${zero(m1)})(${fold(m1)})""" // TODO: fold vs foldLeft?
+          case _: BagMonoid => q"""$projected.toList.toIterable"""
+          case _: ListMonoid => q"""$projected.toList.toIterable"""
+          case _: SetMonoid => q"""$projected.toSet.toIterable"""
         }
         q"""
         val start = "************ Reduce (Scala) ************"
@@ -594,30 +664,32 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Nest
         */
-      case Nest(m: PrimitiveMonoid, Gen(pat, child), k, p, e) =>
+      case n @ Nest(m: PrimitiveMonoid, Gen(pat, child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val nullables = patternNullable(pat)
-        val nullableFilter =
-          if (nullables.isEmpty)
-            q"true"
-          else {
-            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
-          }
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
         val code = q"""
         ${build(child)}
-          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
           .map($groupedArg =>
-              ( arg._1,
-                arg._2
-                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .filter($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(p)} })
-                  .map($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(e)} })
-                  .fold(${zero(m)})(${fold(m)}) ))
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .fold(${zero(m)})(${fold(m)}) ))
           .toIterable
         """
         q"""
@@ -626,35 +698,33 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ Nest Primitive Monoid (Scala) ************"
         res"""
 
-// TODO: test case infrastructure generating the expected XML file when the result tag is present
-// TODO: Fix Nest handling of user yype... is this a general problem?
-//       e.g. when should there be user types, and when not?
-
-      case Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
+      case n @ Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val nullables = patternNullable(pat)
-        val nullableFilter =
-          if (nullables.isEmpty)
-            q"true"
-          else {
-            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
-          }
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
         val code = q"""
         ${build(child)}
-          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
           .map($groupedArg =>
-              ( arg._1,
-                arg._2
-                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .filter($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(p)} })
-                  .map($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(e)} })
-                  .toSet
-                  .toIterable ))
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toSet
+                .toIterable ))
           .toIterable
         """
         q"""
@@ -663,31 +733,33 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ Nest Set Monoid (Scala) ************"
         res"""
 
-      case Nest((_: BagMonoid | _: ListMonoid), Gen(pat, child), k, p, e) =>
+      case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(pat, child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val nullables = patternNullable(pat)
-        val nullableFilter =
-          if (nullables.isEmpty)
-            q"true"
-          else {
-            nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
-          }
+        val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
         val code = q"""
         ${build(child)}
-          .groupBy($childArg => child match { case (..${patternTerms(pat)}) => ${build(k)} })
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
           .map($groupedArg =>
-              ( arg._1,
-                arg._2
-                  .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
-                  .filter($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(p)} })
-                  .map($childArg => {
-                    ..${denulledIdns("child", pat)}
-                    ${build(e)} })
-                  .toList
-                  .toIterable ))
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toList
+                .toIterable ))
           .toIterable
         """
         q"""
@@ -980,30 +1052,30 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _ => exp(e)
     }
 
-    logger.info("Building code. User types: " + world.tipes.mkString("\n"))
+    logger.info("Building code.")
     val tree = build(treeExp)
 
     val treeType = analyzer.tipe(treeExp)
     logger.info(s"TreeType: $treeType")
-    val reducedTree = tree match {
-      case a: AlgebraNode if analyzer.spark(a) => reduceSpark(tree, treeType)
-      case a: AlgebraNode => reduceScala(tree, treeType)
-      case _ => tree
+
+    val collectedTree = tree match {
+      case a: AlgebraNode if analyzer.spark(a) => collectSpark(tree, treeType)
+      case _ => collectScala(tree, treeType)
     }
 
-    reducedTree
+    collectedTree
   }
 
-  def reduceScala(tree: Tree, treeType: raw.Type): Tree = {
-    treeType match {
-      case CollectionType(BagMonoid(), _) => tree
-      case CollectionType(ListMonoid(), _) => tree
-      case n@CollectionType(SetMonoid(), _) => tree
-      case _ => tree
-    }
+  /** Collect results from in-memory Scala.
+    */
+  def collectScala(tree: Tree, treeType: raw.Type): Tree = treeType match {
+    case _: CollectionType => q"$tree.toList"
+    case _ => tree
   }
 
-  def reduceSpark(tree: Tree, treeType: raw.Type): Tree = {
+  /** Collect results from Spark.
+    */
+  def collectSpark(tree: Tree, treeType: raw.Type): Tree = {
     treeType match {
       /*
        Currently, we do not take advantage of the Bag semantics to optimize an RDD representing a BagType. So an RDD
@@ -1037,19 +1109,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case _ => tree
     }
-  }
-
-
-  def extractParams(tree: Tree): (Tree, Tree) = tree match {
-    case q"new $name( ..$params )" =>
-      logger.info(s"Extracted params: $params")
-      params match {
-        case List(queryTree, catalogTree) =>
-          logger.info(s"query: $queryTree, catalog: $catalogTree")
-          (queryTree.asInstanceOf[Tree], catalogTree.asInstanceOf[Tree])
-        //        case List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-        //        case q"($query:String, $catalog:HList)"  List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-      }
   }
 
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
@@ -1161,9 +1220,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
     val parseResult: Either[QueryError, Calculus.Calculus] = queryLanguage match {
-      case OQL => ???
       case Qrawl => Query(query, world)
-      case LogicalPlan => ???
+      case _ => throw new UnsupportedOperationException(s"$queryLanguage not yet supported")
     }
 
     parseResult match {
@@ -1176,7 +1234,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
 
         val physicalAnalyzer = new PhysicalAnalyzer(tree, world, isSpark)
-        physicalAnalyzer.tipe(tree.root)  // Type the root of the tree to force all nodes to be typed
+        physicalAnalyzer.tipe(tree.root) // Type the root of the tree to force all nodes to be typed
 
         val caseClasses: Set[Tree] = buildCaseClasses(treeExp, world, physicalAnalyzer)
         logger.info("case classes:\n{}", caseClasses.map(showCode(_)).mkString("\n"))
@@ -1234,7 +1292,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         QueryLogger.log(query, expStr, scalaCode)
         c.Expr[Any](block)
 
-      case Left(err) => bail(err.err)
+      case Left(err) => {
+        val errorMsg = err match {
+          case ParserError(msg) => c.warning(c.enclosingPosition, err.err)
+          case SemanticErrors(msg) => c.warning(c.enclosingPosition, err.err)
+          case InternalError(msg) => c.error(c.enclosingPosition, err.err)
+        }
+        logger.warn("Aborting compilation")
+        bail(RawImpl.COMPILATION_ABORT)
+      }
     }
   }
 

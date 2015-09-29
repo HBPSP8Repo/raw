@@ -13,7 +13,7 @@ from (
  ]]>
         </oql>
         <qrawl><![CDATA[
-select G.title,
+select title: G.title,
       (select year: v,
               N: count(partition)
        from v in G.values
