@@ -108,7 +108,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
           logger.warn(s"Request to $uri could not be handled normally: $e")
           complete(StatusCodes.InternalServerError, e.getMessage)
         }
-        // Any other exception will be handled by Spray and return a 500 status code.
+      // Any other exception will be handled by Spray and return a 500 status code.
     }
 
   def start(): Future[Bound] = {
@@ -116,7 +116,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     val queryPath = "query"
     val registerPath = "register"
     val schemasPath = "schemas"
-    logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath}")
+    logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath,$schemasPath}")
     val future: Future[Bound] = startServer("0.0.0.0", port = port) {
       handleExceptions(myExceptionHandler) {
         (path(queryPath) & post) {
@@ -132,32 +132,32 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
                 }
               }
             }
-          } ~
-            /*
-             dataDir must contain the following files:
-             - <schemaName>.[csv|json]
-             - schema.xml
-             - properties.json
-            */
-            (path(registerPath) & post) {
-              formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
-                logger.info(s"$user, $schemaName, $dataDir")
-                rawServer.registerSchema(schemaName, dataDir, user)
-                respondWithMediaType(MediaTypes.`application/json`) {
-                  complete( """ {"success" = True } """)
-                }
-              }
-            } ~
-            (path(schemasPath) & get) {
-              headerValueByName("Raw-User") { user =>
-                logger.info(s"Returning schemas for $user")
-                val schemas: Seq[String] = rawServer.getSchemas(user)
-                respondWithMediaType(MediaTypes.`application/json`) {
-                  complete(schemas)
-                }
+          }
+        } ~
+          /*
+           dataDir must contain the following files:
+           - <schemaName>.[csv|json]
+           - schema.xml
+           - properties.json
+          */
+          (path(registerPath) & post) {
+            formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
+              logger.info(s"$user, $schemaName, $dataDir")
+              rawServer.registerSchema(schemaName, dataDir, user)
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete( """ {"success" = True } """)
               }
             }
-        }
+          } ~
+          (path(schemasPath) & get) {
+            headerValueByName("Raw-User") { user =>
+              logger.info(s"Returning schemas for $user")
+              val schemas: Seq[String] = rawServer.getSchemas(user)
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete(schemas)
+              }
+            }
+          }
       }
     }
     future
