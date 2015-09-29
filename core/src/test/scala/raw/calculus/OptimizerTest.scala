@@ -28,6 +28,11 @@ class OptimizerTest extends FunTest {
 
   def check(query: String, world: World, algebra: String) = compare(CalculusPrettyPrinter(process(world, query).root), algebra)
 
+  test("exists") {
+    check("exists(authors)", TestWorlds.publications,
+     """reduce(or, $0 <- authors, true)""")
+  }
+
   test("to_set found") {
     check("select A.title from A in (select distinct A from A in authors)", TestWorlds.publications,
       """reduce(set, $313 <- authors, $313.title)""")

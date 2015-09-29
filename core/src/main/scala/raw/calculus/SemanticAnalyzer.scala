@@ -196,6 +196,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Min(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Avg(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Exists(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
       }
       nt
     }
@@ -621,6 +622,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     // Sugar expressions
     case _: Count => IntType()
+    case _: Exists => BoolType()
 
     case n => TypeVariable()
   }
@@ -1244,6 +1246,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
           MaxOfMonoids(n, Seq(g1, g2)))
 
+      // Sugar nodes
+
       case n @ Sum(e) =>
         val tn = NumberType()
         Seq(
@@ -1270,8 +1274,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case n @ Count(e) =>
         Seq(
-          HasType(e, CollectionType(MonoidVariable(), TypeVariable())),
-          HasType(n, NumberType()))
+          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
+
+      case n @ Exists(e) =>
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
 
       case _ =>
         Seq()
@@ -1319,6 +1326,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Min(e) => constraints(e) ++ constraint(n)
     case n @ Avg(e) => constraints(e) ++ constraint(n)
     case n @ Count(e) => constraints(e) ++ constraint(n)
+    case n @ Exists(e) => constraints(e) ++ constraint(n)
   }
 
   /** Create a type variable for the FROMs part of a SELECT.

@@ -155,6 +155,10 @@ object Calculus {
     */
   case class InExp(e1: Exp, e2: Exp) extends Sugar
 
+  /** Exists
+    */
+  case class Exists(e: Exp) extends Sugar
+
   /** Patterns
     */
   sealed abstract class Pattern extends CalculusNode
