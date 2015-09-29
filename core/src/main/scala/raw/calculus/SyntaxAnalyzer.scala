@@ -21,52 +21,56 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   /** Reserved words
     */
   // TODO: Make reserved words case-insensitive
-  val kwOr = "or\\b".r
-  val kwAnd = "and\\b".r
-  val kwNot = "not\\b".r
-  val kwUnion = "union\\b".r
-  val kwBagUnion = "(bag_union|bagUnion)\\b".r
-  val kwAppend = "append\\b".r
-  val kwMax = "max\\b".r
-  val kwSum = "sum\\b".r
-  val kwMultiply = "multiply\\b".r
-  val kwSet = "set\\b".r
-  val kwBag = "bag\\b".r
-  val kwList = "list\\b".r
-  val kwNull = "null\\b".r
-  val kwTrue = "true\\b".r
-  val kwFalse = "false\\b".r
-  val kwFor = "for\\b".r
-  val kwYield = "yield\\b".r
-  val kwIf = "if\\b".r
-  val kwThen = "then\\b".r
-  val kwElse = "else\\b".r
-  val kwToBool = "(to_bool|toBool)\\b".r
-  val kwToInt = "(to_int|toInt)\\b".r
-  val kwToFloat = "(to_float|toFloat)\\b".r
-  val kwToString = "(to_string|toString)\\b".r
-  val kwToBag = "(to_bag|toBag)\\b".r
-  val kwToList = "(to_list|toList)\\b".r
-  val kwToSet = "(to_set|toSet)\\b".r
-  val kwAvg = "avg\\b".r
-  val kwCount = "count\\b".r
-  val kwMin = "min\\b".r
-  val kwGoTo = "(go_to|goto)\\b".r
-  val kwGetOrElse = "(get_or_else|getOrElse)\\b".r
-  val kwOrElse = "(or_else|orElse)\\b".r
-  val kwBreak = "break\\b".r
-  val kwContinue = "continue\\b".r
-  val kwSelect = "select\\b".r
-  val kwDistinct = "distinct\\b".r
-  val kwFrom = "from\\b".r
-  val kwAs = "as\\b".r
-  val kwIn = "in\\b".r
-  val kwWhere = "where\\b".r
-  val kwGroup = "group\\b".r
-  val kwOrder = "order\\b".r
-  val kwBy = "by\\b".r
-  val kwHaving = "having\\b".r
-  val kwPartition = "partition\\b".r
+  val kwOr = "(?i)or\\b".r
+  val kwAnd = "(?i)and\\b".r
+  val kwNot = "(?i)not\\b".r
+  val kwUnion = "(?i)union\\b".r
+  val kwBagUnion = "((?i)bag_union|(?i)bagUnion)\\b".r
+  val kwAppend = "(?i)append\\b".r
+  val kwMax = "(?i)max\\b".r
+  val kwSum = "(?i)sum\\b".r
+  val kwMultiply = "(?i)multiply\\b".r
+  val kwSet = "(?i)set\\b".r
+  val kwBag = "(?i)bag\\b".r
+  val kwList = "(?i)list\\b".r
+  val kwNull = "(?i)null\\b".r
+  val kwTrue = "(?i)true\\b".r
+  val kwFalse = "(?i)false\\b".r
+  val kwFor = "(?i)for\\b".r
+  val kwYield = "(?i)yield\\b".r
+  val kwIf = "(?i)if\\b".r
+  val kwThen = "(?i)then\\b".r
+  val kwElse = "(?i)else\\b".r
+  val kwToBool = "((?i)to_bool|(?i)toBool)\\b".r
+  val kwToInt = "((?i)to_int|(?i)toInt)\\b".r
+  val kwToFloat = "((?i)to_float|(?i)toFloat)\\b".r
+  val kwToString = "((?i)to_string|(?i)toString)\\b".r
+  val kwToBag = "((?i)to_bag|(?i)toBag)\\b".r
+  val kwToList = "((?i)to_list|(?i)toList)\\b".r
+  val kwToSet = "((?i)to_set|(?i)toSet)\\b".r
+  val kwAvg = "(?i)avg\\b".r
+  val kwCount = "(?i)count\\b".r
+  val kwMin = "(?i)min\\b".r
+  val kwGoTo = "((?i)go_to|(?i)goto|(?i)goTo)\\b".r
+  val kwGetOrElse = "((?i)get_or_else|(?i)getOrElse)\\b".r
+  val kwOrElse = "((?i)or_else|(?i)orElse)\\b".r
+  val kwBreak = "(?i)break\\b".r
+  val kwContinue = "(?i)continue\\b".r
+  val kwSelect = "(?i)select\\b".r
+  val kwDistinct = "(?i)distinct\\b".r
+  val kwFrom = "(?i)from\\b".r
+  val kwAs = "(?i)as\\b".r
+  val kwIn = "(?i)in\\b".r
+  val kwWhere = "(?i)where\\b".r
+  val kwGroup = "(?i)group\\b".r
+  val kwOrder = "(?i)order\\b".r
+  val kwBy = "(?i)by\\b".r
+  val kwHaving = "(?i)having\\b".r
+  val kwPartition = "(?i)partition\\b".r
+  val kwTry = "(?i)try\\b".r
+  val kwCatch = "(?i)catch\\b".r
+  val kwExcept = "(?i)except\\b".r
+  val kwNew = "(?i)new\\b".r
 
   // TODO: Alphabetic order
   // TODO: Add more general support for built-in functions(?)
@@ -75,7 +79,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
     kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
-    kwPartition
+    kwPartition | kwTry | kwCatch | kwExcept
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */

@@ -151,6 +151,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               atts(1).tipe.nullable = true
           }
           x
+        case Unnest(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
         case OuterUnnest(g1, g2, p) =>
           val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
           x match {
@@ -826,12 +827,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
         r
 
-      case MaxOfMonoids(s) =>
-        val t = expType(s)
+      case MaxOfMonoids(n, gs) =>
+        val t = expType(n)
         find(t) match {
           case CollectionType(m, inner) =>
-            val fromMs = s.from.map {
+            val fromMs = gs.map {
               case Iterator(p, e) =>
+                val t1 = expType(e)
+                find(t1) match {
+                  case t: CollectionType => t
+                  case _: NothingType    => return true
+                }
+              case Gen(p, e) =>
                 val t1 = expType(e)
                 find(t1) match {
                   case t: CollectionType => t
@@ -844,14 +851,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 val r = unifyMonoids(m, nm)
                 if (!r) {
                   // TODO: Fix error message: should have m and nm?
-                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(s.pos))
+                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(n.pos))
                 }
                 r
               case _ =>
                 val r = (m.commutative.get || !nm.commutative.get) && (m.idempotent.get || !nm.idempotent.get)
                 if (!r) {
                   // TODO: Fix error message: should have m and nm?
-                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(s.pos))
+                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(n.pos))
                 }
                 r
             }
@@ -995,7 +1002,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(
           PartitionHasType(n),
           HasType(n, CollectionType(m, expType(proj))),
-          MaxOfMonoids(n))
+          MaxOfMonoids(n, froms))
 
       // Rule 4
       case n@RecordProj(e, idn) =>
@@ -1274,32 +1281,42 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ Join(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        val m  = MonoidVariable()
         Seq(
-          HasType(g1.e, CollectionType(m, t1)),
-          HasType(g2.e, CollectionType(m, t2)),
+          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
+          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ OuterJoin(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        val m  = MonoidVariable()
         Seq(
-          HasType(g1.e, CollectionType(m, t1)),
-          HasType(g2.e, CollectionType(m, t2)),
+          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
+          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          MaxOfMonoids(n, Seq(g1, g2)))
+
+      case n @ Unnest(g1, g2, p) =>
+        val t1 = TypeVariable()
+        val t2 = TypeVariable()
+        Seq(
+          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
+          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ OuterUnnest(g1, g2, p) =>
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        val m  = MonoidVariable()
         Seq(
-          HasType(g1.e, CollectionType(m, t1)),
+          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))))
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ Sum(e) =>
         val tn = NumberType()

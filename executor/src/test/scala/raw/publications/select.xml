@@ -4,7 +4,7 @@
             select distinct a.name, a.title, a.year from authors a where a.year = 1973
         </oql>
         <qrawl>
-            select distinct a.name, a.title, a.year from authors a where a.year = 1973
+            select distinct a.name AS name, a.title As title, a.year aS year from authors a where a.year = 1973
         </qrawl>
         <result>
             [name: Neuhauser, B., title: professor, year: 1973]
