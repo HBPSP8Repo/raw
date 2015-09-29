@@ -1,6 +1,7 @@
 package raw.executor
 
-import java.io.InputStream
+import java.io._
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
@@ -61,7 +62,7 @@ trait AbstractClosableIterator[A] extends AbstractIterator[A] with Iterator[A] {
 }
 
 
-case class ClosableIterator[A](underlying: Iterator[A], is: InputStream) extends AbstractClosableIterator[A] {
+case class ClosableIterator[A](underlying: Iterator[A], is: Closeable) extends AbstractClosableIterator[A] {
   def hasNext = underlying.hasNext
 
   def next() = underlying.next()
@@ -93,9 +94,18 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   val tag = typeTag[T]
 
   private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  //  private[this] val csvSchema = {
+  //  Name:String, year:Int, office:String, department:String
+  //    CsvSchema.builder()
+  //      .addColumn("Name")
+  //      .addColumn("year", CsvSchema.ColumnType.NUMBER)
+  //      .addColumn("office")
+  //      .addColumn("department")
+  //      .setSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  //      .build()
+  //  }
   private[this] val ctor = {
     val m = manifest[T]
-    logger.info("Type manifest: " + m)
     val ctors = m.runtimeClass.getConstructors
     assert(ctors.size == 1, "Expected a single constructor. Found: " + ctors)
     ctors.head
@@ -118,15 +128,15 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
       }
       i += 1
     }
+    logger.info(s"Resource: ${schema.name}, Conversion functions: $functions")
     functions
   }
 
   override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
-    val properties = schema.properties
-    logger.info(s"Creating iterator for CSV resource: $p. Properties: ${properties}")
+    logger.info(s"Creating iterator for CSV resource: $p")
 
-    val is: InputStream = Files.newInputStream(schema.dataFile)
+    val is: Reader = new InputStreamReader(Files.newInputStream(schema.dataFile), StandardCharsets.UTF_8)
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
       .`with`(csvSchema)
