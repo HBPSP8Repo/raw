@@ -589,6 +589,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
                   .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .filter { case (..${patternTerms(pat)}) => ${build(p)} }
                   .map { case (..${patternTerms(pat)}) => ${build(e)} }
                   .fold(${zero(m)})(${fold(m)}) ))
           .toIterable
@@ -598,6 +599,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val res = $code
         val end = "************ Nest Primitive Monoid (Scala) ************"
         res"""
+
+// TODO: test case infrastructure generating the expected XML file when the result tag is present
+// TODO: Fix Nest handling of user yype... is this a general problem?
+//       e.g. when should there be user types, and when not?
 
       case Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
@@ -617,6 +622,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
                   .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .filter { case (..${patternTerms(pat)}) => ${build(p)} }
                   .map { case (..${patternTerms(pat)}) => ${build(e)} }
                   .toSet
                   .toIterable ))
@@ -646,6 +652,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 arg._2
                   .filter($childArg => child match { case (..${patternTerms(pat)}) => $nullableFilter })
                   .map($childArg => child match { case (..${patternTerms(pat)}) => ${patternDenullable(pat)} })
+                  .filter { case (..${patternTerms(pat)}) => ${build(p)} }
                   .map { case (..${patternTerms(pat)}) => ${build(e)} }
                   .toList
                   .toIterable ))
