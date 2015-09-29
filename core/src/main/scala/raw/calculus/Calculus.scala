@@ -180,6 +180,8 @@ object Calculus {
   /** Nest
     */
   case class Nest(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class Nest2(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class Nest3(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
 
   /** MultiNest
     */

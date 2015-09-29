@@ -187,16 +187,6 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
 //      MultiNest(g1, Seq(NestParams(m, newK, pred_nest, rewriteIdnNode(h, idn_remap(right, newIdn)))))
 //    }
 
-    case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1, g2, join_pred)), k, pred_nest, h)
-      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
-      val newK = makeEquiPred(join_pred).get match {
-        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
-      }
-
-      val leftMost = selfJoinRoot(ojoin).get.p
-
-      MultiNest(g1, Seq(NestParams(m, rewriteIdnNode(newK, idn_remap(g.p, leftMost)), rewriteIdnNode(pred_nest, idn_remap(g.p, leftMost)), rewriteIdnNode(h, idn_remap(g.p, leftMost)))))
-    }
 
 //    case n @ Nest(m, g @ Gen(PatternProd(Seq(left @ PatternProd(Seq(l, r)), right)), mnest @ MultiNest(gm, params)), k, pred_nest, h)
 //      if sameExp(l, k) => {
@@ -209,22 +199,51 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
         case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
       }
       val leftMost = selfJoinRoot(ojoin).get.p
-      //MultiNest(Gen(PatternProd(Seq(l, right)), MultiNest(Gen(left2, g1.e), params)), Seq(NestParams(m, rewriteIdnNode(newK, idn_remap(r, l)), pred_nest, rewriteIdnNode(h, idn_remap(r, l)))))
-      MultiNest(Gen(l, g1.e), params :+ NestParams(m, rewriteIdnNode(newK, idn_remap(r, l)), pred_nest, rewriteIdnNode(h, idn_remap(r, l))))
+      MultiNest(Gen(PatternProd(Seq(l, right)), MultiNest(Gen(left2, g1.e), params)),
+                Seq(NestParams(m, rewriteIdnNode(newK, idn_remap(r, leftMost)), pred_nest, rewriteIdnNode(h, idn_remap(r, leftMost)))))
+      //MultiNest(Gen(l, g1.e), params :+ NestParams(m, rewriteIdnNode(newK, idn_remap(r, l)), pred_nest, rewriteIdnNode(h, idn_remap(r, l))))
     }
 
+    case n @ Nest(m, g @ Gen(p @ PatternProd(Seq(left @ PatternProd(Seq(l, r)), right)), ojoin @ OuterJoin(g1 @ Gen(left2, mnest: MultiNest), g2, join_pred)), k, pred_nest, h)
+      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
+      val newK = makeEquiPred(join_pred).get match {
+        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+      }
+      val leftMost = selfJoinRoot(ojoin).get.p
+      MultiNest(Gen(PatternProd(Seq(l, r)), mnest),
+        Seq(NestParams(m, rewriteIdnNode(newK, idn_remap(right, leftMost)), pred_nest, rewriteIdnNode(h, idn_remap(right, leftMost)))))
+    }
+
+    case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1, g2, join_pred)), k, pred_nest, h)
+      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
+      val newK = makeEquiPred(join_pred).get match {
+        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+      }
+
+      val leftMost = selfJoinRoot(ojoin).get.p
+
+      val map = idn_remap(right, leftMost)
+      MultiNest(g1, Seq(NestParams(m, rewriteIdnNode(k, map), pred_nest, rewriteIdnNode(h, map))))
+    }
 
   }
 
   def selfJoinRoot(e: Exp): Option[Gen] = {
 
     def recurse(e: Exp): Option[Gen] = {
+      logger.debug(s"recurse:joinroot ${e}")
       val r = e match {
         case OuterJoin(g1, g2, p) if alphaEq(g1.e, g2.e) => Some(g1)
-        case OuterJoin(g1, g2, p) => recurse(g1.e) match {
+        case OuterJoin(Gen(_, i: OuterJoin), g2, p) => recurse(i) match {
           case Some(r) if alphaEq(r.e, g2.e) => Some(r)
           case _ => None
         }
+        case OuterJoin(Gen(_, i: MultiNest), g2, p) => recurse(i) match {
+          case Some(r) if alphaEq(r.e, g2.e) => Some(r)
+          case _ => None
+        }
+        case MultiNest(Gen(_, i: MultiNest), _) => recurse(i)
+        case MultiNest(Gen(_, i: OuterJoin), _) => recurse(i)
         case MultiNest(g, _) => Some(g)
         case _ => None
       }
