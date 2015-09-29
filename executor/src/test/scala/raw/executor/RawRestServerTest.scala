@@ -203,18 +203,18 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     logger.info("Result: " + result)
   }
 
-  test("Large") {
-    val rawUser = "joedoe"
-    val storageManager = restServer.rawServer.storageManager
-
-    val schemas = storageManager.listUserSchemas(rawUser)
-    logger.info("Found schemas: " + schemas.mkString(", "))
-    val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
-    var i = 0
-    while (i < 5) {
-      val result = CodeGenerator.query(studentsHeaderPlan, scanners)
-      logger.info("Result: " + result)
-      i += 1
-    }
-  }
+//  test("Large") {
+//    val rawUser = "joedoe"
+//    val storageManager = restServer.rawServer.storageManager
+//
+//    val schemas = storageManager.listUserSchemas(rawUser)
+//    logger.info("Found schemas: " + schemas.mkString(", "))
+//    val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
+//    var i = 0
+//    while (i < 5) {
+//      val result = CodeGenerator.query(studentsHeaderPlan, scanners)
+//      logger.info("Result: " + result)
+//      i += 1
+//    }
+//  }
 }
