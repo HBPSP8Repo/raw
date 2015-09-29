@@ -44,14 +44,39 @@ templateTestMethod = """
   }
 """
 
-templateTestMethodJsonCompare = """
+templateTestMethodJsonCompareToFile = """
   test("%(name)s") {
     val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
     val query = \"\"\"
       %(query)s
     \"\"\"
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqual(\"%(dataset)s\", \"%(name)s\", result)
+    assertJsonEqualsFile(\"%(name)s\", \"%(dataset)s\", result)
+  }
+"""
+
+templateTestMethodPrintResult = """
+  test("%(name)s") {
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
+    val query = \"\"\"
+      %(query)s
+    \"\"\"
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    writeResult(\"%(dataset)s_%(name)s\", result)
+  }
+"""
+
+templateTestMethodJsonCompareToString = """
+  test("%(name)s") {
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
+    val query = \"\"\"
+      %(query)s
+    \"\"\"
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val expected = \"\"\"
+        %(expectedResults)s
+    \"\"\"
+    assertJsonEqualsString(\"%(name)s\", expected, result)
   }
 """
 
@@ -65,21 +90,30 @@ class TestGenerator:
         if disabledAttr != None:
             print "Test disabled:", testName, ". Reason:", disabledAttr
             return ""
-        qe = testDef.find(queryLanguage)
-        # If there is no element in the XML matching this query language, skip code generation.
-        if qe == None:
-            return None
-        query = qe.text.strip()
 
-        # Generate test method
-        # resultElem = testDef.find("result")
-        # if resultElem == None:
-        testMethod = templateTestMethodJsonCompare % \
-                     {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "query": query}
-        # else:
-        #     expectedResults = resultElem.text.strip()
-        #     testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
-        return testMethod
+        # qe = testDef.find(queryLanguage)
+        # # If there is no element in the XML matching this query language, skip code generation.
+        # if qe == None:
+        #     return None
+
+        testMethods = ""
+        for node in testDef:
+            if node.tag.startswith(queryLanguage):
+                query = node.text.strip()
+
+                # Generate test method
+                resultElem = testDef.find("result")
+                if resultElem == None:
+                    # There is no expected result to compare with, so print the results to the console and to a temp file
+                    testMethod = templateTestMethodPrintResult % \
+                                 {"dataset": dataset, "name": testName + "_" + node.tag, "queryLanguage": queryLanguage, "query": query}
+                else:
+                    # Compare with the expected results
+                    expectedResults = resultElem.text.strip()
+                    testMethod = templateTestMethodJsonCompareToString % \
+                                 {"dataset": dataset, "name": testName+ "_" + node.tag, "queryLanguage": queryLanguage, "query": query, "expectedResults": expectedResults}
+                testMethods += testMethod
+        return testMethods
 
     def writeTestFile(self, directory, name, code):
         utils.createDirIfNotExists(directory)
