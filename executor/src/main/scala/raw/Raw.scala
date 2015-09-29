@@ -52,13 +52,15 @@ abstract class RawQuery extends StrictLogging {
 }
 
 object RawImpl {
+  final val COMPILATION_ABORT = "COMPILATION ABORT"
+  
   def toCannonicalForm(recordType: RecordType): Seq[AttrType] = {
     recordType.atts.sortBy(_.idn)
   }
 }
 
 object QueryLanguages {
-  def apply(qlString:String): QueryLanguage = {
+  def apply(qlString: String): QueryLanguage = {
     qlString match {
       case "oql" => OQL
       case "plan" => LogicalPlan
@@ -72,7 +74,7 @@ object QueryLanguages {
      * @param name Name of the query language. This is used as the name of the val holding the query in the macro
      *             generated for the query.
      */
-    val name:String
+    val name: String
   }
 
   case object Qrawl extends QueryLanguage {
@@ -93,6 +95,7 @@ object QueryLanguages {
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
+
   import QueryLanguages._
 
   import c.universe._
@@ -205,7 +208,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
     val resultRecords = collectAnonRecordTypes(tree, world, analyzer)
-      logger.debug(s"buildCaseClasses $resultRecords")
+    logger.debug(s"buildCaseClasses $resultRecords")
 
     // Create a map between RecordType and case class names
     this.userCaseClassesMap = {
@@ -238,11 +241,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     import Calculus._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-            logger.info(s"rawToScalaType: $t")
+      logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-            logger.info(s"typeName: $typeName")
+      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
-            logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
           //          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
@@ -270,12 +273,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       }
 
     def exp(e: Exp): Tree = e match {
-      case _: Null             => q"null"
-      case BoolConst(v)        => q"$v"
-      case IntConst(v)         => q"${v.toInt}"
-      case FloatConst(v)       => q"${v.toFloat}"
-      case StringConst(v)      => q"$v"
-      case IdnExp(idn)         => Ident(TermName(idnName(idn)))
+      case _: Null => q"null"
+      case BoolConst(v) => q"$v"
+      case IntConst(v) => q"${v.toInt}"
+      case FloatConst(v) => q"${v.toFloat}"
+      case StringConst(v) => q"$v"
+      case IdnExp(idn) => Ident(TermName(idnName(idn)))
       case RecordProj(e1, idn) =>
         val id = TermName(idn)
         q"${build(e1)}.$id"
@@ -286,16 +289,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .map(att => build(att.e))
           .mkString(",")
         //            logger.info(s"exp(): $atts => $vals")
-        c.parse(s"""$sym($vals)""")
+        c.parse( s"""$sym($vals)""")
       case IfThenElse(e1, e2, e3) =>
         q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
-        case _: Eq  => q" ${build(e1)} == ${build(e2)}"
+        case _: Eq => q" ${build(e1)} == ${build(e2)}"
         case _: Neq => q" ${build(e1)} != ${build(e2)}"
-        case _: Ge  => q" ${build(e1)} >= ${build(e2)}"
-        case _: Gt  => q" ${build(e1)} > ${build(e2)}"
-        case _: Le  => q" ${build(e1)} <= ${build(e2)}"
-        case _: Lt  => q" ${build(e1)} < ${build(e2)}"
+        case _: Ge => q" ${build(e1)} >= ${build(e2)}"
+        case _: Gt => q" ${build(e1)} > ${build(e2)}"
+        case _: Le => q" ${build(e1)} <= ${build(e2)}"
+        case _: Lt => q" ${build(e1)} < ${build(e2)}"
         case _: Sub => q" ${build(e1)} - ${build(e2)}"
         case _: Div => q" ${build(e1)} / ${build(e2)}"
         case _: Mod => q" ${build(e1)} % ${build(e2)}"
@@ -334,7 +337,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: ToSet => q"${build(e1)}.toSet.toIterable"
       }
       case ExpBlock(bs, e1) =>
-        val vals = bs.map { case Bind(PatternIdn(idn), be) => q"val ${TermName(idnName(idn))} = ${{build(be)}}"}
+        val vals = bs.map { case Bind(PatternIdn(idn), be) => q"val ${TermName(idnName(idn))} = ${
+          {
+            build(be)
+          }
+        }"
+        }
         q"""
         {
           ..$vals
@@ -344,18 +352,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def patternTerms(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps)         => ps.flatMap(patternTerms)
+      case PatternProd(ps) => ps.flatMap(patternTerms)
       case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
     }
 
     def patternIdents(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps)         => ps.flatMap(patternTerms)
+      case PatternProd(ps) => ps.flatMap(patternTerms)
       case PatternIdn(idn: IdnDef) => Seq(q"${Ident(TermName(idnName(idn)))}")
     }
 
     def patternType(p: Pattern) = p match {
       case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
-      case p: PatternProd  => buildScalaType(analyzer.patternType(p), world)
+      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
     }
 
     /** Get the nullable identifiers from a pattern.
@@ -403,7 +411,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     /** Generate lambda with a single argument.
-     */
+      */
     def lambda1(p: Pattern, e: Exp): Tree = {
       p match {
         // Handle case of single pattren idn separately to generate more readable code
@@ -1226,7 +1234,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
 
         val physicalAnalyzer = new PhysicalAnalyzer(tree, world, isSpark)
-        physicalAnalyzer.tipe(tree.root)  // Type the root of the tree to force all nodes to be typed
+        physicalAnalyzer.tipe(tree.root) // Type the root of the tree to force all nodes to be typed
 
         val caseClasses: Set[Tree] = buildCaseClasses(treeExp, world, physicalAnalyzer)
         logger.info("case classes:\n{}", caseClasses.map(showCode(_)).mkString("\n"))
@@ -1284,7 +1292,15 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         QueryLogger.log(query, expStr, scalaCode)
         c.Expr[Any](block)
 
-      case Left(err) => bail(err.err)
+      case Left(err) => {
+        val errorMsg = err match {
+          case ParserError(msg) => c.warning(c.enclosingPosition, err.err)
+          case SemanticErrors(msg) => c.warning(c.enclosingPosition, err.err)
+          case InternalError(msg) => c.error(c.enclosingPosition, err.err)
+        }
+        logger.warn("Aborting compilation")
+        bail(RawImpl.COMPILATION_ABORT)
+      }
     }
   }
 

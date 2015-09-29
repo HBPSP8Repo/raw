@@ -8,13 +8,14 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw.QueryLanguages
-import raw.executor.{CodeGenerator, RawServer, StorageManager}
+import raw.executor._
 import raw.spark._
 import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
-import spray.routing.SimpleRoutingApp
+import spray.routing.{ExceptionHandler, SimpleRoutingApp}
+import spray.util.LoggingContext
 
 import scala.concurrent.Future
 
@@ -95,6 +96,20 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   final val port = 54321
   implicit val system = ActorSystem("simple-routing-app")
 
+  def myExceptionHandler(implicit log: LoggingContext) =
+    ExceptionHandler {
+      case e: ClientErrorException =>
+        requestUri { uri =>
+          logger.warn(s"Request to $uri could not be handled normally: $e")
+          complete(StatusCodes.BadRequest, e.getMessage)
+        }
+      case e: InternalErrorException =>
+        requestUri { uri =>
+          logger.warn(s"Request to $uri could not be handled normally: $e")
+          complete(StatusCodes.InternalServerError, e.getMessage)
+        }
+        // Any other exception will be handled by Spray and return a 500 status code.
+    }
 
   def start(): Future[Bound] = {
     import RegisterRequestJsonSupport._
@@ -102,66 +117,50 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     val registerPath = "register"
     val schemasPath = "schemas"
     logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath}")
-    startServer("0.0.0.0", port = port) {
-      (path(queryPath) & post) {
-        headerValueByName("Raw-User") { rawUser =>
-          headerValueByName("Raw-Query-Language") { queryLanguageString =>
-            entity(as[String]) { query =>
-              logger.info(s"Query request received. User: $rawUser, QueryLanguage: $queryLanguageString, Query:\n$query")
-              try {
+    val future: Future[Bound] = startServer("0.0.0.0", port = port) {
+      handleExceptions(myExceptionHandler) {
+        (path(queryPath) & post) {
+          headerValueByName("Raw-User") { rawUser =>
+            headerValueByName("Raw-Query-Language") { queryLanguageString =>
+              entity(as[String]) { query =>
+                logger.info(s"Query request received. User: $rawUser, QueryLanguage: $queryLanguageString, Query:\n$query")
                 val queryLanguage = QueryLanguages(queryLanguageString)
                 val result = rawServer.doQuery(queryLanguage, query, rawUser)
                 logger.info("Query succeeded. Returning result: " + result.take(30))
                 respondWithMediaType(MediaTypes.`application/json`) {
                   complete(result)
                 }
-              } catch {
-                case ex: RuntimeException =>
-                  logger.warn(s"Failed to process request", ex)
-                  complete(StatusCodes.BadRequest, ex.getMessage)
               }
             }
-          }
+          } ~
+            /*
+             dataDir must contain the following files:
+             - <schemaName>.[csv|json]
+             - schema.xml
+             - properties.json
+            */
+            (path(registerPath) & post) {
+              formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
+                logger.info(s"$user, $schemaName, $dataDir")
+                rawServer.registerSchema(schemaName, dataDir, user)
+                respondWithMediaType(MediaTypes.`application/json`) {
+                  complete( """ {"success" = True } """)
+                }
+              }
+            } ~
+            (path(schemasPath) & get) {
+              headerValueByName("Raw-User") { user =>
+                logger.info(s"Returning schemas for $user")
+                val schemas: Seq[String] = rawServer.getSchemas(user)
+                respondWithMediaType(MediaTypes.`application/json`) {
+                  complete(schemas)
+                }
+              }
+            }
         }
-      } ~
-        /*
-          dataDir must contain the following files:
-          - <schemaName>.[csv|json]
-          - schema.xml
-          - properties.json
-         */
-        (path(registerPath) & post) {
-          formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
-            try {
-              logger.info(s"$user, $schemaName, $dataDir")
-              rawServer.registerSchema(schemaName, dataDir, user)
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete( """ {"success" = True } """)
-              }
-            } catch {
-              case ex: RuntimeException =>
-                logger.warn(s"Failed to process request.", ex)
-                complete(StatusCodes.BadRequest, ex.getMessage)
-            }
-          }
-        } ~
-        (path(schemasPath) & get) {
-          headerValueByName("Raw-User") { user =>
-            try {
-              logger.info(s"Returning schemas for $user")
-              val schemas: Seq[String] = rawServer.getSchemas(user)
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete(schemas)
-              }
-            } catch {
-              case ex: RuntimeException =>
-                logger.warn(s"Failed to process request.", ex)
-                complete(StatusCodes.BadRequest, ex.getMessage)
-            }
-          }
-        }
-
+      }
     }
+    future
   }
 
   def stop(): Unit = {

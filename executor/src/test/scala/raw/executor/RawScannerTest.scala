@@ -13,6 +13,8 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.RawQuery
+import raw.datasets.{Patient, Author, Publication}
 import raw.rest.RawRestServer
 import raw.utils.RawUtils
 
