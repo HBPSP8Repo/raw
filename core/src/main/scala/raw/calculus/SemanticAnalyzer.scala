@@ -163,7 +163,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Nest2(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Nest3(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
 
-        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
+//        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) =>
           val output_type = tipe(proj) match {
             case _: IntType => IntType()
@@ -285,7 +285,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n: Nest => enter(in(n))
     case n: Nest2 => enter(in(n))
     case n: Nest3 => enter(in(n))
-    case n: MultiNest => enter(in(n))
     case s: Select => enter(in(s))
     case b: ExpBlock => enter(in(b))
 
@@ -314,7 +313,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n: Nest => leave(out(n))
     case n: Nest2 => leave(out(n))
     case n: Nest3 => leave(out(n))
-    case n: MultiNest => leave(out(n))
     case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
@@ -812,10 +810,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case HasType(e, expected, desc) =>
         val t = expType(e)
         val r = unify(t, expected)
-        e match {
-          case _: MultiNest => logger.debug(s"oulala: ${CalculusPrettyPrinter(e)} is a ${PrettyPrinter(walk(t))}")
-          case _ =>
-        }
         if (!r) {
           tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
         }
