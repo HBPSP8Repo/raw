@@ -44,14 +44,39 @@ templateTestMethod = """
   }
 """
 
-templateTestMethodJsonCompare = """
+templateTestMethodJsonCompareToFile = """
   test("%(name)s") {
     val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
     val query = \"\"\"
       %(query)s
     \"\"\"
     val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
-    assertJsonEqual(\"%(dataset)s\", \"%(name)s\", result)
+    assertJsonEqualsFile(\"%(name)s\", \"%(dataset)s\", result)
+  }
+"""
+
+templateTestMethodPrintResult = """
+  test("%(name)s") {
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
+    val query = \"\"\"
+      %(query)s
+    \"\"\"
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    writeResult(\"%(name)s\", result)
+  }
+"""
+
+templateTestMethodJsonCompareToString = """
+  test("%(name)s") {
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
+    val query = \"\"\"
+      %(query)s
+    \"\"\"
+    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val expected = \"\"\"
+        %(expectedResults)s
+    \"\"\"
+    assertJsonEqualsString(\"%(name)s\", expected, result)
   }
 """
 
@@ -72,13 +97,14 @@ class TestGenerator:
         query = qe.text.strip()
 
         # Generate test method
-        # resultElem = testDef.find("result")
-        # if resultElem == None:
-        testMethod = templateTestMethodJsonCompare % \
-                     {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "query": query}
-        # else:
-        #     expectedResults = resultElem.text.strip()
-        #     testMethod = templateTestMethod % {"name":testName, "query": oql, "expectedResults": expectedResults}
+        resultElem = testDef.find("result")
+        if resultElem == None:
+            testMethod = templateTestMethodPrintResult % \
+                         {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "query": query}
+        else:
+            expectedResults = resultElem.text.strip()
+            testMethod = templateTestMethodJsonCompareToString % \
+                         {"name":testName, "queryLanguage": queryLanguage, "query": query, "expectedResults": expectedResults}
         return testMethod
 
     def writeTestFile(self, directory, name, code):
