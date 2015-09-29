@@ -511,7 +511,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code =
         q"""
@@ -523,7 +523,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("path", patPath, false)}
                   ${build(pred)} })
                 .map($pathArg => {
-                  ..${idnVals("path", patPath, false)}
                   $rt(child, path) })})
         """
         q"""
@@ -540,7 +539,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code =
         q"""
@@ -574,7 +573,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code =
         q"""
@@ -587,7 +586,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 ..${idnVals("right", patRight, false)}
                 ${build(p)} })
               .map($rightArg => {
-                ..${idnVals("right", patRight, false)}
                 $rt(left, right) })})
         """
         q"""
@@ -604,7 +602,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code =
         q"""
@@ -620,9 +618,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .filter($rightArg => {
                   ..${idnVals("right", patRight, true)}
                   ${build(p)} })
-                .map($rightArg => {
-                  ..${idnVals("right", patRight, true)}
-                  $rt(left, right) })
             if (matches.isEmpty)
               List( $rt(left, None) )
             else
@@ -666,7 +661,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code = q"""
         ${build(child)}
@@ -700,7 +695,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code = q"""
         ${build(child)}
@@ -735,7 +730,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = userRecordName(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
           case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q""
+          case None      => q"scala.Tuple2"
         }
         val code = q"""
         ${build(child)}
