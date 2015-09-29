@@ -96,6 +96,7 @@ class TestGenerator:
         # if qe == None:
         #     return None
 
+        id = ord('A')
         testMethods = ""
         for node in testDef:
             if node.tag.startswith(queryLanguage):
@@ -106,13 +107,14 @@ class TestGenerator:
                 if resultElem == None:
                     # There is no expected result to compare with, so print the results to the console and to a temp file
                     testMethod = templateTestMethodPrintResult % \
-                                 {"dataset": dataset, "name": testName + "_" + node.tag, "queryLanguage": queryLanguage, "query": query}
+                                 {"dataset": dataset, "name": testName + "_" + chr(id), "queryLanguage": queryLanguage, "query": query}
                 else:
                     # Compare with the expected results
                     expectedResults = resultElem.text.strip()
                     testMethod = templateTestMethodJsonCompareToString % \
-                                 {"dataset": dataset, "name": testName+ "_" + node.tag, "queryLanguage": queryLanguage, "query": query, "expectedResults": expectedResults}
+                                 {"dataset": dataset, "name": testName+ "_" + chr(id), "queryLanguage": queryLanguage, "query": query, "expectedResults": expectedResults}
                 testMethods += testMethod
+                id += 1
         return testMethods
 
     def writeTestFile(self, directory, name, code):

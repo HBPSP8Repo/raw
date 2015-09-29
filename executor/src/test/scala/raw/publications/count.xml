@@ -6,12 +6,12 @@
         <qrawl>
             count(authors)
         </qrawl>
-        <qrawl-b>
+        <qrawl>
             count(authors)
-        </qrawl-b>
-        <qrawl-c>
+        </qrawl>
+        <qrawl>
             count(authors)
-        </qrawl-c>
+        </qrawl>
         <result>
             50
         </result>
