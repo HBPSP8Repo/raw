@@ -9,9 +9,10 @@ import nl.grons.metrics.scala.Timer
 import org.apache.spark.rdd.RDD
 import raw.QueryLanguages.{LogicalPlan, OQL, QueryLanguage}
 import raw.utils.{Instrumented, RawUtils}
-import raw.{QueryLogger, RawQuery}
+import raw.{RawImpl, QueryLogger, RawQuery}
 
-import scala.tools.nsc.reporters.StoreReporter
+import scala.collection.mutable
+import scala.tools.nsc.reporters.{ConsoleReporter, StoreReporter}
 import scala.tools.nsc.{Global, Settings}
 
 object RawCompiler {
@@ -21,6 +22,10 @@ object RawCompiler {
   private def newClassName(): String = "Query" + ai.getAndIncrement()
 
 }
+
+class ClientErrorException(msg: String) extends Exception(msg)
+
+class InternalErrorException(msg: String) extends Exception(msg)
 
 class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
                   val baseOutputDir: Path = RawCompiler.defaultTargetDirectory) extends StrictLogging with Instrumented {
@@ -65,6 +70,19 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     settings.plugin.tryToSet(List(p.toString))
     settings.require.tryToSet(List("macroparadise"))
 
+//    settings.debug.tryToSet(List("true"))
+//    settings.showPhases.tryToSet(List("true"))
+//    settings.verbose.tryToSet(List("true"))
+//    settings.explaintypes.tryToSet(List("true"))
+//    settings.printtypes.tryToSet(List("true"))
+//    settings.Xshowobj.tryToSet(List("true"))
+//    settings.Xshowcls.tryToSet(List("true"))
+//    settings.Xshowtrees.tryToSet(List("true"))
+//    settings.YmacrodebugVerbose.tryToSet(List("true"))
+//    settings.Ypatmatdebug.tryToSet(List("true"))
+//    settings.Yreifydebug.tryToSet(List("true"))
+//    settings.Yposdebug.tryToSet(List("true"))
+
     settings.usejavacp.value = true
     //settings.showPlugins only works if you're not compiling a file, same as -help
     logger.info(s"Compiling queries to directory: $classOutputDir")
@@ -74,6 +92,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
 
   private[this] val compileReporter = new StoreReporter()
 
+//  private[this] val compiler = new Global(compilerSettings, new ConsoleReporter(compilerSettings))
   private[this] val compiler = new Global(compilerSettings, compileReporter)
 
   /**
@@ -153,18 +172,34 @@ class $queryName($args) extends RawQuery {
     logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
 
 
-    queryCompileTimer.time {
-      // Compile the query
-      val run = new compiler.Run()
-      run.compile(List(srcFile.toString))
+    try {
+      queryCompileTimer.time {
+        // Compile the query
+        val run = new compiler.Run()
+        run.compile(List(srcFile.toString))
+      }
+    } catch {
+      case ex: Exception => logger.warn("Failed with exception: " + ex); throw ex
     }
 
-    if (compileReporter.hasErrors) {
+    if (compileReporter.hasWarnings || compileReporter.hasErrors) {
+        logger.info("Error: " + compileReporter)
       // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
       // compilation runs are not falsely reported in the subsequent runs
-      val message = "Query compilation failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
+      val infos: mutable.LinkedHashSet[compileReporter.Info] = compileReporter.infos.clone()
       compileReporter.reset()
-      return throw new RuntimeException(message)
+      if (infos.last.msg == RawImpl.COMPILATION_ABORT) {
+        val message = "Query compilation failed:\n" + infos.head
+        compileReporter.reset()
+        val ex = infos.head.severity.toString() match {
+          case "WARNING" => throw new ClientErrorException(message)
+          case "ERROR" => throw new InternalErrorException(message)
+          case a@_ => throw new InternalErrorException("Unknown severity level: " + a + ". Compilation errors: " + message)
+
+        }
+      } else {
+        throw new InternalErrorException(infos.mkString("\n"))
+      }
     }
 
     // Load the main query class
