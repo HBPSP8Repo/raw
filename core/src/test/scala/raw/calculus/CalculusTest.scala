@@ -19,7 +19,7 @@ abstract class CalculusTest extends FunTest {
     val t = new Calculus.Calculus(parse(q))
 
     val analyzer = new SemanticAnalyzer(t, w)
-    logger.debug(s"Input tree: ${CalculusPrettyPrinter(t.root, 200)}")
+    logger.debug(s"Input tree:\n${CalculusPrettyPrinter(t.root, 200)}")
     if (analyzer.errors.nonEmpty) {
       logger.error("Errors found!")
       analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
@@ -31,7 +31,7 @@ abstract class CalculusTest extends FunTest {
     val t1 = Phases(t, w, lastTransform = Some(phase))
 
     val analyzer1 = new SemanticAnalyzer(t1, w)
-    logger.debug(s"Output tree: ${CalculusPrettyPrinter(t1.root, 200)}")
+    logger.debug(s"Output tree:\n${CalculusPrettyPrinter(t1.root, 200)}")
     if (analyzer1.errors.nonEmpty) {
       logger.error("Errors found!")
       analyzer1.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))

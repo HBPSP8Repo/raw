@@ -1,26 +1,31 @@
 package raw
 package calculus
 
+import org.kiama.attribution.Attribution
+
 /** Simplify expressions:
-  * - by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
+  * - by transforming into the equivalent CNF form;
+  * - applying a smaller number of lossless math simplications;
   * - by removing useless conversions to bag/list/set.
   */
-class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
+class Simplifier(val analyzer: SemanticAnalyzer) extends Attribution with SemanticTransformer {
 
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
   def strategy = simplify
 
-  // TODO: Compute expressions like "if (true) then 1 else 2"
   // TODO: Fold constants
 
-  lazy val simplify = reduce(removeUselessTos) + reduce(
-    ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
-    ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
-    ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
-    ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv)
-  //ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
+  lazy val simplify =
+    attempt(reduce(removeUselessTos)) <*
+    reduce(
+      ruleNotBoolConst +
+      ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
+      ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
+      ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
+      ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv +
+      ruleIfConst)
 
   /** Remove useless conversions.
     */
@@ -30,7 +35,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
       case _ => false
     }
 
-  lazy val removeUselessTos = rule[Exp] {
+  private lazy val removeUselessTos = rule[Exp] {
     case u @ UnaryExp(_: ToBag, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, BagMonoid()) }   => e
     case u @ UnaryExp(_: ToList, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, ListMonoid()) } => e
     case u @ UnaryExp(_: ToSet, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, SetMonoid()) }   => e
@@ -39,42 +44,49 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   /** Rules to simplify Boolean expressions to CNF.
     */
 
-  def ors(e: Exp): Set[Exp] = e match {
+  private lazy val ors: Exp => Set[Exp] = attr {
     case MergeMonoid(_: OrMonoid, lhs, rhs) => ors(lhs) ++ ors(rhs)
-    case _                                  => Set(e)
+    case e                                  => Set(e)
   }
 
-  def ands(e: Exp): Set[Exp] = e match {
+  private lazy val ands: Exp => Set[Exp] = attr {
     case MergeMonoid(_: AndMonoid, lhs, rhs) => ands(lhs) ++ ands(rhs)
-    case _                                   => Set(e)
+    case e                                   => Set(e)
+  }
+
+  /** not(false) => true
+    * not(true) => false */
+  private lazy val ruleNotBoolConst = rule[Exp] {
+    case UnaryExp(_: Not, BoolConst(false)) => BoolConst(true)
+    case UnaryExp(_: Not, BoolConst(true)) => BoolConst(false)
   }
 
   /** true | A => true */
-  lazy val ruleTrueOrA = rule[Exp] {
+  private lazy val ruleTrueOrA = rule[Exp] {
     case MergeMonoid(_: OrMonoid, t @ BoolConst(true), _) => logger.debug("ruleTrueOrA"); t
     case MergeMonoid(_: OrMonoid, _, t @ BoolConst(true)) => logger.debug("ruleTrueOrA"); t
   }
 
   /** false | A => A */
-  lazy val ruleFalseOrA = rule[Exp] {
+  private lazy val ruleFalseOrA = rule[Exp] {
     case MergeMonoid(_: OrMonoid, BoolConst(false), a) => logger.debug("ruleFalseOrA"); a
     case MergeMonoid(_: OrMonoid, a, BoolConst(false)) => logger.debug("ruleFalseOrA"); a
   }
 
   /** true & A => A */
-  lazy val ruleTrueAndA = rule[Exp] {
+  private lazy val ruleTrueAndA = rule[Exp] {
     case MergeMonoid(_: AndMonoid, BoolConst(true), a) => logger.debug("ruleTrueAndA"); a
     case MergeMonoid(_: AndMonoid, a, BoolConst(true)) => logger.debug("ruleTrueAndA"); a
   }
 
   /** false & A => false */
-  lazy val ruleFalseAndA = rule[Exp] {
+  private lazy val ruleFalseAndA = rule[Exp] {
     case MergeMonoid(_: AndMonoid, f @ BoolConst(false), _) => logger.debug("ruleFalseAndA"); f
     case MergeMonoid(_: AndMonoid, _, f @ BoolConst(false)) => logger.debug("ruleFalseAndA"); f
   }
 
   /** !!A => A */
-  lazy val ruleNotNotA = rule[Exp] {
+  private lazy val ruleNotNotA = rule[Exp] {
     case UnaryExp(_: Not, UnaryExp(_: Not, a)) => logger.debug("ruleNotNotA"); a
   }
 
@@ -83,7 +95,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     * !(A & B) => !A | !B
     * !(A | B) => !A & !B
     */
-  lazy val ruleDeMorgan = rule[Exp] {
+  private lazy val ruleDeMorgan = rule[Exp] {
     case UnaryExp(_: Not, MergeMonoid(_: AndMonoid, a, b)) =>
       logger.debug("ruleDeMorgan")
       MergeMonoid(OrMonoid(), UnaryExp(Not(), a), UnaryExp(Not(), b))
@@ -93,7 +105,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** A | !A => true */
-  lazy val ruleAorNotA = rule[Exp] {
+  private lazy val ruleAorNotA = rule[Exp] {
     case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains UnaryExp(Not(), a)  =>
       logger.debug("ruleAorNotA")
       BoolConst(true)
@@ -103,7 +115,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** A & !A => false */
-  lazy val ruleAandNotA = rule[Exp] {
+  private lazy val ruleAandNotA = rule[Exp] {
     case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains UnaryExp(Not(), a)  =>
       logger.debug("ruleAandNotA")
       BoolConst(false)
@@ -113,21 +125,21 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** (A | (A | (B | C))) => (A | (B | C)) */
-  lazy val ruleRepeatedOr = rule[Exp] {
+  private lazy val ruleRepeatedOr = rule[Exp] {
     case MergeMonoid(_: OrMonoid, a, b) if ors(b) contains a =>
       logger.debug("ruleRepeatedOr")
       b
   }
 
   /** (A & (A & (B & C))) => (A & (B & C)) */
-  lazy val ruleRepeatedAnd = rule[Exp] {
+  private lazy val ruleRepeatedAnd = rule[Exp] {
     case MergeMonoid(_: AndMonoid, a, b) if ands(b) contains a =>
       logger.debug("ruleRepeatedAnd")
       b
   }
 
   /** (A & B) | (A & B & C)) => (A & B) */
-  lazy val ruleRepeatedAndInOr = rule[Exp] {
+  private lazy val ruleRepeatedAndInOr = rule[Exp] {
     case MergeMonoid(_: OrMonoid, a, b) if ands(a).nonEmpty && (ands(a) subsetOf ands(b)) =>
       logger.debug("ruleRepeatedAndInOr")
       a
@@ -137,7 +149,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** (A | B) & (A | B | C) => (A | B) */
-  lazy val ruleRepeatedOrInAnd = rule[Exp] {
+  private lazy val ruleRepeatedOrInAnd = rule[Exp] {
     case MergeMonoid(_: AndMonoid, a, b) if ors(a).nonEmpty && (ors(a) subsetOf ors(b)) =>
       logger.debug("ruleRepeatedOrInAnd")
       a
@@ -146,12 +158,12 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
       b
   }
 
-  /* (P1 & P2 & P3) | (Q1 & Q2 & Q3) =>
-   *   (P1 | Q1) & (P1 | Q2) & (P1 | Q3) &
-   *   (P2 | Q1) & (P2 | Q2) & (P2 | Q3) &
-   *   (P3 | Q1) & (P3 | Q2) & (P3 | Q3) &
-   */
-  lazy val ruleDistributeAndOverOr = rule[Exp] {
+  /** (P1 & P2 & P3) | (Q1 & Q2 & Q3) =>
+    * (P1 | Q1) & (P1 | Q2) & (P1 | Q3) &
+    * (P2 | Q1) & (P2 | Q2) & (P2 | Q3) &
+    * (P3 | Q1) & (P3 | Q2) & (P3 | Q3) &
+    */
+  private lazy val ruleDistributeAndOverOr = rule[Exp] {
     case MergeMonoid(_: OrMonoid, a, b) if ands(a).size > 2 && ands(b).size > 2 =>
       logger.debug("ruleDistributeAndOverOr")
       val prod = for (x <- ands(a); y <- ands(b)) yield MergeMonoid(OrMonoid(), x, y)
@@ -165,7 +177,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     * is handled indirectly by `ands`.
     */
 
-  object ExtractNumberConst {
+  private object ExtractNumberConst {
     def unapply(c: NumberConst): Option[String] = c match {
       case IntConst(v)   => Some(v)
       case FloatConst(v) => Some(v)
@@ -177,7 +189,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     */
 
   /** x + 0 => x */
-  lazy val ruleAddZero = rule[Exp] {
+  private lazy val ruleAddZero = rule[Exp] {
     case MergeMonoid(_: SumMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 0 =>
       logger.debug("ruleAddZero")
       lhs
@@ -187,35 +199,35 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** x - 0 => x */
-  lazy val ruleSubZero = rule[Exp] {
+  private lazy val ruleSubZero = rule[Exp] {
     case BinaryExp(_: Sub, lhs, ExtractNumberConst(v)) if v.toFloat == 0 =>
       logger.debug("ruleSubZero")
       lhs
   }
 
   /** a - b => a + (-b) */
-  lazy val ruleReplaceSubByNeg = rule[Exp] {
+  private lazy val ruleReplaceSubByNeg = rule[Exp] {
     case BinaryExp(_: Sub, lhs, rhs) =>
       logger.debug("ruleReplaceSubByNeg")
       MergeMonoid(SumMonoid(), lhs, UnaryExp(Neg(), rhs))
   }
 
   /** x + (-x) => 0 */
-  lazy val ruleSubSelf = rule[Exp] {
+  private lazy val ruleSubSelf = rule[Exp] {
     case MergeMonoid(_: SumMonoid, lhs, UnaryExp(_: Neg, rhs)) if lhs == rhs =>
       logger.debug("ruleSubSelf")
       IntConst("0")
   }
 
   /** --x => x */
-  lazy val ruleRemoveDoubleNeg = rule[Exp] {
+  private lazy val ruleRemoveDoubleNeg = rule[Exp] {
     case UnaryExp(_: Neg, UnaryExp(_: Neg, e)) =>
       logger.debug("ruleRemoveDoubleNeg")
       e
   }
 
   /** x * 0 => 0 */
-  lazy val ruleMultiplyByZero = rule[Exp] {
+  private lazy val ruleMultiplyByZero = rule[Exp] {
     case MergeMonoid(_: MultiplyMonoid, lhs, c @ ExtractNumberConst(v)) if v.toFloat == 0 =>
       logger.debug("ruleMultiplyByZero")
       c
@@ -225,7 +237,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** x * 1 => x */
-  lazy val ruleMultiplyByOne = rule[Exp] {
+  private lazy val ruleMultiplyByOne = rule[Exp] {
     case MergeMonoid(_: MultiplyMonoid, lhs, ExtractNumberConst(v)) if v.toFloat == 1 =>
       logger.debug("ruleMultiplyByOne")
       lhs
@@ -235,24 +247,32 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   /** x / 1 => x */
-  lazy val ruleDivideByOne = rule[Exp] {
+  private lazy val ruleDivideByOne = rule[Exp] {
     case BinaryExp(_: Div, lhs, ExtractNumberConst(v)) if v.toFloat == 1 =>
       logger.debug("ruleDivideByOne")
       lhs
   }
 
   /** x / x => 1 */
-  lazy val ruleDivideBySelf = rule[Exp] {
+  private lazy val ruleDivideBySelf = rule[Exp] {
     case BinaryExp(_: Div, lhs, rhs) if lhs == rhs =>
       logger.debug("ruleDivideBySelf")
       IntConst("1")
   }
 
   /** x / (y / z) => x * z / y */
-  lazy val ruleDivDivByMultDiv = rule[Exp] {
+  private lazy val ruleDivDivByMultDiv = rule[Exp] {
     case BinaryExp(_: Div, x, BinaryExp(_: Div, y, z)) =>
       logger.debug("ruleDivDivByMultDiv")
       BinaryExp(Div(), MergeMonoid(MultiplyMonoid(), x, z), y)
+  }
+
+  /** if (true)  then e1 else e2 => e1
+   *  if (false) then e1 else e2 => e2
+   */
+  private lazy val ruleIfConst = rule[Exp] {
+    case IfThenElse(BoolConst(true), e1, _) => e1
+    case IfThenElse(BoolConst(false), _, e2) => e2
   }
 
   //

@@ -5,10 +5,10 @@ class SimplifierTest extends CalculusTest {
 
   val phase = "Simplifier1"
 
-  ignore("test1") {
+  ignore("fold constants") {
     check(
-      """for (t <- things, t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""",
-      """for ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a""",
+      """for (t <- things; t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""",
+      """for ($0 <- things; 25 + $0.a > -13 + $0.b) yield set $0.a""",
       TestWorlds.things)
   }
 
@@ -19,8 +19,11 @@ class SimplifierTest extends CalculusTest {
       TestWorlds.fines)
   }
 
-//  test("test") {
-//    val query = "if (true) then 1 else 2"
-//    assert(false)
-//  }
+  test("if true") {
+    check("if (true or false) then 1 else 2", "1")
+  }
+
+  test("if false") {
+    check("if (true and false) then 1 else 2", "2")
+  }
 }
