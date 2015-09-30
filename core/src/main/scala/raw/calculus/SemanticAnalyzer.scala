@@ -140,28 +140,69 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
           makeNullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Iterator(_, e1) => tipe(e1)})
-        case Reduce(m, g, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Filter(g, p) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Join(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
-        case OuterJoin(g1, g2, p) =>
-          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        case Reduce(m: PrimitiveMonoid, g, e1) => makeNullable(te, Seq(tipe(e1)), Seq(tipe(g.e)))
+        case Reduce(m: CollectionMonoid, g, e1) => makeNullable(te, Seq(CollectionType(m, tipe(e1))), Seq(tipe(g.e)))
+        case Filter(g, p) => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
+        case Join(g1, g2, p) => te match {
+          case CollectionType(m, inner) => {
+            val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+              case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+            }
+            makeNullable(te, Seq(CollectionType(m, expectedType)), Seq(tipe(g1.e), tipe(g2.e)))
+          }
+        }
+        case OuterJoin(g1, g2, p) => {
+          val x = te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
           x match {
             case CollectionType(_, RecordType(atts, _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
           x
-        case Unnest(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        }
+        case Unnest(g1, g2, p) =>
+          te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
         case OuterUnnest(g1, g2, p) =>
-          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+          val x = te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
           x match {
             case CollectionType(_, RecordType(atts, _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
           x
-        case Nest(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Nest2(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
+        case Nest(m: CollectionMonoid, g, k, p, e1) => {
+          te match {
+            case CollectionType(m2, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1)))), None))), Seq(tipe(g.e)))
+          }
+        }
+        case Nest(m: PrimitiveMonoid, g, k, p, e1) => {
+          te match {
+            case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", tipe(e1))), None))), Seq(tipe(g.e)))
+          }
+        }
+
+        //        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) =>
           val output_type = tipe(proj) match {
             case _: IntType => IntType()
@@ -171,6 +212,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           output_type.nullable = false
           makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1)})
+
         case BinaryExp(_, e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case InExp(e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
@@ -197,10 +239,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Avg(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Exists(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
-      }
+        }
       nt
-    }
   }
+}
 
   /** Type checker errors.
     */
@@ -283,6 +325,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case o: OuterUnnest => enter(in(o))
     case n: Nest => enter(in(n))
     case n: Nest2 => enter(in(n))
+    case n: Nest3 => enter(in(n))
     case s: Select => enter(in(s))
     case b: ExpBlock => enter(in(b))
 
@@ -310,6 +353,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case o: OuterUnnest => leave(out(o))
     case n: Nest => leave(out(n))
     case n: Nest2 => leave(out(n))
+    case n: Nest3 => leave(out(n))
     case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
@@ -989,7 +1033,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     n match {
 
       // Select
-      case n @ Select(froms, d, g, proj, w, o, h) =>
+      case n@Select(froms, d, g, proj, w, o, h) =>
         val m =
           if (o.isDefined)
             ListMonoid()
@@ -1003,79 +1047,79 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           MaxOfMonoids(n, froms))
 
       // Rule 4
-      case n @ RecordProj(e, idn) =>
+      case n@RecordProj(e, idn) =>
         Seq(
           HasType(e, ConstraintRecordType(Set(AttrType(idn, expType(n))))))
 
       // Rule 6
-      case n @ IfThenElse(e1, e2, e3) =>
+      case n@IfThenElse(e1, e2, e3) =>
         Seq(
           HasType(e1, BoolType(), Some("if condition must be a boolean")),
           SameType(e2, e3, Some("then and else must be of the same type")),
           SameType(n, e2))
 
       // Rule 8
-      case n @ FunApp(f, e) =>
+      case n@FunApp(f, e) =>
         Seq(
           HasType(f, FunType(expType(e), expType(n))))
 
       // Rule 11
-      case n @ MergeMonoid(_: BoolMonoid, e1, e2) =>
+      case n@MergeMonoid(_: BoolMonoid, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           HasType(e1, BoolType()),
           HasType(e2, BoolType()))
 
-      case n @ MergeMonoid(_: NumberMonoid, e1, e2) =>
+      case n@MergeMonoid(_: NumberMonoid, e1, e2) =>
         Seq(
           HasType(n, NumberType()),
           SameType(n, e1),
           SameType(e1, e2))
 
       // Rule 12
-      case n @ MergeMonoid(_: CollectionMonoid, e1, e2) =>
+      case n@MergeMonoid(_: CollectionMonoid, e1, e2) =>
         Seq(
           SameType(n, e1),
           SameType(e1, e2),
           HasType(e2, CollectionType(MonoidVariable(), TypeVariable())))
 
       // Rule 13
-      case n @ Comp(m: NumberMonoid, qs, e) =>
+      case n@Comp(m: NumberMonoid, qs, e) =>
         qs.collect { case Gen(_, e1) => e1 }.map(e => ExpMonoidSubsetOf(e, m)) ++
-        Seq(
-          HasType(e, NumberType()),
-          SameType(n, e))
+          Seq(
+            HasType(e, NumberType()),
+            SameType(n, e))
 
-      case n @ Comp(m: BoolMonoid, qs, e)   =>
+      case n@Comp(m: BoolMonoid, qs, e) =>
         Seq(
           HasType(e, BoolType()),
           SameType(n, e))
 
       // Rule 14
-      case n @ Comp(m: CollectionMonoid, qs, e1) =>
+      case n@Comp(m: CollectionMonoid, qs, e1) =>
         qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
           Seq(HasType(n, CollectionType(m, expType(e1))))
 
       // Binary Expression
-      case n @ BinaryExp(_: EqualityOperator, e1, e2) =>
+      case n@BinaryExp(_: EqualityOperator, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           SameType(e1, e2))
 
-      case n @ BinaryExp(_: ComparisonOperator, e1, e2) =>
+      case n@BinaryExp(_: ComparisonOperator, e1, e2) =>
         Seq(
           HasType(n, BoolType()),
           SameType(e2, e1),
           HasType(e1, NumberType()))
 
-      case n @ BinaryExp(_: ArithmeticOperator, e1, e2) =>
+      case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
         Seq(
           SameType(n, e1),
           SameType(e1, e2),
           HasType(e2, NumberType()))
 
       // Binary Expression
-      case n @ InExp(e1, e2) =>
+      case n@InExp(e1, e2) =>
         val inner = TypeVariable()
         Seq(
           HasType(e2, CollectionType(MonoidVariable(), inner)),
@@ -1084,36 +1128,36 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Unary Expression type
 
-      case n @ UnaryExp(_: Not, e) =>
+      case n@UnaryExp(_: Not, e) =>
         Seq(
           SameType(n, e),
           HasType(e, BoolType()))
 
-      case n @ UnaryExp(_: Neg, e) =>
+      case n@UnaryExp(_: Neg, e) =>
         Seq(
           SameType(n, e),
           HasType(e, NumberType()))
 
-      case n @ UnaryExp(_: ToBag, e) =>
+      case n@UnaryExp(_: ToBag, e) =>
         val inner = TypeVariable()
         Seq(
           HasType(e, CollectionType(MonoidVariable(), inner)),
           HasType(n, CollectionType(BagMonoid(), inner)))
 
-      case n @ UnaryExp(_: ToList, e) =>
+      case n@UnaryExp(_: ToList, e) =>
         val inner = TypeVariable()
         Seq(
           HasType(e, CollectionType(MonoidVariable(), inner)),
           HasType(n, CollectionType(ListMonoid(), inner)))
 
-      case n @ UnaryExp(_: ToSet, e) =>
+      case n@UnaryExp(_: ToSet, e) =>
         val inner = TypeVariable()
         Seq(
           HasType(e, CollectionType(MonoidVariable(), inner)),
           HasType(n, CollectionType(SetMonoid(), inner)))
 
       // Expression block type
-      case n @ ExpBlock(_, e) =>
+      case n@ExpBlock(_, e) =>
         Seq(
           SameType(n, e))
 
@@ -1123,7 +1167,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(
           HasType(e, CollectionType(MonoidVariable(), patternType(p))))
 
-      case b @ Bind(p, e) =>
+      case b@Bind(p, e) =>
         Seq(
           InheritType(b))
 
@@ -1133,42 +1177,33 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Operators
 
-      case n @ Reduce(m: CollectionMonoid, g, e) =>
+      case n@Reduce(m: CollectionMonoid, g, e) =>
         Seq(
           HasType(n, CollectionType(m, expType(e))))
 
-      case n @ Reduce(m: NumberMonoid, g, e) =>
+      case n@Reduce(m: NumberMonoid, g, e) =>
         Seq(
           HasType(e, NumberType()),
           SameType(n, e))
 
-      case n @ Reduce(m: BoolMonoid, g, e) =>
+      case n@Reduce(m: BoolMonoid, g, e) =>
         Seq(
           HasType(e, BoolType()),
           HasType(n, BoolType()))
 
-      case n @ Filter(g, p) =>
+      case n@Filter(g, p) =>
         Seq(
           SameType(n, g.e),
           HasType(p, BoolType()))
 
-      case n @ Nest(rm: CollectionMonoid, g, k, p, e) =>
+      case n@Nest(rm: CollectionMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         Seq(
           HasType(g.e, CollectionType(m, TypeVariable())),
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e)))), None))))
 
-      case n @ Nest2(rm: CollectionMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val inner = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, inner)),
-          HasType(p, BoolType()),
-          // the _1 type of the output record is the same as the child inner type, not the key type
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e)))), None))))
-
-      case n @ Nest(rm: NumberMonoid, g, k, p, e) =>
+      case n@Nest(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val nt = NumberType()
         Seq(
@@ -1177,7 +1212,24 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", nt)), None))))
 
-      case n @ Nest2(rm: NumberMonoid, g, k, p, e) =>
+      case n@Nest(rm: BoolMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val bt = BoolType()
+        Seq(
+          HasType(g.e, CollectionType(m, TypeVariable())),
+          HasType(e, bt),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)), None))))
+
+      case n@Nest2(rm: CollectionMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val inner = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, inner)),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+
+      case n@Nest2(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val nt = NumberType()
         val inner = TypeVariable()
@@ -1187,16 +1239,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", nt)), None))))
 
-      case n @ Nest(rm: BoolMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val bt = BoolType()
-        Seq(
-          HasType(g.e, CollectionType(m, TypeVariable())),
-          HasType(e, bt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)), None))))
-
-      case n @ Nest2(rm: BoolMonoid, g, k, p, e) =>
+      case n@Nest2(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val bt = BoolType()
         val inner = TypeVariable()
@@ -1205,6 +1248,77 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e, bt),
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", bt)), None))))
+
+      case n@Nest3(rm: CollectionMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val inner1 = TypeVariable()
+        val inner2 = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+
+      case n@Nest3(rm: NumberMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val nt = NumberType()
+        val inner1 = TypeVariable()
+        val inner2 = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(e, nt),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", nt)), None))))
+
+      case n@Nest3(rm: BoolMonoid, g, k, p, e) =>
+        val m = MonoidVariable()
+        val bt = BoolType()
+        val inner1 = TypeVariable()
+        val inner2 = TypeVariable()
+        Seq(
+          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(e, bt),
+          HasType(p, BoolType()),
+          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", bt)), None))))
+
+//      case n@MultiNest(g, params) =>
+//        val m = MonoidVariable()
+//        val inner = TypeVariable() // g is over a collection of inner
+//
+//        def mkConstraints(params: Seq[NestParams]): Seq[Constraint] = {
+//          params match {
+//            case param :: tail => {
+//              param.m match {
+//                case rm: CollectionMonoid =>
+//                  HasType(param.p, BoolType()) +: mkConstraints(tail)
+//                case rm: NumberMonoid =>
+//                  val nt = NumberType()
+//                  Seq(
+//                    HasType(g.e, CollectionType(m, TypeVariable())),
+//                    HasType(param.e, nt),
+//                    HasType(param.p, BoolType())) ++ mkConstraints(tail)
+//                case rm: BoolMonoid =>
+//                  val bt = BoolType()
+//                  Seq(
+//                    HasType(param.e, bt),
+//                    HasType(param.p, BoolType())) ++ mkConstraints(tail)
+//              }
+//            }
+//            case Nil => Seq(HasType(g.e, CollectionType(m, inner)))
+//          }
+//        }
+//
+//        def mkParamType(param: NestParams): Type = param.m match {
+//          case m: CollectionMonoid => CollectionType(m, expType(param.e))
+//          case m: NumberMonoid => expType(param.e)
+//          case m: BoolMonoid => BoolType()
+//        }
+//
+//        def mkOuterType(params: Seq[NestParams]): Type = params match {
+//          case param :: Nil => mkParamType(param)
+//          case param :: tail => RecordType(Seq(AttrType("_1", mkParamType(param)), AttrType("_2", mkOuterType(tail))), None)
+//        }
+//
+//        mkConstraints(params) :+ HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", mkOuterType(params))), None)))
 
       case n @ Join(g1, g2, p) =>
         val t1 = TypeVariable()
@@ -1317,6 +1431,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Nest2(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
+    case n @ Nest3(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
+//    case n @ MultiNest(g, params) => constraints(g.e) ++ constraint(g) ++ params.flatMap{param => constraints(param.k) ++ constraints(param.e) ++ constraints(param.p)} ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ Unnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)

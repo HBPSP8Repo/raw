@@ -11,8 +11,8 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
 
   def strategy = optimize
 
-  lazy val optimize = reduce(removeFilters + removeUselessReduce) // <* reduce(makeNest2)
-
+//  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* manytd(collapseNests)
+  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* reduce(makeMultiNest)
   /** Remove redundant filters
     */
   lazy val removeFilters = rule[Exp] {
@@ -25,13 +25,19 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
     * `to_set(nest(bag, $0 <- authors, $0.title, true, $0.year))`
     */
 
-  private def sameExp(p: Pattern, e: Exp): Boolean = (p, e) match {
-    case (i1: PatternIdn, i2: IdnExp) => i1.idn.idn == i2.idn.idn
-    case (p1: PatternProd, r: RecordCons) if p1.ps.length == r.atts.length =>
-      r.atts.map(a => a.idn).zipWithIndex.forall{case (i, idx) => i == s"_${idx+1}"}
-      val x: Seq[((Pattern, AttrCons), Int)] = p1.ps.zip(r.atts).zipWithIndex
-      x.forall{case ((pi, a: AttrCons), idx) => a.idn == s"_${idx+1}" && sameExp(pi, a.e)}
-    case _ => false
+  private def sameExp(p: Pattern, e: Exp): Boolean = {
+    val r = {
+      (p, e) match {
+        case (i1: PatternIdn, i2: IdnExp) => i1.idn.idn == i2.idn.idn
+        case (p1: PatternProd, r: RecordCons) if p1.ps.length == r.atts.length =>
+          r.atts.map(a => a.idn).zipWithIndex.forall{case (i, idx) => i == s"_${idx+1}"}
+          val x: Seq[((Pattern, AttrCons), Int)] = p1.ps.zip(r.atts).zipWithIndex
+          x.forall{case ((pi, a: AttrCons), idx) => a.idn == s"_${idx+1}" && sameExp(pi, a.e)}
+        case _ => false
+      }
+    }
+    logger.debug(s"sameExp(${CalculusPrettyPrinter(p)}, ${CalculusPrettyPrinter(e)}) = $r")
+    r
   }
 
   private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
@@ -103,7 +109,6 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
         case (x1: Join, x2: Join) => recurse(x1.p, x2.p) && recurse(x1.left.e, x2.left.e) && recurse(x1.right.e, x2.right.e)
         case (x1: OuterUnnest, x2: OuterUnnest) => recurse(x1.pred, x2.pred) && recurse(x1.child.e, x2.child.e) && recurse(x1.path.e, x2.path.e)
         case (x1: Unnest, x2: Unnest) => recurse(x1.pred, x2.pred) && recurse(x1.child.e, x2.child.e) && recurse(x1.path.e, x2.path.e)
-        case (x1: Nest2, x2: Nest2) => x1.m == x2.m && recurse(x1.k, x2.k) && recurse(x1.e, x2.e) && recurse(x1.p, x2.p) && recurse(x1.child.e, x2.child.e)
         case (x1: Nest, x2: Nest) => x1.m == x2.m && recurse(x1.k, x2.k) && recurse(x1.e, x2.e) && recurse(x1.p, x2.p) && recurse(x1.child.e, x2.child.e)
         case (x1: Reduce, x2: Reduce) => x1.m == x2.m && recurse(x1.child.e, x2.child.e)
         case (x1: Filter, x2: Filter) => recurse(x1.p, x2.p) && recurse(x1.child.e, x2.child.e)
@@ -143,60 +148,228 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
 
   private def idn_remap(p1: Pattern, p2: Pattern): Map[Idn,Idn] = {
     def recurse(p1: Pattern, p2: Pattern): Seq[(Idn, Idn)] = (p1, p2) match {
-      case (i1: PatternIdn, i2: PatternIdn) => Seq((i2.idn.idn, i1.idn.idn))
+      case (i1: PatternIdn, i2: PatternIdn) => Seq((i1.idn.idn, i2.idn.idn))
+      case (x1: PatternProd, i2: PatternIdn) => x1.ps.flatMap{p => idn_remap(p, i2)}
       case (x1: PatternProd, x2: PatternProd) => x1.ps.zip(x2.ps).flatMap{ case (v1, v2) => recurse(v1, v2) }
     }
     val r = recurse(p1, p2).toMap
+    logger.debug(s"idn_remap(${CalculusPrettyPrinter(p1)}, ${CalculusPrettyPrinter(p2)}) = $r}")
     r
   }
 
 
-  lazy val makeNest2 = rule[Exp] {
+//  lazy val makeNest2 = rule[Exp] {
+//    case n@Nest(m, g@Gen(PatternProd(Seq(left, right)), _), k, pred_nest, h) if sameExp(left, k) => Nest2(m, g, k, pred_nest, h)
+//  }
 
-    // nest over outer-join(a, a)
+//  lazy val collapseNest2s = rule[Exp] {
+//
+//    case n1 @ Nest(m1, g1 @ Gen(PatternProd(Seq(left1, right1)), n2 @ Nest2(m2, g2 @ Gen(PatternProd(Seq(left2, right2)), ojoin @ OuterJoin(og1, og2, join_pred)), k2, pred_nest2, h2), k1, pred_nest1, h1)
+//      if selfJoinRoot(n2).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left2, k1) => {
+//      val newK = makeEquiPred(join_pred).get match {
+//        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+//      }
+//      val newIdn = selfJoinRoot(ojoin).get.p match {
+//        case p: PatternIdn => p
+//        case PatternProd(_:: (p: PatternIdn)) => p
+//      }
+//      Nest2(m, g1, newK, pred_nest, rewriteIdnNode(h, idn_remap(right, newIdn)))
+//    }
+//
+//  }
+
+  lazy val makeMultiNest = rule[Exp] {
+
 //    case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1, g2, join_pred)), k, pred_nest, h)
-//      if alphaEq(g1.e, g2.e) && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
+//      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
 //      val newK = makeEquiPred(join_pred).get match {
-//        case BinaryExp(_, e1, e2) if alphaEq(e1, e2) => e1
+//        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
 //      }
-//      Nest2(m, g1, newK, pred_nest, rewriteIdnNode(h, idn_remap(left, right)))
+//      val newIdn = selfJoinRoot(ojoin).get.p match {
+//        case p: PatternIdn => p
+//        case PatternProd(_:: (p: PatternIdn)) => p
+//      }
+//      MultiNest(g1, Seq(NestParams(m, newK, pred_nest, rewriteIdnNode(h, idn_remap(right, newIdn)))))
 //    }
 
-    // nest over outer-join(nest2(a), a)
-//    case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1 @ Gen(_, Nest2(_, n2g, _, _, _)), g2, join_pred)), k, pred_nest, h)
-//      if alphaEq(n2g.e, g2.e) && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
-//      val newK = makeEquiPred(join_pred).get match {
-//        case BinaryExp(_, e1, e2) if alphaEq(e1, e2) => e1
-//      }
-//      Nest2(m, g1, newK, pred_nest, rewriteIdnNode(h, idn_remap(n2g.p, right)))
+
+//    case n @ Nest(m, g @ Gen(PatternProd(Seq(left @ PatternProd(Seq(l, r)), right)), mnest @ MultiNest(gm, params)), k, pred_nest, h)
+//      if sameExp(l, k) => {
+//      MultiNest(gm, params :+ NestParams(m, rewriteIdnNode(k, idn_remap(g.p, l)), pred_nest, rewriteIdnNode(h, idn_remap(g.p, l))))
 //    }
 
-        case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1, g2, join_pred)), k, pred_nest, h)
-          if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
-          val newK = makeEquiPred(join_pred).get match {
-            case BinaryExp(_, e1, e2) if alphaEq(e1, e2) => e1
-          }
-          Nest2(m, g1, newK, pred_nest, rewriteIdnNode(h, idn_remap(left, right)))
+    case n @ Nest(m, g @ Gen(p @ PatternProd(Seq(left @ PatternProd(Seq(l, r)), right)),
+                             Nest2(m2, gm @ Gen(PatternProd(Seq(left2, right2)), ojoin @ OuterJoin(g1, g2, join_pred)), k2, p2, h2)), k, pred_nest, h)
+      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(l, k) => {
+      val newK = makeEquiPred(join_pred).get match {
+        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+      }
+      val map1 = {
+        val v = l match {
+          case PatternProd(Seq(_, leftMost)) => leftMost
+          case p: PatternIdn => p
         }
+        idn_remap(r, v)
+      }
+      val map2 = idn_remap(right2, selfJoinRoot(ojoin).get.p)
+      Nest(m, Gen(PatternProd(Seq(l, right)), Nest2(m2, Gen(left2, g1.e), rewriteIdnNode(k2, map2), rewriteIdnNode(p2, map2), rewriteIdnNode(h2, map2))),
+              rewriteIdnNode(k, map1), rewriteIdnNode(pred_nest, map1), rewriteIdnNode(h, map1))
+      //MultiNest(Gen(l, g1.e), params :+ NestParams(m, rewriteIdnNode(newK, idn_remap(r, l)), pred_nest, rewriteIdnNode(h, idn_remap(r, l))))
+    }
+
+    case n @ Nest(m, g @ Gen(p @ PatternProd(Seq(left @ PatternProd(Seq(l, r)), right)), ojoin @ OuterJoin(g1 @ Gen(left2, mnest: Nest2), g2, join_pred)), k, pred_nest, h)
+      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
+      val newK = makeEquiPred(join_pred).get match {
+        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+      }
+      val leftMost = selfJoinRoot(ojoin).get.p
+      Nest2(m, Gen(PatternProd(Seq(l, r)), mnest), rewriteIdnNode(newK, idn_remap(right, leftMost)), pred_nest, rewriteIdnNode(h, idn_remap(right, leftMost)))
+    }
+
+    case n @ Nest(m, g @ Gen(PatternProd(Seq(left, right)), ojoin @ OuterJoin(g1, g2, join_pred)), k, pred_nest, h)
+      if selfJoinRoot(ojoin).isDefined && makeEquiPred(join_pred).isDefined && sameExp(left, k) => {
+      val newK = makeEquiPred(join_pred).get match {
+        case BinaryExp(_, e1, e2) if true || alphaEq(e1, e2) => e1
+      }
+
+      val leftMost = selfJoinRoot(ojoin).get.p
+
+      val map = idn_remap(right, leftMost)
+      Nest2(m, g1, rewriteIdnNode(k, map), pred_nest, rewriteIdnNode(h, map))
+    }
 
   }
 
-  def selfJoinRoot(e: Exp): Option[Exp] = {
+  lazy val collapseNests = rule[Exp] {
+    case n: Nest => fixNest(n)
+  }
 
-    val r = e match {
-      case OuterJoin(g1, g2, p) => selfJoinRoot(g1.e) match {
-        case Some(r) if alphaEq(r, g2.e) => Some(r)
+  def fixNest(n: Nest): Exp = {
+
+    def recurse(n: Exp): Option[(Exp, Exp)] = {
+      logger.debug(s"recursing on ${CalculusPrettyPrinter(n)}")
+      val r = n match {
+        case Nest(m, Gen(PatternProd(Seq(l, r)), oj@OuterJoin(g1, g2, pj)), k, p, e) if sameExp(g1.p, k) => {
+          selfJoinRoot(oj) match {
+            case Some(root) => makeEquiPred(pj) match {
+              case Some(eqExp) => {
+                val map1 = {
+                  val v = l match {
+                    case PatternProd(Seq(_, leftMost)) => leftMost
+                    case p: PatternIdn => p
+                  }
+                  idn_remap(r, v)
+                }
+                Some(Nest2(m, g1, rewriteIdnNode(eqExp.e1, map1), rewriteIdnNode(p, map1), rewriteIdnNode(e, map1)), g1.e)
+              }
+              case _ => None
+            }
+            case _ => None
+          }
+        }
+        case Nest(m, Gen(PatternProd(Seq(l, r)), n2: Nest), k, p, e) if sameExp(l, k) => {
+          recurse(n2) match {
+            case Some((c: Nest2, oj@OuterJoin(g1, g2, pj))) => {
+              selfJoinRoot(oj) match {
+                case Some(root) => makeEquiPred(pj) match {
+                  case Some(eqExp) => {
+                    val map1 = {
+                      val v = l match {
+                        case PatternProd(Seq(_, leftMost)) => leftMost
+                        case p: PatternIdn => p
+                      }
+                      idn_remap(r, v)
+                    }
+                    Some(Nest2(m, Gen(l, Nest2(c.m, g1, c.k, c.p, c.e)), rewriteIdnNode(eqExp.e1, map1), rewriteIdnNode(p, map1), rewriteIdnNode(e, map1)), g1.e)
+                  }
+                  case _ => None
+                }
+                case _ => None
+              }
+            }
+          }
+        }
+        case Nest(m, Gen(PatternProd(Seq(PatternProd(Seq(l, r)), right)), n2: Nest), k, p, e) if sameExp(l, k) => {
+          recurse(n2) match {
+            case Some((c: Nest2, oj@OuterJoin(g1, g2, pj))) => {
+              selfJoinRoot(oj) match {
+                case Some(root) => makeEquiPred(pj) match {
+                  case Some(eqExp) => {
+                    val map1 = {
+                      val v = l match {
+                        case PatternProd(Seq(_, leftMost)) => leftMost
+                        case p: PatternIdn => p
+                      }
+                      idn_remap(r, v)
+                    }
+                    recurse(Nest3(m, Gen(l, Nest2(c.m, g1, c.k, c.p, c.e)), rewriteIdnNode(eqExp.e1, map1), rewriteIdnNode(p, map1), rewriteIdnNode(e, map1)))
+                  }
+                  case _ => None
+                }
+                case _ => None
+              }
+            }
+              case Some((c: Nest3, oj@OuterJoin(g1, g2, pj))) => {
+                selfJoinRoot(oj) match {
+                  case Some(root) => makeEquiPred(pj) match {
+                    case Some(eqExp) => {
+                      val map1 = {
+                        val v = l match {
+                          case PatternProd(Seq(_, leftMost)) => leftMost
+                          case p: PatternIdn => p
+                        }
+                        idn_remap(r, v)
+                      }
+                      Some(Nest3(m, Gen(l, Nest2(c.m, g1, c.k, c.p, c.e)), rewriteIdnNode(eqExp.e1, map1), rewriteIdnNode(p, map1), rewriteIdnNode(e, map1)), g1.e)
+                    }
+                    case _ => None
+                  }
+                  case _ => None
+                }
+              }
+          }
+        }
+        case _ => None
+
+      }
+      if (r.isDefined)
+        logger.debug(s"recursing on ${CalculusPrettyPrinter(n)} returns ${CalculusPrettyPrinter(r.get._1)}")
+      else logger.debug(s"recursing on ${CalculusPrettyPrinter(n)} returns None")
+      r
+    }
+
+    recurse(n) match {
+      case Some((node, _)) => node
+      case _ => n
+    }
+  }
+
+  def selfJoinRoot(e: Exp): Option[Gen] = {
+
+    def recurse(e: Exp): Option[Gen] = {
+      logger.debug(s"recurse:joinroot ${e}")
+      val r = e match {
+        case OuterJoin(g1, g2, p) if alphaEq(g1.e, g2.e) => Some(g1)
+        case OuterJoin(Gen(_, i: OuterJoin), g2, p) => recurse(i) match {
+          case Some(r) if alphaEq(r.e, g2.e) => Some(r)
+          case _ => None
+        }
+        case OuterJoin(Gen(_, i: Nest2), g2, p) => recurse(i) match {
+          case Some(r) if alphaEq(r.e, g2.e) => Some(r)
+          case _ => None
+        }
+        case Nest2(_, Gen(_, i: Nest2), _, _, _) => recurse(i)
+        case Nest2(_, Gen(_, i: OuterJoin), _, _, _) => recurse(i)
+        case Nest2(_, g, _, _, _) => Some(g)
         case _ => None
       }
-      case Nest2(_, Gen(_, n2: Nest2), k, p, e) => selfJoinRoot(n2)
-      case Nest2(_, g2, k, p, e) => Some(g2.e)
-      case _ => Some(e)
+      r match {
+        case Some(x) => logger.debug(s"selfJoinRoot(${CalculusPrettyPrinter(e)}) => ${CalculusPrettyPrinter(x)}")
+        case None => logger.debug(s"selfJoinRoot(${CalculusPrettyPrinter(e)}) => None")
+      }
+      r
     }
-    r match {
-      case Some(x) => logger.debug(s"selfJoinRoot(${CalculusPrettyPrinter(e)}) => ${CalculusPrettyPrinter(x)}")
-      case None => logger.debug(s"selfJoinRoot(${CalculusPrettyPrinter(e)}) => None")
-    }
-    r
+    recurse(e)
   }
 
 //  /** Eq-joins are hash joins
