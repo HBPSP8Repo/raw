@@ -113,6 +113,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   lazy val tipe: Exp => Type = attr {
     e => {
+
+      def innerTipe(t: Type): Type = t match
+      {
+        case CollectionType(_, i) => i
+        case UserType(s) => innerTipe(world.tipes(s))
+      }
+
       val te = baseType(e) // regular type (no option except from sources)
       val nt = e match {
         case RecordProj(e1, idn) => tipe(e1) match {
@@ -145,18 +152,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Filter(g, p) => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
         case Join(g1, g2, p) => te match {
           case CollectionType(m, inner) => {
-            val expectedType = (tipe(g1.e), tipe(g2.e)) match {
-              case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
-            }
+            val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
             makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
           }
         }
         case OuterJoin(g1, g2, p) => {
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
-                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
-              }
+              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
@@ -170,18 +173,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Unnest(g1, g2, p) =>
           te match {
             case CollectionType(m, inner) => {
-              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
-                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
-              }
+              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
         case OuterUnnest(g1, g2, p) =>
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
-                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
-              }
+              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
