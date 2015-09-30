@@ -102,22 +102,4 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
       os
   }
 
-  private def rewriteInternalIdns[T <: RawNode](n: T): T = {
-    val collectIdnDefs = collect[Seq, Idn] {
-      case IdnDef(idn) => idn
-    }
-    val internalIdns = collectIdnDefs(n)
-
-    val ids = scala.collection.mutable.Map[String, String]()
-
-    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn) }
-
-    rewrite(
-      everywhere(rule[IdnNode] {
-        case IdnDef(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnDef(newIdn(idn))
-        case IdnUse(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnUse(newIdn(idn))
-      }))(n)
-
-  }
-
 }

@@ -30,7 +30,7 @@ class Normalizer extends Transformer {
     case n @ Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x)), u), s), e) =>
       logger.debug(s"Applying normalizer rule 1 to ${CalculusPrettyPrinter(n)}")
       val strategy = everywhere(rule[Exp] {
-        case IdnExp(IdnUse(`x`)) => deepclone(u)
+        case IdnExp(IdnUse(`x`)) => rewriteInternalIdns(deepclone(u))
       })
       val ns = rewrite(strategy)(s)
       val ne = rewrite(strategy)(e)
@@ -44,7 +44,7 @@ class Normalizer extends Transformer {
     case n @ FunApp(FunAbs(PatternIdn(IdnDef(idn)), e1), e2) =>
       logger.debug(s"Applying normalizer rule 2 to ${CalculusPrettyPrinter(n)}")
       rewrite(everywhere(rule[Exp] {
-        case IdnExp(IdnUse(`idn`)) => deepclone(e2)
+        case IdnExp(IdnUse(`idn`)) => rewriteInternalIdns(deepclone(e2))
       }))(e1)
   }
 
@@ -69,7 +69,7 @@ class Normalizer extends Transformer {
       logger.debug(s"Applying normalizer rule 4")
       val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(p, e2)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(p), e3)) ++ s.map(deepclone), deepclone(e))
-      MergeMonoid(m, c1, rewriteIdns(c2))
+      MergeMonoid(m, c1, rewriteInternalIdns(c2))
   }
 
   /** Rule 5
@@ -117,7 +117,7 @@ class Normalizer extends Transformer {
       logger.debug(s"Applying normalizer rule 7")
       val c1 = Comp(deepclone(m), q ++ Seq(Gen(p, e1)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(p), e2)) ++ s.map(deepclone), deepclone(e))
-      MergeMonoid(m, c1, rewriteIdns(c2))
+      MergeMonoid(m, c1, rewriteInternalIdns(c2))
   }
 
   /** Rule 8
@@ -132,7 +132,9 @@ class Normalizer extends Transformer {
   private lazy val rule8 = rule[Exp] {
     case n @ Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 8 to ${CalculusPrettyPrinter(n)}")
-      Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
+      val n1 = Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
+      logger.debug(s"Output is ${CalculusPrettyPrinter(n1)}")
+      n1
   }
 
   /** Rule 9
