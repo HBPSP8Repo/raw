@@ -11,7 +11,7 @@ lazy val buildSettings = Seq(
   organizationHomepage := Some(url("http://dias.epfl.ch/")),
   version := "0.0.0",
   scalaVersion := "2.11.7",
-  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
+  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"), // , "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   // The flags: "-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8" enable the generation of Java 8 style
   // lambdas. Spark does not yet work with them.
   // https://github.com/scala/make-release-notes/blob/2.11.x/experimental-backend.md
@@ -154,7 +154,5 @@ java -classpath "%s" %s "$@"
 lazy val core = (project in file("core")).
   settings(buildSettings).
   settings(
-    libraryDependencies ++= commonDeps ++ Seq(
-      kiama)
-
+    libraryDependencies ++= commonDeps ++ Seq(parserCombinators) ++ kiamaDependencies
   )

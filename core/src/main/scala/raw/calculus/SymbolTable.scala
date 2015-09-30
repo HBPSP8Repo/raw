@@ -2,20 +2,22 @@ package raw
 package calculus
 
 import org.kiama.util.Environments
+import raw.calculus.Calculus.{Idn, IdnDef}
+
+case class Symbol(idn: String)
 
 object SymbolTable extends Environments {
 
   import org.kiama.util.{Counter, Entity}
-  import Calculus.Exp
 
   val counter = new Counter(0)
 
   /** Return the next unique identifier.
     */
-  def next(): String = {
+  def next(): Symbol = {
     val n = counter.value
     counter.next()
-    s"$$$n"
+    Symbol(s"$$$n")
   }
 
   /** Reset the symbol table.
@@ -30,28 +32,11 @@ object SymbolTable extends Environments {
     val id = next()
   }
 
-  /** Entity for a bind statement.
+  /** Entity for a variable (aka. identifier).
     */
-  case class BindEntity(t: Type, e: Exp) extends RawEntity
-
-  /** Entity for a generator statement.
-    */
-  case class GenEntity(t: Type, e: Exp) extends RawEntity
-
-  /** Entity for the argument of function abstraction.
-    */
-  case class FunArgEntity(t: Type) extends RawEntity
-
-  /** Entity for a pattern bind statement.
-    */
-  case class PatternBindEntity(t: Type, e: Exp, idxs: Seq[Int]) extends RawEntity
-
-  /** Entity for a pattern generator statement.
-    */
-  case class PatternGenEntity(t: Type, e: Exp, idxs: Seq[Int]) extends RawEntity
+  case class VariableEntity(idn: IdnDef, t: Type) extends RawEntity
 
   /** Entity for a data source.
     */
-  case class DataSourceEntity(name: String) extends RawEntity
-
+  case class DataSourceEntity(sym: Symbol) extends RawEntity
 }

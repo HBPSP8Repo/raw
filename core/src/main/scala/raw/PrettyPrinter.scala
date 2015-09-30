@@ -11,6 +11,9 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ToInt    => "to_int"
     case _: ToFloat  => "to_float"
     case _: ToString => "to_string"
+    case _: ToBag    => "to_bag"
+    case _: ToList   => "to_list"
+    case _: ToSet    => "to_set"
   }
 
   def binaryOp(op: BinaryOperator): Doc = op match {
@@ -46,35 +49,34 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: BagMonoid      => "bag"
     case _: SetMonoid      => "set"
     case _: ListMonoid     => "list"
+    case v: MonoidVariable => v.sym.idn
   }
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
 
-  def tipe(t: Type): Doc = t match {
-    case _: BoolType   => "bool"
-    case _: StringType => "string"
-    case _: IntType    => "int"
-    case _: FloatType  => "float"
-    case RecordType(atts, Some(name)) =>
+  def opt(nullable: Boolean) = if (nullable) "?" else ""
+
+  def tipe(t: Type): Doc = opt(t.nullable) <> (t match {
+    case _: BoolType                          => "bool"
+    case _: StringType                        => "string"
+    case _: IntType                           => "int"
+    case _: FloatType                         => "float"
+    case RecordType(atts, Some(name))         =>
       "record" <> parens(name) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case RecordType(atts, None) =>
+    case RecordType(atts, None)               =>
       "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case BagType(innerType)     => "bag" <> parens(tipe(innerType))
-    case ListType(innerType)    => "list" <> parens(tipe(innerType))
-    case SetType(innerType)     => "set" <> parens(tipe(innerType))
-    case UserType(idn)          => idn
-    case FunType(t1, t2)        => tipe(t1) <+> "->" <+> tipe(t2)
-    case TypeVariable(v)        => s"type_var(${v.hashCode()})"
-    case _: AnyType             => "any"
-    case _: NothingType         => "nothing"
-  }
-
-}
-
-object PrettyPrinter extends PrettyPrinter {
-
-  def apply(n: RawNode): String =
-    super.pretty(show(n)).layout
+    case ConstraintRecordType(atts, sym)      =>
+      "constraint_record" <> parens(sym.idn) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
+    case CollectionType(m, innerType)         => monoid(m) <> parens(tipe(innerType))
+    case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
+    case _: AnyType                           => "any"
+    case _: NothingType                       => "nothing"
+    case UserType(sym)                        => sym.idn
+    case TypeScheme(t1, typeSyms, monoidSyms) => "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <> parens(group(nest(lsep(monoidSyms.map { case sym => text(sym.idn) }.to, comma))))
+    case PrimitiveType(sym)                   => "primitive" <> parens(sym.idn)
+    case NumberType(sym)                      => "number" <> parens(sym.idn)
+    case TypeVariable(sym)                    => sym.idn
+  })
 
   def show(n: RawNode): Doc = n match {
     case op: UnaryOperator  => unaryOp(op)
@@ -82,4 +84,11 @@ object PrettyPrinter extends PrettyPrinter {
     case m: Monoid          => monoid(m)
     case t: Type            => tipe(t)
   }
+}
+
+object PrettyPrinter extends PrettyPrinter {
+
+  def apply(n: RawNode): String =
+    super.pretty(show(n)).layout
+
 }

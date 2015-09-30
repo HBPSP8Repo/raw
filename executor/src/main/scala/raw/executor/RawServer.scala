@@ -3,6 +3,7 @@ package raw.executor
 import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
+import raw.QueryLanguages.QueryLanguage
 
 class RawServer(storageDir: Path) extends StrictLogging {
 
@@ -12,7 +13,7 @@ class RawServer(storageDir: Path) extends StrictLogging {
     storageManager.registerSchema(schemaName, dataDir, user)
   }
 
-  def doQuery(query: String, rawUser: String): String = {
+  def doQuery(queryLanguage:QueryLanguage, query: String, rawUser: String): String = {
     // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
@@ -22,6 +23,10 @@ class RawServer(storageDir: Path) extends StrictLogging {
     val schemas: Seq[String] = storageManager.listUserSchemas(rawUser)
     logger.info("Found schemas: " + schemas.mkString(", "))
     val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
-    CodeGenerator.query(cleanedQuery, scanners)
+    CodeGenerator.query(queryLanguage, cleanedQuery, scanners)
+  }
+
+  def getSchemas(user: String):Seq[String] = {
+    storageManager.listUserSchemas(user)
   }
 }

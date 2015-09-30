@@ -2,6 +2,6 @@ import os
 
 def createDirIfNotExists(directory):
     try:
-        os.mkdir(directory)
-    except OSError:
+        os.makedirs(directory)
+    except OSError as ex:
         pass #Directory already exists

@@ -1,5 +1,6 @@
 package raw
 
+import java.io.StringWriter
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
@@ -18,7 +19,6 @@ abstract class AbstractRawTest
   with StrictLogging
   with BeforeAndAfterAll
   with ResultConverter
-  with LDBDockerContainer
   with RawClassLoader {
 
   var queryCompiler: RawCompiler = _
@@ -68,11 +68,11 @@ abstract class AbstractRawTest
     }
   }
 
-  private[this] def testnameToJsonPath(dataset:String, testName: String): Path = {
+  private[this] def testnameToJsonPath(dataset: String, testName: String): Path = {
     Paths.get(Resources.getResource(s"queryresults/${dataset}/${testName}.json").toURI)
   }
 
-  private[this] def loadTestResult(dataset:String, testName: String): JsonNode = {
+  private[this] def loadTestResult(dataset: String, testName: String): JsonNode = {
     val resultPath = testnameToJsonPath(dataset, testName)
     logger.info("Comparing with expected result in: " + resultPath)
     mapper.readTree(resultPath.toFile)
@@ -82,20 +82,46 @@ abstract class AbstractRawTest
     Paths.get(System.getProperty("java.io.tmpdir"), filename)
   }
 
-  def assertJsonEqual(dataset:String, testName: String, queryResult: Any) = {
+  def assertJsonEqualsFile(dataset: String, testName: String, testMethodName:String, queryResult: Any) = {
     val expected: JsonNode = loadTestResult(dataset, testName)
     val expectedOrdered: String = toStringOrdered(expected)
     val actual: JsonNode = convertToJsonNode(queryResult)
     val actualOrdered: String = toStringOrdered(actual)
     if (expectedOrdered != actualOrdered) {
-      val actualPath = getTempFile(testName + "_actual.json")
-      val expectedPath = getTempFile(testName + "_expected.json")
-      val actualOrderedPretty = prettyPrintTree(actualOrdered)
-      val expectedOrderedPretty = prettyPrintTree(expectedOrdered)
-      Files.write(actualPath, actualOrderedPretty.getBytes(StandardCharsets.UTF_8))
-      Files.write(expectedPath, expectedOrderedPretty.getBytes(StandardCharsets.UTF_8))
-      logger.warn(s"Test fail. Expected in file: ${expectedPath}. Actual in: $actualPath")
-      fail(s"Results differ. Expected:\n$expectedOrderedPretty\n\nActual:\n$actualOrderedPretty")
+      logTestFailure(testName, testMethodName, actualOrdered, expectedOrdered)
     }
+  }
+
+  def assertJsonEqualsString(testName: String, expectedResult: String, queryResult: Any) = {
+    val expected: JsonNode = mapper.readTree(expectedResult)
+    val expectedOrdered: String = toStringOrdered(expected)
+    val actual: JsonNode = convertToJsonNode(queryResult)
+    val actualOrdered: String = toStringOrdered(actual)
+    if (expectedOrdered != actualOrdered) {
+      logTestFailure(testName, testName, actualOrdered, expectedOrdered)
+    }
+  }
+
+  def logTestFailure(testName:String, testMethodName: String, actualOrdered: String, expectedOrdered: String) = {
+    val actualPath = getTempFile(testMethodName + "_actual.json")
+    val expectedPath = getTempFile(testName + "_expected.json")
+    val actualOrderedPretty = prettyPrintTree(actualOrdered)
+    val expectedOrderedPretty = prettyPrintTree(expectedOrdered)
+    Files.write(actualPath, actualOrderedPretty.getBytes(StandardCharsets.UTF_8))
+    Files.write(expectedPath, expectedOrderedPretty.getBytes(StandardCharsets.UTF_8))
+    logger.warn(s"Test fail. Expected in file: ${expectedPath}. Actual in: $actualPath")
+    fail(s"Results differ. Expected:\n$expectedOrderedPretty\n\nActual:\n$actualOrderedPretty")
+  }
+
+  def writeResult(testName: String, queryResult: Any) = {
+    val json: JsonNode = convertToJsonNode(queryResult)
+    val sw = new StringWriter
+    mapper.writerWithDefaultPrettyPrinter().writeValue(sw, json)
+    val resString = sw.toString
+    logger.info(s"Query results: " + resString)
+    val resultFile = getTempFile(testName + "_result.json")
+    logger.info(s"Writing results to file: $resultFile")
+    Files.write(resultFile, resString.getBytes(StandardCharsets.UTF_8))
+
   }
 }

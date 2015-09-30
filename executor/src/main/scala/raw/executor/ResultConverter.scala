@@ -19,7 +19,7 @@ class BoundedStringWriter(val maxSize: Int) extends StringWriter(4096) {
 
   private[this] def checkLength(appendSize: Int) {
     if (super.getBuffer.length() + appendSize > maxSize) {
-      throw new IllegalStateException("Output exceeds maximum size: " + maxSize)
+      throw new ClientErrorException("Output exceeds maximum size: " + maxSize)
     }
   }
 

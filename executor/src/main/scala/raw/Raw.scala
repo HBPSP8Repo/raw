@@ -4,12 +4,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.slf4j.LoggerFactory
-import raw.algebra.LogicalAlgebra.{LogicalAlgebraNode, Reduce}
-import raw.algebra.{LogicalAlgebra, LogicalAlgebraParser, LogicalAlgebraPrettyPrinter, Typer}
-import raw.compilerclient.OQLToPlanCompilerClient
+import raw.calculus.SymbolTable.DataSourceEntity
+import raw.calculus._
 import raw.executor.{AbstractClosableIterator, ClosableIterator, RawScanner}
-import raw.psysicalalgebra.PhysicalAlgebra._
-import raw.psysicalalgebra.{LogicalToPhysicalAlgebra, PhysicalAlgebraPrettyPrinter}
 
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.Seq
@@ -17,6 +14,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.language.experimental.macros
 
+
+// TODO: Make sure we are using the immutable Seq/List, etc
 
 class rawQueryAnnotation extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro RawImpl.query_impl
@@ -55,13 +54,47 @@ abstract class RawQuery extends StrictLogging {
 }
 
 object RawImpl {
-  def toCannonicalForm(recordType: RecordType): Seq[AttrType] = {
-    recordType.atts.sortBy(_.idn)
-  }
+  final val COMPILATION_ABORT = "COMPILATION ABORT"
 }
+
+object QueryLanguages {
+  def apply(qlString: String): QueryLanguage = {
+    qlString match {
+      case "oql" => OQL
+      case "plan" => LogicalPlan
+      case "qrawl" => Qrawl
+      case _ => throw new IllegalArgumentException(s"Unknown query language: $qlString. Expected one of ${names}")
+    }
+  }
+
+  sealed trait QueryLanguage {
+    /**
+     * @param name Name of the query language. This is used as the name of the val holding the query in the macro
+     *             generated for the query.
+     */
+    val name: String
+  }
+
+  case object Qrawl extends QueryLanguage {
+    val name = "qrawl"
+  }
+
+  case object OQL extends QueryLanguage {
+    val name = "oql"
+  }
+
+  case object LogicalPlan extends QueryLanguage {
+    val name = "plan"
+  }
+
+  val names = List(Qrawl.name, OQL.name, LogicalPlan.name)
+}
+
 
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
+
+  import QueryLanguages._
 
   import c.universe._
 
@@ -74,13 +107,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def inferType(t: c.Type): InferredType = {
     val rawType = t match {
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(new raw.Variable())
+      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(raw.calculus.SymbolTable.next())
       case TypeRef(_, sym, Nil) if sym.fullName == "scala.Predef.String" => raw.StringType()
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.SetType(inferType(t1).rawType)
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.ListType(inferType(t1).rawType) // TODO can we pattern match on something else
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.ListType(inferType(t1).rawType)
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "raw.executor.RawScanner" => raw.ListType(inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.CollectionType(SetMonoid(), inferType(t1).rawType)
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO can we pattern match on something else
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.CollectionType(ListMonoid(), inferType(t1).rawType)
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
+      case TypeRef(_, sym, List(t1)) if sym.fullName == "raw.executor.RawScanner" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
@@ -98,7 +131,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }, Some(symName))
 
       case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" =>
-        raw.ListType(inferType(t1).rawType)
+        raw.CollectionType(ListMonoid(), inferType(t1).rawType)
 
       case TypeRef(pre, sym, args) =>
         bail(s"Unsupported TypeRef($pre, $sym, $args)")
@@ -108,18 +141,35 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     InferredType(rawType, isSpark)
   }
 
-  //  var userCaseClassesMap: Map[RecordType, String] = _
-  var userCaseClassesMap: Map[Seq[AttrType], String] = _
+  /** Map the cannonical form of a record type to a user case class name.
+    */
+  var userCaseClassesMap: Map[String, String] = _
+
+  /** Hold this list of specific instances of user-defined types.
+    */
+//  var userRecordTypes: Seq[RecordType] = _
+
+//  def isUserType(r: RecordType) = userRecordTypes.collectFirst { case r1 if r eq r1 => true }.isDefined
+
+  /** Return a "cannonical" representation of a record type.
+    * This is a unique representation of a record, including its nullable information.
+    */
+  def toCannonicalForm(recordType: RecordType): String =
+    PrettyPrinter(recordType)
 
   def recordTypeSym(r: RecordType): Option[String] = r match {
     case RecordType(_, Some(symName)) => Some(symName)
-    case RecordType(_, None) => userCaseClassesMap.get(RawImpl.toCannonicalForm(r))
+    case r @ RecordType(_, None) => userCaseClassesMap.get(toCannonicalForm(r))
+//      if (isUserType(r))
+//        Some(userCaseClassesMap(toCannonicalForm(r)))
+//      else
+//        None
   }
 
   def buildScalaType(t: raw.Type, world: World): String = {
-    val tt = t match {
+    val baseType = t match {
       case _: BoolType => "Boolean"
-      case FunType(t1, t2) => ???
+      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
@@ -131,170 +181,289 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               .map(att => s"(${buildScalaType(att.tipe, world)})")
               .mkString("(", ", ", ")")
         }
-      //      case BagType(innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
-      //      case BagType(innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
-      case BagType(innerType) => s"Seq[${buildScalaType(innerType, world)}]"
-      case ListType(innerType) => s"Seq[${buildScalaType(innerType, world)}]"
-      case SetType(innerType) => s"Set[${buildScalaType(innerType, world)}]"
-      case UserType(idn) => buildScalaType(world.userTypes(idn), world)
-      case TypeVariable(v) => ???
-      case _: AnyType => ???
-      case _: NothingType => ???
-      case _: CollectionType => ???
+      //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
+      //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
+      case UserType(idn) => buildScalaType(world.tipes(idn), world)
+      case _: AnyType => "Any"
+      case _: NothingType => "Nothing"
+      case _: VariableType => throw new UnsupportedOperationException(s"type variables not supported")
     }
     //    logger.info(s"Type: $tt")
-    tt
+    if (t.nullable)
+      s"Option[$baseType]"
+    else
+      baseType
   }
 
-  def collectAnonRecordTypes(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[RecordType] = {
-    import org.kiama.rewriting.Rewriter.collect
+  /** Collect all anonymous record types in the tree.
+    * The record types are converted to their Scala string descriptions for two reasons:
+    * 1) they become naturally unique when we turn it into a set
+    * 2) the nullables are present in the type explicitely, not as an implicit attribute.
+    */
+  def collectAnonRecordTypes(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Seq[RecordType] = {
+    import org.kiama.rewriting.Rewriter._
 
-    val collectReduceNodes: (Any) => List[Reduce] = collect[List, Reduce] {
-      case r: Reduce => r
-    }
-    val reduceNodes: Set[Reduce] = collectReduceNodes(logicalTree).toSet
-    reduceNodes.flatMap(r => {
-      val resultType = typer.tipe(r)
-      // Collect all anonymous record types
-      val collectAnonRecordTypes: (Any) => List[RecordType] = collect[List, raw.RecordType] {
-        case r@RecordType(_, None) => r
+    val anonRecordTypes = scala.collection.mutable.MutableList[RecordType]()
+
+    val queryAnonRecordTypes = everywhere(query[Calculus.Exp] {
+      case e => analyzer.tipe(e) match {
+        case r @ RecordType(_, None) => anonRecordTypes += r
+        case _                       =>
       }
-      collectAnonRecordTypes(resultType).toSet
     })
+
+    queryAnonRecordTypes(tree)
+
+    anonRecordTypes.to
   }
 
   /** Build case classes for the anonymous record types used to hold the results of Reduce nodes
     */
-  def buildCaseClasses(logicalTree: LogicalAlgebraNode, world: World, typer: Typer): Set[Tree] = {
-    val resultRecords = collectAnonRecordTypes(logicalTree, world, typer)
-    // Create a map between RecordType and case class names
+  def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
+
+    val anonRecords = collectAnonRecordTypes(tree, world, analyzer)
+    logger.debug(s"buildCaseClasses $anonRecords")
+
+      /** Create a map between the canonical form of anonymous record types, i.e. record types with explicit nullable
+        * information, and symbols to identify those user records.
+        */
     this.userCaseClassesMap = {
       var i = 0
-      resultRecords.map(recType => {
-        i = i + 1;
-        RawImpl.toCannonicalForm(recType) -> s"UserRecord$i"
-      }).toMap
+      anonRecords
+        .map(toCannonicalForm)
+        .toSet
+        .map((cannonicalType: String) => {
+          i = i + 1
+          logger.debug(s"Adding canonicalType $cannonicalType to UserRecord$i")
+          cannonicalType -> s"UserRecord$i"})
+        .toMap
     }
 
-    // Create corresponding case class
-    val code: Set[String] = resultRecords
-      .map(r => {
-      val args = r.atts
-        .map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}")
-        .mkString(", ")
-      logger.info(s"Build case class: $r.atts => $args")
-      recordTypeSym(r) match {
-        case Some(sym) => s"""case class ${sym}($args)"""
-        case None => bail(s"No case class available for record: $r")
-      }
-    }
-      )
+//    /** Store the list of the specific instances of user record types.
+//      * This is used to distinguish between types generated by the code generation and user types.
+//      * Therefore, if the generated code happens to generate the same structural type, that types will not be replaced
+//      * in `buildScalaType()` by the user record type symbol, since the type is not present in this list.
+//      */
+//    this.userRecordTypes = anonRecords
+
+    /** Create corresponding case classes.
+      * This is turned into a set to remove repeated case class definitions.
+      */
+    val code: Set[String] =
+      anonRecords
+        .map{ case r =>
+          val args = r.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
+          logger.info(s"Build case class: $r.atts => $args")
+          recordTypeSym(r) match {
+            case Some(sym) => s"""case class $sym($args)"""
+            case None => bail(s"No case class available for record: $r") }}
+        .toSet
 
     code.map(c.parse)
   }
 
   /** Build code-generated query plan from logical algebra tree.
     */
-  def buildCode(physicalTree: PhysicalAlgebraNode, world: World, typer: Typer): Tree = {
-    import algebra.Expressions._
+  def buildCode(treeExp: Calculus.Exp, world: World, analyzer: PhysicalAnalyzer): Tree = {
+    import Calculus._
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
-      //      logger.info(s"rawToScalaType: $t")
+      logger.info(s"rawToScalaType: $t")
       val typeName: String = buildScalaType(t, world)
-      //      logger.info(s"typeName: $typeName")
+      logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
-      //      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
+      logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
       parsed match {
         case TypeApply(container, List(targ)) =>
           //          logger.info(s"Container: $container, ${showRaw(container)}, targs: $targ, ${showRaw(targ)}")
           targ
+        case _ => tq"$parsed"
       }
     }
 
     def nodeScalaType(logicalNode: LogicalAlgebraNode): c.universe.Tree = {
       //      logger.info(s"Algebra: ${logicalNode}")
-      val scalaType = rawToScalaType(typer.tipe(logicalNode))
+      val scalaType = rawToScalaType(analyzer.tipe(logicalNode))
       //      logger.info(s"Scala type: $scalaType")
       scalaType
     }
 
     def expScalaType(expression: Exp): c.universe.Tree = {
       //      logger.info(s"Expression: ${expression}")
-      rawToScalaType(typer.expressionType(expression))
+      rawToScalaType(analyzer.tipe(expression))
     }
 
-    def exp(e: Exp, argType: Option[c.universe.Tree] = None): Tree = {
-      def binaryOp(op: BinaryOperator): String = op match {
-        case _: Eq => "=="
-        case _: Neq => "!="
-        case _: Ge => ">="
-        case _: Gt => ">"
-        case _: Le => "<="
-        case _: Lt => "<"
-        case _: Sub => "-"
-        case _: Div => "/"
-        case _: Mod => "%"
+    def exp(e: Exp): Tree = e match {
+      case _: Null => q"null"
+      case BoolConst(v) => q"$v"
+      case IntConst(v) => q"${v.toInt}"
+      case FloatConst(v) => q"${v.toFloat}"
+      case StringConst(v) => q"$v"
+      case IdnExp(idn) => Ident(TermName(idnName(idn)))
+      case RecordProj(e1, idn) =>
+        val id = TermName(idn)
+        q"${build(e1)}.$id"
+      case RecordCons(atts) =>
+        val t = analyzer.tipe(e).asInstanceOf[RecordType]
+        val sym = recordTypeSym(t).getOrElse("")
+        val vals = atts
+          .map(att => build(att.e))
+          .mkString(",")
+        //            logger.info(s"exp(): $atts => $vals")
+        c.parse( s"""$sym($vals)""")
+      case IfThenElse(e1, e2, e3) =>
+        q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
+      case BinaryExp(op, e1, e2) => op match {
+        case _: Eq => q" ${build(e1)} == ${build(e2)}"
+        case _: Neq => q" ${build(e1)} != ${build(e2)}"
+        case _: Ge => q" ${build(e1)} >= ${build(e2)}"
+        case _: Gt => q" ${build(e1)} > ${build(e2)}"
+        case _: Le => q" ${build(e1)} <= ${build(e2)}"
+        case _: Lt => q" ${build(e1)} < ${build(e2)}"
+        case _: Sub => q" ${build(e1)} - ${build(e2)}"
+        case _: Div => q" ${build(e1)} / ${build(e2)}"
+        case _: Mod => q" ${build(e1)} % ${build(e2)}"
       }
-
-      def recurse(e: Exp): String = {
-        val res = e match {
-          case Null => "null"
-          case BoolConst(v) => v.toString
-          case IntConst(v) => v
-          case FloatConst(v) => v
-          case StringConst(v) => s""""$v""""
-          case _: Arg => "arg"
-          case RecordProj(e1, idn) => s"${recurse(e1)}.$idn"
-          case RecordCons(atts) =>
-            val tt = typer.expressionType(e).asInstanceOf[RecordType]
-            val sym = userCaseClassesMap.get(RawImpl.toCannonicalForm(tt)) match {
-              case Some(caseClassName) => logger.info(s"Record: ${tt} -> $caseClassName"); caseClassName
-              case _ => ""
-            }
-            val vals = atts
-              .map(att => recurse(att.e))
-              .mkString(",")
-            //            logger.info(s"exp(): $atts => $vals")
-            s"""$sym($vals)"""
-          case IfThenElse(e1, e2, e3) => s"if (${recurse(e1)}) ${recurse(e2)} else ${recurse(e3)}"
-          case BinaryExp(op, e1, e2) => s"${recurse(e1)} ${binaryOp(op)} ${recurse(e2)}"
-          case MergeMonoid(m, e1, e2) => m match {
-            case _: SumMonoid => s"${recurse(e1)} + ${recurse(e2)}"
-            case _: MaxMonoid => ???
-            case _: MultiplyMonoid => ???
-            case _: AndMonoid => s"${recurse(e1)} && ${recurse(e2)}"
-            case _: OrMonoid => s"${recurse(e1)} || ${recurse(e2)}"
-            case _: SetMonoid => s"${recurse(e1)} ++ ${recurse(e2)}"
-            case _: BagMonoid => ???
-            case _: ListMonoid => ???
+      case FunApp(f, e) =>
+        q"""${build(f)}(${build(e)})"""
+      case ZeroCollectionMonoid(m) => m match {
+        case _: SetMonoid => q"Set().toIterable"
+        case _: BagMonoid => q"List().toIterable"
+        case _: ListMonoid => q"List().toIterable"
+      }
+      case ConsCollectionMonoid(m, e1) => m match {
+        case _: SetMonoid => q"Set(${build(e1)})"
+        case _: BagMonoid => q"List(${build(e1)}).toIterable"
+        case _: ListMonoid => q"List(${build(e1)}).toIterable"
+      }
+      case MergeMonoid(m, e1, e2) => m match {
+        case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
+        case _: MaxMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
+        case _: MultiplyMonoid => q"${build(e1)} * ${build(e2)}"
+        case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
+        case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
+        case _: SetMonoid => q"${build(e1)} ++ ${build(e2)}"
+        case _: BagMonoid => q"${build(e1)} ++ ${build(e2)}"
+        case _: ListMonoid => q"${build(e1)} ++ ${build(e2)}"
+      }
+      case UnaryExp(op, e1) => op match {
+        case _: Not => q"!${build(e1)}"
+        case _: Neg => q"-${build(e1)}"
+        case _: ToBool => q"${build(e1)}.toBoolean"
+        case _: ToInt => q"${build(e1)}.toInt"
+        case _: ToFloat => q"${build(e1)}.toFloat"
+        case _: ToString => q"${build(e1)}.toString"
+        case _: ToBag => q"${build(e1)}.toList.toIterable"
+        case _: ToList => q"${build(e1)}.toList.toIterable"
+        case _: ToSet => q"${build(e1)}.toSet.toIterable"
+      }
+      case ExpBlock(bs, e1) =>
+        val vals = bs.map { case Bind(PatternIdn(idn), be) => q"val ${TermName(idnName(idn))} = ${
+          {
+            build(be)
           }
-          case UnaryExp(op, e1) => op match {
-            case _: Not => s"!${recurse(e1)}"
-            case _: Neg => s"-${recurse(e1)}"
-            case _: ToBool => s"${recurse(e1)}.toBoolean"
-            case _: ToInt => s"${recurse(e1)}.toInt"
-            case _: ToFloat => s"${recurse(e1)}.toFloat"
-            case _: ToString => s"${recurse(e1)}.toString"
-          }
-          case ConsCollectionMonoid(m: SetMonoid, e) => s"Set(${recurse(e)})"
-          case ConsCollectionMonoid(m: BagMonoid, e) => ???
-          case ConsCollectionMonoid(m: ListMonoid, e) => s"List(${recurse(e)})"
-          case ZeroCollectionMonoid(m: SetMonoid) => s"Set()"
-          case ZeroCollectionMonoid(m: BagMonoid) => ???
-          case ZeroCollectionMonoid(m: ListMonoid) => s"List()"
+        }"
         }
-        //        logger.info(s"Creating expression: $e => $res")
-        res
-      }
-      val expression = recurse(e)
-      //      logger.info(s"Expression type: ${typer.expressionType(e)}")
-      val code = argType match {
-        case Some(argName) => q"((arg:$argName) => ${c.parse(expression)})"
-        case None => c.parse(s"(arg => ${expression})")
-      }
-      code
+        q"""
+        {
+          ..$vals
+          ${build(e1)}
+        }
+        """
     }
 
+    def patternTerms(p: Pattern): Seq[Tree] = p match {
+      case PatternProd(ps) => ps.flatMap(patternTerms)
+      case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
+    }
+
+    def patternIdents(p: Pattern): Seq[Tree] = p match {
+      case PatternProd(ps) => ps.flatMap(patternTerms)
+      case PatternIdn(idn: IdnDef) => Seq(q"${Ident(TermName(idnName(idn)))}")
+    }
+
+    def patternType(p: Pattern) =
+      buildScalaType(analyzer.patternType(p), world)
+//      p match {
+//      case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
+//      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
+//    }
+
+    /** Get the nullable identifiers from a pattern.
+      * Used by the Nest to filter out Option[...]
+      */
+    def patternNullable(p: Pattern): Seq[Tree] = {
+      def recurse(p: Pattern, t: raw.Type): Seq[Option[Tree]] = p match {
+        case PatternProd(ps) =>
+          val t1 = t.asInstanceOf[RecordType]
+          ps.zip(t1.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
+        case PatternIdn(idn: IdnDef) if t.nullable =>
+          Seq(Some(q"${Ident(TermName(idnName(idn)))}"))
+        case _ =>
+          Seq(None)
+      }
+
+      recurse(p, analyzer.patternType(p)).flatten
+    }
+
+    /** Return the identifiers, optionally de-nullable.
+      * e.g. given a `child` with type record(name: string, age: option[int]) returns:
+      *   val name = child._1
+      *   val age = child._2.get
+      * Used by the Nest to handle Option[...]
+      */
+    def idnVals(parent: String, p: Pattern, denulled: Boolean): Seq[Tree] = {
+      def projIdx(idxs: Seq[Int]): String =
+        if (idxs.isEmpty)
+          parent
+        else
+          s"$parent.${idxs.map { case idx => s"_${idx + 1}" }.mkString(".")}"
+
+      def recurse(p: Pattern, t: raw.Type, idxs: Seq[Int]): Seq[Tree] = p match {
+        case PatternProd(ps) =>
+          val t1 = t.asInstanceOf[RecordType]
+          ps.zip(t1.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
+        case PatternIdn(idn) =>
+          if (denulled && t.nullable)
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")
+          else
+            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
+      }
+
+      recurse(p, analyzer.patternType(p), Seq())
+    }
+
+    /** Generate lambda with a single argument.
+      */
+    def lambda1(p: Pattern, e: Exp): Tree = {
+      p match {
+        // Handle case of single pattren idn separately to generate more readable code
+        case PatternIdn(idn) =>
+          val arg = c.parse(s"${idnName(idn)}: ${patternType(p)}")
+          q"($arg => ${build(e)})"
+        case p: PatternProd =>
+          val arg = c.parse(s"__arg: ${patternType(p)}")
+          val pcase = pq"(..${patternTerms(p)})" // pq"(..${patternTerms(p)})"
+          q"($arg => __arg match { case $pcase => ${build(e)} })"
+      }
+    }
+
+    /** Generate lambda with a two arguments.
+      */
+    def lambda2(p1: Pattern, p2: Pattern, e: Exp): Tree = {
+      val arg = c.parse(s"__arg: (${patternType(p1)}, ${patternType(p2)})")
+      val pcase1 = pq"(..${patternTerms(p1)})"
+      val pcase2 = pq"(..${patternTerms(p2)})"
+      val pcase = pq"($pcase1, $pcase2)"
+      q"($arg => (__arg._1, __arg._2) match { case $pcase => ${build(e)} })"
+    }
+
+    /** Zero of a primitive monoid.
+      */
     def zero(m: PrimitiveMonoid): Tree = m match {
       case _: AndMonoid => q"true"
       case _: OrMonoid => q"false"
@@ -303,6 +472,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
+    /** Merge/Fold of two primitive monoids.
+      */
     def fold(m: PrimitiveMonoid): Tree = m match {
       case _: AndMonoid => q"((a, b) => a && b)"
       case _: OrMonoid => q"((a, b) => a || b)"
@@ -312,487 +483,635 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
-    def zeroExp(m: PrimitiveMonoid): Const = m match {
-      case _: AndMonoid => BoolConst(true)
-      case _: OrMonoid => BoolConst(false)
-      case _: SumMonoid => IntConst("0")
-      case _: MultiplyMonoid => IntConst("1")
-      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
-    }
-
-    def build(a: PhysicalAlgebraNode): Tree = a match {
-      case ScalaNest(logicalNode, m, e, f, p, g, child) =>
-        val eCode = exp(e)
-        val fCode = exp(f)
-        val pCode = exp(p)
-        logger.info(s"[ScalaNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
-        val t = typer.expressionType(e)
-        val st: String = buildScalaType(t, world)
-        val childTree: Tree = build(child)
-
-        def computeG(l: Seq[Exp]): Exp = l match {
-          case Nil => BoolConst(false)
-          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
-        }
-
-        val gExp = g match {
-          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
-          case _ => {
-            assert(false);
-            BoolConst(true)
-          }
-        }
-
-        val code = m match {
-          case m1: PrimitiveMonoid =>
-            val z1 = zeroExp(m1)
-            val f1 = IfThenElse(gExp, z1, e)
-            q"""
-              val grouped = $childTree.groupBy($fCode)
-              grouped.mapValues(v => v
-                  .filter($pCode)
-                  .map(${exp(f1)})
-                  .fold(${zero(m1)})(${fold(m1)}))
-            """
-          case m1: CollectionMonoid =>
-            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
-            val monoidReduceCode = m1 match {
-              case m2: SetMonoid => q"""mappedByE.toSet"""
-              // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
-              case m1: BagMonoid => q"""mappedByE.toList"""
-              case m1: ListMonoid => q"""mappedByE.toList"""
-            }
-            val commonCode = q"""
-            val grouped = $childTree.groupBy($fCode)
-            grouped.mapValues(v => {
-                val filteredByP = v.filter($pCode)
-                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
-                val mappedByE = filteredByG.map($eCode)
-                ${monoidReduceCode}
-            })
-            """
-            commonCode
-        }
-        q"""
-          val start = "************ ScalaNest ************"
-          val scalaNest = $code
-          val end = "************ ScalaNest ************"
-          scalaNest"""
-
-      case ScalaOuterJoin(logicalNode, p, left, right) =>
-        q"""
-  val rightCache = ${build(right)}.toSeq
-  ${build(left)}.flatMap(l =>
-    if (l == null)
-      List((null, null))
-    else {
-      val ok = rightCache.map(r => (l, r)).filter(${exp(p)})
-      if (ok.isEmpty)
-        List((l, null))
+    /** Get identifier name
+      */
+    def idnName(idnNode: IdnNode) = {
+      // TODO: Improve generation of identifier names to never conflict with user-defined names
+      val idn = idnNode.idn
+      if (idn.startsWith("$"))
+        s"___arg${idn.drop(1)}"
       else
-        ok
+        idn
     }
-  )
-  """
 
-      case r@ScalaReduce(logicalNode, m, e, p, child) =>
-        val pCode = exp(p)
-        val eCode = exp(e)
-        val childCode = build(child)
-        logger.info(s"[ScalaReduce] $m, e: $eCode, p: $pCode")
-        val filterMapCode = q"""$childCode.filter($pCode).map($eCode)"""
+    /** Get nullable filter.
+      */
+    def nullableFilter(p: Pattern): Tree = {
+      val nullables = patternNullable(p)
+      if (nullables.isEmpty)
+        q"true"
+      else if (nullables.size == 1)
+        q"${nullables.head}.isDefined"
+      else
+        nullables.tail.fold(nullables.head)((a, b) => q"$a.isDefined && $b.isDefined")
+    }
 
-        val code = m match {
-          case m1: MaxMonoid => q"""$filterMapCode.max"""
-          case m1: MinMonoid => q"""$filterMapCode.min"""
-          case m1: PrimitiveMonoid =>
-            // TODO: Replace foldLeft with fold?
-            q"""$filterMapCode.foldLeft(${zero(m1)})(${fold(m1)})"""
-          case _: BagMonoid =>
-            /* TODO: There is no Bag implementation on the Scala or Java standard libs. For the time being, we use a
-             List, but this is less efficient than a real Bag.
-             */
-            q"""$filterMapCode.to[scala.collection.immutable.List]"""
-          case _: ListMonoid => q"""$filterMapCode.to[scala.collection.immutable.List]"""
-          case _: SetMonoid => q"""$filterMapCode.to[scala.collection.immutable.Set]"""
-        }
-        q"""
-        val start = "************ ScalaReduce ************"
-        val res = $code
-        val end= "************ ScalaReduce ************"
-        res
-        """
+    /** Build code for scanner nodes
+      */
+    def buildScan(e: IdnExp) = e match {
 
-      case ScalaSelect(logicalNode, p, child) => // The AST node Select() conflicts with built-in node Select() in c.universe
-        q"""${build(child)}.filter(${exp(p)})"""
-
-      case ScalaScan(logicalNode, name, _) =>
-        val ident: c.universe.Ident = Ident(TermName(name))
+      // Scanner for Scala data
+      case IdnExp(IdnUse(idn)) if !analyzer.spark(e) =>
+        val ident: c.universe.Ident = Ident(TermName(idn))
         q"""openScanner($ident)"""
 
-      case ScalaJoin(logicalNode, p, left, right) =>
-        val pCode = exp(p)
-        logger.info("pCode: " + showCode(pCode) + "   " + pCode)
-        val leftCode = build(left)
-        val rightCode = build(right)
-        /* A for comprehension like for (x1 <- left; x2 <- right if p(x1, x2)) yield (x1, x2)
-         would be more efficient in the cases where p filters part of the results because the tuples
-         are created only for the pairs that pass the filter. But our p function expects a tuple as its
-         single argument, while the form above requires a p function that takes two arguments.
-          */
-        q"""
-          val left = $leftCode
-          val right = ${rightCode}.toSeq
-          left.flatMap(x1 => right.map(x2 => (x1, x2))).filter($pCode)
-        """
+      // Scanner for Spark data
+      case IdnExp(IdnUse(idn)) =>
+        Ident(TermName(idn))
 
-      case ScalaMerge(logicalNode, m, left, right) => ???
-      case ScalaOuterUnnest(logicalNode, path, pred, child) => ???
-      case ScalaToSparkNode(node) => ???
-
-      case ScalaUnnest(logicalNode, path, pred, child) =>
-        val childTypeName = nodeScalaType(child.logicalNode)
-        val pathCode = exp(path, Some(childTypeName))
-        val pathType = expScalaType(path)
-        //        val pathType = exp(path)
-        val predCode = exp(pred)
-        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
-        val childCode = build(child)
-        //            logger.debug("{}.path = {} \n{}", x, pathValues)
-        val code = q"""
-          $childCode.flatMap(x => {
-            val pathValues = $pathCode(x)
-            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
-            }
-          )
-        """
-
-        q"""
-        val start = "************ ScalaUnnest ************"
-        val res = $code
-        val end= "************ ScalaUnnest ************"
-        res
-        """
-
-      case ScalaAssign(logicalNode, assigns, child) =>
-        var block: c.universe.Tree = q""
-        assigns.foreach({ case (key, node) => {
-          val colName = TermName(key)
-          val code = build(node)
-          block = q"..$block; val $colName = $code"
-        }
-        })
-        q"""..$block; ${build(child)}"""
-
-
-      /////////////////////////////////////////////////////
-      // Spark
-      /////////////////////////////////////////////////////
-      // Spark operators
-      case SparkScan(logicalNode, name, tipe) => Ident(TermName(name))
-      //            q"""${accessPaths(name)}"""
-      /*
-      * Fegaras: Ch 6. Basic Algebra O1
-      * Join(X, Y, p), joins the collections X and Y using the join predicate p.
-      * This join is not necessarily between two sets; if, for example, X is a list
-      * and Y is a bag, then, according to Eq. (D4), the output is a bag.
-      */
-      case r@SparkJoin(logicalNode, p, left, right) =>
-        val leftCode = build(left)
-        val rightCode = build(right)
-        q"""
-     val rddLeft = $leftCode
-     val rddRight = $rightCode
-     val res = rddLeft.cartesian(rddRight).filter(${exp(p)})
-     res
-   """
-
-      /* Fegaras: Ch 6. Basic Algebra O2
-      * Select(X, p), selects all elements of X that satisfy the predicate p.
-      */
-      case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
-        val childTypeName = nodeScalaType(child.logicalNode)
-        val pCode = exp(p, Some(childTypeName))
-        logger.info(s"[SELECT] p: $pCode")
-        q"""${build(child)}.filter($pCode)"""
-
-      /*
-      * Fegaras: Ch 6. Basic Algebra O3
-      * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
-      * that satisfy the predicate p(x, y).
-      */
-      case SparkUnnest(logicalNode, path, pred, child) =>
-        val childTypeName = nodeScalaType(child.logicalNode)
-        val pathCode = exp(path, Some(childTypeName))
-        val pathType = expScalaType(path)
-        //        val pathType = exp(path)
-        val predCode = exp(pred)
-        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
-        val childCode = build(child)
-        //            logger.debug("{}.path = {} \n{}", x, pathValues)
-        val code = q"""
-          $childCode.flatMap(x => {
-            val pathValues = $pathCode(x)
-            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
-            }
-          )
-        """
-
-        q"""
-        val start = "************ SparkUnnest ************"
-        val res = $code
-        val end= "************ SparkUnnest ************"
-        res
-        """
-      /* Fegaras: Ch 6. Basic Algebra O4
-      Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
-      The reduce operator can be thought of as a generalized version of the relational projection operator.
-      */
-      case SparkReduce(logicalNode, m, e, p, child) =>
-        val pCode = exp(p)
-        val eCode = exp(e)
-        val childCode = build(child)
-        logger.info(s"[SparkReduce] $m, e: $eCode, p: $pCode")
-        val filterMapCode = q"""
-     val childRDD = $childCode
-     childRDD
-       .filter($pCode)
-       .map($eCode)
-     """
-        val code = m match {
-          case m1: MaxMonoid => q"""$filterMapCode.max()"""
-          case m1: MinMonoid => q"""$filterMapCode.min()"""
-          case m1: PrimitiveMonoid =>
-            /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
-             * Compare the Spark implementations versus a generic code generator based on fold
-             */
-            q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
-
-          case _: ListMonoid => q"""$filterMapCode"""
-          case _: BagMonoid => q"""$filterMapCode"""
-          case _: SetMonoid => q"""$filterMapCode.distinct"""
-        }
-        q"""
-        val start = "************ SparkReduce ************"
-        val res = $code
-        val end= "************ SparkReduce ************"
-        res
-        """
-
-      case SparkNest(logicalNode, m, e, f, p, g, child) =>
-        val eCode = exp(e)
-        val fCode = exp(f)
-        val pCode = exp(p)
-        logger.info(s"[SparkNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
-        val t = typer.expressionType(e)
-        val st: String = buildScalaType(t, world)
-        val childTree: Tree = build(child)
-
-        //        val tp = c.parse(st)
-
-        def computeG(l: Seq[Exp]): Exp = l match {
-          case Nil => BoolConst(false)
-          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
-        }
-
-        val gExp = g match {
-          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
-          case _ => {
-            assert(false);
-            BoolConst(true)
-          }
-        }
-
-        val code = m match {
-          case m1: MinMonoid =>
-            q"""
-            val grouped = $childTree.groupBy($fCode)
-            grouped.mapValues(v => v
-                .filter($pCode)
-                .map($eCode)
-                .min)
-            """
-          case m1: MaxMonoid =>
-            q"""
-            val grouped = $childTree.groupBy($fCode)
-            grouped.mapValues(v => v
-                .filter($pCode)
-                .map($eCode)
-                .max)
-            """
-
-          case m1: PrimitiveMonoid =>
-            val z1 = zeroExp(m1)
-            val f1 = IfThenElse(gExp, z1, e)
-            //  logger.debug("groupBy:\n{}", toString(grouped))
-            //  logger.debug("filteredP:\n{}", toString(filteredP))
-            //  logger.debug("mapped:\n{}", toString(mapped))
-            //  logger.debug("folded:\n{}", toString(folded))
-            q"""
-            val grouped = $childTree.groupBy($fCode)
-            grouped.mapValues(v => v
-                .filter($pCode)
-                .map(${exp(f1)})
-                .fold(${zero(m1)})(${fold(m1)}))
-            """
-          case m1: CollectionMonoid =>
-            // TODO: Does not handle dotequality.
-            /* TODO: The filter by p probably can be applied at the start of this operator implementation,
-             * in a common code path before branching to handle the different monoids.
-             */
-            // Since the zero element of a collection monoid is an empty collection,
-            // instead of using fold we can just filter any elements such that g(w) == null
-            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
-            val monoidReduceCode = m1 match {
-              case m2: SetMonoid =>
-                q"""mappedByE.toSet"""
-              //              case m1: BagMonoid =>
-              //                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
-              case m1: BagMonoid =>
-                // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
-                q"""mappedByE.toList"""
-              //              case m1: BagMonoid =>
-              //                q"""
-              //                def bagBuilderIter[T:scala.reflect.ClassTag](iter:Iterable[T]): scala.collection.immutable.Bag[T] = {
-              //                  import scala.collection.immutable.Bag
-              //                  Bag.newBuilder(Bag.configuration.compact[T])
-              //                    .++=(iter)
-              //                    .result()
-              //                }
-              //                bagBuilderIter(mappedByE)
-              //                """
-              case m1: ListMonoid =>
-                q"""mappedByE.toList"""
-            }
-            val commonCode =
-            //            logger.debug("groupBy:\n{}", toString(grouped))
-            //            logger.debug("filteredP:\n{}", toString(filteredP))
-            //            logger.debug("filteredG:\n{}", toString(filteredG))
-            //            logger.debug("mapped:\n{}", toString(mapped))
-              q"""
-            val grouped = $childTree.groupBy($fCode)
-            grouped.mapValues(v => {
-                val filteredByP = v.filter($pCode)
-                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
-                val mappedByE = filteredByG.map($eCode)
-                ${monoidReduceCode}
-            })
-            """
-            commonCode
-        }
-
-        q"""
-          val start = "************ SparkNest ************"
-          val sparkNest = $code
-          val end = "************ SparkNest ************"
-          sparkNest"""
-
-      case SparkMerge(logicalNode, m, left, right) => ???
-      /*
-      outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
-      predicate p. The domain of the second generator (the generator of w) in
-      Eq. (O5) is always nonempty. If Y is empty or there are no elements that
-      can be joined with v (this condition is tested by universal quantification),
-      then the domain is the singleton value [NULL], i.e., w becomes null.
-      Otherwise each qualified element w of Y is joined with v.
-
-      Delegates to PairRDDFunctions#leftOuterJoin. We cannot use this method directly, because
-      it takes RDDs in the following form: (k, v), (k, w) => (k, (v, Option(w)), using k to make the
-      matching. While we have (p, left, right) and want  (v, w) with p used to match the elements.
-      The code bellow does the following transformations:
-      1. Compute RDD(v, w) such that v!=null and p(v, w) is true.
-      2. Apply PairRDDFunctions#leftOuterJoin.
-      RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
-      3. Transform in the output format of this operator.
-      (v, (v, Some[w])) -> (v, w)
-      (v, (v, None)) -> (v, null)
-      */
-
-      // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
-      case SparkOuterJoin(logicalNode, p, left, right) =>
-        val leftNodeType = nodeScalaType(left.logicalNode)
-        val rightNodeType = nodeScalaType(right.logicalNode)
-        val expP: c.universe.Tree = exp(p)
-        logger.info(s"[SparkOuterJoin] exp(p) = ${showCode(expP)}")
-
-        val code = q"""
-            val start = "************ SparkOuterJoin ************"
-            val leftRDD:RDD[$leftNodeType] = ${build(left)}
-            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
-
-            val rightRDD:RDD[$rightNodeType] = ${build(right)}
-            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
-
-            val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
-              .cartesian(rightRDD)
-              .filter(tuple => tuple._1 != null)
-              .filter($expP)
-            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
-
-            val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
-              .map(v => (v, v))
-              .leftOuterJoin(matching)
-            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
-
-            val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
-              case (v1, (v2, None)) => (v1, null)
-              case (v1, (v2, Some(w))) => (v1, w)
-            })
-            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
-            val end = "************ SparkOuterJoin ************"
-            res
-            """
-        code
-      case SparkOuterUnnest(logicalNode, path, pred, child) => ???
-      /*
-      The assign node contains one more more assignments. Each is transformed into
-      a statement in the form: val key = `build(code)`
-       */
-      case SparkAssign(logicalNode, assigns, child) => {
-        var block: c.universe.Tree = q""
-        assigns.foreach({ case (key, node) => {
-          val rddName = TermName(key)
-          val rddCode = build(node)
-          // Appends the additional statements to the block. Without the "..$", this would generate independent blocks:
-          // "{val rdd1 =...; rdd1.cache()}; {val rdd2 =...; rdd2.cache()}" , and the RDDs defined in one block would
-          // not be visible outside. The "..$" creates a single block with the concatenation of all the expressions.
-          block = q"..$block; val $rddName = $rddCode; $rddName.cache()"
-        }
-        })
-        q"""..$block; ${build(child)}"""
-      }
     }
 
-    logger.info("Building code. User types: " + world.userTypes.mkString("\n"))
-    val tree = build(physicalTree)
+    /** Build code for Scala algebra nodes
+      */
+    def buildScala(a: AlgebraNode) = a match {
 
-    val treeType = typer.tipe(physicalTree.logicalNode)
+      /** Scala Filter
+        */
+      case Filter(Gen(pat, child), pred) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val code = q"""
+        ${build(child)}.filter($childArg => {
+          ..${idnVals("child", pat, false)}
+          ${build(pred)} })
+        """
+        q"""
+        val start = "************ Filter (Scala) ************"
+        val res = $code
+        val end = "************ Filter (Scala) ************"
+        res
+        """
+
+      /** Scala Unnest
+        */
+      case n @ Unnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+        val childArg = c.parse(s"child: ${patternType(patChild)}")
+        val pathArg = c.parse(s"path: ${patternType(patPath)}")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        ${build(child)}
+          .flatMap($childArg => {
+            ..${idnVals("child", patChild, false)}
+              ${build(path)}
+                .filter($pathArg => {
+                  ..${idnVals("path", patPath, false)}
+                  ${build(pred)} })
+                .map($pathArg => {
+                  $rt(child, path) })})
+        """
+        q"""
+        val start = "************ Unnest (Scala) ************"
+        val res = $code
+        val end = "************ Unnest (Scala) ************"
+        res
+        """
+
+      /** Scala OuterUnnest
+        */
+      case n @ OuterUnnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+        val childArg = c.parse(s"child: ${patternType(patChild)}")
+        val pathArg = c.parse(s"path: ${patternType(patPath)}")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        ${build(child)}
+          .flatMap($childArg => {
+            ..${idnVals("child", patChild, true)}
+            val matches =
+              ${build(path)}
+              .filter($pathArg => {
+                ..${idnVals("path", patPath, false)}
+                ${nullableFilter(patPath)} })
+              .filter($pathArg => {
+                ..${idnVals("path", patPath, true)}
+                ${build(pred)} })
+            if (matches.isEmpty)
+              List( $rt(child, None) )
+            else
+              matches.map(path => $rt(child, Some(path))) })
+        """
+        q"""
+        val start = "************ OuterUnnest (Scala) ************"
+        val res = $code
+        val end = "************ OuterUnnest (Scala) ************"
+        res
+        """
+
+      /** Scala Join
+        */
+      case n @ Join(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+        val leftArg = c.parse(s"left: ${patternType(patLeft)}")
+        val rightArg = c.parse(s"right: ${patternType(patRight)}")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        val rightCode = ${build(childRight)}.toSeq
+        ${build(childLeft)}
+          .flatMap($leftArg => {
+            ..${idnVals("left", patLeft, false)}
+            rightCode
+              .filter($rightArg => {
+                ..${idnVals("right", patRight, false)}
+                ${build(p)} })
+              .map($rightArg => {
+                $rt(left, right) })})
+        """
+        q"""
+        val start = "************ Join (Scala) ************"
+        val res = $code
+        val end = "************ Join (Scala)************"
+        res
+        """
+
+      /** Scala OuterJoin
+        */
+      case n @ OuterJoin(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+        val leftArg = c.parse(s"left: ${patternType(patLeft)}")
+        val rightArg = c.parse(s"right: ${patternType(patRight)}")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code =
+        q"""
+        val rightCode = ${build(childRight)}.toSeq
+        ${build(childLeft)}
+          .flatMap($leftArg => {
+            ..${idnVals("left", patLeft, true)}
+            val matches =
+              rightCode
+                .filter($rightArg => {
+                  ..${idnVals("right", patRight, false)}
+                  ${nullableFilter(patRight)} })
+                .filter($rightArg => {
+                  ..${idnVals("right", patRight, true)}
+                  ${build(p)} })
+            if (matches.isEmpty)
+              List( $rt(left, None) )
+            else
+              matches.map(right => $rt(left, Some(right))) })
+        """
+        q"""
+        val start = "************ OuterJoin (Scala) ************"
+        val res = $code
+        val end = "************ OuterJoin (Scala)************"
+        res
+        """
+
+      /** Scala Reduce
+        */
+      case Reduce(m, Gen(pat, child), e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val projected = q"""
+        ${build(child)}.map($childArg => {
+          ..${idnVals("child", pat, false)}
+          ${build(e)} })
+        """
+        val code = m match {
+          case _: MaxMonoid => q"""$projected.max"""
+          case _: MinMonoid => q"""$projected.min"""
+          case m1: PrimitiveMonoid => q"""$projected.foldLeft(${zero(m1)})(${fold(m1)})""" // TODO: fold vs foldLeft?
+          case _: BagMonoid => q"""$projected.toList.toIterable"""
+          case _: ListMonoid => q"""$projected.toList.toIterable"""
+          case _: SetMonoid => q"""$projected.toSet.toIterable"""
+        }
+        q"""
+        val start = "************ Reduce (Scala) ************"
+        val res = $code
+        val end = "************ Reduce (Scala) ************"
+        res
+        """
+
+      /** Scala Nest
+        */
+      case n @ Nest(m: PrimitiveMonoid, Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, true)}
+            ${build(k)} })
+          .map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .fold(${zero(m)})(${fold(m)}) ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Primitive Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Primitive Monoid (Scala) ************"
+        res"""
+
+      case n @ Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, true)}
+            ${build(k)} })
+          .map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toSet
+                .toIterable ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Set Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Set Monoid (Scala) ************"
+        res"""
+
+      case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(pat, child), k, p, e) =>
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
+          case Some(sym) => q"${Ident(TermName(sym))}"
+          case None      => q"scala.Tuple2"
+        }
+        val code = q"""
+        ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, true)}
+            ${build(k)} })
+          .map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toList
+                .toIterable ))
+          .toIterable
+        """
+        q"""
+        val start = "************ Nest Bag/List Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Bag/List Monoid (Scala) ************"
+        res"""
+    }
+
+    /** Build code for Spark algebra nodes
+      */
+    def buildSpark(a: AlgebraNode) = ??? //a match {
+    //      //            q"""${accessPaths(name)}"""
+    //      /*
+    //      * Fegaras: Ch 6. Basic Algebra O1
+    //      * Join(X, Y, p), joins the collections X and Y using the join predicate p.
+    //      * This join is not necessarily between two sets; if, for example, X is a list
+    //      * and Y is a bag, then, according to Eq. (D4), the output is a bag.
+    //      */
+    //      case r@SparkJoin(logicalNode, p, left, right) =>
+    //        val leftCode = build(left)
+    //        val rightCode = build(right)
+    //        q"""
+    //     val rddLeft = $leftCode
+    //     val rddRight = $rightCode
+    //     val res = rddLeft.cartesian(rddRight).filter(${exp(p)})
+    //     res
+    //   """
+    //
+    //      /* Fegaras: Ch 6. Basic Algebra O2
+    //      * Select(X, p), selects all elements of X that satisfy the predicate p.
+    //      */
+    //      case SparkSelect(logicalNode, p, child: PhysicalAlgebraNode) =>
+    //        val childTypeName = nodeScalaType(child.logicalNode)
+    //        val pCode = exp(p, Some(childTypeName))
+    //        logger.info(s"[SELECT] p: $pCode")
+    //        q"""${build(child)}.filter($pCode)"""
+    //
+    //      /*
+    //      * Fegaras: Ch 6. Basic Algebra O3
+    //      * unnest(X, path, p), returns the collection of all pairs (x, y) for each x \in X and for each y \in x.path
+    //      * that satisfy the predicate p(x, y).
+    //      */
+    //      case SparkUnnest(logicalNode, path, pred, child) =>
+    //        val childTypeName = nodeScalaType(child.logicalNode)
+    //        val pathCode = exp(path, Some(childTypeName))
+    //        val pathType = expScalaType(path)
+    //        //        val pathType = exp(path)
+    //        val predCode = exp(pred)
+    //        logger.info(s"[UNNEST] path: $pathCode, pred: $predCode")
+    //        val childCode = build(child)
+    //        //            logger.debug("{}.path = {} \n{}", x, pathValues)
+    //        val code = q"""
+    //          $childCode.flatMap(x => {
+    //            val pathValues = $pathCode(x)
+    //            pathValues.map((y:$pathType) => (x,y)).filter($predCode)
+    //            }
+    //          )
+    //        """
+    //
+    //        q"""
+    //        val start = "************ SparkUnnest ************"
+    //        val res = $code
+    //        val end= "************ SparkUnnest ************"
+    //        res
+    //        """
+    //      /* Fegaras: Ch 6. Basic Algebra O4
+    //      Reduce(X, Q, e, p), collects the values e(x) for all x \in X that satisfy p(x) using the accumulator Q.
+    //      The reduce operator can be thought of as a generalized version of the relational projection operator.
+    //      */
+    //      case SparkReduce(logicalNode, m, e, p, child) =>
+    //        val pCode = exp(p)
+    //        val eCode = exp(e)
+    //        val childCode = build(child)
+    //        logger.info(s"[SparkReduce] $m, e: $eCode, p: $pCode")
+    //        val filterMapCode = q"""
+    //     val childRDD = $childCode
+    //     childRDD
+    //       .filter($pCode)
+    //       .map($eCode)
+    //     """
+    //        val code = m match {
+    //          case m1: MaxMonoid => q"""$filterMapCode.max()"""
+    //          case m1: MinMonoid => q"""$filterMapCode.min()"""
+    //          case m1: PrimitiveMonoid =>
+    //            /* TODO: Use Spark implementations of monoids if supported. For instance, RDD has max and min actions.
+    //             * Compare the Spark implementations versus a generic code generator based on fold
+    //             */
+    //            q"""$filterMapCode.fold(${zero(m1)})(${fold(m1)})"""
+    //
+    //          case _: ListMonoid => q"""$filterMapCode"""
+    //          case _: BagMonoid => q"""$filterMapCode"""
+    //          case _: SetMonoid => q"""$filterMapCode.distinct"""
+    //        }
+    //        q"""
+    //        val start = "************ SparkReduce ************"
+    //        val res = $code
+    //        val end= "************ SparkReduce ************"
+    //        res
+    //        """
+    //
+    //      case SparkNest(logicalNode, m, e, f, p, g, child) =>
+    //        val eCode = exp(e)
+    //        val fCode = exp(f)
+    //        val pCode = exp(p)
+    //        logger.info(s"[SparkNEST] m: $m, e: $eCode, f: $fCode, p: $pCode, g: ${exp(g)}")
+    //        val t = analyzer.expressionType(e)
+    //        val st: String = buildScalaType(t, world)
+    //        val childTree: Tree = build(child)
+    //
+    //        //        val tp = c.parse(st)
+    //
+    //        def computeG(l: Seq[Exp]): Exp = l match {
+    //          case Nil => BoolConst(false)
+    //          case h :: t => MergeMonoid(OrMonoid(), BinaryExp(Eq(), h, Null), computeG(t))
+    //        }
+    //
+    //        val gExp = g match {
+    //          case RecordCons(attrs) => computeG(attrs.map { a: AttrCons => a.e })
+    //          case _ => {
+    //            assert(false);
+    //            BoolConst(true)
+    //          }
+    //        }
+    //
+    //        val code = m match {
+    //          case m1: MinMonoid =>
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map($eCode)
+    //                .min)
+    //            """
+    //          case m1: MaxMonoid =>
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map($eCode)
+    //                .max)
+    //            """
+    //
+    //          case m1: PrimitiveMonoid =>
+    //            val z1 = zeroExp(m1)
+    //            val f1 = IfThenElse(gExp, z1, e)
+    //            //  logger.debug("groupBy:\n{}", toString(grouped))
+    //            //  logger.debug("filteredP:\n{}", toString(filteredP))
+    //            //  logger.debug("mapped:\n{}", toString(mapped))
+    //            //  logger.debug("folded:\n{}", toString(folded))
+    //            q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => v
+    //                .filter($pCode)
+    //                .map(${exp(f1)})
+    //                .fold(${zero(m1)})(${fold(m1)}))
+    //            """
+    //          case m1: CollectionMonoid =>
+    //            // TODO: Does not handle dotequality.
+    //            /* TODO: The filter by p probably can be applied at the start of this operator implementation,
+    //             * in a common code path before branching to handle the different monoids.
+    //             */
+    //            // Since the zero element of a collection monoid is an empty collection,
+    //            // instead of using fold we can just filter any elements such that g(w) == null
+    //            val filterGNulls = IfThenElse(gExp, BoolConst(false), BoolConst(true))
+    //            val monoidReduceCode = m1 match {
+    //              case m2: SetMonoid =>
+    //                q"""mappedByE.toSet"""
+    //              //              case m1: BagMonoid =>
+    //              //                q"""com.google.common.collect.ImmutableMultiset.copyOf(scala.collection.JavaConversions.asJavaIterable(mappedByE))"""
+    //              case m1: BagMonoid =>
+    //                // TODO: Lists are semantically equivalent to Bags but potentially less efficient.
+    //                q"""mappedByE.toList"""
+    //              //              case m1: BagMonoid =>
+    //              //                q"""
+    //              //                def bagBuilderIter[T:scala.reflect.ClassTag](iter:Iterable[T]): scala.collection.immutable.Bag[T] = {
+    //              //                  import scala.collection.immutable.Bag
+    //              //                  Bag.newBuilder(Bag.configuration.compact[T])
+    //              //                    .++=(iter)
+    //              //                    .result()
+    //              //                }
+    //              //                bagBuilderIter(mappedByE)
+    //              //                """
+    //              case m1: ListMonoid =>
+    //                q"""mappedByE.toList"""
+    //            }
+    //            val commonCode =
+    //            //            logger.debug("groupBy:\n{}", toString(grouped))
+    //            //            logger.debug("filteredP:\n{}", toString(filteredP))
+    //            //            logger.debug("filteredG:\n{}", toString(filteredG))
+    //            //            logger.debug("mapped:\n{}", toString(mapped))
+    //              q"""
+    //            val grouped = $childTree.groupBy($fCode)
+    //            grouped.mapValues(v => {
+    //                val filteredByP = v.filter($pCode)
+    //                val filteredByG = filteredByP.filter(${exp(filterGNulls)})
+    //                val mappedByE = filteredByG.map($eCode)
+    //                ${monoidReduceCode}
+    //            })
+    //            """
+    //            commonCode
+    //        }
+    //
+    //        q"""
+    //          val start = "************ SparkNest ************"
+    //          val sparkNest = $code
+    //          val end = "************ SparkNest ************"
+    //          sparkNest"""
+    //
+    //      case SparkMerge(logicalNode, m, left, right) => ???
+    //      /*
+    //      outer-join, X OJ(p) Y, is a left outer-join between X and Y using the join
+    //      predicate p. The domain of the second generator (the generator of w) in
+    //      Eq. (O5) is always nonempty. If Y is empty or there are no elements that
+    //      can be joined with v (this condition is tested by universal quantification),
+    //      then the domain is the singleton value [NULL], i.e., w becomes null.
+    //      Otherwise each qualified element w of Y is joined with v.
+    //
+    //      Delegates to PairRDDFunctions#leftOuterJoin. We cannot use this method directly, because
+    //      it takes RDDs in the following form: (k, v), (k, w) => (k, (v, Option(w)), using k to make the
+    //      matching. While we have (p, left, right) and want  (v, w) with p used to match the elements.
+    //      The code bellow does the following transformations:
+    //      1. Compute RDD(v, w) such that v!=null and p(v, w) is true.
+    //      2. Apply PairRDDFunctions#leftOuterJoin.
+    //      RDD(v, w).leftOuterJoin( RDD(v, v) ) => (v, (v, Option[w]))
+    //      3. Transform in the output format of this operator.
+    //      (v, (v, Some[w])) -> (v, w)
+    //      (v, (v, None)) -> (v, null)
+    //      */
+    //
+    //      // TODO: Using null below can be problematic with RDDs of value types (AnyVal)?
+    //      case SparkOuterJoin(logicalNode, p, left, right) =>
+    //        val leftNodeType = nodeScalaType(left.logicalNode)
+    //        val rightNodeType = nodeScalaType(right.logicalNode)
+    //        val expP: c.universe.Tree = exp(p)
+    //        logger.info(s"[SparkOuterJoin] exp(p) = ${showCode(expP)}")
+    //
+    //        val code = q"""
+    //            val start = "************ SparkOuterJoin ************"
+    //            val leftRDD:RDD[$leftNodeType] = ${build(left)}
+    //            queryLogger.debug("leftRDD:\n"+ raw.QueryHelpers.toString(leftRDD))
+    //
+    //            val rightRDD:RDD[$rightNodeType] = ${build(right)}
+    //            queryLogger.debug("rightRDD:\n"+ raw.QueryHelpers.toString(rightRDD))
+    //
+    //            val matching:RDD[($leftNodeType, $rightNodeType)] = leftRDD
+    //              .cartesian(rightRDD)
+    //              .filter(tuple => tuple._1 != null)
+    //              .filter($expP)
+    //            queryLogger.debug("matching:\n"+ raw.QueryHelpers.toString(matching))
+    //
+    //            val resWithOption: RDD[($leftNodeType, ($leftNodeType, Option[$rightNodeType]))] = leftRDD
+    //              .map(v => (v, v))
+    //              .leftOuterJoin(matching)
+    //            queryLogger.debug("resWithOption:\n"+ raw.QueryHelpers.toString(resWithOption))
+    //
+    //            val res:RDD[($leftNodeType, $rightNodeType)] = resWithOption.map( {
+    //              case (v1, (v2, None)) => (v1, null)
+    //              case (v1, (v2, Some(w))) => (v1, w)
+    //            })
+    //            queryLogger.debug("res:\n"+ raw.QueryHelpers.toString(res))
+    //            val end = "************ SparkOuterJoin ************"
+    //            res
+    //            """
+    //        code
+    //      case SparkOuterUnnest(logicalNode, path, pred, child) => ???
+    //      /*
+    //      The assign node contains one more more assignments. Each is transformed into
+    //      a statement in the form: val key = `build(code)`
+    //       */
+    //      case SparkAssign(logicalNode, assigns, child) => {
+    //        var block: c.universe.Tree = q""
+    //        assigns.foreach({ case (key, node) => {
+    //          val rddName = TermName(key)
+    //          val rddCode = build(node)
+    //          // Appends the additional statements to the block. Without the "..$", this would generate independent blocks:
+    //          // "{val rdd1 =...; rdd1.cache()}; {val rdd2 =...; rdd2.cache()}" , and the RDDs defined in one block would
+    //          // not be visible outside. The "..$" creates a single block with the concatenation of all the expressions.
+    //          block = q"..$block; val $rddName = $rddCode; $rddName.cache()"
+    //        }
+    //        })
+    //        q"""..$block; ${build(child)}"""
+    //      }
+    //    }
+
+    def build(e: Exp): Tree = e match {
+      case a: AlgebraNode if !analyzer.spark(a) => buildScala(a)
+      case a: AlgebraNode => buildSpark(a)
+      case i: IdnExp if analyzer.isSource(i) => buildScan(i)
+      case _ => exp(e)
+    }
+
+    logger.info("Building code.")
+    val tree = build(treeExp)
+
+    val treeType = analyzer.tipe(treeExp)
     logger.info(s"TreeType: $treeType")
-    val reducedTree = physicalTree match {
-      case _: SparkNode => reduceSpark(tree, treeType)
-      case _: ScalaNode => reduceScala(tree, treeType)
+
+    val collectedTree = tree match {
+      case a: AlgebraNode if analyzer.spark(a) => collectSpark(tree, treeType)
+      case _ => collectScala(tree, treeType)
     }
 
-    reducedTree
+    collectedTree
   }
 
-  def reduceScala(tree: Tree, treeType: raw.Type): Tree = {
-    treeType match {
-      case BagType(_) => tree
-      case ListType(_) => tree
-      case n@SetType(_) => tree
-      case _ => tree
-    }
+  /** Collect results from in-memory Scala.
+    */
+  def collectScala(tree: Tree, treeType: raw.Type): Tree = treeType match {
+    case _: CollectionType => q"$tree.toList"
+    case _ => tree
   }
 
-  def reduceSpark(tree: Tree, treeType: raw.Type): Tree = {
+  /** Collect results from Spark.
+    */
+  def collectSpark(tree: Tree, treeType: raw.Type): Tree = {
     treeType match {
       /*
        Currently, we do not take advantage of the Bag semantics to optimize an RDD representing a BagType. So an RDD
        representing a Bag containes multiple copies of equivalent elements. A possible optimization is to represent
        a Bag as a PairRDD[Elem, Count], but this would require special handling to deal with the multiple representations
         */
-      case BagType(_) =>
+      case CollectionType(BagMonoid(), _) =>
         q"""$tree.collect"""
       //        q"""
       //        val m = $tree.countByValue()
@@ -805,12 +1124,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
        *
        * - toSet is a Scala local operation.
        */
-      case ListType(_) =>
+      case CollectionType(ListMonoid(), _) =>
         q"""$tree
             .toLocalIterator
             .to[scala.collection.immutable.List]"""
 
-      case n@SetType(_) =>
+      case n@CollectionType(SetMonoid(), _) =>
         logger.info(s"Node: $n")
         q"""$tree.collect"""
       //        q"""$tree
@@ -821,28 +1140,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
   }
 
-
-  def extractParams(tree: Tree): (Tree, Tree) = tree match {
-    case q"new $name( ..$params )" =>
-      logger.info(s"Extracted params: $params")
-      params match {
-        case List(queryTree, catalogTree) =>
-          logger.info(s"query: $queryTree, catalog: $catalogTree")
-          (queryTree.asInstanceOf[Tree], catalogTree.asInstanceOf[Tree])
-        //        case List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-        //        case q"($query:String, $catalog:HList)"  List(queryTree:c.Expr[String], catalogTree:c.Expr[HList]) => (queryTree, catalogTree)
-      }
-  }
-
   case class AccessPath(name: String, rawType: raw.Type, isSpark: Boolean)
-
-  sealed trait QueryLanguage
-
-  case object Krawl extends QueryLanguage
-
-  case object OQL extends QueryLanguage
-
-  case object LogicalPlan extends QueryLanguage
 
   def extractQueryAndAccessPath(makro: Tree): (String, QueryLanguage, List[AccessPath]) = {
     /**
@@ -863,13 +1161,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           logger.debug("Checking element: " + showCode(v))
           //          logger.debug("Tree: " + showRaw(v))
           v match {
-            case ValDef(_, TermName("query "), _, Literal(Constant(queryString: String))) =>
-              logger.info("Found monoid comprehension query: " + queryString)
+            case ValDef(_, TermName("qrawl "), _, Literal(Constant(queryString: String))) =>
+              logger.info("Found qrawl query: " + queryString)
               if (query.isDefined) {
                 bail(s"Multiple queries found. Previous: ${query.get}, Current: $queryString")
               }
               query = Some(queryString)
-              queryLanguage = Some(Krawl)
+              queryLanguage = Some(Qrawl)
 
             case ValDef(_, TermName("oql "), _, Literal(Constant(queryString: String))) =>
               val trimmedString = queryString.trim
@@ -944,46 +1242,33 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     //        })
   }
 
-  def parseOqlQuery(query: String, world: World): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
-    // world is not used for the time being. Eventually, send it to the compilation server.
-    OQLToPlanCompilerClient(query) match {
-      case Right(logicalAlgebra) => Right(logicalAlgebra)
-      case Left(error) => Left(new ParserError(error))
-    }
-  }
-
-  def parsePlan(plan: String): Either[QueryError, LogicalAlgebra.LogicalAlgebraNode] = {
-    LogicalAlgebraParser(plan) match {
-      case Right(logicalAlgebra) => Right(logicalAlgebra)
-      case Left(error) => Left(new ParserError(error))
-    }
-  }
-
   def generateCode(makro: Tree, query: String, queryLanguage: QueryLanguage, accessPaths: List[AccessPath]): c.Expr[Any] = {
     val sources = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
     val world = new World(sources)
 
     loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
-    val parseResult: Either[QueryError, LogicalAlgebraNode] = queryLanguage match {
-      case OQL => parseOqlQuery(query, world)
-      case Krawl => Query(query, world)
-      case LogicalPlan => parsePlan(query)
+    val parseResult: Either[QueryError, Calculus.Calculus] = queryLanguage match {
+      case Qrawl => Query(query, world)
+      case _ => throw new UnsupportedOperationException(s"$queryLanguage not yet supported")
     }
 
     parseResult match {
-      case Right(logicalTree) =>
-        var algebraStr = LogicalAlgebraPrettyPrinter(logicalTree)
-        loggerQueries.info(s"Algebra:\n${algebraStr}")
-        val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
-        val physicalTree = LogicalToPhysicalAlgebra(logicalTree, isSpark)
-        logger.info("Physical algebra: {}", PhysicalAlgebraPrettyPrinter(physicalTree))
+      case Right(tree) =>
+        val treeExp = tree.root
 
-        val typer = new algebra.Typer(world)
-        val caseClasses: Set[Tree] = buildCaseClasses(logicalTree, world, typer)
+        var expStr = CalculusPrettyPrinter(treeExp)
+        loggerQueries.info(s"Logical tree:\n$expStr")
+
+        val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
+
+        val physicalAnalyzer = new PhysicalAnalyzer(tree, world, isSpark)
+        physicalAnalyzer.tipe(tree.root) // Type the root of the tree to force all nodes to be typed
+
+        val caseClasses: Set[Tree] = buildCaseClasses(treeExp, world, physicalAnalyzer)
         logger.info("case classes:\n{}", caseClasses.map(showCode(_)).mkString("\n"))
 
-        val generatedTree: Tree = buildCode(physicalTree, world, typer)
+        val generatedTree: Tree = buildCode(treeExp, world, physicalAnalyzer)
         //        logger.info("Query execution code:\n{}", showCode(generatedTree))
         loggerQueries.info(s"Scala code:\n${showCode(generatedTree)}")
 
@@ -1033,10 +1318,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val scalaCode = showCode(block)
         logger.info("Generated code:\n{}", scalaCode)
-        QueryLogger.log(query, algebraStr, scalaCode)
+        QueryLogger.log(query, expStr, scalaCode)
         c.Expr[Any](block)
 
-      case Left(err) => bail(err.err)
+      case Left(err) => {
+        val errorMsg = err match {
+          case ParserError(msg) => c.warning(c.enclosingPosition, err.err)
+          case SemanticErrors(msg) => c.warning(c.enclosingPosition, err.err)
+          case InternalError(msg) => c.error(c.enclosingPosition, err.err)
+        }
+        logger.warn("Aborting compilation")
+        bail(RawImpl.COMPILATION_ABORT)
+      }
     }
   }
 

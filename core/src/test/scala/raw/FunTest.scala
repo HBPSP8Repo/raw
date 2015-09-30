@@ -2,7 +2,9 @@ package raw
 
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
-import raw.calculus.{Calculus, SyntaxAnalyzer}
+import raw.calculus.{CalculusPrettyPrinter, Calculus, SyntaxAnalyzer}
+
+import scala.collection.mutable
 
 class FunTest extends FunSuite with LazyLogging {
 
@@ -20,7 +22,7 @@ class FunTest extends FunSuite with LazyLogging {
     */
   def compare(actual: String, expected: String) = {
     def norm(in: Iterator[String]) = {
-      var m = scala.collection.mutable.Map[String, Int]()
+      val m = scala.collection.mutable.Map[String, Int]()
       var cnt = 0
       for (v <- in) {
         val c = m.getOrElseUpdate(v, cnt)
@@ -37,6 +39,19 @@ class FunTest extends FunSuite with LazyLogging {
       r.replaceAllIn(q, _ match { case m => s"\\$$${map(m.matched)}" })
     }
 
-    assert(rewritten(actual) === rewritten(expected))
+    def fix(q: String) = {
+      q.trim().replaceAll("\n", " ").replaceAll("\\s+", " ").replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")").replaceAll(",\\s+", ",")
+    }
+
+    val parsedA = actual   // CalculusPrettyPrinter(parse(actual))
+    val parsedE = expected // CalculusPrettyPrinter(parse(expected))
+
+    val A = fix(rewritten(parsedA))
+    val E = fix(rewritten(parsedE))
+    logger.debug(s"A $A")
+    logger.debug(s"E $E")
+
+    if (A != E)
+      assert(false, s"Incompatible!!\nActual: $actual\nExpected: $expected")
   }
 }

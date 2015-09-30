@@ -1,22 +1,40 @@
 package raw
 package calculus
 
-/** Simplify expressions by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
+/** Simplify expressions:
+  * - by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
+  * - by removing useless conversions to bag/list/set.
   */
-trait Simplifier extends Normalizer {
+class Simplifier(val analyzer: SemanticAnalyzer) extends Transformer {
 
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  override def strategy = attempt(super.strategy) <* simplify
+  def strategy = simplify
 
   // TODO: Compute expressions like "if (true) then 1 else 2"
+  // TODO: Fold constants
 
-  lazy val simplify = reduce(ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
+  lazy val simplify = reduce(removeUselessTos) + reduce(
+    ruleTrueOrA + ruleFalseOrA  + ruleTrueAndA + ruleFalseAndA + ruleNotNotA + ruleDeMorgan +
     ruleAorNotA + ruleAandNotA + ruleRepeatedOr + ruleRepeatedAnd + ruleRepeatedAndInOr + ruleRepeatedOrInAnd +
     ruleDistributeAndOverOr + ruleAddZero + ruleSubZero + ruleReplaceSubByNeg + ruleSubSelf +  ruleRemoveDoubleNeg +
     ruleMultiplyByZero + ruleMultiplyByOne + ruleDivideByOne + ruleDivideBySelf + ruleDivDivByMultDiv)
   //ruleDivideConstByConst + ruleDropNeg + ruleDropConstCast + ruleDropConstComparison + ruleFoldConsts)
+
+  /** Remove useless conversions.
+    */
+  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+    analyzer.tipe(e) match {
+      case CollectionType(`m`, _) => true
+      case _ => false
+    }
+
+  lazy val removeUselessTos = rule[Exp] {
+    case u @ UnaryExp(_: ToBag, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, BagMonoid()) }   => e
+    case u @ UnaryExp(_: ToList, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, ListMonoid()) } => e
+    case u @ UnaryExp(_: ToSet, e) if { logger.debug(s"### $u") ; isCollectionMonoid(e, SetMonoid()) }   => e
+  }
 
   /** Rules to simplify Boolean expressions to CNF.
     */
@@ -347,29 +365,4 @@ trait Simplifier extends Normalizer {
   //   }
   //  }
 
-}
-
-
-object Simplifier extends Simplifier {
-
-  import org.kiama.rewriting.Rewriter.rewriteTree
-  import Calculus.Calculus
-
-  def apply(tree: Calculus, world: World): Calculus = {
-
-    // Desugar tree
-    val tree1 = Desugarer(tree)
-
-    // Uniquify identifiers
-    val tree2 = Uniquifier(tree1, world)
-
-    // Desugar expresion blocks
-    val tree3 = DesugarExpBlocks(tree2)
-
-    // Uniquify identifiers
-    val tree4 = Uniquifier(tree3, world)
-
-    // Simplify
-    rewriteTree(strategy)(tree4)
-  }
 }

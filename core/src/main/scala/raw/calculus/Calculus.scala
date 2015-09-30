@@ -55,7 +55,7 @@ object Calculus {
 
   /** Defining occurrence of an identifier
     */
-  case class IdnDef(idn: Idn, t: Option[Type]) extends IdnNode
+  case class IdnDef(idn: Idn) extends IdnNode
 
   /** Use of an identifier
     */
@@ -85,7 +85,7 @@ object Calculus {
 
   /** Function Abstraction
     */
-  case class FunAbs(idn: IdnDef, e: Exp) extends Exp
+  case class FunAbs(p: Pattern, e: Exp) extends Exp with Decl
 
   /** Function Application
     */
@@ -111,43 +111,126 @@ object Calculus {
     */
   case class UnaryExp(op: UnaryOperator, e: Exp) extends Exp
 
-  /** Statements
+  /** Declarations
     */
-  sealed abstract class Statement extends Qual
+  sealed trait Decl extends Qual
 
   /** Generator
     */
-  case class Gen(idn: IdnDef, e: Exp) extends Statement
+  case class Gen(p: Pattern, e: Exp) extends Decl
 
   /** Bind
     */
-  sealed abstract class AnyBind extends Statement
-  case class Bind(idn: IdnDef, e: Exp) extends AnyBind
+  case class Bind(p: Pattern, e: Exp) extends Decl
 
-  /** Syntactic sugar
-    *
+  /** Sugar Nodes: removed by the Desugarer
     */
+  sealed abstract class Sugar extends Exp
 
   /** Expression in a Block with Binds
     */
-  case class ExpBlock(bs: Seq[AnyBind], e: Exp) extends Exp
+  case class ExpBlock(bs: Seq[Bind], e: Exp) extends Sugar
 
-  /** Pattern-match Bind
+  /** Sum
     */
-  case class PatternBind(p: Pattern, e: Exp) extends AnyBind
+  case class Sum(e: Exp) extends Sugar
 
-  /** Pattern-match Generator
+  /** Max
     */
-  case class PatternGen(p: Pattern, e: Exp) extends Statement
+  case class Max(e: Exp) extends Sugar
 
-  /** Pattern-match FunAbs
+  /** Min
     */
-  case class PatternFunAbs(p: Pattern, e: Exp) extends Exp
+  case class Min(e: Exp) extends Sugar
+
+  /** Avg
+    */
+  case class Avg(e: Exp) extends Sugar
+
+  /** Count
+    */
+  case class Count(e: Exp) extends Sugar
+
+  /** In Expression
+    */
+  case class InExp(e1: Exp, e2: Exp) extends Sugar
+
+  /** Exists
+    */
+  case class Exists(e: Exp) extends Sugar
 
   /** Patterns
     */
   sealed abstract class Pattern extends CalculusNode
   case class PatternIdn(idn: IdnDef) extends Pattern
   case class PatternProd(ps: Seq[Pattern]) extends Pattern
+
+  /** Canonical Comprehension
+    */
+  case class CanComp(m: Monoid, gs: Seq[Gen], ps: Seq[Exp], e: Exp) extends Exp
+
+  /** Algebra Nodes
+    */
+  sealed abstract class AlgebraNode extends Exp
+
+  /** Logical Algebra Nodes
+    */
+  sealed abstract class LogicalAlgebraNode extends AlgebraNode
+
+  /** Reduce
+    */
+  case class Reduce(m: Monoid, child: Gen, e: Exp) extends LogicalAlgebraNode
+
+  /** Nest
+    */
+  case class Nest(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class Nest2(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+  case class Nest3(m: Monoid, child: Gen, k: Exp, p: Exp, e: Exp) extends LogicalAlgebraNode
+
+  /** Filter
+    */
+  case class Filter(child: Gen, p: Exp) extends LogicalAlgebraNode
+
+  /** Join
+    */
+  case class Join(left: Gen, right: Gen, p: Exp) extends LogicalAlgebraNode
+
+  /** OuterJoin
+    */
+  case class OuterJoin(left: Gen, right: Gen, p: Exp) extends LogicalAlgebraNode
+
+  /** Unnest
+    */
+  case class Unnest(child: Gen, path: Gen, pred: Exp) extends LogicalAlgebraNode
+
+  /** OuterUnnest
+    */
+  case class OuterUnnest(child: Gen, path: Gen, pred: Exp) extends LogicalAlgebraNode
+
+  /** Physical Algebra Nodes
+    */
+  sealed abstract class PhysicalAlgebraNode extends AlgebraNode
+
+  /** HashJoin
+    */
+  case class HashJoin(left: Gen, right: Gen, es: Seq[Idn]) extends PhysicalAlgebraNode  // TODO: Fix signature
+
+  /** Select
+    */
+  case class Select(from: Seq[Iterator],
+                    distinct: Boolean,
+                    group: Option[Exp],
+                    proj: Exp,
+                    where: Option[Exp],
+                    order: Option[Exp],
+                    having: Option[Exp]) extends Exp
+
+  /** Iterator
+    */
+  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Decl
+
+  /** Partition
+    */
+  case class Partition() extends Exp
 
 }

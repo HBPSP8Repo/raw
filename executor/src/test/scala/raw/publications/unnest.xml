@@ -1,0 +1,20 @@
+<queries dataset="publicationsSmall">
+
+    <query>
+        <qrawl>
+            <![CDATA[
+select A as author from publications P, P.authors A
+]]>
+        </qrawl>
+    </query>
+
+    <query>
+        <qwral>
+            <![CDATA[
+select A as author from publications P, P.authors A
+]]>
+        </qwral>
+
+    </query>
+
+</queries>
