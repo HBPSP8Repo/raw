@@ -5,7 +5,6 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Phases extends LazyLogging {
 
-  import scala.language.implicitConversions
   import org.kiama.rewriting.Rewriter._
 
   // TODO: Make use of notion of SemanticTransformer vs PipelinedTransformer to strengthen building of phases
