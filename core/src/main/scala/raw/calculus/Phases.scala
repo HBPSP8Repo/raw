@@ -7,9 +7,10 @@ sealed abstract class Phase
 case object ExpressionsDesugarPhase extends Phase
 case object DesugarPhase extends Phase
 case object TranslatorPhase extends Phase
-case object UniquifierPhase extends Phase
-case object ReUniquifierPhase extends Phase
+case object UniquifyInputPhase extends Phase
+case object PrepareForNormalizerPhase extends Phase
 case object NormalizerPhase extends Phase
+case object PrepareForUnnesterPhase extends Phase
 case object UnnesterPhase extends Phase
 case object SimplifierPhase extends Phase
 case object OptimizerPhase extends Phase
@@ -22,13 +23,14 @@ object Phases extends LazyLogging {
   //       phase requires (e.g. unique names or fresh tree) are not ensured. And this should be done at compile time!
 
   private val phases = Seq(
-    UniquifierPhase               -> Seq( "Uniquifier1" -> classOf[Uniquifier]),
+    UniquifyInputPhase               -> Seq( "Uniquifier1" -> classOf[Uniquifier]),
     DesugarPhase                  -> Seq( "ExpressionsDesugarer"  -> classOf[ExpressionsDesugarer],
                                           "BlocksDesugarer"       -> classOf[BlocksDesugarer]),
     TranslatorPhase               -> Seq( "Translator"            -> classOf[Translator]),
-    ReUniquifierPhase             -> Seq( "Uniquifier2" -> classOf[Uniquifier]),
+    PrepareForNormalizerPhase             -> Seq( "Uniquifier2" -> classOf[Uniquifier]),
     NormalizerPhase               -> Seq( "Simplifier1" -> classOf[Simplifier],
                                           "Normalizer"  -> classOf[Normalizer]),
+    PrepareForUnnesterPhase             -> Seq( "Uniquifier3" -> classOf[Uniquifier]),
     UnnesterPhase                 -> Seq( "Simplifier2" -> classOf[Simplifier],
                                           "Canonizer"   -> classOf[Canonizer],
                                           "Unnester"    -> classOf[Unnester]),

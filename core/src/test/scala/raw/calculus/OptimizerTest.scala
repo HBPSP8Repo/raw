@@ -141,5 +141,42 @@ class OptimizerTest extends FunTest {
       TestWorlds.publications, "")
   }
 
+  test("failed query") {
+    check("""
+    select G.title as title,
+    (select year: v,
+      N: count(partition)
+    from v in G.values
+    group by v) as stats
+      from (
+        select distinct A.title as title, (select A.year from A in partition) as values
+    from authors A
+    group by A.title) G
+          """, TestWorlds.publications, """
+   reduce(
+    set,
+    ($415, $503) <- nest(
+            bag,
+            (($415, $420), $504) <- nest(
+                    sum,
+                    (($415, $420), $429) <- outer_join(
+                            ($415, $420) <- outer_join($415 <- authors, $420 <- authors, $415.title = $420.title),
+                            $429 <- filter($429 <- authors, $429.year = $429.year),
+                            $415.title = $429.title),
+                    (_1: $415, _2: $420),
+                    true,
+                    1),
+            $415,
+            true,
+            (year: $420.year, N: $504)),
+    (title: $415.title, stats: $503))
+          """)
+
+  }
+
+  // Alternative GOOD Version:
+  // check("select distinct A.title, sum(select a.year from a in
+//  partition), count(partition), max(select a.year from a in partition)
+//  from A in authors group by A.title",
 
 }

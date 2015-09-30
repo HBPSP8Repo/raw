@@ -27,8 +27,8 @@ class Normalizer extends Transformer {
   }
 
   lazy val rule1 = rule[Comp] {
-    case Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x)), u), s), e) =>
-      logger.debug(s"Applying normalizer rule 1")
+    case n @ Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x)), u), s), e) =>
+      logger.debug(s"Applying normalizer rule 1 to ${CalculusPrettyPrinter(n)}")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => deepclone(u)
       })
@@ -41,8 +41,8 @@ class Normalizer extends Transformer {
     */
 
   private lazy val rule2 = rule[Exp] {
-    case f @ FunApp(FunAbs(PatternIdn(IdnDef(idn)), e1), e2) =>
-      logger.debug(s"Applying normalizer rule 2")
+    case n @ FunApp(FunAbs(PatternIdn(IdnDef(idn)), e1), e2) =>
+      logger.debug(s"Applying normalizer rule 2 to ${CalculusPrettyPrinter(n)}")
       rewrite(everywhere(rule[Exp] {
         case IdnExp(IdnUse(`idn`)) => deepclone(e2)
       }))(e1)
@@ -52,8 +52,8 @@ class Normalizer extends Transformer {
     */
 
   private lazy val rule3 = rule[Exp] {
-    case r @ RecordProj(RecordCons(atts), idn) =>
-      logger.debug(s"Applying normalizer rule 3")
+    case n @ RecordProj(RecordCons(atts), idn) =>
+      logger.debug(s"Applying normalizer rule 3 to ${CalculusPrettyPrinter(n)}")
       atts.collect { case att if att.idn == idn => att.e}.head
   }
 
@@ -130,8 +130,8 @@ class Normalizer extends Transformer {
   // TODO: Write testcase for this: two nested comprehensions on the Gen
 
   private lazy val rule8 = rule[Exp] {
-    case Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
-      logger.debug(s"Applying normalizer rule 8")
+    case n @ Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
+      logger.debug(s"Applying normalizer rule 8 to ${CalculusPrettyPrinter(n)}")
       Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
   }
 
