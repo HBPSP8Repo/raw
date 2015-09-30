@@ -148,7 +148,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val expectedType = (tipe(g1.e), tipe(g2.e)) match {
               case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
             }
-            makeNullable(te, Seq(CollectionType(m, expectedType)), Seq(tipe(g1.e), tipe(g2.e)))
+            makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
           }
         }
         case OuterJoin(g1, g2, p) => {
