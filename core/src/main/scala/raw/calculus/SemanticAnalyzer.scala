@@ -140,31 +140,69 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
           makeNullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Iterator(_, e1) => tipe(e1)})
-        case Reduce(m, g, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Filter(g, p) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Join(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
-        case OuterJoin(g1, g2, p) =>
-          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        case Reduce(m: PrimitiveMonoid, g, e1) => makeNullable(te, Seq(tipe(e1)), Seq(tipe(g.e)))
+        case Reduce(m: CollectionMonoid, g, e1) => makeNullable(te, Seq(CollectionType(m, tipe(e1))), Seq(tipe(g.e)))
+        case Filter(g, p) => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
+        case Join(g1, g2, p) => te match {
+          case CollectionType(m, inner) => {
+            val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+              case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+            }
+            makeNullable(te, Seq(CollectionType(m, expectedType)), Seq(tipe(g1.e), tipe(g2.e)))
+          }
+        }
+        case OuterJoin(g1, g2, p) => {
+          val x = te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
           x match {
             case CollectionType(_, RecordType(atts, _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
           x
-        case Unnest(g1, g2, p) => makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+        }
+        case Unnest(g1, g2, p) =>
+          te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
         case OuterUnnest(g1, g2, p) =>
-          val x = makeNullable(te, Seq(), Seq(tipe(g1.e), tipe(g2.e)))
+          val x = te match {
+            case CollectionType(m, inner) => {
+              val expectedType = (tipe(g1.e), tipe(g2.e)) match {
+                case (CollectionType(_, left), CollectionType(_, right)) => CollectionType(m, RecordType(Seq(AttrType("_1", left), AttrType("_2", right)), None))
+              }
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+            }
+          }
           x match {
             case CollectionType(_, RecordType(atts, _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
           x
-        case Nest(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Nest2(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Nest3(m, g, k, p, e1) => makeNullable(te, Seq(), Seq(tipe(g.e)))
+        case Nest(m: CollectionMonoid, g, k, p, e1) => {
+          te match {
+            case CollectionType(m2, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1)))), None))), Seq(tipe(g.e)))
+          }
+        }
+        case Nest(m: PrimitiveMonoid, g, k, p, e1) => {
+          te match {
+            case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", tipe(e1))), None))), Seq(tipe(g.e)))
+          }
+        }
 
-//        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
+        //        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
         case Comp(_, qs, proj) =>
           val output_type = tipe(proj) match {
             case _: IntType => IntType()
@@ -174,6 +212,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           output_type.nullable = false
           makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1)})
+
         case BinaryExp(_, e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case InExp(e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
@@ -200,10 +239,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Avg(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Exists(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
-      }
+        }
       nt
-    }
   }
+}
 
   /** Type checker errors.
     */
