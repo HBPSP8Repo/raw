@@ -12,7 +12,9 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
   def strategy = optimize
 
 //  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* manytd(collapseNests)
-  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* reduce(makeMultiNest)
+//  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* reduce(makeMultiNest)
+  lazy val optimize = reduce(removeFilters + removeUselessReduce)
+
   /** Remove redundant filters
     */
   lazy val removeFilters = rule[Exp] {

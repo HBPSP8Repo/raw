@@ -500,8 +500,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       val nullables = patternNullable(p)
       if (nullables.isEmpty)
         q"true"
+      else if (nullables.size == 1)
+        q"${nullables.head}.isDefined"
       else
-        nullables.tail.fold(q"${nullables.head}.isDefined")((a, b) => q"$a.isDefined && $b.isDefined")
+        nullables.tail.fold(nullables.head)((a, b) => q"$a.isDefined && $b.isDefined")
     }
 
     /** Build code for scanner nodes
@@ -580,7 +582,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"""
         ${build(child)}
           .flatMap($childArg => {
-            ..${idnVals("child", patChild, false)}
+            ..${idnVals("child", patChild, true)}
             val matches =
               ${build(path)}
               .filter($pathArg => {
@@ -644,7 +646,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightCode = ${build(childRight)}.toSeq
         ${build(childLeft)}
           .flatMap($leftArg => {
-            ..${idnVals("left", patLeft, false)}
+            ..${idnVals("left", patLeft, true)}
             val matches =
               rightCode
                 .filter($rightArg => {
@@ -701,7 +703,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat, true)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(
@@ -735,7 +737,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat, true)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(
@@ -770,7 +772,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat, true)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(
