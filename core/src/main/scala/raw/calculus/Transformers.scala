@@ -2,14 +2,16 @@ package raw
 package calculus
 
 import com.typesafe.scalalogging.LazyLogging
-import org.kiama.rewriting.Cloner._
+import scala.collection.immutable.Seq
 
+/** A transformer.
+  * Rewrites the tree by applying a strategy.
+  */
 trait Transformer extends LazyLogging {
 
-  import scala.collection.immutable.Seq
   import org.kiama.rewriting.Strategy
   import org.kiama.rewriting.Rewriter._
-  import Calculus._
+  import raw.calculus.Calculus._
 
   def strategy: Strategy
 
@@ -30,20 +32,10 @@ trait Transformer extends LazyLogging {
   }
 
   /** Rewrite all identifiers in the expression using new global identifiers.
-    * Takes care to only rewrite identifiers that are system generated, and not user-defined class extent names.
+    * Takes care to only rewrite identifiers that are:
+    * - system generated (i.e. excluding extent names)
+    * - defined within the sub-tree.
     */
-  protected def rewriteIdns[T <: RawNode](n: T): T = {
-    val ids = scala.collection.mutable.Map[String, String]()
-
-    def newIdn(idn: Idn) = { if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn) }
-
-    rewrite(
-      everywhere(rule[IdnNode] {
-        case IdnDef(idn) if idn.startsWith("$") => IdnDef(newIdn(idn))
-        case IdnUse(idn) if idn.startsWith("$") => IdnUse(newIdn(idn))
-      }))(n)
-  }
-
   protected def rewriteInternalIdns[T <: RawNode](n: T): T = {
     val collectIdnDefs = collect[Seq, Idn] {
       case IdnDef(idn) => idn
@@ -62,3 +54,14 @@ trait Transformer extends LazyLogging {
 
   }
 }
+
+/** A transformer that requires the analyzer.
+  */
+trait SemanticTransformer extends Transformer {
+  def analyzer: SemanticAnalyzer
+}
+
+/** A transformer that can be pipelined with other transformers.
+  */
+trait PipelinedTransformer extends Transformer
+

@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-class Canonizer extends Transformer {
+class Canonizer extends PipelinedTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._

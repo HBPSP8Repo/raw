@@ -9,7 +9,7 @@ case class UniquifierError(err: String) extends RawException(err)
 
 /** Uniquify names
   */
-class Uniquifier(val analyzer: SemanticAnalyzer) extends Transformer {
+class Uniquifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   def strategy = uniquify
 

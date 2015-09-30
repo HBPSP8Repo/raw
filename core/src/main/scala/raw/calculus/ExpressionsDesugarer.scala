@@ -3,7 +3,7 @@ package calculus
 
 /** Desugar the expressions such as Count, Max, ...
   */
-class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Transformer {
+class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._

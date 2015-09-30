@@ -1,12 +1,10 @@
 package raw
 package calculus
 
-import org.kiama.attribution.Attribution
-
 /** Normalize a comprehension by transforming a tree into its normalized form.
   * The normalization rules are described in [1] (Fig. 4, page 17).
   */
-class Normalizer extends Transformer {
+class Normalizer extends PipelinedTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
@@ -126,8 +124,6 @@ class Normalizer extends Transformer {
   private object Rule8 {
     def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, _: Comp) => g})
   }
-
-  // TODO: Write testcase for this: two nested comprehensions on the Gen
 
   private lazy val rule8 = rule[Exp] {
     case n @ Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>

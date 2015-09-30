@@ -5,7 +5,7 @@ package calculus
   * - Expression blocks
   * - Sugar expression (e.g. Count, ...)
   */
-class BlocksDesugarer extends Transformer {
+class BlocksDesugarer extends PipelinedTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._

@@ -20,7 +20,7 @@ class FunTest extends FunSuite with LazyLogging {
     * e.g.
     *   `$14 + $15 - 2 * $14` is equivalent to `$0 + $1 - 2 * $0`
     */
-  def compare(actual: String, expected: String) = {
+  def compare(actual: String, expected: String): Boolean = {
     def norm(in: Iterator[String]) = {
       val m = scala.collection.mutable.Map[String, Int]()
       var cnt = 0
@@ -51,7 +51,6 @@ class FunTest extends FunSuite with LazyLogging {
     logger.debug(s"A $A")
     logger.debug(s"E $E")
 
-    if (A != E)
-      assert(false, s"Incompatible!!\nActual: $actual\nExpected: $expected")
+    A == E
   }
 }

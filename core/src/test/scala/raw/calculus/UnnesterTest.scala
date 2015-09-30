@@ -1,52 +1,31 @@
 package raw
 package calculus
 
-class UnnesterTest extends FunTest {
+class UnnesterTest extends CalculusTest {
 
-  def process(w: World, q: String) = {
-    val ast = parse(q)
-
-    val t = new Calculus.Calculus(ast)
-
-    val analyzer = new calculus.SemanticAnalyzer(t, w)
-    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
-    assert(analyzer.errors.length === 0)
-
-    val algebra = Phases(t, w, lastTransform = Some("Unnester"))
-
-    val analyzer2 = new calculus.SemanticAnalyzer(algebra, w)
-    analyzer2.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
-    assert(analyzer2.errors.length === 0)
-
-    compare(FriendlierPrettyPrinter(analyzer2.tipe(algebra.root)), FriendlierPrettyPrinter(analyzer.tipe(t.root)))
-    algebra
-  }
+  val phase = "Unnester"
 
   test("reduce #1") {
-    val t = process(
-      TestWorlds.departments,
-      "for (d <- Departments) yield set d")
-    compare(CalculusPrettyPrinter(t.root),
+    check(
+      "for (d <- Departments) yield set d",
       """
       reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0)
-      """)
+      """,
+      TestWorlds.departments)
   }
 
   test("reduce #2") {
-    val t = process(
-      TestWorlds.departments,
-      "for (d <- Departments) yield set d.name")
-    compare(CalculusPrettyPrinter(t.root),
+    check(
+      "for (d <- Departments) yield set d.name",
       """
       reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0.name)
-      """)
+      """,
+      TestWorlds.departments)
   }
 
   test("simple join") {
-    val t = process(
-      TestWorlds.departments,
-      "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1: a, b1: b)")
-    compare(CalculusPrettyPrinter(t.root),
+    check(
+      "for (a <- Departments; b <- Departments; a.dno = b.dno) yield set (a1: a, b1: b)",
       """
       reduce(
         set,
@@ -57,15 +36,13 @@ class UnnesterTest extends FunTest {
             $0.dno = $1.dno),
           true),
         (a1: $0, b1: $1))
-      """)
+      """,
+      TestWorlds.departments)
   }
 
   test("join") {
-    val t = process(
-      TestWorlds.fines,
-      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)",
       """
       reduce(
         list,
@@ -76,15 +53,13 @@ class UnnesterTest extends FunTest {
             $0.location = $1.location and $1.speed > $0.max_speed),
           true),
         (name: $1.person, location: $1.location))
-      """)
+      """,
+      TestWorlds.fines)
   }
 
   test("join 2") {
-    val t = process(
-      TestWorlds.fines,
-      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)",
       """
       reduce(
         list,
@@ -95,15 +70,13 @@ class UnnesterTest extends FunTest {
             $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
           true),
         (name: $1.person, location: $1.location))
-    """)
+      """,
+      TestWorlds.fines)
   }
 
   test("join 3 (split predicates)") {
-    val t = process(
-      TestWorlds.school,
-      """for (s <- students; p <- profs; d <- departments; s.office = p.office; p.name = d.prof) yield list s""")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      """for (s <- students; p <- profs; d <- departments; s.office = p.office; p.name = d.prof) yield list s""",
       """
       reduce(
         list,
@@ -117,16 +90,13 @@ class UnnesterTest extends FunTest {
             $1.name = $2.prof),
           true),
         $0)
-      """
-    )
+      """,
+      TestWorlds.school)
   }
 
   test("join 3 (ANDed predicates)") {
-    val t = process(
-      TestWorlds.school,
-      """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s""")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      """for (s <- students; p <- profs; d <- departments; s.office = p.office and p.name = d.prof) yield list s""",
       """
       reduce(
         list,
@@ -140,17 +110,13 @@ class UnnesterTest extends FunTest {
             $1.name = $2.prof),
           true),
         $0)
-      """
-    )
+      """,
+      TestWorlds.school)
   }
 
   test("nested comprehension on predicate w/o dependency") {
-    val t = process(
-      TestWorlds.professors_students,
-      """for (s <- students; s.age < for (p <- professors) yield max p.age) yield set s.name"""
-    )
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      """for (s <- students; s.age < for (p <- professors) yield max p.age) yield set s.name""",
       """
       reduce(
         set,
@@ -166,22 +132,18 @@ class UnnesterTest extends FunTest {
             $1.age),
           $0.age < $2),
         $0.name)
-      """
-    )
+      """,
+      TestWorlds.professors_students)
   }
 
   test("nested comprehension on predicate w/ dependency") {
-    val t = process(
-      TestWorlds.professors_students,
+    check(
       """
       for (s <- students;
            s.age = (for (p <- professors; p.age = s.age) yield sum 1)
            )
         yield set s.name
-      """
-    )
-    compare(
-      CalculusPrettyPrinter(t.root),
+      """,
       """
       reduce(
         set,
@@ -197,65 +159,59 @@ class UnnesterTest extends FunTest {
             1),
           $0.age = $2),
         $0.name)
-      """)
+      """,
+      TestWorlds.professors_students)
   }
 
   test("nested comprehension on predicate w/ and w/o dependency") {
-    val t = process(
-      TestWorlds.professors_students,
+    check(
       """
       for (s <- students;
            s.age < (for (p <- professors) yield max p.age);
            s.age = (for (s <- students; s.age = (for (p <- professors) yield sum 1)) yield max s.age))
         yield set s.name
+      """,
       """
-    )
-    compare(
-      CalculusPrettyPrinter(t.root),
-    """
-    reduce(
-      set,
-      (($0, $4), $5) <- filter(
-        (($0, $4), $5) <- nest(
-          max,
-          ((($0, $4), $6), $2) <- outer_join(
-            (($0, $4), $6) <- nest(
-              sum,
-              (($0, $4), $3) <- outer_join(
-                ($0, $4) <- nest(
-                  max,
-                  ($0, $1) <- outer_join(
-                    $0 <- filter($0 <- students, true),
-                    $1 <- filter($1 <- professors, true),
-                    true),
-                  $0,
-                  true,
-                  $1.age),
-                $3 <- filter($3 <- professors, true),
-                true),
-              (_1: $0, _2: $4),
-              true,
-              1),
-            $2 <- filter($2 <- students, true),
-            $2.age = $6),
-          (_1: $0, _2: $4),
-          true,
-          $2.age),
-        $0.age < $4 and $0.age = $5),
-      $0.name)
-    """
-    )
+      reduce(
+        set,
+        (($0, $4), $5) <- filter(
+          (($0, $4), $5) <- nest(
+            max,
+            ((($0, $4), $6), $2) <- outer_join(
+              (($0, $4), $6) <- nest(
+                sum,
+                (($0, $4), $3) <- outer_join(
+                  ($0, $4) <- nest(
+                    max,
+                    ($0, $1) <- outer_join(
+                      $0 <- filter($0 <- students, true),
+                      $1 <- filter($1 <- professors, true),
+                      true),
+                    $0,
+                    true,
+                    $1.age),
+                  $3 <- filter($3 <- professors, true),
+                  true),
+                (_1: $0, _2: $4),
+                true,
+                1),
+              $2 <- filter($2 <- students, true),
+              $2.age = $6),
+            (_1: $0, _2: $4),
+            true,
+            $2.age),
+          $0.age < $4 and $0.age = $5),
+        $0.name)
+      """,
+      TestWorlds.professors_students)
   }
 
   // TODO: Add test cases with nested non-primitive reduces!
 
-    test("paper query A") {
-      val t = process(
-        TestWorlds.employees,
-        "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e)")
-      compare(
-        CalculusPrettyPrinter(t.root),
-        """
+  test("paper query A") {
+    check(
+      "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e)",
+      """
       reduce(
         set,
         ($0, $2) <- filter(
@@ -270,16 +226,13 @@ class UnnesterTest extends FunTest {
             $1),
           true),
         (D: $0, E: $2))
-      """
-    )
+      """,
+      TestWorlds.employees)
   }
 
   test("paper query A variation") {
-    val t = process(
-      TestWorlds.employees,
-      "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e.dno)")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (d <- Departments) yield set (D: d, E: for (e <- Employees; e.dno = d.dno) yield set e.dno)",
       """
       reduce(
         set,
@@ -295,16 +248,13 @@ class UnnesterTest extends FunTest {
             $1.dno),
           true),
         (D: $0, E: $2))
-      """
-    )
+      """,
+      TestWorlds.employees)
   }
 
   test("paper query B") {
-    val t = process(
-      TestWorlds.A_B,
-      "for (a <- A) yield and (for (b <- B; a = b) yield or true)")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (a <- A) yield and (for (b <- B; a = b) yield or true)",
       """
       reduce(
         and,
@@ -320,16 +270,13 @@ class UnnesterTest extends FunTest {
             true),
           true),
         $2)
-      """
-    )
+      """,
+      TestWorlds.A_B)
   }
 
   test("paper query C") {
-    val t = process(
-      TestWorlds.employees,
-      "for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)",
       """
       reduce(
         set,
@@ -353,16 +300,15 @@ class UnnesterTest extends FunTest {
             1),
           true),
         (E: $0, M: $3))
-      """
-    )
+      """,
+      TestWorlds.employees)
   }
 
   test("paper query D") {
-    val t = process(
-      TestWorlds.transcripts,
-      """for (s <- Students; for (c <- Courses; c.title = "DB") yield and (for (t <- Transcripts; t.id = s.id; t.cno = c.cno) yield or true)) yield set s""")
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      """
+      for (s <- Students; for (c <- Courses; c.title = "DB") yield and (for (t <- Transcripts; t.id = s.id; t.cno = c.cno) yield or true)) yield set s
+      """,
       """
       reduce(
         set,
@@ -386,42 +332,42 @@ class UnnesterTest extends FunTest {
             $4),
           $3),
         $0)
-      """
-    )
+      """,
+      TestWorlds.transcripts)
   }
 
   test("top-level merge") {
-    val t = process(
-      TestWorlds.things,
-      "for (x <- things union things) yield set x"
-    )
-    compare(
-      CalculusPrettyPrinter(t.root),
+    check(
+      "for (x <- things union things) yield set x",
       """
       reduce(set, $0 <- filter($0 <- filter($0 <- things, true), true), $0)
         union
-      reduce(set, $1 <- filter($1 <- filter($1 <- things, true), true), $1)"""
-    )
+      reduce(set, $1 <- filter($1 <- filter($1 <- things, true), true), $1)""",
+      TestWorlds.things)
   }
 
-  def check(query: String, world: World, algebra: String) = compare(CalculusPrettyPrinter(process(world, query).root), algebra)
-
   test("publications: count of authors grouped by title and then year") {
-    check("select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
-      TestWorlds.publications, """
-          """)
+    check(
+      "select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
+      """
+      """,
+      TestWorlds.publications)
   }
 
   ignore("nested nests") {
     // to see the shape of nest/outer-join chains, this leads to outer-join/nest/outer-join/nest/outer-join....
-    check("select distinct A.title, sum(select a.year from a in partition), count(partition), max(select a.year from a in partition) from A in authors group by A.title",
-          TestWorlds.publications, "")
+    check(
+      "select distinct A.title, sum(select a.year from a in partition), count(partition), max(select a.year from a in partition) from A in authors group by A.title",
+      "",
+      TestWorlds.publications)
   }
 
   ignore("nested nests 2") {
     // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
-    check("select distinct A.title, (select distinct A.year, (select distinct A.name, count(partition) from partition A group by A.name) from A in partition group by A.year) from A in authors group by A.title",
-      TestWorlds.publications, "")
+    check(
+      "select distinct A.title, (select distinct A.year, (select distinct A.name, count(partition) from partition A group by A.name) from A in partition group by A.year) from A in authors group by A.title",
+      "",
+      TestWorlds.publications)
   }
 
 

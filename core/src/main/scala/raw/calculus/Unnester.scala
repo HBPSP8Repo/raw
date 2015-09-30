@@ -17,12 +17,34 @@ case class AlgebraTerm(t: LogicalAlgebraNode) extends Term
 /** Algorithm that converts a calculus expression (in canonical form) into the logical algebra.
   * The algorithm is described in Fig. 10 of [1], page 34.
   */
-class Unnester extends Attribution with Transformer {
+class Unnester extends Attribution with PipelinedTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
 
-  def strategy = unnester
+  def strategy = assertUniqueIdentifiers <+ unnester
+
+  /** Training wheels
+    * ===============
+    *
+    * Make sure there are no repeated identifiers, i.e. the normalizer left things in good shape.
+    */
+  private lazy val collectIdnDefs: Exp => Seq[Idn] = attr {
+    e =>
+      val c = collect[Seq, Idn] {
+        case idnDef: IdnDef => idnDef.idn
+      }
+      c(e)
+  }
+  private lazy val assertUniqueIdentifiers = rule[Exp] {
+    case e if collectIdnDefs(e).toSet.size != collectIdnDefs(e).length => {
+      throw UnnesterError("Internal error: non-unique identifiers")
+    }
+  }
+
+  /** Unnester strategy.
+    * Applies top-down.
+    */
 
   private lazy val unnester = manytd(unnest)
 

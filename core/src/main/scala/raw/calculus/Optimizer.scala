@@ -5,7 +5,7 @@ import org.kiama.rewriting.Rewriter._
 
 import scala.collection.immutable.Seq
 
-class Optimizer(val analyzer: SemanticAnalyzer) extends Transformer {
+class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   import Calculus._
 

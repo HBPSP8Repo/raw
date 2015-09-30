@@ -1,34 +1,22 @@
 package raw
 package calculus
 
-class SimplifierTest extends FunTest {
+class SimplifierTest extends CalculusTest {
 
-  def process(q: String, w: World = TestWorlds.empty) = {
-    val t = new Calculus.Calculus(parse(q))
-
-    val t1 = Phases(t, w, lastTransform = Some("Simplifier1"))
-
-    val analyzer = new SemanticAnalyzer(t1, w)
-    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
-    assert(analyzer.errors.length === 0)
-
-    CalculusPrettyPrinter(t1.root, 200)
-  }
+  val phase = "Simplifier1"
 
   ignore("test1") {
-    compare(
-      process(
-        """for (t <- things, t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""", TestWorlds.things),
-        """for ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a"""
-    )
+    check(
+      """for (t <- things, t.a + 5 + 10 * 2 > t.b + 2 - 5 * 3) yield set t.a""",
+      """for ($0 <- things, 25 + $0.a > -13 + $0.b) yield set $0.a""",
+      TestWorlds.things)
   }
 
   test("join") {
-    compare(
-      process(
-        """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)""", TestWorlds.fines),
-        """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name: $1.person, location: $1.location)"""
-    )
+    check(
+      """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)""",
+      """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name: $1.person, location: $1.location)""",
+      TestWorlds.fines)
   }
 
 //  test("test") {

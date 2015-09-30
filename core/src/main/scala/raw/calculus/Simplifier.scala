@@ -5,7 +5,7 @@ package calculus
   * - by transforming into the equivalent CNF form with a smaller number of lossless math simplications.
   * - by removing useless conversions to bag/list/set.
   */
-class Simplifier(val analyzer: SemanticAnalyzer) extends Transformer {
+class Simplifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   import org.kiama.rewriting.Rewriter._
   import Calculus._

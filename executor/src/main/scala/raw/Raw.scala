@@ -787,7 +787,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .toList
                 .toIterable ))
           .toIterable
         """
@@ -1098,7 +1097,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   /** Collect results from in-memory Scala.
     */
   def collectScala(tree: Tree, treeType: raw.Type): Tree = treeType match {
-    case _: CollectionType => q"$tree.toList"
+    case _: CollectionType => tree // q"$tree.toList"
     case _ => tree
   }
 

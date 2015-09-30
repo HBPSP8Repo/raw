@@ -1,13 +1,11 @@
 package raw
 package calculus
-import scala.collection.immutable.Seq
-
-import org.kiama.rewriting.Strategy
 
 /** Desugar SQL to for comprehension
   */
-class Translator(val analyzer: SemanticAnalyzer) extends Transformer {
+class Translator(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
+  import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
