@@ -49,7 +49,14 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: BagMonoid      => "bag"
     case _: SetMonoid      => "set"
     case _: ListMonoid     => "list"
-    case v: MonoidVariable => v.sym.idn
+    case MonoidVariable(commutative, idempotent, sym) => sym.idn <> parens(group(lsep(List(
+      text(if (commutative.isDefined) commutative.get.toString else "?"),
+      text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
+  }
+
+  def atts(recAtts: RecordAttributes): Doc = recAtts match {
+    case Attributes(atts) => group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma)))
+    case AttributesVariable(atts, sym) => group(nest(text(sym.idn) <> ":" <> lsep(atts.toList.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)) :+ text("..."), comma)))
   }
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
@@ -61,18 +68,19 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: StringType                        => "string"
     case _: IntType                           => "int"
     case _: FloatType                         => "float"
-    case RecordType(atts, Some(name))         =>
-      "record" <> parens(name) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case RecordType(atts, None)               =>
-      "record" <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma))))
-    case ConstraintRecordType(atts, sym)      =>
-      "constraint_record" <> parens(sym.idn) <> parens(group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)).to, comma))))
+    case RecordType(recAtts, Some(name))      => "record" <> parens(name) <> parens(atts(recAtts))
+    case RecordType(recAtts, None)            => "record" <> parens(atts(recAtts))
     case CollectionType(m, innerType)         => monoid(m) <> parens(tipe(innerType))
     case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
     case _: AnyType                           => "any"
     case _: NothingType                       => "nothing"
     case UserType(sym)                        => sym.idn
-    case TypeScheme(t1, typeSyms, monoidSyms) => "type_scheme" <> parens(tipe(t1)) <> parens(group(nest(lsep(typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <> parens(group(nest(lsep(monoidSyms.map { case sym => text(sym.idn) }.to, comma))))
+    case TypeScheme(t1, typeSyms, monoidSyms, attSyms) =>
+      "type_scheme" <>
+        parens(tipe(t1)) <>
+        parens(group(nest(lsep(typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
+        parens(group(nest(lsep(monoidSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
+        parens(group(nest(lsep(attSyms.map { case sym => text(sym.idn) }.to, comma))))
     case PrimitiveType(sym)                   => "primitive" <> parens(sym.idn)
     case NumberType(sym)                      => "number" <> parens(sym.idn)
     case TypeVariable(sym)                    => sym.idn

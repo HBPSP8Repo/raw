@@ -74,6 +74,11 @@ object World extends LazyLogging {
     def typeVariables: Set[TypeVariable] =
       m.collect { case (v: TypeVariable, _) => v }.toSet
 
+    /** Equality between groups.
+      * UserTypes are handled as value equality instead of reference equality because in the test code, we create
+      * the UserType multiple times (e.g we use UserType(Symbol("Department")) multiple times, instead of creating it
+      * one and using the same object.
+      */
     def groupEq(t1: Type, t2: Type): Boolean = (t1, t2) match {
       case (_: UserType, _: UserType) => t1 == t2
       case (_: TypeVariable, _: TypeVariable) => t1 == t2
@@ -100,26 +105,42 @@ object World extends LazyLogging {
   }
 
   class MonoidsVarMap extends VarMap[CollectionMonoid] {
+
     def groupEq(e1: CollectionMonoid, e2: CollectionMonoid) = (e1, e2) match {
       case (_: SetMonoid, _: SetMonoid) => e1 == e2
       case (_: BagMonoid, _: BagMonoid) => e1 == e2
       case (_: ListMonoid, _: ListMonoid) => e1 == e2
       case _ => e1 eq e2
     }
+
     override def toString: String = {
       var s = "\n"
       val keys = m.map(_._1).sortBy(_.toString)
       for (k <- keys) {
         val g = apply(k)
         s += s"${PrettyPrinter(k)} => ${PrettyPrinter(g.root)} (${
-          g.elements.map {
-            case t: MonoidVariable => s"[${t.sym.idn}] ${PrettyPrinter(t)}"
-            case t => PrettyPrinter(t)
-          }.mkString(", ")
+          g.elements.map(PrettyPrinter(_)).mkString(", ")
         })\n"
       }
       s
     }
   }
 
+  class RecordAttributesVarMap extends VarMap[RecordAttributes] {
+
+    def groupEq(g1: RecordAttributes, g2: RecordAttributes): Boolean =
+      g1 eq g2
+
+    override def toString: String = {
+      var s = "\n"
+      val keys = m.map(_._1).sortBy(_.toString)
+      for (k <- keys) {
+        val g = apply(k)
+        s += s"${PrettyPrinter(k)} => ${PrettyPrinter(g.root)} (${
+          g.elements.map(PrettyPrinter(_)).mkString(", ")
+        })\n"
+      }
+      s
+    }
+  }
 }

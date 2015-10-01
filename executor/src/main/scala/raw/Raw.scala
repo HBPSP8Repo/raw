@@ -117,7 +117,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.RecordType(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i)).rawType) }, None)
+          case regex(n) => raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i)).rawType) }), None)
         }
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Function") =>
         val regex = """scala\.Function(\d+)""".r
@@ -128,7 +128,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case t@TypeRef(_, sym, Nil) =>
         val symName = sym.fullName
         val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-        raw.RecordType(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }, Some(symName))
+        raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }), Some(symName))
 
       case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" =>
         raw.CollectionType(ListMonoid(), inferType(t1).rawType)
@@ -173,11 +173,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
-      case r@RecordType(atts, _) =>
+      case r@RecordType(recAtts, _) =>
         recordTypeSym(r) match {
           case Some(sym) => sym
           case None =>
-            atts
+            recAtts.atts
               .map(att => s"(${buildScalaType(att.tipe, world)})")
               .mkString("(", ", ", ")")
         }
@@ -256,7 +256,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val code: Set[String] =
       anonRecords
         .map{ case r =>
-          val args = r.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
+          val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
           logger.info(s"Build case class: $r.atts => $args")
           recordTypeSym(r) match {
             case Some(sym) => s"""case class $sym($args)"""
@@ -400,7 +400,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       def recurse(p: Pattern, t: raw.Type): Seq[Option[Tree]] = p match {
         case PatternProd(ps) =>
           val t1 = t.asInstanceOf[RecordType]
-          ps.zip(t1.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
+          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
         case PatternIdn(idn: IdnDef) if t.nullable =>
           Seq(Some(q"${Ident(TermName(idnName(idn)))}"))
         case _ =>
@@ -426,7 +426,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       def recurse(p: Pattern, t: raw.Type, idxs: Seq[Int]): Seq[Tree] = p match {
         case PatternProd(ps) =>
           val t1 = t.asInstanceOf[RecordType]
-          ps.zip(t1.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
+          ps.zip(t1.recAtts.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
         case PatternIdn(idn) =>
           if (denulled && t.nullable)
             Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")

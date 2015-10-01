@@ -41,8 +41,9 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
         (t1, t2) match {
           case (RecordType(_, name1), RecordType(_, name2)) if name1 != name2 =>
             s"records from different sources"
-          case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
-            s"records with different attributes"
+            // TODO: Put back nicer error message on incompatible types
+//          case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
+//            s"records with different attributes"
           case _ =>
             s"incompatible types: ${FriendlierPrettyPrinter(t1)} (${p1.getOrElse("no position")}) and ${FriendlierPrettyPrinter(t2)} (${p2.getOrElse("no position")})"
         }
@@ -98,12 +99,13 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
         monoid(m) <+> opt(t.nullable) <> "collection of" <+> tipe(innerType)
       else
         opt(t.nullable) <> "collection of" <+> tipe(innerType)
-    case ConstraintRecordType(atts, _)                =>
-      val satts = atts.map { case att => s"attribute ${att.idn} of type ${FriendlierPrettyPrinter(att.tipe)}" }.mkString(" and ")
-      if (satts.nonEmpty)
-        s"record with $satts"
-      else
-        s"record"
+    // TODO: Put back nicer error message on incompatible types
+//    case PartialRecordType(atts, _)                =>
+//      val satts = atts.map { case att => s"attribute ${att.idn} of type ${FriendlierPrettyPrinter(att.tipe)}" }.mkString(" and ")
+//      if (satts.nonEmpty)
+//        s"record with $satts"
+//      else
+//        s"record"
     case _: NumberType => "number"
     case _: PrimitiveType => "primitive (e.g. int, bool, string, float)"
     case _                                            => PrettyPrinter(t)

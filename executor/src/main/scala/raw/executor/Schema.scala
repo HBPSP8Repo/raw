@@ -67,18 +67,22 @@ object SchemaParser extends StrictLogging {
     val caseClassesSource = caseClassesSym.values.mkString("\n")
 
     private[this] def defineCaseClass(r: RecordType): String = {
-      val idn = r.name.get
-      caseClassesSym.get(idn) match {
-        case Some(src) =>
-          logger.info(s"case class $idn already defined")
-          idn
+      r match {
+        case RecordType(Attributes(atts), name) =>
+          val idn = name.get
+          caseClassesSym.get(idn) match {
+            case Some(src) =>
+              logger.info(s"case class $idn already defined")
+              idn
 
-        case None =>
-          //          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
-          val attributes = buildAttributeList(r.atts)
-          val src = s"""case class $idn( $attributes )"""
-          caseClassesSym.put(idn, src)
-          idn
+            case None =>
+              //          logger.info(s"Defining case class: $idn. attr: ${r.atts}")
+              val attributes = buildAttributeList(atts)
+              val src = s"""case class $idn( $attributes )"""
+              caseClassesSym.put(idn, src)
+              idn
+          }
+        case _ => throw new UnsupportedOperationException("Cannot define case class for partial records")
       }
     }
 
@@ -161,7 +165,7 @@ object SchemaParser extends StrictLogging {
                 val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
                 logger.info("Attributes: " + attrs)
                 val orderedAttrs = orderFields(name, attrs)
-                val record = RecordType(orderedAttrs, Some(name))
+                val record = RecordType(Attributes(orderedAttrs), Some(name))
                 records.put(name, record)
                 record
             }

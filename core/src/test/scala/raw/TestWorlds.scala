@@ -8,7 +8,7 @@ object TestWorlds {
     val tipes = Map(
       Symbol {
         "Item"
-      } -> RecordType(List(AttrType("value", IntType()), AttrType("next", UserType(Symbol("Item")))), Some("item"))
+      } -> RecordType(Attributes(List(AttrType("value", IntType()), AttrType("next", UserType(Symbol("Item"))))), Some("item"))
     )
 
     val sources = Map(
@@ -20,11 +20,11 @@ object TestWorlds {
 
   def publications = {
     val tipes = Map(
-      Symbol("Publication") -> RecordType(List(AttrType("title", StringType()),
+      Symbol("Publication") -> RecordType(Attributes(List(AttrType("title", StringType()),
                                                AttrType("authors", CollectionType(BagMonoid(), StringType())),
                                                AttrType("affiliations", CollectionType(BagMonoid(), StringType())),
-                                               AttrType("controlledterms", CollectionType(BagMonoid(), StringType()))), Some("publication")),
-      Symbol("Author")      -> RecordType(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType())), Some("author"))
+                                               AttrType("controlledterms", CollectionType(BagMonoid(), StringType())))), Some("publication")),
+      Symbol("Author")      -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType()))), Some("author"))
     )
     val sources = Map(
       "publications" -> CollectionType(BagMonoid(), UserType(Symbol("Publication"))),
@@ -37,39 +37,39 @@ object TestWorlds {
 
     val tipes = Map(
       Symbol("Instructor") ->
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("ssn", IntType()),
           AttrType("name", StringType()),
-          AttrType("address", RecordType(List(
+          AttrType("address", RecordType(Attributes(List(
             AttrType("street", StringType()),
-            AttrType("zipcode", StringType())),
+            AttrType("zipcode", StringType()))),
             None)),
           AttrType("salary", IntType()),
           AttrType("rank", StringType()),
           AttrType("degrees", CollectionType(SetMonoid(), StringType())),
           AttrType("dept", UserType(Symbol("Department"))),
-          AttrType("teaches", CollectionType(SetMonoid(), UserType(Symbol("Course"))))),
+          AttrType("teaches", CollectionType(SetMonoid(), UserType(Symbol("Course")))))),
           Some("instructor")),
       Symbol("Instructors") ->
         CollectionType(SetMonoid(), UserType(Symbol("Instructor"))),
       Symbol("Department") ->
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("dno", IntType()),
           AttrType("name", StringType()),
           AttrType("head", UserType(Symbol("Instructor"))),
           AttrType("instructors", UserType(Symbol("Instructors"))),
-          AttrType("courses", UserType(Symbol("Courses")))),
+          AttrType("courses", UserType(Symbol("Courses"))))),
           Some("department")),
       Symbol("Departments") ->
         CollectionType(BagMonoid(), UserType(Symbol("Department"))),
       Symbol("Course") ->
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("code", StringType()),
           AttrType("name", StringType()),
           AttrType("offered_by", UserType(Symbol("Department"))),
           AttrType("taught_by", UserType(Symbol("Instructor"))),
           AttrType("is_prerequisite_for", UserType(Symbol("Courses"))),
-          AttrType("has_prerequisites", CollectionType(SetMonoid(), UserType(Symbol("Course"))))),
+          AttrType("has_prerequisites", CollectionType(SetMonoid(), UserType(Symbol("Course")))))),
           Some("course")),
       Symbol("Courses") ->
         CollectionType(SetMonoid(), UserType(Symbol("Course")))
@@ -85,24 +85,24 @@ object TestWorlds {
   def employees = {
     val children =
       CollectionType(ListMonoid(),
-        RecordType(List(
-          AttrType("age", IntType())),
+        RecordType(Attributes(List(
+          AttrType("age", IntType()))),
           None))
     val manager =
-      RecordType(List(
+      RecordType(Attributes(List(
         AttrType("name", StringType()),
-        AttrType("children", children)),
+        AttrType("children", children))),
         None)
     val employees =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("dno", IntType()),
           AttrType("children", children),
-          AttrType("manager", manager)),
+          AttrType("manager", manager))),
           None))
     val departments =
       CollectionType(SetMonoid(),
-        RecordType(List(AttrType("dno", IntType())), None))
+        RecordType(Attributes(List(AttrType("dno", IntType()))), None))
 
     val sources = Map(
       "Employees" -> employees,
@@ -127,23 +127,23 @@ object TestWorlds {
   def transcripts = {
     val students =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("id", IntType()),
-          AttrType("name", StringType())),
+          AttrType("name", StringType()))),
           None))
 
     val courses =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("cno", IntType()),
-          AttrType("title", StringType())),
+          AttrType("title", StringType()))),
           None))
 
     val transcripts =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("id", IntType()),
-          AttrType("cno", IntType())),
+          AttrType("cno", IntType()))),
           None))
 
     val sources = Map(
@@ -158,28 +158,28 @@ object TestWorlds {
   def cern = {
     val events =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("RunNumber", IntType()),
           AttrType("lbn", IntType()),
           AttrType("muons",
             CollectionType(ListMonoid(),
-              RecordType(List(
+              RecordType(Attributes(List(
                 AttrType("pt", FloatType()),
-                AttrType("eta", FloatType())),
+                AttrType("eta", FloatType()))),
                 None))),
           AttrType("jets",
             CollectionType(ListMonoid(),
-              RecordType(List(
+              RecordType(Attributes(List(
                 AttrType("pt", FloatType()),
-                AttrType("eta", FloatType())),
-                None)))),
+                AttrType("eta", FloatType()))),
+                None))))),
           None))
 
     val goodRuns =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("Run", IntType()),
-          AttrType("OK", BoolType())),
+          AttrType("OK", BoolType()))),
           None))
 
     val sources = Map(
@@ -193,7 +193,7 @@ object TestWorlds {
   def things = {
     val things =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("a", IntType()),
           AttrType("b", IntType()),
           AttrType("set_a",
@@ -201,7 +201,7 @@ object TestWorlds {
               FloatType())),
           AttrType("set_b",
             CollectionType(SetMonoid(),
-              FloatType()))),
+              FloatType())))),
           None))
 
     new World(sources = Map("things" -> things))
@@ -210,18 +210,18 @@ object TestWorlds {
   def fines = {
     val speed_limits =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("location", StringType()),
           AttrType("min_speed", IntType()),
-          AttrType("max_speed", IntType())),
+          AttrType("max_speed", IntType()))),
           None))
 
     val radar =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("person", StringType()),
           AttrType("speed", IntType()),
-          AttrType("location", StringType())),
+          AttrType("location", StringType()))),
           None))
 
     val sources = Map(
@@ -235,26 +235,26 @@ object TestWorlds {
   def school = {
     val students =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("name", StringType()),
           AttrType("birthYear", IntType()),
           AttrType("office", StringType()),
-          AttrType("department", StringType())),
+          AttrType("department", StringType()))),
           None))
 
     val profs =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("name", StringType()),
-          AttrType("office", StringType())),
+          AttrType("office", StringType()))),
           None))
 
     val departments =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("name", StringType()),
           AttrType("discipline", StringType()),
-          AttrType("prof", StringType())),
+          AttrType("prof", StringType()))),
           None))
 
     val sources = Map(
@@ -269,21 +269,21 @@ object TestWorlds {
   def chuv_diagnosis = {
     val diagnosis =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("diagnostic_id", IntType()),
           AttrType("patient_id", IntType()),
           AttrType("diagnostic_code", StringType()),
           AttrType("diagnostic_type", StringType()),
           AttrType("diagnostic_date", StringType()),
-          AttrType("hospital_id", StringType())),
+          AttrType("hospital_id", StringType()))),
           None))
 
     val diagnosis_codes =
       CollectionType(ListMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("diagnostic_code", StringType()),
           AttrType("valid_for_coding", StringType()),
-          AttrType("description", StringType())),
+          AttrType("description", StringType()))),
           None))
 
     val sources = Map(
@@ -296,11 +296,11 @@ object TestWorlds {
   def set_of_tuples = {
     val tuples =
       CollectionType(SetMonoid(),
-        RecordType(List(
+        RecordType(Attributes(List(
           AttrType("_1", IntType()),
           AttrType("_2", IntType()),
           AttrType("_3", IntType()),
-          AttrType("_4", IntType())),
+          AttrType("_4", IntType()))),
           None))
 
     val sources = Map(
@@ -316,21 +316,21 @@ object TestWorlds {
       "floats" -> CollectionType(SetMonoid(), FloatType()),
       "booleans" -> CollectionType(SetMonoid(), BoolType()),
       "strings" -> CollectionType(SetMonoid(), StringType()),
-      "records" -> CollectionType(SetMonoid(), RecordType(List(AttrType("i", IntType()), AttrType("f", FloatType())), None))))
+      "records" -> CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("i", IntType()), AttrType("f", FloatType()))), None))))
   }
 
   def unknown = {
     new World(sources = Map(
       "unknownvalue" -> TypeVariable(),
       "unknown" -> CollectionType(SetMonoid(), TypeVariable()),
-      "unknownrecords" -> CollectionType(SetMonoid(), RecordType(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable())), None))))
+      "unknownrecords" -> CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("dead", TypeVariable()), AttrType("alive", TypeVariable()))), None))))
   }
 
   def professors_students = {
     val tipes = Map(
-      Symbol("student") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Student")),
+      Symbol("student") -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), Some("Student")),
       Symbol("students") -> CollectionType(ListMonoid(), UserType(Symbol("student"))),
-      Symbol("professor") -> RecordType(List(AttrType("name", StringType()), AttrType("age", IntType())), Some("Professors")),
+      Symbol("professor") -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), Some("Professors")),
       Symbol("professors") -> CollectionType(ListMonoid(), UserType(Symbol("professor"))))
 
     val sources = Map(
@@ -357,16 +357,18 @@ object TestWorlds {
       "LOI" -> loi,
       "OLI" -> oli,
       "OLOI" -> oloi,
-      "records" -> CollectionType(ListMonoid(), RecordType(List(AttrType("OI", oi), AttrType("LOI", loi),
-        AttrType("I", IntType()), AttrType("LI", li)), None))
+      "records" ->
+        CollectionType(
+          ListMonoid(),
+          RecordType(Attributes(List(AttrType("OI", oi), AttrType("LOI", loi), AttrType("I", IntType()), AttrType("LI", li))), None))
     )
   }
   )
 
   def authors_publications = {
     val tipes = Map(
-      Symbol("author") -> RecordType(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType())), Some("author")),
-      Symbol("publication") -> RecordType(List(AttrType("title", StringType()), AttrType("authors", CollectionType(BagMonoid(), StringType())), AttrType("affiliations", CollectionType(BagMonoid(), StringType())), AttrType("controlledterms", CollectionType(BagMonoid(), StringType()))), Some("publication")),
+      Symbol("author") -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType()))), Some("author")),
+      Symbol("publication") -> RecordType(Attributes(List(AttrType("title", StringType()), AttrType("authors", CollectionType(BagMonoid(), StringType())), AttrType("affiliations", CollectionType(BagMonoid(), StringType())), AttrType("controlledterms", CollectionType(BagMonoid(), StringType())))), Some("publication")),
       Symbol("authors") -> CollectionType(BagMonoid(), UserType(Symbol("author"))),
       Symbol("publications") -> CollectionType(BagMonoid(), UserType(Symbol("publication"))))
 
