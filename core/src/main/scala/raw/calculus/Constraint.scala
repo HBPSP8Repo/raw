@@ -9,7 +9,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Constraint extends LazyLogging {
 
-  import Calculus.{Exp, Select, Decl}
+  import Calculus._
 
   sealed abstract class Constraint extends RawNode
 
@@ -26,5 +26,7 @@ object Constraint extends LazyLogging {
   case class MaxOfMonoids(e: Exp, gs: Seq[Decl]) extends Constraint
 
   case class InheritType(b: Bind) extends Constraint
+
+  case class IdnIsDefined(idnExp: IdnExp) extends Constraint
 
 }

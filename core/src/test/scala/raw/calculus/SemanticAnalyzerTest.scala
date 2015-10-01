@@ -359,6 +359,10 @@ class SemanticAnalyzerTest extends FunTest {
     failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, IncompatibleTypes(IntType(), FloatType()))
   }
 
+  test("a") {
+    failure("a", TestWorlds.empty, UnknownDecl(IdnUse("a")))
+  }
+
   test("a + 1") {
     failure("a + 1", TestWorlds.empty, UnknownDecl(IdnUse("a")))
   }

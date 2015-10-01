@@ -270,9 +270,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case i: IdnDef if entity(i) == MultipleEntity() =>
         MultipleDecl(i)
 
-      // Identifier used without being declared
-      case i: IdnUse if entity(i) == UnknownEntity() =>
-        UnknownDecl(i)
+//      // Identifier used without being declared
+//      case i: IdnUse if entity(i) == UnknownEntity() =>
+//        UnknownDecl(i)
     }
 
   private lazy val badEntities = collectBadEntities(tree.root)
@@ -680,16 +680,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: FloatConst => FloatType()
     case _: StringConst => StringType()
 
-    // Rule 3
-    case IdnExp(idn) =>
-      idnType(idn) match {
-        case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
-          if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
-            t
-          else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
-        case t                   => t
-      }
-
     // Rule 5
     case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))), None)
 
@@ -996,6 +986,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case Some(_: FreeSymbols) => true
           case _ => false
         }
+
+      case IdnIsDefined(idnExp @ IdnExp(idn)) =>
+
+        // Identifier used without being declared
+        if (entity(idn) == UnknownEntity()) {
+          tipeErrors += UnknownDecl(idn)
+          return false
+        }
+
+        val t = expType(idnExp)
+        val t1 = idnType(idn) match {
+          case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
+            if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
+              t
+            else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
+          case t                   => t
+        }
+        val r = unify(t, t1)
+        if (!r) {
+          // The same decl has been used with two different types.
+          // TODO: Can we have a more precise error messages? Set the None to a better message!
+          tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(t.pos))
+        }
+        r
+
     }
 
     cs match {
@@ -1100,6 +1115,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     import Constraint._
 
     n match {
+
+      case n: IdnExp =>
+        Seq(
+          IdnIsDefined(n))
 
       // Select
       case n@Select(froms, d, g, proj, w, o, h) =>
