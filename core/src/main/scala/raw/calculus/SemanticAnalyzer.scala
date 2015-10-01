@@ -38,12 +38,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   import decorators.{chain, Chain}
 
+  /** The map of monoid variables.
+    */
   private val monoidsVarMap = new MonoidsVarMap()
 
-  /** The map of variables.
+  /** The map of type variables.
     * Updated during unification.
     */
   private val typesVarMap = new TypesVarMap()
+
+  /** The map of attribute variables.
+    */
+  private val recAttsVarMap = new RecordAttributesVarMap()
 
   /** Add user types to the map.
     */
@@ -76,6 +82,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** Add the nullable flag to a type.
     */
+  // TODO: Should we use u.sym or also copy the symbol to a new one: e.g. Symbol(u.sym.idn) ?
   private def makeNullable(source: Type, models: Seq[Type], nulls: Seq[Type], nullable: Option[Boolean] = None): Type = {
     val t = (source, models) match {
       case (col @ CollectionType(m, i), colls: Seq[CollectionType])               =>
@@ -85,12 +92,21 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val otherP = funs.map(_.t1)
         val otherE = funs.map(_.t2)
         FunType(makeNullable(p, otherP, otherP, nullable), makeNullable(e, otherE, otherE, nullable))
-      case (r @ RecordType(attr, n), recs: Seq[RecordType])                       =>
-        val attributes = attr.map { case AttrType(idn, i) =>
-          val others = recs.map { r => r.getType(idn).get }
-          AttrType(idn, makeNullable(i, others, others, nullable))
+      case (r @ RecordType(recAtts, n), recs: Seq[RecordType])                       =>
+        recAtts match {
+          case Attributes(atts) =>
+            val natts = atts.map { case AttrType(idn, i) =>
+              val others = recs.map { r => r.getType(idn).get }
+              AttrType(idn, makeNullable(i, others, others, nullable))
+            }
+            RecordType(Attributes(natts), n)
+          case AttributesVariable(atts, sym) =>
+            val natts = atts.map { case AttrType(idn, i) =>
+              val others = recs.map { r => r.getType(idn).get }
+              AttrType(idn, makeNullable(i, others, others, nullable))
+            }
+            RecordType(AttributesVariable(natts, sym), n)
         }
-        RecordType(attributes, n)
       case (_: IntType, _)                                                        => IntType()
       case (_: FloatType, _)                                                      => FloatType()
       case (_: BoolType, _)                                                       => BoolType()
@@ -98,12 +114,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case (u: UserType, _)                                                       => UserType(u.sym)
       case (v: TypeVariable, _)                                                   => TypeVariable(v.sym)
       case (v: NumberType, _)                                                     => NumberType(v.sym)
-      case (r @ ConstraintRecordType(attr, sym), recs: Seq[ConstraintRecordType]) =>
-        val attributes = attr.map { case AttrType(idn, i) =>
-          val others = recs.map { r => r.getType(idn).get }
-          AttrType(idn, makeNullable(i, others, others, nullable))
-        }
-        ConstraintRecordType(attributes, sym)
     }
     t.nullable = nullable.getOrElse(t.nullable || nulls.collect{case t if t.nullable => t}.nonEmpty) // TODO: nulls.exists ?
     t
@@ -124,7 +134,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val nt = e match {
         case RecordProj(e1, idn) => tipe(e1) match {
           case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
-          case rt: ConstraintRecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
           case ut: UserType =>
             typesVarMap(ut).root match {
               case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
@@ -152,19 +161,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Filter(g, p) => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
         case Join(g1, g2, p) => te match {
           case CollectionType(m, inner) => {
-            val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
+            val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e))))), None))
             makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
           }
         }
         case OuterJoin(g1, g2, p) => {
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e))))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
           x match {
-            case CollectionType(_, RecordType(atts, _)) =>
+            case CollectionType(_, RecordType(Attributes(atts), _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
@@ -173,31 +182,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Unnest(g1, g2, p) =>
           te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e))))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
         case OuterUnnest(g1, g2, p) =>
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))), None))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e))))), None))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
           x match {
-            case CollectionType(_, RecordType(atts, _)) =>
+            case CollectionType(_, RecordType(Attributes(atts), _)) =>
               assert(atts.length == 2)
               atts(1).tipe.nullable = true
           }
           x
         case Nest(m: CollectionMonoid, g, k, p, e1) => {
           te match {
-            case CollectionType(m2, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1)))), None))), Seq(tipe(g.e)))
+            case CollectionType(m2, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1))))), None))), Seq(tipe(g.e)))
           }
         }
         case Nest(m: PrimitiveMonoid, g, k, p, e1) => {
           te match {
-            case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Seq(AttrType("_1", tipe(k)), AttrType("_2", tipe(e1))), None))), Seq(tipe(g.e)))
+            case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", tipe(e1)))), None))), Seq(tipe(g.e)))
           }
         }
 
@@ -372,7 +381,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   // TODO: Move this to the Types.scala and have it used inside the TypeScheme definition for uniformity!
-  case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol])
+  case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol])
 
   /** Type the rhs of a Bind declaration.
     * If successful, returns a list of free type symbols and free monoid symbols (for polymorphism).
@@ -390,6 +399,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
       val prevTypeRoots = typesVarMap.getRoots
       val prevMonoidRoots = monoidsVarMap.getRoots
+      val prevRecAttRoots = recAttsVarMap.getRoots
 
       // Type the rhs body of the Bind
       solve(constraints(e))
@@ -402,16 +412,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // Find all type variables used in the type
         val typeVars = getVariableTypes(t)
         val monoidVars = getVariableMonoids(t)
+        val attVars = getVariableAtts(t)
 
         // For all the "previous roots", get their new roots
         val prevTypeRootsUpdated = prevTypeRoots.map { case v => typesVarMap(v).root }
         val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => monoidsVarMap(v).root }
+        val prevRecAttRootsUpdated = prevRecAttRoots.map { case v => recAttsVarMap(v).root }
 
         // Collect all symbols from variable types that were not in TypesVarMap before we started typing the body of the Bind.
         val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
         val freeMonoidSyms = monoidVars.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
+        val freeAttSyms = attVars.collect { case v: AttributesVariable => v }.filter { case v => !prevRecAttRootsUpdated.contains(v) }.map(_.sym)
 
-        Some(FreeSymbols(freeTypeSyms, freeMonoidSyms))
+        Some(FreeSymbols(freeTypeSyms, freeMonoidSyms, freeAttSyms))
       }
   }
 
@@ -442,13 +455,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _: FloatType                                      => Set()
         case _: StringType                                     => Set()
         case _: UserType                                       => Set()
-        case RecordType(atts, _)                               => atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
+        case RecordType(recAtts, _)                            => recAtts.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
         case CollectionType(_, innerType)                      => getVariableTypes(innerType, occursCheck + t)
         case FunType(p, e)                                     => getVariableTypes(p, occursCheck + t) ++ getVariableTypes(e, occursCheck + t)
         case t1: PrimitiveType                                 => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
         case t1: NumberType                                    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
         case t1: TypeVariable                                  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
-        case t1 @ ConstraintRecordType(atts, _)                => Set(t1) ++ atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }
       }
     }
   }
@@ -472,18 +484,47 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             getVariableMonoids(typesVarMap(t1).root, occursCheck + t)
           else
             Set()
-        case RecordType(atts, _) => atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }.toSet
-        case CollectionType(m: MonoidVariable, innerType) =>
+        case RecordType(recAtts, _) => recAtts.atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }.toSet
+        case CollectionType(m, innerType) =>
           (mFind(m) match {
             case m: MonoidVariable => Set(m)
             case _                 => Set()
           }) ++ getVariableMonoids(innerType, occursCheck + t)
-        case CollectionType(_, innerType) => getVariableMonoids(innerType, occursCheck + t)
         case FunType(p, e) => getVariableMonoids(p, occursCheck + t) ++ getVariableMonoids(e, occursCheck + t)
-        case ConstraintRecordType(atts, _) => atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }
       }
     }
   }
+
+  private def getVariableAtts(t: Type, occursCheck: Set[Type] = Set()): Set[AttributesVariable] = {
+    if (occursCheck.contains(t))
+      Set()
+    else {
+      t match {
+        case _: NothingType => Set()
+        case _: AnyType => Set()
+        case _: BoolType => Set()
+        case _: IntType => Set()
+        case _: FloatType => Set()
+        case _: StringType => Set()
+        case _: UserType => Set()
+        case _: PrimitiveType => Set()
+        case _: NumberType => Set()
+        case t1: TypeVariable                                  =>
+          if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1)
+            getVariableAtts(typesVarMap(t1).root, occursCheck + t)
+          else
+            Set()
+        case RecordType(r, _) =>
+          (aFind(r) match {
+            case a: AttributesVariable => Set(a)
+            case _                     => Set()
+          }) ++ r.atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) }
+        case CollectionType(_, innerType) => getVariableAtts(innerType, occursCheck + t)
+        case FunType(p, e) => getVariableAtts(p, occursCheck + t) ++ getVariableAtts(e, occursCheck + t)
+      }
+    }
+  }
+
 
   /** Return the declaration of an identifier definition.
     */
@@ -523,8 +564,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case VariableEntity(idn, t) =>
       decl(idn) match {
         case Some(b: Bind) => tipeBind(b) match {
-          case Some(FreeSymbols(typeSyms, monoidSyms)) =>
-            val ts = TypeScheme(t, typeSyms, monoidSyms)
+          case Some(FreeSymbols(typeSyms, monoidSyms, attSyms)) =>
+            val ts = TypeScheme(t, typeSyms, monoidSyms, attSyms)
             //              logger.debug(s"TypeScheme is ${PrettyPrinter(ts)} for ${CalculusPrettyPrinter(b)}")
             ts
           case None => NothingType()
@@ -538,8 +579,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** Instantiate a new type from a type scheme.
     * Used for let-polymorphism.
+    * This method is only called if there are type variables, monoid variables or attribute variables.
+    * In that case, a new type must be constructed.
+    * Note that variable types/monoids whose symbols are not in typeSyms/monoidSyms are not reconstructed and the same
+    * object is used to allow unification to proceed unaffected.
     */
-  private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol]) = {
+  private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) = {
     val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getNewSym(sym: Symbol): Symbol = {
@@ -556,6 +601,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
     }
 
+    // TODO: DO WE NEED occursCheck HERE?????
+    // TODO: And in the main method???
+
+    def getAttributes(m: RecordAttributes, occursCheck: Set[Type]): RecordAttributes = {
+      val ar = if (recAttsVarMap.contains(m)) recAttsVarMap(m).root else m
+      ar match {
+        case AttributesVariable(atts, sym) =>
+          AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, if (attSyms.contains(sym)) getNewSym(sym) else sym)
+        case Attributes(atts) =>
+          Attributes(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) })
+      }
+    }
+
     def recurse(t: Type, occursCheck: Set[Type]): Type = {
       if (occursCheck.contains(t))
         t
@@ -564,12 +622,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case t1 @ TypeVariable(sym) if !typeSyms.contains(sym)  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           case t1 @ NumberType(sym) if !typeSyms.contains(sym)    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           case t1 @ PrimitiveType(sym) if !typeSyms.contains(sym) => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
-          // TODO: We seem to be missing a strategy to reconstruct constraint record types.
-          //       We need to take care to only reconstruct if absolutely needed (if there is a polymorphic symbol somewhere inside?).
           case TypeVariable(sym)                              => TypeVariable(getNewSym(sym))
           case NumberType(sym)                                => NumberType(getNewSym(sym))
           case PrimitiveType(sym)                             => PrimitiveType(getNewSym(sym))
-          case ConstraintRecordType(atts, sym)                => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, getNewSym(sym))
           case _: NothingType                                 => t
           case _: AnyType                                     => t
           case _: IntType                                     => t
@@ -577,19 +632,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: FloatType                                   => t
           case _: StringType                                  => t
           case _: UserType                                    => t
-          // TODO: Is this correct? Aren't we creating new instances of e.g. records or collections when they **might** not have type variables inside?
-          //       If that is the case, the unification will be failing later on since those will no longer be the same instance.
-          //       Or is it the case that if I got here is it because for sure there are type variables inside?  
-          //       Say we have a record with 2 fields which are 2 collections: one of them has type vars the other doesn't. So should we just clone one? Or both?
-          case RecordType(atts, name)                         => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, recurse(t1, occursCheck + t)) }, name)
-          case c1 @ CollectionType(m, inner)                       =>
-//            logger.debug(s"c1 is ${PrettyPrinter(c1)}")
-//            logger.debug(s"typeSyms $typeSyms")
-//            logger.debug(s"monoidSyms $monoidSyms")
+          case RecordType(recAtts, name)                      => RecordType(getAttributes(recAtts, occursCheck + t), name)
+          case c1 @ CollectionType(m, inner)                  =>
             val nm = getMonoid(m)
-//            logger.debug(s"nm $nm")
             CollectionType(nm, recurse(inner, occursCheck + t))
-          case FunType(p, e)                                  => FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
+          case FunType(p, e)                                  =>
+            FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
         }
       }
     }
@@ -608,7 +656,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _                    => NothingType()
       }
     case PatternProd(ps) =>
-      RecordType(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }, None)
+      RecordType(Attributes(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }), None)
   }
 
   /** The type of an expression.
@@ -633,15 +681,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // Rule 3
     case IdnExp(idn) =>
       idnType(idn) match {
-        case TypeScheme(t, typeSyms, monoidSyms) =>
-          if (typeSyms.isEmpty && monoidSyms.isEmpty)
+        case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
+          if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
             t
-          else instantiateTypeScheme(t, typeSyms, monoidSyms)
+          else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
         case t                   => t
       }
 
     // Rule 5
-    case RecordCons(atts) => RecordType(atts.map(att => AttrType(att.idn, expType(att.e))), None)
+    case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))), None)
 
     // Rule 7
     case FunAbs(p, e1) => FunType(patternType(p), expType(e1))
@@ -695,135 +743,142 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _ =>
       false
   }
+  
+  private def unifyAttributes(a1: RecordAttributes, a2: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = (aFind(a1), aFind(a2)) match {
+    case (Attributes(atts1), Attributes(atts2)) =>
+      if (atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn))
+        atts1.zip(atts2).map { case (att1, att2) => unify(att1.tipe, att2.tipe, occursCheck) }.forall(identity)
+      else
+        false
+    case (AttributesVariable(atts1, sym1), AttributesVariable(atts2, sym2)) =>
+      val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
+      for (idn <- commonIdns) {
+        val att1 = a1.getType(idn).head
+        val att2 = a2.getType(idn).head
+        if (!unify(att1, att2, occursCheck)) {
+          return false
+        }
+      }
+      val commonAttrs = commonIdns.map { case idn => AttrType(idn, a1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
+      val na = AttributesVariable(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs, SymbolTable.next())
+      recAttsVarMap.union(a1, a2).union(a2, na)
+      true
+    case (AttributesVariable(atts1, _), Attributes(atts2)) =>
+      if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
+        false
+      } else {
+        for (att1 <- atts1) {
+          if (!unify(att1.tipe, a2.getType(att1.idn).get, occursCheck)) {
+            return false
+          }
+        }
+        recAttsVarMap.union(a1, a2)
+        true
+      }
+    case (_: Attributes, _: AttributesVariable) =>
+      unifyAttributes(a2, a1, occursCheck)
+  }
 
   /** Hindley-Milner unification algorithm.
     */
-  private def unify(t1: Type, t2: Type): Boolean = {
-
-    def recurse(t1: Type, t2: Type, occursCheck: Set[(Type, Type)]): Boolean = {
+  def unify(t1: Type, t2: Type, occursCheck: Set[(Type, Type)] = Set()): Boolean = {
 //      logger.debug(s"   Unifying t1 ${TypesPrettyPrinter(t1)} and t2 ${TypesPrettyPrinter(t2)}")
-      if (occursCheck.contains((t1, t2))) {
-        return true
-      }
-      val nt1 = find(t1)
-      val nt2 = find(t2)
-      (nt1, nt2) match {
-        // TODO: Add NothingType
-
-        case (_: AnyType, t) =>
-          true
-        case (t, _: AnyType) =>
-          true
-
-        case (_: IntType, _: IntType)     =>
-          true
-        case (_: BoolType, _: BoolType)   =>
-          true
-        case (_: FloatType, _: FloatType) =>
-          true
-        case (_: StringType, _: StringType) =>
-          true
-
-        case (CollectionType(m1, inner1), CollectionType(m2, inner2)) =>
-          if (!unifyMonoids(m1, m2)) {
-            return false
-          }
-          recurse(inner1, inner2, occursCheck + ((t1, t2)))
-
-        case (FunType(p1, e1), FunType(p2, e2)) =>
-          recurse(p1, p2, occursCheck + ((t1, t2))) && recurse(e1, e2, occursCheck + ((t1, t2)))
-
-        case (RecordType(atts1, name1), RecordType(atts2, name2)) if name1 == name2 && atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn) =>
-          atts1.zip(atts2).map { case (att1, att2) => recurse(att1.tipe, att2.tipe, occursCheck + ((t1, t2))) }.forall(identity)
-
-        case (r1 @ ConstraintRecordType(atts1, _), r2 @ ConstraintRecordType(atts2, _)) =>
-          val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
-          for (idn <- commonIdns) {
-            val att1 = r1.getType(idn).head
-            val att2 = r2.getType(idn).head
-            if (!recurse(att1, att2, occursCheck + ((t1, t2)))) {
-              return false
-            }
-          }
-          val commonAttrs = commonIdns.map { case idn => AttrType(idn, r1.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
-        val nt = ConstraintRecordType(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs)
-          typesVarMap.union(r1, r2).union(r2, nt)
-          true
-
-        case (r1 @ ConstraintRecordType(atts1, _), r2 @ RecordType(atts2, name)) =>
-          if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
-            false
-          } else {
-            for (att1 <- atts1) {
-              if (!recurse(att1.tipe, r2.getType(att1.idn).get, occursCheck + ((t1, t2)))) {
-                return false
-              }
-            }
-            typesVarMap.union(r1, r2)
-            true
-          }
-
-        case (r1: RecordType, r2: ConstraintRecordType) =>
-          recurse(r2, r1, occursCheck + ((t1, t2)))
-
-        case (p1: PrimitiveType, p2: PrimitiveType) =>
-          typesVarMap.union(p2, p1)
-          true
-        case (p1: PrimitiveType, _: BoolType)   =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (p1: PrimitiveType, _: IntType)    =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (p1: PrimitiveType, _: FloatType)  =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (p1: PrimitiveType, _: StringType) =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (_: BoolType, _: PrimitiveType)    =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-        case (_: IntType, _: PrimitiveType)     =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-        case (_: FloatType, _: PrimitiveType)   =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-        case (_: StringType, _: PrimitiveType)  =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-
-        case (p1: NumberType, p2: NumberType) =>
-          typesVarMap.union(p2, p1)
-          true
-        case (p1: NumberType, _: FloatType) =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (p1: NumberType, _: IntType)   =>
-          typesVarMap.union(p1, nt2)
-          true
-        case (_: FloatType, _: NumberType)  =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-        case (_: IntType, _: NumberType)    =>
-          recurse(nt2, nt1, occursCheck + ((t1, t2)))
-
-        case (UserType(sym1), UserType(sym2)) if sym1 == sym2 =>
-          true
-        case (v1: TypeVariable, v2: TypeVariable) =>
-          typesVarMap.union(v2, v1)
-          true
-        case (v1: TypeVariable, v2: VariableType) =>
-          typesVarMap.union(v1, v2)
-          true
-        case (v1: VariableType, v2: TypeVariable) =>
-          recurse(v2, v1, occursCheck + ((t1, t2)))
-        case (v1: TypeVariable, _)                =>
-          typesVarMap.union(v1, nt2)
-          true
-        case (_, v2: TypeVariable)                =>
-          recurse(v2, nt1, occursCheck + ((t1, t2)))
-        case _                                    =>
-          false
-      }
+    if (occursCheck.contains((t1, t2))) {
+      return true
     }
-    recurse(t1, t2, Set())
+    val nt1 = find(t1)
+    val nt2 = find(t2)
+    (nt1, nt2) match {
+      // TODO: Add NothingType
+
+      case (_: AnyType, t) =>
+        true
+      case (t, _: AnyType) =>
+        true
+
+      case (_: IntType, _: IntType)     =>
+        true
+      case (_: BoolType, _: BoolType)   =>
+        true
+      case (_: FloatType, _: FloatType) =>
+        true
+      case (_: StringType, _: StringType) =>
+        true
+
+      case (CollectionType(m1, inner1), CollectionType(m2, inner2)) =>
+        if (!unifyMonoids(m1, m2)) {
+          return false
+        }
+        unify(inner1, inner2, occursCheck + ((t1, t2)))
+
+      case (FunType(p1, e1), FunType(p2, e2)) =>
+        unify(p1, p2, occursCheck + ((t1, t2))) && unify(e1, e2, occursCheck + ((t1, t2)))
+
+      case (RecordType(a1: Attributes, name1), RecordType(a2: Attributes, name2)) =>
+        if (name1 == name2)
+          unifyAttributes(a1, a2, occursCheck + ((t1, t2)))
+        else
+          false
+
+      case (RecordType(atts1, name1), RecordType(atts2, name2)) =>  // atts1 OR atts2 are AttributeVariables
+        unifyAttributes(atts1, atts2, occursCheck + ((t1, t2)))
+
+      case (p1: PrimitiveType, p2: PrimitiveType) =>
+        typesVarMap.union(p2, p1)
+        true
+      case (p1: PrimitiveType, _: BoolType)   =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (p1: PrimitiveType, _: IntType)    =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (p1: PrimitiveType, _: FloatType)  =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (p1: PrimitiveType, _: StringType) =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (_: BoolType, _: PrimitiveType)    =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+      case (_: IntType, _: PrimitiveType)     =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+      case (_: FloatType, _: PrimitiveType)   =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+      case (_: StringType, _: PrimitiveType)  =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+
+      case (p1: NumberType, p2: NumberType) =>
+        typesVarMap.union(p2, p1)
+        true
+      case (p1: NumberType, _: FloatType) =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (p1: NumberType, _: IntType)   =>
+        typesVarMap.union(p1, nt2)
+        true
+      case (_: FloatType, _: NumberType)  =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+      case (_: IntType, _: NumberType)    =>
+        unify(nt2, nt1, occursCheck + ((t1, t2)))
+
+      case (UserType(sym1), UserType(sym2)) if sym1 == sym2 =>
+        true
+      case (v1: TypeVariable, v2: TypeVariable) =>
+        typesVarMap.union(v2, v1)
+        true
+      case (v1: TypeVariable, v2: VariableType) =>
+        typesVarMap.union(v1, v2)
+        true
+      case (v1: VariableType, v2: TypeVariable) =>
+        unify(v2, v1, occursCheck + ((t1, t2)))
+      case (v1: TypeVariable, _)                =>
+        typesVarMap.union(v1, nt2)
+        true
+      case (_, v2: TypeVariable)                =>
+        unify(v2, nt1, occursCheck + ((t1, t2)))
+      case _                                    =>
+        false
+    }
   }
 
   private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid = {
@@ -876,13 +931,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 val t1 = expType(e)
                 find(t1) match {
                   case t: CollectionType => t
-                  case _: NothingType    => return true
+                  case _                 => return true
                 }
               case Gen(p, e) =>
                 val t1 = expType(e)
                 find(t1) match {
                   case t: CollectionType => t
-                  case _: NothingType    => return true
+                  case _                 => return true
                 }
             }
             val nm = maxMonoid(fromMs)
@@ -923,7 +978,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             fromTypes.head
           else {
             val idns = s.from.map { case Iterator(Some(PatternIdn(IdnDef(idn))), _) => idn }
-            CollectionType(maxMonoid(fromTypes), RecordType(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }, None))
+            CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }), None))
           }
 //        logger.debug(s"t1 is $t1")
 //        logger.debug(s"t is $t")
@@ -956,11 +1011,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Given a type, returns a new type that replaces type variables as much as possible, given the map m.
     * This is the type representing the group of types.
     */
+
+  // TODO: Refactor into World.VarMap to avoid duplicated code
+  // TODO: Perhaps do the same for all getVariableTypes, etc etc
+
   private def find(t: Type): Type =
     if (typesVarMap.contains(t)) typesVarMap(t).root else t
 
   private def mFind(t: CollectionMonoid): CollectionMonoid =
     if (monoidsVarMap.contains(t)) monoidsVarMap(t).root else t
+
+  private def aFind(t: RecordAttributes): RecordAttributes =
+    if (recAttsVarMap.contains(t)) recAttsVarMap(t).root else t
 
   /** Reconstruct the type by resolving all inner variable types as much as possible.
     * Also, try to match the type into an existing user type.
@@ -1007,10 +1069,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: UserType                     => t
           case _: PrimitiveType                => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
-          case RecordType(atts, name)          => RecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, name)
+          case RecordType(a, name)          =>
+            val a1 = aFind(a)
+            a1 match {
+              case Attributes(atts)              =>
+                RecordType(Attributes(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }), name)
+              case AttributesVariable(atts, sym) =>
+                RecordType(AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym), name)
+            }
           case CollectionType(m, innerType)    => CollectionType(mFind(m), reconstructType(innerType, occursCheck + t))
           case FunType(p, e)                   => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
-          case ConstraintRecordType(atts, sym) => ConstraintRecordType(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
           case t1: TypeVariable => if (!typesVarMap.contains(t1)) t1 else reconstructType(pickMostRepresentativeType(typesVarMap(t1)), occursCheck + t)
         }
       }
@@ -1048,7 +1116,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // Rule 4
       case n@RecordProj(e, idn) =>
         Seq(
-          HasType(e, ConstraintRecordType(Set(AttrType(idn, expType(n))))))
+          HasType(e, RecordType(AttributesVariable(Set(AttrType(idn, expType(n))), SymbolTable.next()), None)))
 
       // Rule 6
       case n@IfThenElse(e1, e2, e3) =>
@@ -1200,7 +1268,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(
           HasType(g.e, CollectionType(m, TypeVariable())),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e))))), None))))
 
       case n@Nest(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1209,7 +1277,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g.e, CollectionType(m, TypeVariable())),
           HasType(e, nt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", nt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", nt))), None))))
 
       case n@Nest(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1218,7 +1286,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g.e, CollectionType(m, TypeVariable())),
           HasType(e, bt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", bt))), None))))
 
       case n@Nest2(rm: CollectionMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1226,7 +1294,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(
           HasType(g.e, CollectionType(m, inner)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e))))), None))))
 
       case n@Nest2(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1236,7 +1304,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g.e, CollectionType(m, inner)),
           HasType(e, nt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", nt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", nt))), None))))
 
       case n@Nest2(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1246,16 +1314,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g.e, CollectionType(m, inner)),
           HasType(e, bt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", bt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", bt))), None))))
 
       case n@Nest3(rm: CollectionMonoid, g, k, p, e) =>
         val m = MonoidVariable()
         val inner1 = TypeVariable()
         val inner2 = TypeVariable()
         Seq(
-          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2))), None))),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", CollectionType(rm, expType(e)))), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", CollectionType(rm, expType(e))))), None))))
 
       case n@Nest3(rm: NumberMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1263,10 +1331,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val inner1 = TypeVariable()
         val inner2 = TypeVariable()
         Seq(
-          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2))), None))),
           HasType(e, nt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", nt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", nt))), None))))
 
       case n@Nest3(rm: BoolMonoid, g, k, p, e) =>
         val m = MonoidVariable()
@@ -1274,10 +1342,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val inner1 = TypeVariable()
         val inner2 = TypeVariable()
         Seq(
-          HasType(g.e, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", inner2)), None))),
+          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2))), None))),
           HasType(e, bt),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner1), AttrType("_2", bt)), None))))
+          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", bt))), None))))
 
 //      case n@MultiNest(g, params) =>
 //        val m = MonoidVariable()
@@ -1326,7 +1394,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g1.e, CollectionType(MonoidVariable(), t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))), None))),
           MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ OuterJoin(g1, g2, p) =>
@@ -1336,7 +1404,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g1.e, CollectionType(MonoidVariable(), t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))), None))),
           MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ Unnest(g1, g2, p) =>
@@ -1346,7 +1414,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g1.e, CollectionType(MonoidVariable(), t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))), None))),
           MaxOfMonoids(n, Seq(g1, g2)))
 
       case n @ OuterUnnest(g1, g2, p) =>
@@ -1356,7 +1424,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(g1.e, CollectionType(MonoidVariable(), t1)),
           HasType(g2.e, CollectionType(MonoidVariable(), t2)),
           HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Seq(AttrType("_1", t1), AttrType("_2", t2)), None))),
+          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))), None))),
           MaxOfMonoids(n, Seq(g1, g2)))
 
       // Sugar nodes

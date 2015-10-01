@@ -48,7 +48,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
       def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
         case (_, t1) if pat eq p => Some(t1)
         case (PatternProd(ps), t1: RecordType) =>
-          ps.zip(t1.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
+          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
         case _ => None
       }
 
@@ -68,7 +68,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
         case (PatternIdn(idn1), t1) if idn == idn1 => Some(t1)
         case (_: PatternIdn, _)                    => None
         case (PatternProd(ps), t1: RecordType) =>
-          ps.zip(t1.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
+          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
       }
 
       decl(idn) match {

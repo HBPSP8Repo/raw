@@ -24,12 +24,34 @@ case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType
 
-/** Record Type
-  */
+/**
+ *
+ */
+
 case class AttrType(idn: String, tipe: Type) extends RawNode
 
-case class RecordType(atts: Seq[AttrType], name: Option[String]) extends Type {
+sealed abstract class RecordAttributes extends RawNode {
+  def atts: Iterable[AttrType]
+
+  def getType(idn: String): Option[Type]
+}
+
+case class Attributes(atts: Seq[AttrType]) extends RecordAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
+}
+
+/** Attributes Variable
+  */
+
+case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends RecordAttributes {
+  def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
+}
+
+/** Record Type
+  */
+
+case class RecordType(recAtts: RecordAttributes, name: Option[String]) extends Type {
+  def getType(idn: String): Option[Type] = recAtts.getType(idn)
 }
 
 /** Collection Type
@@ -55,7 +77,7 @@ case class NothingType() extends Type
   */
 case class UserType(sym: Symbol) extends Type
 
-/** Abstract class representing all types that vary: TypeVariable, constrainted/partial types, etc.
+/** Abstract class representing all types that vary: TypeVariable, NumberType, ...
   */
 
 sealed abstract class VariableType extends Type {
@@ -66,15 +88,9 @@ sealed abstract class VariableType extends Type {
   */
 case class TypeVariable(sym: Symbol = SymbolTable.next()) extends VariableType
 
-/** Constraint Record Type
-  */
-case class ConstraintRecordType(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends VariableType {
-  def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
-}
-
 /** Type Scheme
   * TODO: Describe.
   */
-case class TypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol]) extends Type
+case class TypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) extends Type
 
 
