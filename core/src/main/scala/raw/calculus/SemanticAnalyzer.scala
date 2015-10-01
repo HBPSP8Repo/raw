@@ -1641,6 +1641,3 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 // TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
 //       This should only happen for a single col I guess?. It helps write the map function.
-// TODO: We also said that we need to drop ConstrainedRecordType. It will instead do a local scope lookup based on the field name and attach itself to that type.
-//       This lookup will use a lazy val chain in Kiama and then also be re-used by the OQL Select parser when looking up (Select name) although here name is an Exp so it's not exatly the same.
-//       This replaces the RecordProj constraint...
