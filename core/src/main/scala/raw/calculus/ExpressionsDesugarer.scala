@@ -1,13 +1,17 @@
 package raw
 package calculus
 
+import org.kiama.attribution.Attribution
+
 /** Desugar the expressions such as Count, Max, ...
   */
-class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
+class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with SemanticTransformer {
 
   import scala.collection.immutable.Seq
+  import org.kiama.util.UnknownEntity
   import org.kiama.rewriting.Cloner._
   import Calculus._
+  import SymbolTable.AttributeEntity
 
   def strategy = desugar
 
@@ -100,6 +104,28 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       val os = Select(from, distinct, None, projWithoutPart, where, None, None)
       logger.debug(s"Output is ${CalculusPrettyPrinter(os)}")
       os
+  }
+
+  /** De-sugar anonymous records, e.g.
+    *   for ( <- students ) yield set ( age, for ( <- professors ) yield max age )
+    * becomes
+    *   for ( $0 <- students ) yield set ( $0.age, for ( $1 <- professors ) yield max $1.age )
+    */
+
+  // Generate unique IDs for Gens w/o pattern
+  private lazy val anonGenSymbol: Gen => Symbol = attr {
+    case Gen(None, _) => SymbolTable.next()
+  }
+
+  private lazy val anonRecords = rule[Exp] {
+    case idnExp: IdnExp if analyzer.attributeEntity(idnExp) != UnknownEntity() =>
+      analyzer.attributeEntity(idnExp) match {
+        case AttributeEntity(t, g, idx) => RecordProj(IdnExp(IdnUse(anonGenSymbol(g).idn)), s"_${idx + 1}")
+      }
+  }
+
+  private lazy val anonGens = rule[Gen] {
+    case g @ Gen(None, e) => Gen(Some(PatternIdn(IdnDef(anonGenSymbol(g).idn))), e)
   }
 
 }

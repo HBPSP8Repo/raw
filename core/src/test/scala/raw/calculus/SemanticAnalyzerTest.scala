@@ -1024,6 +1024,27 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin, TestWorlds.empty, IntType())
   }
 
+  test("for ( <- students ) yield set name") {
+    success("for ( <- students ) yield set name", TestWorlds.professors_students, CollectionType(SetMonoid(), StringType()))
+  }
+
+  test("for ( <- students ) yield set (name, age)") {
+    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))),None)))
+  }
+
+  test("for ( <- students; <- professors ) yield set name") {
+    failure("for ( <- students; <- professors ) yield set name", TestWorlds.professors_students, AmbiguousIdn(IdnUse("name")))
+  }
+
+  test("for ( <- students; age > (for ( <- professors ) yield max age)) yield set (name, age)") {
+    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))),None)))
+  }
+
+  test("(a: 1, a: 2") {
+    // TODO: same attr name appears twice in the record: report error
+    failure("(a: 1, a: 2)", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
+  }
+
   // TODO:
 
   // maybe remove partition and use * ?

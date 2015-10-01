@@ -11,6 +11,8 @@ case class MultipleDecl(i: Calculus.IdnNode) extends Error
 
 case class UnknownDecl(i: Calculus.IdnNode) extends Error
 
+case class AmbiguousIdn(idn: Calculus.IdnNode) extends Error
+
 case class UnknownPartition(p: Calculus.Partition) extends Error
 
 case class CollectionRequired(t: Type, p: Option[Position] = None) extends Error
@@ -31,6 +33,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
   def show(e: Error): Doc = e match {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
+    case AmbiguousIdn(i) => s"${i.idn} is ambiguous (${i.pos})"
     case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
     case CollectionRequired(t, p) => s"expected collection but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case IncompatibleMonoids(m, t, p) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"

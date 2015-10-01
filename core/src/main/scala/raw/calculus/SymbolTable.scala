@@ -2,13 +2,13 @@ package raw
 package calculus
 
 import org.kiama.util.Environments
-import raw.calculus.Calculus.{Idn, IdnDef}
 
 case class Symbol(idn: String)
 
 object SymbolTable extends Environments {
 
   import org.kiama.util.{Counter, Entity}
+  import Calculus._
 
   val counter = new Counter(0)
 
@@ -39,4 +39,10 @@ object SymbolTable extends Environments {
   /** Entity for a data source.
     */
   case class DataSourceEntity(sym: Symbol) extends RawEntity
+
+  /** Entity for auto-detected record attribute.
+    */
+  case class AttributeEntity(att: AttrType, g: Gen, idx: Int) extends Entity
+
+
 }

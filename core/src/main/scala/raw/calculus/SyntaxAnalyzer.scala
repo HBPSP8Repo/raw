@@ -119,7 +119,13 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       mergeExp ~ (kwAs ~> attrName) ^^ { case e ~ idn => ParserAttrCons(e, Some(idn)) })
 
   lazy val anonAttrCons: PackratParser[ParserAttrCons] =
-    positioned(mergeExp ^^ { case e => ParserAttrCons(e, None) })
+    positioned(mergeExp ^^ {
+      case e => e match {
+        case RecordProj(_, field) => ParserAttrCons(e, Some(field))
+        case IdnExp(IdnUse(x)) => ParserAttrCons(e, Some(x))
+        case _ => ParserAttrCons(e, None)
+      }
+    })
 
   lazy val mergeExp: PackratParser[Exp] =
     positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))

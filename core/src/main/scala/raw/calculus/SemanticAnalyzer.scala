@@ -4,6 +4,7 @@ package calculus
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 import raw.World._
+import raw.calculus.SymbolTable._
 
 import scala.util.parsing.input.Position
 
@@ -326,6 +327,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     // Entering new scopes
     case c: Comp => enter(in(c))
+    case b: ExpBlock => enter(in(b))
+
+    // TODO: Refactor if Algebra node, open scope
     case r: Reduce => enter(in(r))
     case f: Filter => enter(in(f))
     case j: Join => enter(in(j))
@@ -335,7 +339,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n: Nest2 => enter(in(n))
     case n: Nest3 => enter(in(n))
     case s: Select => enter(in(s))
-    case b: ExpBlock => enter(in(b))
 
     // If we are in a function abstraction, we must open a new scope for the variable argument. But if the parent is a
     // bind, then the `in` environment of the function abstraction must be the same as the `in` environment of the
@@ -353,6 +356,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def envout(out: RawNode => Environment): RawNode ==> Environment = {
     // Leaving a scope
     case c: Comp => leave(out(c))
+    case b: ExpBlock => leave(out(b))
+
+    // TODO: Refactor if Algebra node, open scope
     case s: Select => leave(out(s))
     case r: Reduce => leave(out(r))
     case f: Filter => leave(out(f))
@@ -362,7 +368,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n: Nest => leave(out(n))
     case n: Nest2 => leave(out(n))
     case n: Nest3 => leave(out(n))
-    case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
     case f: FunAbs => leave(out(f))
@@ -380,6 +385,78 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // environment. The chain does not need to go "inside" the expression to finding any bindings.
     case e: Exp => env.in(e)
   }
+
+  /////
+
+  private lazy val env1: Chain[Environment] =
+    chain(env1in, env1out)
+
+  private def env1in(in: RawNode => Environment): RawNode ==> Environment = {
+    case n if tree.isRoot(n) => rootenv()
+    case c: Comp => enter(in(c))
+    case b: ExpBlock => enter(in(b))
+    // TODO: Refactor if Algebra node, open scope
+    case r: Reduce => enter(in(r))
+    case f: Filter => enter(in(f))
+    case j: Join => enter(in(j))
+    case o: OuterJoin => enter(in(o))
+    case o: OuterUnnest => enter(in(o))
+    case n: Nest => enter(in(n))
+    case n: Nest2 => enter(in(n))
+    case n: Nest3 => enter(in(n))
+    case s: Select => enter(in(s))
+    case f: FunAbs => enter(in(f))
+//    case tree.parent.pair(_: Exp, g: Gen) => env1.in(g)
+  }
+
+  private def env1out(out: RawNode => Environment): RawNode ==> Environment = {
+    // Leaving a scope
+    case c: Comp => leave(out(c))
+    case s: Select => leave(out(s))
+    case r: Reduce => leave(out(r))
+    case f: Filter => leave(out(f))
+    case j: Join => leave(out(j))
+    case o: OuterJoin => leave(out(o))
+    case o: OuterUnnest => leave(out(o))
+    case n: Nest => leave(out(n))
+    case n: Nest2 => leave(out(n))
+    case n: Nest3 => leave(out(n))
+    case b: ExpBlock => leave(out(b))
+    case f: FunAbs => leave(out(f))
+    case g @ Gen(None, e) =>
+      def attEntity(env: Environment, att: AttrType, idx: Int) = {
+        if (isDefinedInScope(env, att.idn))
+          MultipleEntity()
+        else
+          AttributeEntity(att, g, idx)
+      }
+
+      val t = expType(e)
+      val nt = find(t)
+      logger.debug(s"nt is ${PrettyPrinter(nt)}")
+      nt match {
+        case CollectionType(_, UserType(sym)) =>
+          world.tipes(sym) match {
+            case RecordType(Attributes(atts), _) =>
+              var nenv: Environment = out(g)
+              for ((att, idx) <- atts.zipWithIndex) {
+                nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+              }
+              nenv
+          }
+        case CollectionType(_, RecordType(Attributes(atts), _)) =>
+          var nenv: Environment = out(g)
+          for ((att, idx) <- atts.zipWithIndex) {
+            nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+          }
+          nenv
+        case _ =>
+          env1.in(g)
+      }
+    case n => env1.in(n)
+  }
+
+  /////
 
   // TODO: Move this to the Types.scala and have it used inside the TypeScheme definition for uniformity!
   case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol])
@@ -881,6 +958,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         ms.collectFirst { case m: ListMonoid => m }.get))
   }
 
+
+  lazy val attributeEntity: IdnExp => Entity = attr {
+    idnExp => lookup(env1.in(idnExp), idnExp.idn.idn, UnknownEntity())
+  }
+
   /** Type Checker constraint solver.
     * Solves a sequence of AND constraints.
     */
@@ -989,28 +1071,58 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case IdnIsDefined(idnExp @ IdnExp(idn)) =>
 
-        // Identifier used without being declared
-        if (entity(idn) == UnknownEntity()) {
-          tipeErrors += UnknownDecl(idn)
-          return false
+        def getType(nt: Type): Boolean = {
+          val t1 = nt match {
+            case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
+              if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
+                t
+              else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
+            case t                   => t
+          }
+
+          val t = expType(idnExp)
+          val r = unify(t, t1)
+          if (!r) {
+            // The same decl has been used with two different types.
+            // TODO: Can we have a more precise error messages? Set the None to a better message!
+            tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(t.pos))
+          }
+          r
         }
 
-        val t = expType(idnExp)
-        val t1 = idnType(idn) match {
-          case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
-            if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
-              t
-            else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
-          case t                   => t
-        }
-        val r = unify(t, t1)
-        if (!r) {
-          // The same decl has been used with two different types.
-          // TODO: Can we have a more precise error messages? Set the None to a better message!
-          tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(t.pos))
-        }
-        r
+        entity(idn) match {
+          case _: UnknownEntity =>
+            // Identifier is unknown
 
+            attributeEntity(idnExp) match {
+              case AttributeEntity(att, _, _) =>
+                // We found the attribute identifier in a generator
+                getType(att.tipe)
+              case _: UnknownEntity =>
+                // We didn't found the attribute identifier
+                tipeErrors += UnknownDecl(idn)
+                false
+              case _: MultipleEntity =>
+                // We found the attribute identifer more than once
+                tipeErrors += AmbiguousIdn(idn)
+                false
+            }
+          case _: MultipleEntity =>
+            // Error already reported earlier when processing IdnDef
+            false
+          case _ =>
+            // We found an entity for the identifier.
+            // However, we must still check it is not ambiguous so we look up in the anonymous chain as well.
+            attributeEntity(idnExp) match {
+              case _: UnknownEntity =>
+                // All good
+                getType(idnType(idn))
+              case (_: AttributeEntity | _: MultipleEntity) =>
+                // We found the same identifier used by the user and being anonymous as well!
+                tipeErrors += AmbiguousIdn(idn)
+                false
+            }
+        }
     }
 
     cs match {

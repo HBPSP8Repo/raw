@@ -10,6 +10,7 @@ object Phases extends LazyLogging {
   // TODO: Make use of notion of SemanticTransformer vs PipelinedTransformer to strengthen building of phases
 
   private val phases = Seq(
+    Seq(  "AnonGensDesugarer"         -> classOf[AnonGensDesugarer]),
     Seq(  "Uniquifier1"               -> classOf[Uniquifier]),
     Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
           "BlocksDesugarer"           -> classOf[BlocksDesugarer]),
