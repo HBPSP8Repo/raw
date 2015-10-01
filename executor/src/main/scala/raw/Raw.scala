@@ -527,7 +527,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Filter
         */
-      case Filter(Gen(pat, child), pred) =>
+      case Filter(Gen(Some(pat), child), pred) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val code = q"""
         ${build(child)}.filter($childArg => {
@@ -543,7 +543,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Unnest
         */
-      case n @ Unnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+      case n @ Unnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -571,7 +571,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala OuterUnnest
         */
-      case n @ OuterUnnest(Gen(patChild, child), Gen(patPath, path), pred) =>
+      case n @ OuterUnnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -605,7 +605,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Join
         */
-      case n @ Join(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+      case n @ Join(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -634,7 +634,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala OuterJoin
         */
-      case n @ OuterJoin(Gen(patLeft, childLeft), Gen(patRight, childRight), p) =>
+      case n @ OuterJoin(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -669,7 +669,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Reduce
         */
-      case Reduce(m, Gen(pat, child), e) =>
+      case Reduce(m, Gen(Some(pat), child), e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val projected = q"""
         ${build(child)}.map($childArg => {
@@ -693,7 +693,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Nest
         */
-      case n @ Nest(m: PrimitiveMonoid, Gen(pat, child), k, p, e) =>
+      case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -727,7 +727,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ Nest Primitive Monoid (Scala) ************"
         res"""
 
-      case n @ Nest(m: SetMonoid, Gen(pat, child), k, p, e) =>
+      case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
@@ -762,7 +762,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val end = "************ Nest Set Monoid (Scala) ************"
         res"""
 
-      case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(pat, child), k, p, e) =>
+      case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
         val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {

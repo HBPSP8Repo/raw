@@ -117,7 +117,7 @@ object Calculus {
 
   /** Generator
     */
-  case class Gen(p: Pattern, e: Exp) extends Decl
+  case class Gen(p: Option[Pattern], e: Exp) extends Decl
 
   /** Bind
     */

@@ -372,7 +372,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     // The `out` environment of a bind or generator is the environment after the assignment.
     case Bind(p, _) => env(p)
-    case Gen(p, _) => env(p)
+    case g @ Gen(None, _) => env.in(g)
+    case Gen(Some(p), _) => env(p)
     case Iterator(Some(p), _) => env(p)
 
     // Expressions cannot define new variables, so their `out` environment is always the same as their `in`
@@ -557,6 +558,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
       getDecl(p)
   }
+
   /** Return the type of an entity.
     * Supports let-polymorphism.
     */
@@ -933,7 +935,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                   case t: CollectionType => t
                   case _                 => return true
                 }
-              case Gen(p, e) =>
+              case Gen(_, e) =>
                 val t1 = expType(e)
                 find(t1) match {
                   case t: CollectionType => t
@@ -1230,7 +1232,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Declarations
 
-      case Gen(p, e) =>
+      case Gen(None, e) =>
+        Seq(
+          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
+      case Gen(Some(p), e) =>
         Seq(
           HasType(e, CollectionType(MonoidVariable(), patternType(p))))
 

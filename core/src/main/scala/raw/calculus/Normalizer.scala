@@ -98,7 +98,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule6 = rule[Exp] {
-    case Comp(m, Rule6(q, Gen(p, ConsCollectionMonoid(_, e1)), s), e) =>
+    case Comp(m, Rule6(q, Gen(Some(p), ConsCollectionMonoid(_, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 6")
       Comp(m, q ++ Seq(Bind(p, e1)) ++ s, e)
   }
@@ -126,7 +126,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule8 = rule[Exp] {
-    case n @ Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
+    case n @ Comp(m, Rule8(q, Gen(Some(p), Comp(_, r, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 8 to ${CalculusPrettyPrinter(n)}")
       val n1 = Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
       logger.debug(s"Output is ${CalculusPrettyPrinter(n1)}")

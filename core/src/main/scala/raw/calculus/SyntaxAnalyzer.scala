@@ -293,7 +293,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     filter
 
   lazy val gen: PackratParser[Gen] =
-    positioned((pattern <~ "<-") ~ exp ^^ { case p ~ e => Gen(p, e) })
+    positioned((opt(pattern) <~ "<-") ~ exp ^^ { case p ~ e => Gen(p, e) })
 
   lazy val pattern: PackratParser[Pattern] =
     "(" ~> patternProd <~ ")" |
