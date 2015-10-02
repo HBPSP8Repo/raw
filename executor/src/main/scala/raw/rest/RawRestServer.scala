@@ -1,15 +1,19 @@
 package raw.rest
 
+import java.io.{PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.QueryLanguages
 import raw.executor._
 import raw.spark._
+import raw._
 import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
 import spray.httpx.SprayJsonSupport
@@ -19,10 +23,25 @@ import spray.util.LoggingContext
 
 import scala.concurrent.Future
 
-case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
 
-object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
-  implicit val PortofolioFormats = jsonFormat3(RegisterRequest)
+/* Generic exception, which the request handler code can raise to send a 400 response to the client. 
+* This exception will be caught by the exception handler below and transformed in a 400 response*/
+class ClientErrorException(msg: String) extends Exception(msg)
+
+object RawRestServer {
+
+  case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
+
+  object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
+    implicit val PortofolioFormats = jsonFormat3(RegisterRequest)
+  }
+
+  // Response sent when there is an error processing a query
+  case class CompilationErrorResponse(errorType: String, error: QueryError)
+
+  // Response sent when the handler code raises an exception
+  case class ExceptionResponse(exceptionType: String, message: String, stackTrace: String)
+
 }
 
 /**
@@ -30,41 +49,23 @@ object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupp
  *
  * - /register
  * - /query
+ * - /schemas
  *
- * A register request should contain the schema as XML in the body and have the following headers
- * {{{
-   Content-Type: application/xml
-   Raw-Schema-Name: <schemaName>
-   Raw-File: <http[s]: or file: uri>
-
-   BODY: <Schema in XML format.>
- * }}}
- *
- * If the Raw-File header is an http[s] URI, then the file is downloaded and saved locally in the temporary directory.
- * If if it is a file: URI, then the local file is used.
- *
- *
- * A query request contains the logical plan in the body, as a plain text string. Example:
- *
- * {{{
-    POST /query HTTP/1.1
-
-    Reduce(SetMonoid(),
-    Arg(RecordType(Seq(AttrType(name,StringType()),
-    AttrType(title,StringType()),
-    AttrType(year,IntType())),
-    authors_99)),
-    BoolConst(true),
-    Select(BoolConst(true),
-    Scan(authors,
-    SetType(RecordType(Seq(AttrType(name,StringType()),
-    AttrType(title,StringType()),
-    AttrType(year,IntType())),
-    authors_99)))))
- * }}}
+ * See the wiki on the github repo for details on the rest interface
  * @param executorArg scala or spark executor. Currently, on Scala executor is implemented.
  */
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends SimpleRoutingApp with StrictLogging {
+
+  import RawRestServer._
+
+  // Used to serialize the response into Json objects.
+  val mapper = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.configure(SerializationFeature.INDENT_OUTPUT, true)
+    om.setSerializationInclusion(Include.ALWAYS)
+    om
+  }
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {
@@ -96,17 +97,54 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   final val port = 54321
   implicit val system = ActorSystem("simple-routing-app")
 
-  def myExceptionHandler(implicit log: LoggingContext) =
+  private[this] def createJsonResponse(queryError: QueryError): String = {
+    val response = new CompilationErrorResponse(queryError.getClass.getSimpleName, queryError)
+    mapper.writeValueAsString(response)
+  }
+
+  private[this] def createJsonResponse(exception: Exception): String = {
+    val sw = new StringWriter()
+    exception.printStackTrace(new PrintWriter(sw))
+    val response = new ExceptionResponse(exception.getClass.getName, exception.getMessage, sw.toString)
+    mapper.writeValueAsString(response)
+  }
+
+
+  def exceptionHandler(implicit log: LoggingContext) =
     ExceptionHandler {
       case e: ClientErrorException =>
         requestUri { uri =>
-          logger.warn(s"Request to $uri could not be handled normally: $e")
-          complete(StatusCodes.BadRequest, e.getMessage)
+          logger.warn(s"Request to $uri failed", e)
+          respondWithMediaType(MediaTypes.`application/json`) {
+            complete(StatusCodes.BadRequest, createJsonResponse(e))
+          }
         }
-      case e: InternalErrorException =>
+      case e: CompilationException =>
         requestUri { uri =>
-          logger.warn(s"Request to $uri could not be handled normally: $e")
-          complete(StatusCodes.InternalServerError, e.getMessage)
+          logger.warn(s"Request to $uri failed: ${e.queryError}")
+          respondWithMediaType(MediaTypes.`application/json`) {
+            val errorAsJson = createJsonResponse(e.queryError)
+            e.queryError match {
+              case se: SemanticErrors =>
+                complete(StatusCodes.BadRequest, errorAsJson)
+              case pe: ParserError =>
+                complete(StatusCodes.BadRequest, errorAsJson)
+              case ie: InternalError =>
+                complete(StatusCodes.InternalServerError, errorAsJson)
+              case _ => {
+                logger.info(s"No match found for query error class: ${e.queryError}")
+                complete(StatusCodes.InternalServerError, errorAsJson)
+              }
+            }
+          }
+        }
+      // Generate an internal error response for any other unknown/unexpected exception.
+      case e: Exception =>
+        requestUri { uri =>
+          logger.warn(s"Request to $uri failed.", e)
+          respondWithMediaType(MediaTypes.`application/json`) {
+            complete(StatusCodes.InternalServerError, createJsonResponse(e))
+          }
         }
       // Any other exception will be handled by Spray and return a 500 status code.
     }
@@ -118,7 +156,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     val schemasPath = "schemas"
     logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath,$schemasPath}")
     val future: Future[Bound] = startServer("0.0.0.0", port = port) {
-      handleExceptions(myExceptionHandler) {
+      handleExceptions(exceptionHandler) {
         (path(queryPath) & post) {
           headerValueByName("Raw-User") { rawUser =>
             headerValueByName("Raw-Query-Language") { queryLanguageString =>

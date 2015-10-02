@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableMultiset
 import com.typesafe.config.{ConfigFactory, Config}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.LoggerFactory
+import raw.rest.ClientErrorException
 
 import scala.collection.{Bag, JavaConversions}
 
