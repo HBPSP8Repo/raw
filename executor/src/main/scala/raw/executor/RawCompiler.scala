@@ -144,7 +144,11 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
     //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
     val args = scanners
-      .map(scanner => s"${scanner.schema.name}: ${getContainerClass(scanner).getSimpleName}[${scanner.tt.tpe.typeSymbol.name}]")
+      .map(scanner => {
+      val containerName = getContainerClass(scanner).getSimpleName
+      val containerTypeParameter = scanner.tt.tpe.finalResultType
+      s"${scanner.schema.name}: ${containerName}[${containerTypeParameter}]"
+    })
       .mkString(", ")
     //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
@@ -175,12 +179,13 @@ class $queryName($args) extends RawQuery {
     }
 
     if (compileReporter.hasWarnings || compileReporter.hasErrors) {
+      logger.warn("Errors during compilation:\n " + compileReporter.infos.mkString("\n"))
       // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
       // compilation runs are not falsely reported in the subsequent runs
       compileReporter.reset()
       RawImpl.queryError.get() match {
         case Some(queryError: QueryError) => throw new CompilationException(queryError)
-        case None => throw new AssertionError("Compiler has warnings or errors but no query error object available.")
+        case None => logger.warn("Compiler has warnings or errors but no query error object available.")
       }
     }
 

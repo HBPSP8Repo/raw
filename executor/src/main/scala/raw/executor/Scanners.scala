@@ -188,7 +188,8 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
     val jp = jsonFactory.createParser(is)
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
-    assert(jp.nextToken() == JsonToken.START_OBJECT)
+    val nt = jp.nextToken()
+    assert(nt == JsonToken.START_OBJECT || nt == JsonToken.START_ARRAY, "Found: " + nt)
     val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues[T](jp))
     new ClosableIterator[T](iter, is)
   }
