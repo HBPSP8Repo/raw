@@ -5,19 +5,18 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
+import raw._
 import raw.executor._
 import raw.spark._
-import raw._
+import raw.utils.RawUtils
 import spray.can.Http.Bound
 import spray.http.{MediaTypes, StatusCodes}
-import spray.httpx.SprayJsonSupport
-import spray.json.DefaultJsonProtocol
 import spray.routing.{ExceptionHandler, SimpleRoutingApp}
 import spray.util.LoggingContext
 
@@ -42,11 +41,9 @@ class ClientErrorException(msg: String) extends Exception(msg)
 
 object RawRestServer {
 
-  case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
+  case class SchemaRequest(module: String, token: String)
 
-  object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
-    implicit val PortofolioFormats = jsonFormat3(RegisterRequest)
-  }
+  case class RegisterFileRequest(protocol:String, url:String, filename:String, name:String, `type`:String, token:String)
 
   // Response sent when there is an error processing a query
   case class CompilationErrorResponse(errorType: String, error: QueryError)
@@ -68,8 +65,8 @@ object RawRestServer {
  */
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends SimpleRoutingApp with StrictLogging {
 
-  import RawRestServer._
   import DefaultJsonMapper._
+  import RawRestServer._
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {
@@ -154,7 +151,6 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     }
 
   def start(): Future[Bound] = {
-    import RegisterRequestJsonSupport._
     val queryPath = "query"
     val registerPath = "register"
     val schemasPath = "schemas"
@@ -187,6 +183,16 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
               logger.info(s"$user, $schemaName, $dataDir")
               rawServer.registerSchema(schemaName, dataDir, user)
               respondWithMediaType(MediaTypes.`application/json`) {
+                complete( """ {"registersuccess" = True } """)
+              }
+            }
+          } ~
+          (path("register-file") & post) {
+            entity(as[String]) { body =>
+              val request = mapper.readerFor(classOf[RegisterFileRequest]).readValue[RegisterFileRequest](body)
+              logger.info(s"Register-file: $request")
+              doRegisterFile(request)
+              respondWithMediaType(MediaTypes.`application/json`) {
                 complete( """ {"success" = True } """)
               }
             }
@@ -196,13 +202,34 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
               logger.info(s"Returning schemas for $user")
               val schemas: Seq[String] = rawServer.getSchemas(user)
               respondWithMediaType(MediaTypes.`application/json`) {
-                complete(schemas)
+                complete(mapper.writeValueAsString(schemas))
+              }
+            }
+          } ~
+          (path(schemasPath) & post) {
+            entity(as[String]) { body =>
+              val request = mapper.readerFor(classOf[SchemaRequest]).readValue[SchemaRequest](body)
+              val schemas: Seq[String] = doSchemas(request.module, request.token)
+              respondWithMediaType(MediaTypes.`application/json`) {
+                complete(mapper.writeValueAsString(Map("success" -> true, "schemas" -> schemas)))
               }
             }
           }
       }
     }
     future
+  }
+
+  def doSchemas(module: String, token: String): Seq[String] = {
+    logger.info(s"Module: $module, token: $token")
+    val rawUser = DropboxClient.getUserName(token)
+    logger.info(s"Returning schemas for $rawUser")
+    rawServer.getSchemas(rawUser)
+  }
+
+  def doRegisterFile(request: RegisterFileRequest) = {
+    val localFile = RawUtils.getTemporaryDirectory().resolve(request.filename)
+    DropboxClient.downloadFile(request.url, localFile)
   }
 
   def stop(): Unit = {

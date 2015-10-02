@@ -15,7 +15,7 @@
         </encoder>
     </appender>
 
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="STDOUT" />
     </root>
 
@@ -24,7 +24,7 @@
     </logger>
 
     <logger name="raw" level="DEBUG"/>
-    <logger name="akka" level="INFO"/>
+    <logger name="akka" level="DEBUG"/>
     <logger name="org.apache.spark" level="WARN"/>
     <logger name="DataNucleus" level="WARN"/>
     <logger name="org.apache.hadoop" level="WARN"/>

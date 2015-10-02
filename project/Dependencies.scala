@@ -48,4 +48,6 @@ object Dependencies {
 
   val scallop = "org.rogach" %% "scallop" % "0.9.5"
   val multisets = "io.github.nicolasstucki" % "multisets_2.11" % "0.3"
+
+  val dropboxSDK = "com.dropbox.core" % "dropbox-core-sdk" % "1.8.1"
 }
