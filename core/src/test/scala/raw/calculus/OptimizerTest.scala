@@ -161,6 +161,27 @@ class OptimizerTest extends CalculusTest {
       TestWorlds.publications)
   }
 
+  test("nested nests 2 without fields") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    check(
+      "select distinct A.title, (select distinct A.year, (select distinct A.name, count(partition) from partition A group by A.name) from A in partition group by A.year) from A in authors group by A.title",
+      "",
+      TestWorlds.publications)
+  }
+
+  test("polymorphic select") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    check(
+    """
+      |{
+      | group_by_age := \xs -> select x.age, partition from x in xs group by x.age;
+      | (group_by_age(students), group_by_age(professors))
+      |}
+    """.stripMargin,
+    "",
+      TestWorlds.professors_students)
+  }
+
   test("was failed query but looks ok now") {
     check(
       """
@@ -189,6 +210,20 @@ class OptimizerTest extends CalculusTest {
              max(select a.year from a in partition)
       from A in authors
       group by A.title
+      """,
+      """""",
+      TestWorlds.publications)
+  }
+
+  test("alternative to above without field names") {
+    check(
+      """
+      select distinct title,
+             sum(select year from partition),
+             count(partition),
+             max(select year from partition)
+      from authors
+      group by title
       """,
       """""",
       TestWorlds.publications)

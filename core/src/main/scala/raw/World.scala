@@ -82,6 +82,8 @@ object World extends LazyLogging {
     def groupEq(t1: Type, t2: Type): Boolean = (t1, t2) match {
       case (_: UserType, _: UserType) => t1 == t2
       case (_: TypeVariable, _: TypeVariable) => t1 == t2
+      case (_: NumberType, _: NumberType) => t1 == t2
+      case (_: PrimitiveType, _: PrimitiveType) => t1 == t2
       case _ => t1 eq t2
     }
 
@@ -128,8 +130,10 @@ object World extends LazyLogging {
 
   class RecordAttributesVarMap extends VarMap[RecordAttributes] {
 
-    def groupEq(g1: RecordAttributes, g2: RecordAttributes): Boolean =
-      g1 eq g2
+    def groupEq(g1: RecordAttributes, g2: RecordAttributes): Boolean = (g1, g2) match {
+      case (_: AttributesVariable, _: AttributesVariable) => g1 == g2
+      case _ => g1 eq g2
+    }
 
     override def toString: String = {
       var s = "\n"

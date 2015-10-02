@@ -54,6 +54,13 @@ case class RecordType(recAtts: RecordAttributes, name: Option[String]) extends T
   def getType(idn: String): Option[Type] = recAtts.getType(idn)
 }
 
+/** Pattern Type
+  */
+
+case class PatternAttrType(tipe: Type) extends RawNode
+
+case class PatternType(atts: Seq[PatternAttrType]) extends Type
+
 /** Collection Type
   */
 case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type

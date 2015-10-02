@@ -29,5 +29,7 @@ object Constraint extends LazyLogging {
 
   case class IdnIsDefined(idnExp: IdnExp) extends Constraint
 
-  case class PatternHasType(p: Pattern) extends Constraint
+  case class GenPatternHasType(g: Gen) extends Constraint
+
+  case class FunAppType(f: FunApp) extends Constraint
 }

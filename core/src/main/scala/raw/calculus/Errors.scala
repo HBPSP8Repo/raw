@@ -15,6 +15,8 @@ case class AmbiguousIdn(idn: Calculus.IdnNode) extends Error
 
 case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[Position] = None) extends Error
 
+case class FunAppMismatch(f: Calculus.Exp, e: Calculus.Exp) extends Error
+
 case class UnknownPartition(p: Calculus.Partition) extends Error
 
 case class CollectionRequired(t: Type, p: Option[Position] = None) extends Error
@@ -36,6 +38,8 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
     case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
     case AmbiguousIdn(i) => s"${i.idn} is ambiguous (${i.pos})"
+    case PatternMismatch(pat, t, pos) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}} (${pos.getOrElse("no position")})"
+    case FunAppMismatch(f, e) => s"arguments mismatch in function call f $f (${f.pos}) $e (${e.pos})"
     case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
     case CollectionRequired(t, p) => s"expected collection but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case IncompatibleMonoids(m, t, p) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"

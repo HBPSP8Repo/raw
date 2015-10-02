@@ -70,6 +70,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: FloatType                         => "float"
     case RecordType(recAtts, Some(name))      => "record" <> parens(name) <> parens(atts(recAtts))
     case RecordType(recAtts, None)            => "record" <> parens(atts(recAtts))
+    case PatternType(pAtts)           => "pattern" <> parens(group(lsep(pAtts.map { case att => tipe(att.tipe) }, comma)))
     case CollectionType(m, innerType)         => monoid(m) <> parens(tipe(innerType))
     case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
     case _: AnyType                           => "any"

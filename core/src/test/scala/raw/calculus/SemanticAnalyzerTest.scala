@@ -3,7 +3,7 @@ package calculus
 
 class SemanticAnalyzerTest extends FunTest {
 
-  import raw.calculus.Calculus.{IdnDef, IdnUse}
+  import raw.calculus.Calculus._
 
   def go(query: String, world: World) = {
     val ast = parse(query)
@@ -20,6 +20,7 @@ class SemanticAnalyzerTest extends FunTest {
   def success(query: String, world: World, expectedType: Type) = {
     val analyzer = go(query, world)
     val inferredType = analyzer.tipe(analyzer.tree.root)
+    analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     assert(analyzer.errors.isEmpty)
     analyzer.printTypedTree()
     logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
@@ -34,11 +35,18 @@ class SemanticAnalyzerTest extends FunTest {
   def failure(query: String, world: World, error: Error) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.nonEmpty)
+    analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     error match {
 
       //
       // Test case helpers: e..g ignore positions
       //
+
+      case PatternMismatch(pat, t, _) =>
+        assert(analyzer.errors.exists {
+          case PatternMismatch(`pat`, `t`, _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
       // Incompatible types can be specified in the tests in either order
       // Positions are also ignored
@@ -1058,6 +1066,25 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin, TestWorlds.empty, IntType())
   }
 
+  test("simple function call #2") {
+    success(
+      """
+        |{
+        | a := \(x,y) -> x + y;
+        |
+        | a(i: 1,j: 2)
+        |}
+        |""".stripMargin, TestWorlds.empty, IntType())
+  }
+
+  test("extract generator") {
+    success("""for ((name, age) <- students) yield set name""", TestWorlds.professors_students, CollectionType(SetMonoid(), StringType()))
+  }
+
+  test("extract bad generator") {
+    failure("""for ((name, age, foo) <- students) yield set name""", TestWorlds.professors_students, PatternMismatch(PatternProd(List(PatternIdn(IdnDef("name")), PatternIdn(IdnDef("age")), PatternIdn(IdnDef("foo")))), UserType(Symbol("student"))))
+  }
+
   // TODO:
 
   // maybe remove partition and use * ?
@@ -1085,5 +1112,45 @@ class SemanticAnalyzerTest extends FunTest {
   // actually the global thing should be poly at this phase!!!
   // then have it use in another scope outside or whatever to bind.
   // how about AnonGen that gets desugared to normal Gen ?
+
+  test("fff") {
+    """
+      |{
+      | for ( student <- students; (name, age) := student; professor := (name, age); student = professor) THIS MUST FAIL
+      |
+      |
+    """.stripMargin
+  }
+
+  test("cucu simpler") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    success(
+      """
+        |{
+        | group_by_age := \xs -> for (x <- xs) yield list (x.age, (for (x1 <- xs; x1.age = x.age) yield list x1));
+        | //(group_by_age(students), group_by_age(professors))
+        | group_by_age(students)
+        |}
+      """.stripMargin,
+
+      TestWorlds.professors_students,
+      IntType())
+
+  }
+
+  test("cucu") {
+      // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+      success(
+        """
+          |{
+          | group_by_age := \xs -> select x.age, partition from x in xs group by x.age;
+          | (group_by_age(students), group_by_age(professors))
+          |}
+        """.stripMargin,
+
+        TestWorlds.professors_students,
+      IntType())
+
+  }
 
 }
