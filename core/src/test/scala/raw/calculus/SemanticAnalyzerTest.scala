@@ -1040,9 +1040,22 @@ class SemanticAnalyzerTest extends FunTest {
     success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))),None)))
   }
 
-  test("(a: 1, a: 2") {
+  test("(a: 1, a: 2)") {
     // TODO: same attr name appears twice in the record: report error
     failure("(a: 1, a: 2)", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
+  }
+
+  test("simple function call") {
+    success(
+      """
+        |{
+        | a := \(x,y) -> x + y;
+        |
+        | i := 1;
+        | j := 2;
+        | a(i,j)
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
   }
 
   // TODO:

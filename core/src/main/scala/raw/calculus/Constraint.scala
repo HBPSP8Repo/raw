@@ -25,8 +25,9 @@ object Constraint extends LazyLogging {
 
   case class MaxOfMonoids(e: Exp, gs: Seq[Decl]) extends Constraint
 
-  case class InheritType(b: Bind) extends Constraint
+  case class BoundByType(b: Bind) extends Constraint
 
   case class IdnIsDefined(idnExp: IdnExp) extends Constraint
 
+  case class PatternHasType(p: Pattern) extends Constraint
 }

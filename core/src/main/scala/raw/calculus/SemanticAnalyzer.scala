@@ -156,7 +156,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Select(froms, d, g, proj, w, o, h) =>
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
-          makeNullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Iterator(_, e1) => tipe(e1)})
+          makeNullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Gen(_, e1) => tipe(e1)})
         case Reduce(m: PrimitiveMonoid, g, e1) => makeNullable(te, Seq(tipe(e1)), Seq(tipe(g.e)))
         case Reduce(m: CollectionMonoid, g, e1) => makeNullable(te, Seq(CollectionType(m, tipe(e1))), Seq(tipe(g.e)))
         case Filter(g, p) => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
@@ -350,7 +350,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // is the same as that of the parent: the environment does not include the left hand side of the assignment.
     case tree.parent.pair(_: Exp, b: Bind) => env.in(b)
     case tree.parent.pair(_: Exp, g: Gen) => env.in(g)
-    case tree.parent.pair(_: Exp, it: Iterator) => env.in(it)
   }
 
   private def envout(out: RawNode => Environment): RawNode ==> Environment = {
@@ -379,7 +378,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case Bind(p, _) => env(p)
     case g @ Gen(None, _) => env.in(g)
     case Gen(Some(p), _) => env(p)
-    case Iterator(Some(p), _) => env(p)
 
     // Expressions cannot define new variables, so their `out` environment is always the same as their `in`
     // environment. The chain does not need to go "inside" the expression to finding any bindings.
@@ -466,27 +464,44 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   private lazy val tipeBind: Bind => Option[FreeSymbols] = attr {
     case Bind(p, e) =>
-      // TODO: If the unresolved TypeVariables come from UserType/Source, don't include them as free variables.
-      //       Instead, leave them unresolved, unless we want a strategy that resolves them based on usage?
+      def aux: Option[FreeSymbols] = {
+        // TODO: If the unresolved TypeVariables come from UserType/Source, don't include them as free variables.
+        //       Instead, leave them unresolved, unless we want a strategy that resolves them based on usage?
 
-      // Add all pattern identifier types to the map before processing the rhs
-      // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-      patternIdnTypes(p).foreach { case pt => typesVarMap.union(pt, pt) }
+        // Add all pattern identifier types to the map before processing the rhs
+        // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
+        patternIdnTypes(p).foreach { case pt => typesVarMap.union(pt, pt) }
 
-      // Collect all the roots known in the TypesVarMap.
-      // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
-      val prevTypeRoots = typesVarMap.getRoots
-      val prevMonoidRoots = monoidsVarMap.getRoots
-      val prevRecAttRoots = recAttsVarMap.getRoots
+        // Collect all the roots known in the TypesVarMap.
+        // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
+        val prevTypeRoots = typesVarMap.getRoots
+        val prevMonoidRoots = monoidsVarMap.getRoots
+        val prevRecAttRoots = recAttsVarMap.getRoots
 
-      // Type the rhs body of the Bind
-      solve(constraints(e))
-      val t = expType(e)
-      val expected = patternType(p)
-      if (!unify(t, expected)) {
-        tipeErrors += UnexpectedType(walk(t), walk(expected), Some("Bind"), Some(e.pos))
-        None
-      } else {
+        // Type the rhs body of the Bind
+        solve(constraints(e))
+        val t = expType(e)
+        val t1 = find(t)
+
+        if (!structuralMatch(p, t1)) {
+          tipeErrors += PatternMismatch(p, walk(t1), Some(p.pos))
+          return None
+        }
+
+        val tp = buildPatternType(p, t1)
+
+        val r = unify(patternType(p), tp)
+        if (!r) {
+          tipeErrors += UnexpectedType(walk(patternType(p)), walk(tp), None, Some(p.pos))
+          return None
+        }
+
+        val r1 = unify(tp, t1)
+        if (!r1) {
+          tipeErrors += UnexpectedType(walk(tp), walk(t1), None, Some(e.pos))
+          return None
+        }
+
         // Find all type variables used in the type
         val typeVars = getVariableTypes(t)
         val monoidVars = getVariableMonoids(t)
@@ -504,6 +519,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
         Some(FreeSymbols(freeTypeSyms, freeMonoidSyms, freeAttSyms))
       }
+      aux
   }
 
   /** Return the sequence of types in a pattern.
@@ -611,7 +627,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       def getDecl(n: RawNode): Option[Decl] = n match {
         case b: Bind                 => Some(b)
         case g: Gen                  => Some(g)
-        case i: Iterator             => Some(i)
         case f: FunAbs               => Some(f)
         case tree.parent.pair(_, n1) => getDecl(n1)
         case _                       => None
@@ -628,7 +643,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       def getDecl(n: RawNode): Option[Decl] = n match {
         case b: Bind                 => Some(b)
         case g: Gen                  => Some(g)
-        case i: Iterator             => Some(i)
         case f: FunAbs               => Some(f)
         case tree.parent.pair(_, n1) => getDecl(n1)
         case _                       => None
@@ -728,14 +742,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** The type corresponding to a given pattern.
     */
-  private def patternType(p: Pattern): Type = p match {
-    case PatternIdn(idn) =>
-      entity(idn) match {
-        case VariableEntity(_, t) => t
-        case _                    => NothingType()
-      }
-    case PatternProd(ps) =>
-      RecordType(Attributes(ps.zipWithIndex.map { case (p1, idx) => AttrType(s"_${idx + 1}", patternType(p1)) }), None)
+  private lazy val patternType: Pattern => Type = attr {
+    p => TypeVariable()
   }
 
   /** The type of an expression.
@@ -963,6 +971,35 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     idnExp => lookup(env1.in(idnExp), idnExp.idn.idn, UnknownEntity())
   }
 
+  private def structuralMatch(p: Pattern, t: Type): Boolean = {
+    def recurse(p: Pattern, t: Type): Boolean = (p, t) match {
+      case (_: PatternIdn, _) => true
+      case (PatternProd(ps), RecordType(Attributes(atts), _)) if ps.length == atts.length =>
+        ps.zip(atts).map{ case (p1, att) => recurse(p1, att.tipe) }.forall(identity)
+      case _ => false
+    }
+
+    recurse(p, t)
+  }
+
+  private def buildPatternType(p: Pattern, t: Type): Type = {
+    def recurse(p: Pattern, t: Type): Type = (p, t) match {
+      case (PatternIdn(idn), _) =>
+        entity(idn) match {
+          case VariableEntity(_, t) => t
+          case _                    => NothingType()
+        }
+      case (PatternProd(ps), RecordType(Attributes(atts), name)) =>
+        assert(ps.length == atts.length)
+        RecordType(Attributes(ps.zip(atts).map{ case (p1, att) => AttrType(att.idn, recurse(p1, att.tipe)) }), name)
+    }
+
+    recurse(p, t)
+  }
+
+  expType of FunAbs could create a patternType as before, and set its idn names to _1 and _2
+  this would be fine but then funapp still breaks
+
   /** Type Checker constraint solver.
     * Solves a sequence of AND constraints.
     */
@@ -1001,7 +1038,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         find(t) match {
           case CollectionType(m, inner) =>
             val fromMs = gs.map {
-              case Iterator(p, e) =>
+              case Gen(p, e) =>
                 val t1 = expType(e)
                 find(t1) match {
                   case t: CollectionType => t
@@ -1051,7 +1088,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           if (fromTypes.length == 1)
             fromTypes.head
           else {
-            val idns = s.from.map { case Iterator(Some(PatternIdn(IdnDef(idn))), _) => idn }
+            val idns = s.from.map { case Gen(Some(PatternIdn(IdnDef(idn))), _) => idn }
             CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }), None))
           }
 //        logger.debug(s"t1 is $t1")
@@ -1063,7 +1100,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         logger.debug(s"r $s tfind ${walk(t)} t1find ${walk(t1)}")
         r
 
-      case InheritType(b @ Bind(p, e)) =>
+      case BoundByType(b @ Bind(p, e)) =>
         tipeBind(b) match {
           case Some(_: FreeSymbols) => true
           case _ => false
@@ -1122,6 +1159,50 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 tipeErrors += AmbiguousIdn(idn)
                 false
             }
+        }
+
+      case PatternHasType(p) =>
+        val t = patDecl(p) match {
+          case Some(Gen(_, e)) =>
+            val t1 = expType(e)
+            find(t1) match {
+              case CollectionType(_, inner) => Some(inner)
+              case _ => None
+            }
+          case Some(f: FunAbs) =>
+            val t1 = expType(f)
+            find(t1) match {
+              case f1: FunType => Some(f1.t1)
+              case _ => None
+            }
+        }
+
+        t match {
+          case Some(t1) =>
+            val nt = find(t1)
+
+            if (!structuralMatch(p, nt)) {
+              tipeErrors += PatternMismatch(p, walk(nt), Some(p.pos))
+              return false
+            }
+
+            val tp = buildPatternType(p, nt)
+
+            val r = unify(patternType(p), tp)
+            if (!r) {
+              tipeErrors += UnexpectedType(walk(patternType(p)), walk(tp), None, Some(p.pos))
+              return false
+            }
+
+            val r1 = unify(tp, nt)
+            if (!r1) {
+              tipeErrors += UnexpectedType(walk(tp), walk(nt), None, Some(p.pos))
+              return false
+            }
+            r1
+          case None =>
+            // TODO: Not sure about this one but believe there must be a semantic error reported previously so keep silent
+            false
         }
     }
 
@@ -1221,6 +1302,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Constraints of a node.
     * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
     */
+  // TODO: Decide what goes in expType, what doesn't. Whatever we decide, make it coherent. Could be to put everything but consts in constraint?
+  // TODO: Or could be to put things that are constant - ie. depend on primitive types or expTypes only - on the expTYpe directy. The adv of the latter is that if
+  // TODO: likely puts much less load in the constraint solver because there's less constraints.
   // TODO: With Ben, we sort of agree that we should re-order constraints so that the stuff that provides more information goes first.
   // TODO: Typically this means HasType(e, IntType()) goes before a SameType(n, e). We believe this may impact the precision of error reporting.
   def constraint(n: RawNode): Seq[Constraint] = {
@@ -1257,6 +1341,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e1, BoolType(), Some("if condition must be a boolean")),
           SameType(e2, e3, Some("then and else must be of the same type")),
           SameType(n, e2))
+
+      case FunAbs(p, _) =>
+        Seq(
+          PatternHasType(p))
 
       // Rule 8
       case n@FunApp(f, e) =>
@@ -1366,17 +1454,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case Gen(None, e) =>
         Seq(
           HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
-      case Gen(Some(p), e) =>
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), patternType(p))))
 
-      case b@Bind(p, e) =>
+      case g @ Gen(Some(p), e) =>
         Seq(
-          InheritType(b))
+          HasType(e, CollectionType(MonoidVariable(), patternType(p))),
+          PatternHasType(p))
 
-      case Iterator(Some(p), e) =>
+      case b: Bind =>
         Seq(
-          HasType(e, CollectionType(MonoidVariable(), patternType(p))))
+          BoundByType(b))
 
       // Operators
 
@@ -1606,10 +1692,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * The constraints are returned in an "ordered sequence", i.e. the child constraints are collected before the current node's constraints.
     */
   // TODO: Move constraint(n) to top-level and apply it always at the end
+  // TODO: It seems to Miguel that this is all just a simple top down collect except the case of Bind in a Comp or ExpBlock
+  // TODO: So perhaps this can be refactored to make that case evident and all others be just a kiama collect, adding ourselves (node n) last.
   lazy val constraints: Exp => Seq[Constraint] = attr {
     case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case g @ Gen(_, e1) => constraints(e1) ++ constraint(g) case b @ Bind(_, e1) => constraint(b) } ++ constraints(e) ++ constraint(n)
     case n @ Select(from, _, g, proj, w, o, h) =>
-      val fc = from.flatMap { case it @ Iterator(_, e) => constraints(e) ++ constraint(it) }
+      val fc = from.flatMap { case it @ Gen(_, e) => constraints(e) ++ constraint(it) }
       val wc = if (w.isDefined) constraints(w.get) else Nil
       val gc = if (g.isDefined) constraints(g.get) else Nil
       val oc = if (o.isDefined) constraints(o.get) else Nil
@@ -1685,10 +1773,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
 
       // Returns true if `p`p used in the from
-      def inFrom(from: Seq[Iterator]): Boolean = {
+      def inFrom(from: Seq[Gen]): Boolean = {
         for (f <- from) {
           f match {
-            case Iterator(_, e) => if (inExp(e)) return true
+            case Gen(_, e) => if (inExp(e)) return true
           }
         }
         false

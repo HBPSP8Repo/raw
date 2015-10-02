@@ -86,9 +86,9 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Attribution w
 
       val nproj =
         if (ns.from.length == 1)
-          IdnExp(IdnUse(ns.from.head.idn.get.idn.idn))
+          IdnExp(IdnUse(ns.from.head.p.get.asInstanceOf[PatternIdn].idn.idn))
         else
-          RecordCons(ns.from.zipWithIndex.map { case (f, idx) => AttrCons(s"_${idx + 1}", IdnExp(IdnUse(f.idn.get.idn.idn)))})
+          RecordCons(ns.from.zipWithIndex.map { case (f, idx) => AttrCons(s"_${idx + 1}", IdnExp(IdnUse(f.p.get.asInstanceOf[PatternIdn].idn.idn)))})
 
       val partition =
         if (ns.where.isDefined)

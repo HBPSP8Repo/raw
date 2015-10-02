@@ -51,8 +51,6 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case FunAbs(p, e)                   => "\\" <> apply(p) <+> "->" <+> apply(e)
         case Gen(Some(p), e)                => apply(p)  <+> "<-" <+> apply(e)
         case Gen(None, e)                   => "<-" <+> apply(e)
-        case Iterator(Some(p), e)           => apply(p) <+> "in" <+> apply(e)
-        case Iterator(None, e)              => apply(e)
         case Bind(p, e)                     => apply(p) <+> ":=" <+> apply(e)
         case ExpBlock(bs, e)                => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
         case Sum(e)                         => "sum" <> parens(apply(e))

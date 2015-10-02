@@ -217,17 +217,13 @@ object Calculus {
 
   /** Select
     */
-  case class Select(from: Seq[Iterator],
+  case class Select(from: Seq[Gen],
                     distinct: Boolean,
                     group: Option[Exp],
                     proj: Exp,
                     where: Option[Exp],
                     order: Option[Exp],
                     having: Option[Exp]) extends Exp
-
-  /** Iterator
-    */
-  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Decl
 
   /** Partition
     */

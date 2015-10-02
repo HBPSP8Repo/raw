@@ -13,6 +13,8 @@ case class UnknownDecl(i: Calculus.IdnNode) extends Error
 
 case class AmbiguousIdn(idn: Calculus.IdnNode) extends Error
 
+case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[Position] = None) extends Error
+
 case class UnknownPartition(p: Calculus.Partition) extends Error
 
 case class CollectionRequired(t: Type, p: Option[Position] = None) extends Error

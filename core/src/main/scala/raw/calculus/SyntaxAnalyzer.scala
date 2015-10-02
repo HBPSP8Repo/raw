@@ -331,12 +331,12 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val iterators = rep1sep(iterator, ",")
 
-  lazy val iterator: PackratParser[Iterator] =
+  lazy val iterator: PackratParser[Gen] =
     positioned(
-      ident ~ (kwIn ~> mergeExp) ^^ { case i ~ e => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
-      mergeExp ~ (kwAs ~> ident) ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
-      mergeExp ~ ident ^^ { case e ~ i => Iterator(Some(PatternIdn(IdnDef(i))), e)} |
-      mergeExp ^^ { case e => Iterator(None, e)})
+      ident ~ (kwIn ~> mergeExp) ^^ { case i ~ e => Gen(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ~ (kwAs ~> ident) ^^ { case e ~ i => Gen(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ~ ident ^^ { case e ~ i => Gen(Some(PatternIdn(IdnDef(i))), e)} |
+      mergeExp ^^ { case e => Gen(None, e)})
 
   lazy val consMonoid: PackratParser[Exp] =
     positioned(collectionMonoid ~ ("(" ~> exp <~ ")") ^^ { case m ~ e => ConsCollectionMonoid(m, e) })

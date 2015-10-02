@@ -2,6 +2,7 @@ package raw
 package calculus
 
 class SyntaxAnalyzerTest extends FunTest {
+
   def matches(q: String, expected: String): Unit = {
     matches(q, Some(expected))
   }
@@ -180,7 +181,7 @@ class SyntaxAnalyzerTest extends FunTest {
   test("record projection #2") {
     matches(
       """((`Employee Name`: "Ben", Age: 35).`Employee Name`, "Foo")._1""",
-      """(_1: (`Employee Name`: "Ben", Age: 35).`Employee Name`, _2: "Foo")._1""")
+      """(`Employee Name`: (`Employee Name`: "Ben", Age: 35).`Employee Name`, _2: "Foo")._1""")
   }
 
   test("expression block #1") {
@@ -500,15 +501,15 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("select name from students") {
-    matches("select name from students")
+    matches("select name from students", "select name from <- students")
   }
 
   test("select name from s in students") {
-    matches("select name from s in students")
+    matches("select name from students", "select name from s <- students")
   }
 
   test("select s.name from s in students") {
-    matches("select s.name from s in students")
+    matches("select s.name from s <- students")
   }
 
   test("select s.name as n from s in students") {
@@ -536,11 +537,11 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("select s.dept, count(partition) from students s group by s.dept") {
-    sameAST("select s.dept, count(partition) from students s group by s.dept", "select _1: s.dept, _2: count(partition) from students s group by s.dept")
+    sameAST("select s.dept, count(partition) from students s group by s.dept", "select dept: s.dept, _2: count(partition) from students s group by s.dept")
   }
 
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
-    sameAST("select dpt, count(partition) as n from students s group by dpt: s.dept", "select _1: dpt, n: count(partition) from students s group by dpt: s.dept")
+    sameAST("select dpt, count(partition) as n from students s group by dpt: s.dept", "select dpt: dpt, n: count(partition) from students s group by dpt: s.dept")
   }
 
   test("select - fun stuff #1") {

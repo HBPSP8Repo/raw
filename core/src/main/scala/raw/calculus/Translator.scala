@@ -17,7 +17,7 @@ class Translator(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     case s @ Select(from, distinct, None, proj, where, None, None) =>
       val whereq = if (where.isDefined) Seq(where.head) else Seq()
       analyzer.tipe(s) match {
-        case CollectionType(m, _) => Comp(m, from.map { case Iterator(Some(p), e) => Gen(Some(p), e) } ++ whereq, proj)
+        case CollectionType(m, _) => Comp(m, from ++ whereq, proj)
       }
   }
 
