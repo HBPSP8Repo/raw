@@ -23,6 +23,18 @@ import spray.util.LoggingContext
 
 import scala.concurrent.Future
 
+/* Object mapper used to read/write any JSON received/sent by the rest server */
+object DefaultJsonMapper extends StrictLogging {
+  val mapper = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.configure(SerializationFeature.INDENT_OUTPUT, true)
+    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+    om.setSerializationInclusion(Include.ALWAYS)
+    om
+  }
+}
+
 
 /* Generic exception, which the request handler code can raise to send a 400 response to the client. 
 * This exception will be caught by the exception handler below and transformed in a 400 response*/
@@ -57,15 +69,7 @@ object RawRestServer {
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends SimpleRoutingApp with StrictLogging {
 
   import RawRestServer._
-
-  // Used to serialize the response into Json objects.
-  val mapper = {
-    val om = new ObjectMapper()
-    om.registerModule(DefaultScalaModule)
-    om.configure(SerializationFeature.INDENT_OUTPUT, true)
-    om.setSerializationInclusion(Include.ALWAYS)
-    om
-  }
+  import DefaultJsonMapper._
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {

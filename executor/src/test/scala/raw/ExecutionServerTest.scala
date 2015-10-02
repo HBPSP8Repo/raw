@@ -1,5 +1,7 @@
 package raw
 
+import raw.executor.ResultConverter
+
 class ExecutionServerTest extends AbstractSparkTest {
   val countAuthors = """Reduce(SumMonoid(),
      IntConst(1),
@@ -15,7 +17,7 @@ class ExecutionServerTest extends AbstractSparkTest {
   def getResult(query: RawQuery) = {
     val result = query.computeResult
     println("Result: " + result)
-    val resStr = convertToString(result)
+    val resStr = ResultConverter.convertToString(result)
     println("Result: " + resStr)
     resStr
   }

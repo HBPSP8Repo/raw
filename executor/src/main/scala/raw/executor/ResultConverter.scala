@@ -10,53 +10,20 @@ import com.google.common.collect.ImmutableMultiset
 import com.typesafe.config.{ConfigFactory, Config}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.LoggerFactory
-import raw.rest.ClientErrorException
+import raw.rest.DefaultJsonMapper
+import raw.utils.BoundedStringWriter
 
 import scala.collection.{Bag, JavaConversions}
 
-/* Used to limit the size of the responses sent to the REST client.
- */
-class BoundedStringWriter(val maxSize: Int) extends StringWriter(4096) {
+object ResultConverter extends StrictLogging {
 
-  private[this] def checkLength(appendSize: Int) {
-    if (super.getBuffer.length() + appendSize > maxSize) {
-      throw new ClientErrorException("Output exceeds maximum size: " + maxSize)
-    }
-  }
+  import DefaultJsonMapper._
 
-  override def write(c: Int) {
-    checkLength(1)
-    super.write(c.toChar)
-  }
+  val maxResultSize = ConfigFactory.load().getInt("raw.max-rest-response-size")
+  logger.info(s"raw.max-rest-response-size = ${maxResultSize}")
 
-  override def write(cbuf: Array[Char], off: Int, len: Int) {
-    checkLength(len)
-    super.write(cbuf, off, len)
-  }
-
-  override def write(str: String) {
-    checkLength(str.length)
-    super.write(str)
-  }
-
-  override def write(str: String, off: Int, len: Int) {
-    checkLength(len)
-    super.write(str, off, len)
-  }
-}
-
-
-trait ResultConverter extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
 
-  val mapper = {
-    val om = new ObjectMapper()
-    om.registerModule(DefaultScalaModule)
-    om.configure(SerializationFeature.INDENT_OUTPUT, true)
-    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-    om.setSerializationInclusion(Include.NON_EMPTY)
-    om
-  }
 
   def prettyPrintTree(tree: String): String = {
     val json = mapper.readValue(tree, classOf[Any])
@@ -66,12 +33,7 @@ trait ResultConverter extends StrictLogging {
   }
 
   def convertToJson(res: Any): String = {
-    //    logger.info("Converting result: " + res.getClass)
-    //    val value = convertToCollection(res)
-    //    logger.info("Converted to: " + value.getClass)
-    val size = ConfigFactory.load().getInt("raw.max-rest-response-size")
-    logger.info("Creating buffer with max size: " + size)
-    val sw = new BoundedStringWriter(size)
+    val sw = new BoundedStringWriter(maxResultSize)
     mapper.writeValue(sw, res)
     sw.toString
   }

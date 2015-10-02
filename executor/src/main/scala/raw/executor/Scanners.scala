@@ -165,7 +165,6 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
 
 
 object JsonRawScanner {
-  // TODO: Is this thread-safe?
   private final val jsonFactory = new JsonFactory()
   private final val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
@@ -183,6 +182,8 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
     val properties = schema.properties
     logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: ${manifest[T]}, TyppeTag: ${typeTag[T]}")
 
+    // TODO: The jsonFactory can generate a parser that manages the input stream if we pass it the file reference instead
+    // of the inputstream. Check if this works properly and if so, remove the ClosableIterator mechanism.
     val is: InputStream = Files.newInputStream(schema.dataFile)
     val jp = jsonFactory.createParser(is)
 
