@@ -73,6 +73,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case Unnest(child, path, pred)      => "unnest" <> parens(nest(group(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
         case OuterUnnest(child, path, pred) => "outer_unnest" <> parens(group(nest(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
         case Partition()                    => "partition"
+        case Star()                         => "*"
         case Select(f, d, g, proj, w, o, h) =>
           (if (d) ("select distinct") else "select") <+> apply(proj) <+>
             lsep(List(

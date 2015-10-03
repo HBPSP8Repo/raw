@@ -282,6 +282,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           // TODO: Ben: HELP!!!
           // Ben: I think it should inherit the nullables the related froms, something like that?
           te
+        case _: Star =>
+          // TODO: Ben: HELP!!!
+          te
         case Sum(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Max(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Min(e1) => makeNullable(te, Seq(), Seq(tipe(e1)))
@@ -338,26 +341,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
 
-  // TODO: Entity lookup based on attribute name
-  //       Normally, s.name is a RecordProj of 's', which itself is an entity
-  //       Now I'd see 'name'. This is not a user source, so looking up "data source" won't work.
-  //       So I'd need to look in the env.in(n) environment for all that is there, and see what matches name (?)
-  //       Actually, all that is in
-  //         for ( <- students ) yield set name
-  //       this could be sugar for
-  //         for ( $44 <- students ) yield set $44.name
-  //       but i need to find inconsistencies.
-  //       in a sense, starting from
-  //         for ( $44 <- students ) yield set name
-  //       makes some sense but still, the entity of 'name' is what?
-  //       i could introduce a new entity...
-  //       ...and in the Desugar, replace that entity by the thing it points to.
-  //       and in the type checker, get the type of the parent thing and apply the record proj to it...
-  //       but that's like being a constrained record thing.
-  //       The same mechanism should also support * e.g. for ( <- students, <- professors) yield list *
-  //       Which makes me think that perhaps we should have a phase where the records are all anon, but there
-  //       is a separate notion of Alias? also to cope with 'from students as s'?
-  //       records would then be structs with aliases? not sure... Better forget it for now.
+  /** Chain for looking up identifiers.
+    */
 
   private lazy val env: Chain[Environment] =
     chain(envin, envout)
@@ -424,43 +409,27 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case e: Exp => env.in(e)
   }
 
-  /////
+  /** Chain for looking up aliases, which are autmaticaly inferred from anonymous generators.
+    */
 
-  private lazy val env1: Chain[Environment] =
-    chain(env1in, env1out)
+  private lazy val aliasEnv: Chain[Environment] =
+    chain(aliasEnvIn, aliasEnvOut)
 
-  private def env1in(in: RawNode => Environment): RawNode ==> Environment = {
+  private def aliasEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
     case n if tree.isRoot(n) => rootenv()
     case c: Comp => enter(in(c))
     case b: ExpBlock => enter(in(b))
-    // TODO: Refactor if Algebra node, open scope
-    case r: Reduce => enter(in(r))
-    case f: Filter => enter(in(f))
-    case j: Join => enter(in(j))
-    case o: OuterJoin => enter(in(o))
-    case o: OuterUnnest => enter(in(o))
-    case n: Nest => enter(in(n))
-    case n: Nest2 => enter(in(n))
-    case n: Nest3 => enter(in(n))
     case s: Select => enter(in(s))
     case f: FunAbs => enter(in(f))
-//    case tree.parent.pair(_: Exp, g: Gen) => env1.in(g)
+    case a: LogicalAlgebraNode => enter(in(a))
   }
 
-  private def env1out(out: RawNode => Environment): RawNode ==> Environment = {
-    // Leaving a scope
+  private def aliasEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
     case c: Comp => leave(out(c))
-    case s: Select => leave(out(s))
-    case r: Reduce => leave(out(r))
-    case f: Filter => leave(out(f))
-    case j: Join => leave(out(j))
-    case o: OuterJoin => leave(out(o))
-    case o: OuterUnnest => leave(out(o))
-    case n: Nest => leave(out(n))
-    case n: Nest2 => leave(out(n))
-    case n: Nest3 => leave(out(n))
     case b: ExpBlock => leave(out(b))
+    case s: Select => leave(out(s))
     case f: FunAbs => leave(out(f))
+    case a: LogicalAlgebraNode => leave(out(a))
     case g @ Gen(None, e) =>
       def attEntity(env: Environment, att: AttrType, idx: Int) = {
         if (isDefinedInScope(env, att.idn))
@@ -489,9 +458,79 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           nenv
         case _ =>
-          env1.in(g)
+          aliasEnv.in(g)
       }
-    case n => env1.in(n)
+    case n => aliasEnv.in(n)
+  }
+
+  /** Chain for looking up the partition keyword.
+    */
+
+  private lazy val partitionEnv: Chain[Environment] =
+    chain(partitionEnvIn, partitionEnvOut)
+
+  private def partitionEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
+    case n if tree.isRoot(n) => { logger.debug("partition root"); rootenv() }
+    case tree.parent.pair(e: Exp, s: Select) if (e eq s.proj) && s.group.isDefined =>
+      logger.debug("defined partition scope")
+      val env = enter(in(e))
+      define(env, "partition", PartitionEntity(s, TypeVariable()))
+  }
+
+  private def partitionEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
+    case tree.parent.pair(e: Exp, s: Select) if (e eq s.proj) && s.group.isDefined =>
+      leave(out(e))
+  }
+
+  /** Chain for looking up the star keyword.
+    */
+
+  private lazy val starEnv: Chain[Environment] =
+    chain(starEnvIn, starEnvOut)
+
+  private def starEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
+    // TODO: Also for Comp?
+    case s: Select =>
+      logger.debug(s"now here")
+      val env =
+        if (tree.isRoot(s))
+          rootenv()
+        else
+          enter(in(s))
+      define(env, "*", StarEntity(s, TypeVariable()))
+    case c: Comp =>
+      logger.debug(s"now here")
+      val env =
+        if (tree.isRoot(c))
+          rootenv()
+        else
+          enter(in(c))
+      define(env, "*", StarEntity(c, TypeVariable()))
+    case n if tree.isRoot(n) => { logger.debug("star root"); rootenv() }
+  }
+
+  private def starEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
+    case s: Select => leave(out(s))
+    case c: Comp => leave(out(c))
+  }
+
+  /** lookup up attribute entity.
+    */
+  lazy val lookupAttributeEntity: IdnExp => Entity = attr {
+        // TODO: Why aliasEnv.in and not aliasEnv only ????
+    idnExp => lookup(aliasEnv.in(idnExp), idnExp.idn.idn, UnknownEntity())
+  }
+
+  /** lookup up partition entity.
+    */
+  lazy val partitionEntity: Partition => Entity = attr {
+    e => lookup(partitionEnv.in(e), "partition", UnknownEntity())
+  }
+
+  /** lookup up star entity.
+    */
+  private lazy val starEntity: Star => Entity = attr {
+    e => { logger.debug(s"we get here from ${CalculusPrettyPrinter(e)}"); lookup(starEnv.in(e), "*", UnknownEntity()) }
   }
 
   /////
@@ -784,13 +823,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   private lazy val expType: Exp => Type = attr {
 
-    case p: Partition =>
-      partitionSelect(p) match {
-        case Some(s) => selectFromsTypeVar(s)
-        case None    =>
-          tipeErrors += UnknownPartition(p)
-          NothingType()
-      }
+    case p: Partition => partitionType(partitionEntity(p))
+
+    case s: Star => starType(starEntity(s))
 
     // Rule 1
     case _: BoolConst  => BoolType()
@@ -1040,10 +1075,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  lazy val attributeEntity: IdnExp => Entity = attr {
-    idnExp => lookup(env1.in(idnExp), idnExp.idn.idn, UnknownEntity())
-  }
-
 //  private def structuralMatch(p: Pattern, t: Type): Boolean = {
 //    def recurse(p: Pattern, t: Type): Boolean = (p, t) match {
 //      case (_: PatternIdn, _) => true
@@ -1069,6 +1100,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //
 //    recurse(p, t)
 //  }
+
+  def tipeFromGens(gs: Seq[Gen]): Type = {
+    val fromTypes = gs.map { case g =>
+      val e = g.e
+      val t = expType(e)
+      find(t) match {
+        case t: CollectionType => t
+        case _                 => ??? // Not resolved yet: how to cope with maxMonoid below? Monoid variable? Is it even valid?
+      }
+    }
+    if (fromTypes.length == 1)
+      fromTypes.head
+    else {
+      val idns = gs.map { case Gen(Some(PatternIdn(IdnDef(idn))), _) => idn }
+      CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }), None))
+    }
+  }
+
+  private lazy val selectStarType: Select => Type = attr {
+    s => tipeFromGens(s.from)
+  }
+
+  private lazy val compStarType: Comp => Type = attr{
+    c => tipeFromGens(c.qs.collect { case g: Gen => g })
+  }
 
   /** Type Checker constraint solver.
     * Solves a sequence of AND constraints.
@@ -1141,34 +1197,48 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: NothingType           => true
         }
 
-      case PartitionHasType(s) =>
-        logger.debug(s"PartitionHasType ${CalculusPrettyPrinter(s)}")
-        val t = selectFromsTypeVar(s)
-        val fromTypes = s.from.map { case f =>
-          val e = f.e
-          val t = expType(e)
-          find(t) match {
-            case t: CollectionType => t
-            //case CollectionType(m, inner) => CollectionType(m, inner)
-            case _ => return true
-          }
+      case PartitionHasType(p) =>
+        // This repeats the constraint a bit too much; could be done once per select?
+        // Actually, for partition is weird
+        partitionEntity(p) match {
+          case PartitionEntity(s, t) =>
+            val t1 = selectStarType(s)
+            val r = unify(t, t1)
+            if (!r) {
+              ???
+              false
+            }
+            r
+          case _                   =>
+           tipeErrors += UnknownPartition(p)
+           false
         }
-        //        logger.debug(s"fromTypes $fromTypes")
-        val t1 =
-          if (fromTypes.length == 1)
-            fromTypes.head
-          else {
-            val idns = s.from.map { case Gen(Some(PatternIdn(IdnDef(idn))), _) => idn }
-            CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }), None))
-          }
-        //        logger.debug(s"t1 is $t1")
-        //        logger.debug(s"t is $t")
-        val r = unify(t, t1)
-        if (!r) {
-          tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(s.pos))
+
+      case StarHasType(s) =>
+        starEntity(s) match {
+          case StarEntity(e, t) =>
+            e match {
+              case s1: Select =>
+                val t1 = selectStarType(s1)
+                val r = unify(t, t1)
+                if (!r) {
+                  ???
+                  false
+                }
+                r
+              case c: Comp =>
+                val t1 = compStarType(c)
+                val r = unify(t, t1)
+                if (!r) {
+                  ???
+                  false
+                }
+                r
+            }
+          case _ =>
+            tipeErrors += UnknownStar(s)
+            false
         }
-        logger.debug(s"r $s tfind ${walk(t)} t1find ${walk(t1)}")
-        r
 
       case BoundByType(b @ Bind(p, e)) =>
         tipeBind(b) match {
@@ -1201,7 +1271,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: UnknownEntity =>
             // Identifier is unknown
 
-            attributeEntity(idnExp) match {
+            lookupAttributeEntity(idnExp) match {
               case AttributeEntity(att, _, _) =>
                 // We found the attribute identifier in a generator
                 getType(att.tipe)
@@ -1220,7 +1290,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _ =>
             // We found an entity for the identifier.
             // However, we must still check it is not ambiguous so we look up in the anonymous chain as well.
-            attributeEntity(idnExp) match {
+            lookupAttributeEntity(idnExp) match {
               case _: UnknownEntity =>
                 // All good
                 getType(idnType(idn))
@@ -1266,7 +1336,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(e.pos), Some(f.pos))
               return false
             }
-            r
+
             logger.debug(s"++expected ${PrettyPrinter(walk(expected))}")
             logger.debug(s"++output ${PrettyPrinter(walk(output))}")
 
@@ -1428,6 +1498,34 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     reconstructType(t, Set())
   }
 
+  def partitionType(p: Entity): Type = p match {
+    case PartitionEntity(_, t) => t
+    case _ => NothingType()
+  }
+
+  def starType(s: Entity): Type = s match {
+    case StarEntity(_, t) => t
+    case _ => NothingType()
+  }
+  
+//  def partitionType(p: Entity): Type = p match {
+//    case PartitionEntity(s, t) =>
+//      val fromTypes = s.from.map { case f =>
+//        val e = f.e
+//        val t = expType(e)
+//        find(t) match {
+//          case t: CollectionType => t
+//        }
+//      }
+//      if (fromTypes.length == 1)
+//        fromTypes.head
+//      else {
+//        val idns = s.from.map { case Gen(Some(PatternIdn(IdnDef(idn))), _) => idn }
+//        CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }), None))
+//      }
+//    case _ => NothingType()
+//  }
+
   /** Constraints of a node.
     * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
     */
@@ -1441,23 +1539,41 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     n match {
 
+      case p: Partition =>
+        Seq(
+          PartitionHasType(p))
+
+      case s: Star =>
+        Seq(
+          StarHasType(s))
+
       case n: IdnExp =>
         Seq(
           IdnIsDefined(n))
 
       // Select
       case n@Select(froms, d, g, proj, w, o, h) =>
-        val m =
-          if (o.isDefined)
-            ListMonoid()
-          else if (d)
-            SetMonoid()
-          else
-            MonoidVariable()
-        Seq(
-          PartitionHasType(n),
-          HasType(n, CollectionType(m, expType(proj))),
-          MaxOfMonoids(n, froms))
+        proj match {
+          // Special handling for "SELECT *"
+          // If we did not do a special handling of SELECT *, then the output of "SELECT * FROM students" would be a
+          // list of a list of students, instead of the SQL behaviour of a list of students
+          case s: Star =>
+            Seq(
+              HasType(n, starType(starEntity(s))))
+
+          case _ =>
+            val m =
+              if (o.isDefined)
+                ListMonoid()
+              else if (d)
+                SetMonoid()
+              else
+                MonoidVariable()
+
+            Seq(
+              HasType(n, CollectionType(m, expType(proj))),
+              MaxOfMonoids(n, froms))
+        }
 
       // Rule 4
       case n@RecordProj(e, idn) =>
@@ -1849,6 +1965,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
     case n: Partition => constraint(n)
+    case s: Star => constraint(s)
     case n @ Reduce(m, g, e) => constraints(g.e) ++ constraint(g) ++ constraints(e) ++ constraint(n)
     case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
@@ -1867,66 +1984,66 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Exists(e) => constraints(e) ++ constraint(n)
   }
 
-  /** Create a type variable for the FROMs part of a SELECT.
-    * Used for unification in the PartitionHasType() constraint.
-    */
-  private lazy val selectFromsTypeVar: Select => Type = attr {
-    _ => TypeVariable()
-  }
-
-  /** Walk up tree until we find a Select, if it exists.
-    */
-  private def findSelect(n: RawNode): Option[Select] = n match {
-    case s: Select                   => Some(s)
-    case n1 if tree.isRoot(n1)       => None
-    case tree.parent.pair(_, parent) => findSelect(parent)
-  }
-
-  /** Parent Select of the current Select, if it exists.
-    */
-  private lazy val selectParent: Select => Option[Select] = attr {
-    case n if tree.isRoot(n)         => None
-    case tree.parent.pair(_, parent) => findSelect(parent)
-  }
-
-  /** Finds the Select that this partition refers to.
-   */
-  lazy val partitionSelect: Partition => Option[Select] = attr {
-    case p =>
-
-      // Returns true if `p` used in `e`
-      def inExp(e: Exp) = {
-        var found = false
-        query[Exp] {
-          case n if n eq p => found = true
-        }(e)
-        found
-      }
-
-      // Returns true if `p`p used in the from
-      def inFrom(from: Seq[Gen]): Boolean = {
-        for (f <- from) {
-          f match {
-            case Gen(_, e) => if (inExp(e)) return true
-          }
-        }
-        false
-      }
-
-      findSelect(p) match {
-        case Some(s) =>
-          // The partition node is:
-          // - used in the FROM;
-          // - or in the GROUP BY;
-          // - or there is no GROUP BY (which means it cannot possibly refer to our own Select node)
-          if (inFrom(s.from) || (s.group.isDefined && inExp(s.group.get)) || s.group.isEmpty) {
-            selectParent(s)
-          } else {
-            Some(s)
-          }
-        case None => None
-      }
-  }
+//  /** Create a type variable for the FROMs part of a SELECT.
+//    * Used for unification in the PartitionHasType() constraint.
+//    */
+//  private lazy val selectFromsTypeVar: Select => Type = attr {
+//    _ => TypeVariable()
+//  }
+//
+//  /** Walk up tree until we find a Select, if it exists.
+//    */
+//  private def findSelect(n: RawNode): Option[Select] = n match {
+//    case s: Select                   => Some(s)
+//    case n1 if tree.isRoot(n1)       => None
+//    case tree.parent.pair(_, parent) => findSelect(parent)
+//  }
+//
+//  /** Parent Select of the current Select, if it exists.
+//    */
+//  private lazy val selectParent: Select => Option[Select] = attr {
+//    case n if tree.isRoot(n)         => None
+//    case tree.parent.pair(_, parent) => findSelect(parent)
+//  }
+//
+//  /** Finds the Select that this partition refers to.
+//   */
+//  lazy val partitionSelect: Partition => Option[Select] = attr {
+//    case p =>
+//
+//      // Returns true if `p` used in `e`
+//      def inExp(e: Exp) = {
+//        var found = false
+//        query[Exp] {
+//          case n if n eq p => found = true
+//        }(e)
+//        found
+//      }
+//
+//      // Returns true if `p`p used in the from
+//      def inFrom(from: Seq[Gen]): Boolean = {
+//        for (f <- from) {
+//          f match {
+//            case Gen(_, e) => if (inExp(e)) return true
+//          }
+//        }
+//        false
+//      }
+//
+//      findSelect(p) match {
+//        case Some(s) =>
+//          // The partition node is:
+//          // - used in the FROM;
+//          // - or in the GROUP BY;
+//          // - or there is no GROUP BY (which means it cannot possibly refer to our own Select node)
+//          if (inFrom(s.from) || (s.group.isDefined && inExp(s.group.get)) || s.group.isEmpty) {
+//            selectParent(s)
+//          } else {
+//            Some(s)
+//          }
+//        case None => None
+//      }
+//  }
 
   /** For debugging.
     * Prints all the type groups.

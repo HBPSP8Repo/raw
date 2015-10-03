@@ -21,7 +21,9 @@ object Constraint extends LazyLogging {
 
   case class InheritsOption(t: Type, ts: Seq[Type]) extends Constraint
 
-  case class PartitionHasType(s: Select) extends Constraint
+  case class PartitionHasType(p: Partition) extends Constraint
+
+  case class StarHasType(s: Star) extends Constraint
 
   case class MaxOfMonoids(e: Exp, gs: Seq[Decl]) extends Constraint
 

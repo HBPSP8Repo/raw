@@ -229,4 +229,8 @@ object Calculus {
     */
   case class Partition() extends Exp
 
+  /** Star
+    */
+  case class Star() extends Exp
+
 }

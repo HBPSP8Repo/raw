@@ -72,6 +72,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwCatch = "(?i)catch\\b".r
   val kwExcept = "(?i)except\\b".r
   val kwNew = "(?i)new\\b".r
+  val kwType = "(?i)type\\b".r
+  val kwAlias = "(?i)alias\\b".r
+  val kwStar = "*"
 
   // TODO: Alphabetic order
   // TODO: Add more general support for built-in functions(?)
@@ -80,7 +83,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
     kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
-    kwPartition | kwTry | kwCatch | kwExcept
+    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -232,6 +235,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     funAbs |
     partition |
     notExp |
+    starExp |
     "(" ~> exp <~ ")" |
     idnExp
 
@@ -377,6 +381,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val not: PackratParser[Not] =
     positioned(kwNot ^^^ Not())
+
+  lazy val starExp: PackratParser[Star] =
+    positioned(kwStar ^^^ Star())
 
   lazy val idnExp: PackratParser[IdnExp] =
     positioned(idnUse ^^ IdnExp)

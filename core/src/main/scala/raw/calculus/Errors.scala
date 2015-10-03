@@ -19,6 +19,8 @@ case class FunAppMismatch(f: Calculus.Exp, e: Calculus.Exp) extends Error
 
 case class UnknownPartition(p: Calculus.Partition) extends Error
 
+case class UnknownStar(s: Calculus.Star) extends Error
+
 case class CollectionRequired(t: Type, p: Option[Position] = None) extends Error
 
 case class IncompatibleMonoids(m: Monoid, t: Type, p: Option[Position] = None) extends Error
@@ -41,6 +43,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case PatternMismatch(pat, t, pos) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}} (${pos.getOrElse("no position")})"
     case FunAppMismatch(f, e) => s"arguments mismatch in function call f $f (${f.pos}) $e (${e.pos})"
     case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
+    case UnknownStar(s) => s"* is not declared as there is no SELECT or Comprehension (${s.pos})"
     case CollectionRequired(t, p) => s"expected collection but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case IncompatibleMonoids(m, t, p) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case IncompatibleTypes(t1, t2, p1, p2) =>

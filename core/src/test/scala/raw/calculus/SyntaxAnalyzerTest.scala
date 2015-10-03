@@ -562,4 +562,10 @@ class SyntaxAnalyzerTest extends FunTest {
          }""")
   }
 
+  test("star") {
+    matches(
+      "select * from students",
+      "select * from <- students")
+  }
+
 }

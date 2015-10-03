@@ -861,7 +861,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select partition from students s") {
-    failure("select partition from students s", TestWorlds.empty, UnknownPartition(Calculus.Partition()))
+    failure("select partition from students s", TestWorlds.professors_students, UnknownPartition(Calculus.Partition()))
   }
 
   test("select s.age, partition from students s group by s.age") {
@@ -1153,4 +1153,46 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
+  test("simple star select") {
+    success(
+      "select * from students",
+      TestWorlds.professors_students,
+      UserType(Symbol("students")))
+  }
+
+  test("select age, * from students group by age") {
+    success(
+      "select age, * from students group by age",
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("select age, count(*) from students group by age") {
+    success(
+      "select age, count(*) from students group by age",
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("select age, (select name from partition), count(*), max(select age from partition) from students group by age") {
+    success(
+      "select age, (select name from partition), count(*), max(select age from partition) from students group by age",
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  // TODO: Enforce sanity of group bys? Read what SQL does, but there's some requirements on what can be projected
+  // TODO: e.g. what does it mean to project name when grouping by age?
+
+  test("for ( <- students) yield list *") {
+    success(
+      "for ( <- students) yield list *",
+      TestWorlds.professors_students,
+      IntType())
+    // TODO: Fix this one :)
+  }
+
 }
+
+
+

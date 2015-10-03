@@ -118,8 +118,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Attribution w
   }
 
   private lazy val anonRecords = rule[Exp] {
-    case idnExp: IdnExp if analyzer.attributeEntity(idnExp) != UnknownEntity() =>
-      analyzer.attributeEntity(idnExp) match {
+    case idnExp: IdnExp if analyzer.lookupAttributeEntity(idnExp) != UnknownEntity() =>
+      analyzer.lookupAttributeEntity(idnExp) match {
         case AttributeEntity(t, g, idx) => RecordProj(IdnExp(IdnUse(anonGenSymbol(g).idn)), s"_${idx + 1}")
       }
   }

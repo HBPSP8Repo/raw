@@ -44,5 +44,12 @@ object SymbolTable extends Environments {
     */
   case class AttributeEntity(att: AttrType, g: Gen, idx: Int) extends Entity
 
+  /** Entity for a partition.
+    */
+  case class PartitionEntity(s: Select, t: Type) extends Entity
+
+  /** Entity for a *.
+    */
+  case class StarEntity(e: Exp, t: Type) extends Entity
 
 }
