@@ -4,7 +4,6 @@ package calculus
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 import raw.World._
-import raw.calculus.SymbolTable._
 
 import scala.util.parsing.input.Position
 
@@ -1101,13 +1100,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //    recurse(p, t)
 //  }
 
-  def tipeFromGens(gs: Seq[Gen]): Type = {
+  private def tipeFromGens(gs: Seq[Gen]): CollectionType = {
     val fromTypes = gs.map { case g =>
       val e = g.e
       val t = expType(e)
       find(t) match {
         case t: CollectionType => t
-        case _                 => ??? // Not resolved yet: how to cope with maxMonoid below? Monoid variable? Is it even valid?
+        //case _                 => Not resolved yet: how to cope with maxMonoid below? Monoid variable? Is it even valid?
       }
     }
     if (fromTypes.length == 1)
@@ -1118,11 +1117,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  private lazy val selectStarType: Select => Type = attr {
+  private lazy val selectType: Select => CollectionType = attr {
     s => tipeFromGens(s.from)
   }
 
-  private lazy val compStarType: Comp => Type = attr{
+  private lazy val compType: Comp => CollectionType = attr{
     c => tipeFromGens(c.qs.collect { case g: Gen => g })
   }
 
@@ -1198,11 +1197,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
 
       case PartitionHasType(p) =>
-        // This repeats the constraint a bit too much; could be done once per select?
-        // Actually, for partition is weird
         partitionEntity(p) match {
           case PartitionEntity(s, t) =>
-            val t1 = selectStarType(s)
+            val t1 = selectType(s)
             val r = unify(t, t1)
             if (!r) {
               ???
@@ -1219,7 +1216,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case StarEntity(e, t) =>
             e match {
               case s1: Select =>
-                val t1 = selectStarType(s1)
+                val t1 = selectType(s1)
                 val r = unify(t, t1)
                 if (!r) {
                   ???
@@ -1227,7 +1224,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 }
                 r
               case c: Comp =>
-                val t1 = compStarType(c)
+                val t1 = compType(c)
                 val r = unify(t, t1)
                 if (!r) {
                   ???
@@ -1632,8 +1629,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Rule 14
       case n@Comp(m: CollectionMonoid, qs, e1) =>
-        qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
-          Seq(HasType(n, CollectionType(m, expType(e1))))
+        e1 match {
+          // Special handling for "yield *"
+          case s: Star =>
+            Seq(
+              HasType(n, starType(starEntity(s))))
+
+          case _ =>
+            qs.collect { case Gen(_, e) => e }.map(e => ExpMonoidSubsetOf(e, m)) ++
+              Seq(HasType(n, CollectionType(m, expType(e1))))
+        }
 
       // Binary Expression
       case n@BinaryExp(_: EqualityOperator, e1, e2) =>
