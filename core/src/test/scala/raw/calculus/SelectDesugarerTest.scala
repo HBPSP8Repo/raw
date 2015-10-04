@@ -52,9 +52,9 @@ class SelectDesugarerTest extends CalculusTest {
     check(
       """select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age""",
       """for ($0 <- students) yield list
-            (_1:    $0.age,
+            (age:    $0.age,
              names: for ($1 <- for ($2 <- students; $0.age = $2.age) yield list $2) yield list
-                          (_1: $1.name,
+                          (name: $1.name,
                            _2: for ($3 <- for ($2 <- students; $0.age = $2.age) yield list $2; $1.name = $3.name) yield list $3))""",
       TestWorlds.professors_students)
   }
@@ -76,14 +76,14 @@ class SelectDesugarerTest extends CalculusTest {
   test("select A.title, count(partition) as n from authors A group by A.title") {
     check(
       "select A.title, count(partition) as n from authors A group by A.title",
-      """for ($0 <- authors) yield bag (_1: $0.title, n: \$1 -> for ($2 <- $1) yield sum 1(for ($3 <- authors; $0.title = $3.title) yield bag $3))""",
+      """for ($0 <- authors) yield bag (title: $0.title, n: \$1 -> for ($2 <- $1) yield sum 1(for ($3 <- authors; $0.title = $3.title) yield bag $3))""",
       TestWorlds.publications)
   }
 
   test("select A.title, partition as people from authors A group by A.title") {
     check(
       "select A.title, partition as people from authors A group by A.title",
-      """for ($0 <- authors) yield bag (_1: $0.title, people: for ($3 <- authors; $0.title = $3.title) yield bag $3)""",
+      """for ($0 <- authors) yield bag (title: $0.title, people: for ($3 <- authors; $0.title = $3.title) yield bag $3)""",
       TestWorlds.publications
     )
   }
@@ -91,7 +91,7 @@ class SelectDesugarerTest extends CalculusTest {
   test("select A.title, (select A.year from A in partition) as years from authors A group by A.title") {
     check(
       "select A.title, (select A.year from A in partition) as years from authors A group by A.title",
-      """for ($0 <- authors) yield bag (_1: $0.title, years: for ($3 <- for ($4 <- authors; $0.title = $4.title) yield bag $4) yield bag $3.year)""",
+      """for ($0 <- authors) yield bag (title: $0.title, years: for ($3 <- for ($4 <- authors; $0.title = $4.title) yield bag $4) yield bag $3.year)""",
       TestWorlds.publications)
   }
 
@@ -116,7 +116,7 @@ class SelectDesugarerTest extends CalculusTest {
              group by A.title) G
       """,
       """for ($10 <- for ($0 <- authors) yield bag (title: $0.title, people: for ($3 <- authors; $0.title = $3.title) yield bag $3))
-          yield bag (_1: $10.title, stats: for ($12 <- $10.people) yield set (year: $12.year, N: \$13 -> for ($14 <- $13) yield sum 1(for ($22 <- $10.people; $12.year = $22.year) yield bag $22)))
+          yield bag (title: $10.title, stats: for ($12 <- $10.people) yield set (year: $12.year, N: \$13 -> for ($14 <- $13) yield sum 1(for ($22 <- $10.people; $12.year = $22.year) yield bag $22)))
       """,
       TestWorlds.publications)
   }
