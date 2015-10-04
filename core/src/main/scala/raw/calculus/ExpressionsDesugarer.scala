@@ -5,13 +5,11 @@ import org.kiama.attribution.Attribution
 
 /** Desugar the expressions such as Count, Max, ...
   */
-class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with SemanticTransformer {
+class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   import scala.collection.immutable.Seq
-  import org.kiama.util.UnknownEntity
   import org.kiama.rewriting.Cloner._
   import Calculus._
-  import SymbolTable.AttributeEntity
 
   def strategy = desugar
 
@@ -77,6 +75,11 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends Attribution w
 
   /** De-sugar a SELECT with a GROUP BY
     */
+  // TODO: Rewrite this to use the partition entity notion.
+  // TODO: Could be split into 2 rules: one to replace partition by a corresponding Select,
+  // TODO: and another to rewrite the Select itself to remove the groupby part.
+  // TODO: Although removing the groupby part isn't exactly mission critical.
+  // TODO: If done bottom up, I don't see an issue, as long as the two rules are done together.
   private lazy val selectGroupBy = rule[Exp] {
     case s @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
       logger.debug(s"Applying selectGroupBy to ${CalculusPrettyPrinter(s)}")

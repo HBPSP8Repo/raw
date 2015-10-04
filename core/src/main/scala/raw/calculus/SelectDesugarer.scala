@@ -3,7 +3,7 @@ package calculus
 
 /** Desugar SQL to for comprehension
   */
-class Translator(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
+class SelectDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._

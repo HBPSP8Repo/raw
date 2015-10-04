@@ -1,9 +1,9 @@
 package raw
 package calculus
 
-class TranslatorTest extends CalculusTest {
+class SelectDesugarerTest extends CalculusTest {
 
-  val phase = "Translator"
+  val phase = "SelectDesugarer"
 
   test("select s.name from students s") {
     check(
