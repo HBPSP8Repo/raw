@@ -228,8 +228,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     ifThenElse |
     comp |
     select |
-    consMonoid |
-    zeroMonoid |
+    multiCons |
     unaryFun |
     sugarFun |
     funAbs |
@@ -342,11 +341,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       mergeExp ~ ident ^^ { case e ~ i => Gen(Some(PatternIdn(IdnDef(i))), e)} |
       mergeExp ^^ { case e => Gen(None, e)})
 
-  lazy val consMonoid: PackratParser[Exp] =
-    positioned(collectionMonoid ~ ("(" ~> exp <~ ")") ^^ { case m ~ e => ConsCollectionMonoid(m, e) })
-
-  lazy val zeroMonoid: PackratParser[Exp] =
-    positioned(collectionMonoid <~ ("(" ~ ")") ^^ { case m => ZeroCollectionMonoid(m) })
+  lazy val multiCons: PackratParser[MultiCons] =
+    positioned(collectionMonoid ~ ("(" ~> repsep(mergeExp, ",") <~ ")") ^^ { case m ~ es => MultiCons(m, es) })
 
   lazy val unaryFun: PackratParser[UnaryExp] =
     positioned(unaryOp ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => UnaryExp(op, e) })

@@ -1192,6 +1192,17 @@ class SemanticAnalyzerTest extends FunTest {
     // TODO: Fix this one :)
   }
 
+  test("list(1,2,3)") {
+    success("list(1, 2, 3)", TestWorlds.empty, IntType())
+  }
+
+  test("""set(("dbname", "authors"), ("dbname", "publications"))""") {
+    success(
+      """set(("dbname", "authors"), ("dbname", "publications"))""",
+      TestWorlds.empty,
+      IntType())
+  }
+
 }
 
 

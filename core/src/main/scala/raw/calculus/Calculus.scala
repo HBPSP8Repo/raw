@@ -159,6 +159,10 @@ object Calculus {
     */
   case class Exists(e: Exp) extends Sugar
 
+  /** MultiCons
+    */
+  case class MultiCons(m: CollectionMonoid, es: Seq[Exp]) extends Sugar
+
   /** Patterns
     */
   sealed abstract class Pattern extends CalculusNode

@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-/** Desugar SQL to for comprehension
+/** Desugar Select (w/o group bys) into a for comprehension
   */
 class SelectDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 

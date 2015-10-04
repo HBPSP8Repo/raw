@@ -568,4 +568,13 @@ class SyntaxAnalyzerTest extends FunTest {
       "select * from <- students")
   }
 
+  test("list(1,2,3)") {
+    matches("list(1, 2, 3)")
+  }
+
+  test("""set(("dbname", "authors"), ("dbname", "publications"))""") {
+    sameAST("""set(("dbname", "authors"), ("dbname", "publications"))""",
+            """set((_1: "dbname", _2: "authors"), (_1: "dbname", _2: "publications"))""")
+  }
+
 }

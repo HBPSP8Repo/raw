@@ -839,11 +839,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case ZeroCollectionMonoid(_: BagMonoid) => CollectionType(BagMonoid(), TypeVariable())
     case ZeroCollectionMonoid(_: ListMonoid) => CollectionType(ListMonoid(), TypeVariable())
     case ZeroCollectionMonoid(_: SetMonoid) => CollectionType(SetMonoid(), TypeVariable())
+    case MultiCons(_: BagMonoid, Nil) => CollectionType(BagMonoid(), TypeVariable())
+    case MultiCons(_: ListMonoid, Nil) => CollectionType(ListMonoid(), TypeVariable())
+    case MultiCons(_: SetMonoid, Nil) => CollectionType(SetMonoid(), TypeVariable())
 
     // Rule 10
     case ConsCollectionMonoid(_: BagMonoid, e1) => CollectionType(BagMonoid(), expType(e1))
     case ConsCollectionMonoid(_: ListMonoid, e1) => CollectionType(ListMonoid(), expType(e1))
     case ConsCollectionMonoid(_: SetMonoid, e1) => CollectionType(SetMonoid(), expType(e1))
+    case MultiCons(_: BagMonoid, e1 :: Nil) => CollectionType(BagMonoid(), expType(e1))
+    case MultiCons(_: ListMonoid, e1 :: Nil) => CollectionType(ListMonoid(), expType(e1))
+    case MultiCons(_: SetMonoid, e1 :: Nil) => CollectionType(SetMonoid(), expType(e1))
 
     // Unary expressions
     case UnaryExp(_: Not, _)     => BoolType()
@@ -1935,6 +1941,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         Seq(
           HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
 
+      case n @ MultiCons(m, head :: tail) if tail.nonEmpty =>
+        val thead = CollectionType(m, expType(head))
+        tail.map { case e => HasType(e, thead) }
+
       case _ =>
         Seq()
     }
@@ -1968,6 +1978,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
     case n @ ZeroCollectionMonoid(_) => constraint(n)
     case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
+    case n @ MultiCons(_, es) => es.flatMap(constraints) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
     case n: Partition => constraint(n)
     case s: Star => constraint(s)
