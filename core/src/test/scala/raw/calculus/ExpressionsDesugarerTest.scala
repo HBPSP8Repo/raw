@@ -53,4 +53,8 @@ class ExpressionsDesugarerTest extends CalculusTest {
       """\$0 -> for ($1 <- $0) yield sum 1(to_bag(set(1)))""")
   }
 
+  test("list(1,2,3)") {
+    check("list(1,2,3)", ???)
+  }
+
 }

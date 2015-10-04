@@ -20,6 +20,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       ruleCount +
       ruleIn +
       ruleExists +
+      ruleMultiCons +
       selectGroupBy)
 
   /** De-sugar sum
@@ -71,6 +72,14 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
     case Exists(e) =>
       val x = SymbolTable.next().idn
       Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), e)), BoolConst(true))
+  }
+
+  /** De-sugar MultiCons
+    */
+  private lazy val ruleMultiCons = rule[Exp] {
+    case MultiCons(m, Nil) => ZeroCollectionMonoid(m)
+    case MultiCons(m, head :: Nil) => ConsCollectionMonoid(m, head)
+    case MultiCons(m, head :: tail) => tail.fold(head)((a, b) => MergeMonoid(m, a, b))
   }
 
   /** De-sugar a SELECT with a GROUP BY
