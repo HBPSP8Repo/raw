@@ -371,7 +371,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
 
   lazy val partition: PackratParser[Partition] =
-    kwPartition ^^^ Partition()
+    positioned(kwPartition ^^^ Partition())
 
   lazy val notExp: PackratParser[UnaryExp] =
     positioned(not ~ exp ^^ { case op ~ e => UnaryExp(op, e)})
