@@ -193,7 +193,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     val rawUser = "joedoe"
     stageResourceDir("data/brain_feature_set", "downloaddata")
     val storageManager = restServer.rawServer.storageManager
-    storageManager.registerSchema("brain_feature_set", "downloaddata", rawUser)
+    storageManager.registerSchema("brain_feature_set", Paths.get("downloaddata"), rawUser)
     val scanner = storageManager.getScanner(rawUser, "brain_feature_set")
 
     val schemas = storageManager.listUserSchemas(rawUser)

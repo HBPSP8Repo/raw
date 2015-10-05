@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import raw.QueryLanguages.QueryLanguage
+import raw.RawQuery
 
 import scala.reflect._
 import scala.reflect.runtime.universe._
@@ -48,7 +49,9 @@ trait RawScalaLoader {
 //}
 
 object CodeGenerator extends StrictLogging {
+
   import ResultConverter._
+
   val rawClassloader = new RawMutableURLClassLoader(getClass.getClassLoader)
   private[this] val queryCompiler = new RawCompiler(rawClassloader)
   private[this] val ai = new AtomicInteger(0)
@@ -81,6 +84,10 @@ object CodeGenerator extends StrictLogging {
   //}
   //"""
   //  }
+
+  def compileQuery(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): RawQuery = {
+    queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
+  }
 
   def query(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
     val query = queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
@@ -131,24 +138,24 @@ class ${loaderClassName} extends SchemaTypeFactory {
 """
   }
 
-//  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
-//    s"""
-//package raw.query
-//
-//import java.nio.file.Path
-//import raw.executor._
-//
-//${caseClassesSource}
-//
-//class ${loaderClassName} extends RawScalaLoader {
-//  override def loadRawScanner(rawSchema: RawSchema): RawScanner[_] = {
-//    rawSchema.fileType match {
-//      case "json" => new JsonRawScanner[$innerType](rawSchema)
-//      case "csv" => new CsvRawScanner[$innerType](rawSchema)
-//      case a @ _ => throw new Exception("Unknown file type: " + a)
-//    }
-//  }
-//}
-//"""
-//  }
+  //  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
+  //    s"""
+  //package raw.query
+  //
+  //import java.nio.file.Path
+  //import raw.executor._
+  //
+  //${caseClassesSource}
+  //
+  //class ${loaderClassName} extends RawScalaLoader {
+  //  override def loadRawScanner(rawSchema: RawSchema): RawScanner[_] = {
+  //    rawSchema.fileType match {
+  //      case "json" => new JsonRawScanner[$innerType](rawSchema)
+  //      case "csv" => new CsvRawScanner[$innerType](rawSchema)
+  //      case a @ _ => throw new Exception("Unknown file type: " + a)
+  //    }
+  //  }
+  //}
+  //"""
+  //  }
 }

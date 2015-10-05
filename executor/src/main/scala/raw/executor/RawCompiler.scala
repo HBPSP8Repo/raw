@@ -93,6 +93,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
 
   //  private[this] val compiler = new Global(compilerSettings, new ConsoleReporter(compilerSettings))
   private[this] val compiler = new Global(compilerSettings, compileReporter)
+  private[this] val compilerLock = new Object
 
   /**
    * @return An instance of the query
@@ -172,20 +173,22 @@ class $queryName($args) extends RawQuery {
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
     logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
 
-    queryCompileTimer.time {
-      // Compile the query
-      val run = new compiler.Run()
-      run.compile(List(srcFile.toString))
-    }
+    compilerLock.synchronized {
+      queryCompileTimer.time {
+        // Compile the query
+        val run = new compiler.Run()
+        run.compile(List(srcFile.toString))
+      }
 
-    if (compileReporter.hasWarnings || compileReporter.hasErrors) {
-      logger.warn("Errors during compilation:\n " + compileReporter.infos.mkString("\n"))
-      // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
-      // compilation runs are not falsely reported in the subsequent runs
-      compileReporter.reset()
-      RawImpl.queryError.get() match {
-        case Some(queryError: QueryError) => throw new CompilationException(queryError)
-        case None => logger.warn("Compiler has warnings or errors but no query error object available.")
+      if (compileReporter.hasWarnings || compileReporter.hasErrors) {
+        logger.warn("Errors during compilation:\n " + compileReporter.infos.mkString("\n"))
+        // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
+        // compilation runs are not falsely reported in the subsequent runs
+        compileReporter.reset()
+        RawImpl.queryError.get() match {
+          case Some(queryError: QueryError) => throw new CompilationException(queryError)
+          case None => logger.warn("Compiler has warnings or errors but no query error object available.")
+        }
       }
     }
 
@@ -217,18 +220,19 @@ class $queryName($args) extends RawQuery {
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
 
     logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
-    loaderCompileTimer.time {
-      val run = new compiler.Run()
-      run.compile(List(srcFile.toString))
+    compilerLock.synchronized {
+      loaderCompileTimer.time {
+        val run = new compiler.Run()
+        run.compile(List(srcFile.toString))
+      }
+      if (compileReporter.hasErrors) {
+        // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
+        // compilation runs are not falsely reported in the subsequent runs
+        val message = "Compilation of data loader failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
+        compileReporter.reset()
+        return throw new RuntimeException(message)
+      }
     }
-    if (compileReporter.hasErrors) {
-      // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
-      // compilation runs are not falsely reported in the subsequent runs
-      val message = "Compilation of data loader failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
-      compileReporter.reset()
-      return throw new RuntimeException(message)
-    }
-
     val queryClass = s"raw.query.${className}"
     logger.info("Creating new instance of: " + queryClass)
     val clazz = rawClassloader.loadClass(queryClass)

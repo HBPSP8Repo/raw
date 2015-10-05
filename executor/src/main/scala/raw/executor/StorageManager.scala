@@ -72,18 +72,14 @@ class StorageManager(val storagePath: Path = StorageManager.defaultStorageDir) e
   }
 
 
-  def registerSchema(schemaName: String, dataDirectory: String, rawUser: String) = {
-    logger.info(s"Registering schema: $schemaName, directory: $dataDirectory, user: $rawUser")
-    val uri = new URI(dataDirectory)
-
+  def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String) = {
+    logger.info(s"Registering schema: $schemaName, stageDir: $stagingDirectory, user: $rawUser")
     val userDataDir = getUserStorageDir(rawUser)
-
     val finalDir = userDataDir.resolve(schemaName)
+
     logger.info(s"Moving to final destination: $finalDir")
     FileUtils.deleteDirectory(finalDir.toFile)
-
-    val tmpDir = storagePath.resolve(dataDirectory)
-    Files.move(tmpDir, finalDir)
+    Files.move(stagingDirectory, finalDir)
 
     val schema = loadSchema(rawUser, schemaName)
     val scanner = CodeGenerator.loadScanner(schemaName, schema)
