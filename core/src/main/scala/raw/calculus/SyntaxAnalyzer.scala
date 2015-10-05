@@ -125,6 +125,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(mergeExp ^^ {
       case e => e match {
         case RecordProj(_, field) => ParserAttrCons(e, Some(field))
+        case _: Partition => ParserAttrCons(e, Some("partition"))
         case IdnExp(IdnUse(x)) => ParserAttrCons(e, Some(x))
         case _ => ParserAttrCons(e, None)
       }

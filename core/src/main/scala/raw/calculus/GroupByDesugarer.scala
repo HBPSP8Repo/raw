@@ -1,7 +1,9 @@
 package raw
 package calculus
 
-class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
+import org.kiama.attribution.Attribution
+
+class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with SemanticTransformer {
 
   import org.kiama.rewriting.Cloner._
   import Calculus._
@@ -10,19 +12,28 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransform
   def strategy = desugar
 
   private lazy val desugar =
-    //attempt(manybu(desugarPartition)) <* reduce(dropGroupBy)
+//    attempt(manybu(desugarPartition)) <* reduce(dropGroupBy)
+//      attempt(manytd(desugarPartition)) <* reduce(dropGroupBy)
     reduce(selectGroupBy)
+
+  // TODO: I think the issue here is that I can only replace the projs after I did the froms, and I'm not sure this is respecting it
+  // TODO: Yep, makes sense; a congruence issue?
+
+  private lazy val partitionSelect: Select => Select = attr {
+    s =>
+      val ns = rewriteInternalIdns(deepclone(s))
+
+      if (ns.where.isDefined)
+        Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+      else
+        Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
+  }
 
   private lazy val desugarPartition = rule[Exp] {
     case p: Partition =>
+      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
       analyzer.partitionEntity(p) match {
-        case PartitionEntity(s, t) =>
-          val ns = rewriteInternalIdns(deepclone(s))
-
-          if (ns.where.isDefined)
-            Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
-          else
-            Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
+        case PartitionEntity(s, _) => partitionSelect(s)
       }
   }
 

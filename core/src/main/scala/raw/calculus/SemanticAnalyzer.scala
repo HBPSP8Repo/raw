@@ -71,11 +71,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private val tipeErrors =
     scala.collection.mutable.MutableList[Error]()
 
+  /** ...
+    */
+  lazy val tipeEverything = solve(constraints(tree.root))
+
   /** Return the base type of an expression, i.e. without the nullable flag.
     */
   lazy val baseType: Exp => Type = attr {
     e => {
-      solve(constraints(e))
+      tipeEverything
       walk(expType(e))
     }
   }
@@ -300,10 +304,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
-    baseType(tree.root) // Must type the entire program before checking for errors
-//    logger.debug(s"Final type map\n${typesVarMap.toString}")
-//    logger.debug(s"Final monoid map\n${monoidsVarMap.toString}")
-
+    tipeEverything // Must type the entire program before checking for errors
     badEntities ++ tipeErrors
   }
 
@@ -488,7 +489,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     chain(starEnvIn, starEnvOut)
 
   private def starEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
-    // TODO: Also for Comp?
+    // TODO: This has to be the same scoping rules as partition otherwise it will accept select blah from * as the outer query!!!!
+    // TODO: And we have to think about smtg similar for Comp so that it is only available after the yield
     case s: Select =>
       logger.debug(s"now here")
       val env =

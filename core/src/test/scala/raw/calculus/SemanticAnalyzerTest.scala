@@ -865,15 +865,15 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age, partition from students s group by s.age") {
-    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", UserType(Symbol("students"))))), None)))
+    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", UserType(Symbol("students"))))), None)))
   }
 
   test("select s.age, (select p.name from partition p) from students s group by s.age") {
-    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))), None)))
+    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))), None)))
   }
 
   test("select s.dept, count(partition) as n from students s group by s.dept") {
-    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("n", IntType()))), None)))
+    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("department", StringType()), AttrType("n", IntType()))), None)))
   }
 
   ignore("select dpt, count(partition) as n from students s group by dpt: s.dept") {
@@ -885,7 +885,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
-    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("_1",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("_1",StringType()), AttrType("_2",UserType(Symbol("students"))))),None))))),None)))
+    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name",StringType()), AttrType("partition",UserType(Symbol("students"))))),None))))),None)))
   }
 
   test("sum(list(1))") {
@@ -1128,7 +1128,6 @@ class SemanticAnalyzerTest extends FunTest {
       """
         |{
         | group_by_age := \xs -> for (x <- xs) yield list (x.age, (for (x1 <- xs; x1.age = x.age) yield list x1));
-        | //(group_by_age(students), group_by_age(professors))
         | group_by_age(students)
         |}
       """.stripMargin,
@@ -1138,7 +1137,51 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
+  test("...") {
+    success(
+      """
+        |{
+        | group_by_age := \xs -> for (x <- xs) yield list x;
+        | group_by_age(students)
+        |}
+      """.stripMargin,
+
+      TestWorlds.professors_students,
+      IntType())
+
+  }
+
+  test("cucu simpler #2") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    success(
+      """
+        |{
+        | group_by_age := \xs -> for (x <- xs) yield list (x.age, (for (x1 <- xs; x1.age = x.age) yield list x1));
+        | (group_by_age(students), group_by_age(professors))
+        |}
+      """.stripMargin,
+
+      TestWorlds.professors_students,
+      IntType())
+
+  }
+
   test("cucu") {
+    // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
+    success(
+      """
+        |{
+        | group_by_age := \xs -> select x.age, partition from x in xs group by x.age;
+        | group_by_age(students)
+        |}
+      """.stripMargin,
+
+      TestWorlds.professors_students,
+      IntType())
+
+  }
+
+  test("cucu #2") {
       // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
       success(
         """
@@ -1202,6 +1245,8 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       IntType())
   }
+
+  // TODO: Perhaps auto-name Partition field to PArtition instead of _2
 
 }
 
