@@ -470,9 +470,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     chain(partitionEnvIn, partitionEnvOut)
 
   private def partitionEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
-    case n if tree.isRoot(n) => { logger.debug("partition root"); rootenv() }
+    case n if tree.isRoot(n) => rootenv()
     case tree.parent.pair(e: Exp, s: Select) if (e eq s.proj) && s.group.isDefined =>
-      logger.debug("defined partition scope")
       val env = enter(in(e))
       define(env, "partition", PartitionEntity(s, TypeVariable()))
   }
@@ -489,30 +488,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     chain(starEnvIn, starEnvOut)
 
   private def starEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
-    // TODO: This has to be the same scoping rules as partition otherwise it will accept select blah from * as the outer query!!!!
-    // TODO: And we have to think about smtg similar for Comp so that it is only available after the yield
-    case s: Select =>
-      logger.debug(s"now here")
-      val env =
-        if (tree.isRoot(s))
-          rootenv()
-        else
-          enter(in(s))
+    case n if tree.isRoot(n) => rootenv()
+    case tree.parent.pair(e: Exp, s: Select) if e eq s.proj =>
+      val env = enter(in(e))
       define(env, "*", StarEntity(s, TypeVariable()))
-    case c: Comp =>
-      logger.debug(s"now here")
-      val env =
-        if (tree.isRoot(c))
-          rootenv()
-        else
-          enter(in(c))
+    case tree.parent.pair(e: Exp, c: Comp) if e eq c.e =>
+      val env = enter(in(e))
       define(env, "*", StarEntity(c, TypeVariable()))
-    case n if tree.isRoot(n) => { logger.debug("star root"); rootenv() }
   }
 
   private def starEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
-    case s: Select => leave(out(s))
-    case c: Comp => leave(out(c))
+    case tree.parent.pair(e: Exp, s: Select) if e eq s.proj =>
+      leave(out(e))
+    case tree.parent.pair(e: Exp, c: Comp) if e eq c.e =>
+      leave(out(e))
   }
 
   /** lookup up attribute entity.

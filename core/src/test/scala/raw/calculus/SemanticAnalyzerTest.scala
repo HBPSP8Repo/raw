@@ -868,6 +868,10 @@ class SemanticAnalyzerTest extends FunTest {
     success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", UserType(Symbol("students"))))), None)))
   }
 
+  test("select partition from students s group by s.age") {
+    success("select partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), UserType(Symbol("students"))))
+  }
+
   test("select s.age, (select p.name from partition p) from students s group by s.age") {
     success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))), None)))
   }
@@ -1209,43 +1213,60 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
-  test("simple star select") {
+  test("select * from students") {
     success(
       "select * from students",
       TestWorlds.professors_students,
       UserType(Symbol("students")))
   }
 
+  test("select age, * from students") {
+    success(
+      "select age, * from students",
+      TestWorlds.professors_students,
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))), None)))
+  }
+
   test("select age, * from students group by age") {
     success(
       "select age, * from students group by age",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))), None)))
+  }
+
+  test("select age, count(*) from students") {
+    success(
+      "select age, count(*) from students",
+      TestWorlds.professors_students,
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))), None)))
   }
 
   test("select age, count(*) from students group by age") {
     success(
       "select age, count(*) from students group by age",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))), None)))
   }
 
   test("select age, (select name from partition), count(*), max(select age from partition) from students group by age") {
     success(
       "select age, (select name from partition), count(*), max(select age from partition) from students group by age",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(ListMonoid(), StringType())), AttrType("_3", IntType()), AttrType("_4", IntType()))), None)))
   }
 
-  // TODO: Enforce sanity of group bys? Read what SQL does, but there's some requirements on what can be projected
-  // TODO: e.g. what does it mean to project name when grouping by age?
+  test("select name, count(*) from students group by age") {
+    success(
+      "select name, count(*) from students group by age",
+      TestWorlds.professors_students,
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("_2", IntType()))), None)))
+  }
 
   test("for ( <- students) yield list *") {
     success(
       "for ( <- students) yield list *",
       TestWorlds.professors_students,
-      IntType())
-    // TODO: Fix this one :)
+      UserType(Symbol("students")))
   }
 
   test("list(1,2,3)") {
@@ -1258,8 +1279,6 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       IntType())
   }
-
-  // TODO: Perhaps auto-name Partition field to PArtition instead of _2
 
 }
 
