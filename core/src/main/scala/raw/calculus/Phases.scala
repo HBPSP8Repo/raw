@@ -12,10 +12,10 @@ object Phases extends LazyLogging {
   private val phases = Seq(
     Seq(  "AnonGensDesugarer"         -> classOf[AnonGensDesugarer]),
     Seq(  "Uniquifier1"               -> classOf[Uniquifier]),
-    Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
-          "BlocksDesugarer"           -> classOf[BlocksDesugarer]),
     Seq(  "GroupByDesugarer"          -> classOf[GroupByDesugarer]),
     Seq(  "SelectDesugarer"           -> classOf[SelectDesugarer]),
+    Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
+          "BlocksDesugarer"           -> classOf[BlocksDesugarer]),
     Seq(  "Uniquifier2"               -> classOf[Uniquifier]),
     Seq(  "Simplifier1"               -> classOf[Simplifier],
           "Normalizer"                -> classOf[Normalizer]),
