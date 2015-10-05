@@ -13,6 +13,7 @@ import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.language.experimental.macros
+import scala.reflect.macros.runtime.AbortMacroException
 
 
 // TODO: Make sure we are using the immutable Seq/List, etc
@@ -95,8 +96,8 @@ object RawImpl {
    error. This is safe since the compiler is single threaded and is run on the same thread as the one running the
    RawCompiler instance which is invoking the compiler.
     */
-  val queryError = new ThreadLocal[Option[QueryError]] {
-    override def initialValue(): Option[QueryError] = None
+  val queryError = new ThreadLocal[Option[AnyRef]] {
+    override def initialValue(): Option[AnyRef] = None
   }
 }
 
@@ -109,17 +110,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   /** Bail out during compilation with error message. Use for internal errors. */
   def bail(message: String) = {
-//    logger.warn(s"Aborting compilation: $message")
     RawImpl.queryError.set(Some(InternalError(message)))
     c.abort(c.enclosingPosition, message)
   }
 
   def bail(queryError: QueryError) = {
-//    logger.warn(s"Aborting compilation: $queryError")
     RawImpl.queryError.set(Some(queryError))
     c.abort(c.enclosingPosition, "Compilation failed.")
   }
 
+
+  def bail(throwable: Throwable) = {
+    RawImpl.queryError.set(Some(throwable))
+    c.abort(c.enclosingPosition, "Compilation failed.")
+  }
 
   case class InferredType(rawType: raw.Type, isSpark: Boolean)
 
@@ -276,12 +280,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       */
     val code: Set[String] =
       anonRecords
-        .map{ case r =>
-          val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
-          logger.info(s"Build case class: $r.atts => $args")
-          recordTypeSym(r) match {
-            case Some(sym) => s"""case class $sym($args)"""
-            case None => bail(s"No case class available for record: $r") }}
+        .map { case r =>
+        val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
+        logger.info(s"Build case class: $r.atts => $args")
+        recordTypeSym(r) match {
+          case Some(sym) => s"""case class $sym($args)"""
+          case None => bail(s"No case class available for record: $r")
+        }
+      }
         .toSet
 
     code.map(c.parse)
@@ -1362,6 +1368,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
     logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
 
-    generateCode(makro, query, language, accessPaths)
+    try {
+      generateCode(makro, query, language, accessPaths)
+    } catch {
+      // raised by calling c.bail(). Just passthrough because we already set the error information in RawImpl.queryError
+      case t: AbortMacroException => throw t
+      case t: Throwable => bail(t) // Other unexpected problems, like MatchError. Call bail to set the error information
+    }
   }
 }

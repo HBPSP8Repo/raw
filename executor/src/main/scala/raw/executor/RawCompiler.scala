@@ -25,6 +25,7 @@ object RawCompiler {
 // Represents an error during query compilation.
 class CompilationException(val queryError: QueryError) extends Exception
 
+class InternalException(cause: Throwable) extends Exception(cause)
 
 class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
                   val baseOutputDir: Path = RawCompiler.defaultTargetDirectory) extends StrictLogging with Instrumented {
@@ -187,6 +188,7 @@ class $queryName($args) extends RawQuery {
         compileReporter.reset()
         RawImpl.queryError.get() match {
           case Some(queryError: QueryError) => throw new CompilationException(queryError)
+          case Some(t: Throwable) => throw new InternalException(t)
           case None => logger.warn("Compiler has warnings or errors but no query error object available.")
         }
       }
