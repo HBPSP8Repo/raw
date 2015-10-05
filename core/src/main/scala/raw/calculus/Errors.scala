@@ -66,7 +66,7 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
     super.pretty(show(n)).layout
 
   override def monoid(m: Monoid) = m match {
-    case MonoidVariable(c, i, _) =>
+    case m: GenericMonoid =>
       val c = m.commutative match {
         case Some(true) => Seq("commutative")
         case Some(false) => Seq("non-commutative")
@@ -85,7 +85,7 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
     // TODO: Replace this by a more useful description of possible alternative types with the given properties (e.g. expected a bag or a list)
     case CollectionType(m: MonoidVariable, innerType) =>
       def mdesc(m: Monoid) = m match {
-        case MonoidVariable(c, i, _) =>
+        case m: GenericMonoid =>
           val c = m.commutative match {
             case Some(true)  => Seq("commutative")
             case Some(false) => Seq("non-commutative")

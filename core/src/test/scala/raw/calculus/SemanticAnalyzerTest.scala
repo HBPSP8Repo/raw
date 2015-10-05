@@ -19,9 +19,9 @@ class SemanticAnalyzerTest extends FunTest {
 
   def success(query: String, world: World, expectedType: Type) = {
     val analyzer = go(query, world)
+    assert(analyzer.errors.isEmpty)
     val inferredType = analyzer.tipe(analyzer.tree.root)
     analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
-    assert(analyzer.errors.isEmpty)
     analyzer.printTypedTree()
     logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
     logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
@@ -461,7 +461,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""let polymorphism - not binding into functions""") {
-    val m = MonoidVariable(idempotent=Some(false))
+    val m = GenericMonoid(idempotent=Some(false))
     val z = TypeVariable()
     val n = NumberType()
     success(
@@ -487,7 +487,7 @@ class SemanticAnalyzerTest extends FunTest {
         }
 
       """, TestWorlds.empty,
-      UnexpectedType(FunType(CollectionType(MonoidVariable(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()))
+      UnexpectedType(FunType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()))
     )
   }
 
@@ -619,7 +619,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
-    val m = MonoidVariable(commutative = None, idempotent = Some(false))
+    val m = GenericMonoid(commutative = None, idempotent = Some(false))
     val z = TypeVariable()
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
@@ -629,7 +629,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\(x,y) -> for (z <- x) yield max y(z)""") {
-    val m = MonoidVariable(commutative = None, idempotent = None)
+    val m = GenericMonoid(commutative = None, idempotent = None)
     val z = TypeVariable()
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield max y(z)""", TestWorlds.empty,
@@ -898,7 +898,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("sum(1)") {
-    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), NumberType())))
   }
 
   test("max(list(1))") {
@@ -910,7 +910,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("max(1)") {
-    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), NumberType())))
   }
 
   test("min(list(1))") {
@@ -922,7 +922,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("min(1)") {
-    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), NumberType())))
   }
 
   test("avg(list(1))") {
@@ -934,7 +934,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("avg(1)") {
-    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), NumberType())))
   }
 
   test("count(list(1))") {
@@ -950,7 +950,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""count(1)""") {
-    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable())))
+    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), TypeVariable())))
   }
 
   test("to_bag(list(1))") {

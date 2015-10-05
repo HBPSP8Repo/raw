@@ -77,9 +77,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * If the constraints could not be solved, the program cannot be typed.
     */
   lazy val tipeEverything = {
-    if (!solve(constraints(tree.root))) {
-      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
-    }
+    solve(constraints(tree.root))
+//    if (!solve(constraints(tree.root))) {
+//      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
+//    }
   }
 
   /** Return the base type of an expression, i.e. without the nullable flag.
@@ -753,7 +754,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     def getMonoid(m: CollectionMonoid): CollectionMonoid = {
       val mr = if (monoidsVarMap.contains(m)) monoidsVarMap(m).root else m
       mr match {
-        case MonoidVariable(commutative, idempotent, sym) if monoidSyms.contains(sym) => MonoidVariable(commutative, idempotent, getNewSym(sym))
+        case MonoidVariable(ms, sym) =>
+          MonoidVariable(ms.map(getMonoid), if (monoidSyms.contains(sym)) getNewSym(sym) else sym)
         case _ => mr
       }
     }
@@ -863,32 +865,88 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n => TypeVariable()
   }
 
-  private def monoidsCompatible(m1: Monoid, m2: Monoid): Boolean =
-    !((m1.commutative.isDefined && m2.commutative.isDefined && m1.commutative != m2.commutative) ||
-      (m1.idempotent.isDefined && m2.idempotent.isDefined && m1.idempotent != m2.idempotent))
+//  private def monoidsCompatible(m1: Monoid, m2: Monoid): Boolean =
+//    !((m1.commutative.isDefined && m2.commutative.isDefined && m1.commutative != m2.commutative) ||
+//      (m1.idempotent.isDefined && m2.idempotent.isDefined && m1.idempotent != m2.idempotent))
+
+  private def maxOf(a: Option[Boolean], b: Option[Boolean]) = (a, b) match {
+    case (Some(true), _) => a
+    case (_, Some(true)) => b
+    case (None, _) => a
+    case (_, None) => b
+    case _         => a
+  }
+
+  private def props(m: Monoid) = (commutative(m), idempotent(m))
+
+  private def commutative(m: Monoid): Option[Boolean] = m match {
+    case _: PrimitiveMonoid => Some(true)
+    case _: SetMonoid => Some(true)
+    case _: BagMonoid => Some(true)
+    case _: ListMonoid => Some(false)
+    case MonoidVariable(ms, _) => ms.map(mFind).map(commutative).fold(Some(false))((a, b) => maxOf(a, b))
+  }
+
+  private def idempotent(m: Monoid): Option[Boolean] = m match {
+    case _: MaxMonoid => Some(true)
+    case _: MinMonoid => Some(true)
+    case _: MultiplyMonoid => Some(false)
+    case _: SumMonoid => Some(false)
+    case _: AndMonoid => Some(true)
+    case _: OrMonoid => Some(true)
+    case _: SetMonoid => Some(true)
+    case _: BagMonoid => Some(false)
+    case _: ListMonoid => Some(false)
+    case MonoidVariable(ms, _) => ms.map(mFind).map(idempotent).fold(Some(false))((a, b) => maxOf(a, b))
+  }
 
   private def unifyMonoids(m1: CollectionMonoid, m2: CollectionMonoid): Boolean = (mFind(m1), mFind(m2)) match {
-    case (_: SetMonoid, _: SetMonoid) => true
-    case (_: BagMonoid, _: BagMonoid) => true
-    case (_: ListMonoid, _: ListMonoid) => true
-    case (v1 @ MonoidVariable(c1, i1, _), v2 @ MonoidVariable(c2, i2, _)) if c1 == c2 && i1 == i2 =>
-      monoidsVarMap.union(v1, v2)
-      true
-    case (v1 @ MonoidVariable(c1, i1, _), v2 @ MonoidVariable(c2, i2, _)) if monoidsCompatible(v1, v2) =>
-      val nc = if (c1.isDefined) c1 else c2
-      val ni = if (i1.isDefined) i1 else i2
-      val nv = MonoidVariable(nc, ni)
-      monoidsVarMap.union(v1, v2).union(v2, nv)
-      true
-    case (v1: MonoidVariable, x2) if monoidsCompatible(v1, x2) =>
-      monoidsVarMap.union(v1, x2)
-      true
-    case (_, _: MonoidVariable) =>
-      unifyMonoids(m2, m1)
-    case _ =>
-      false
+    case (_: SetMonoid, _: SetMonoid)        => true
+    case (_: BagMonoid, _: BagMonoid)        => true
+    case (_: ListMonoid, _: ListMonoid)      => true
+    case (mv: MonoidVariable, s: SetMonoid)  => (commutative(mv), idempotent(mv)) match {
+      case (Some(false), _) => false
+      case (_, Some(false)) => false
+      case _ =>
+        monoidsVarMap.union(mv, s)
+        true
+    }
+    case (mv: MonoidVariable, b: BagMonoid)  => (commutative(mv), idempotent(mv)) match {
+      case (Some(false), _) => false
+      case (_, Some(true)) => false
+      case _               =>
+        monoidsVarMap.union(mv, b)
+        true
+    }
+    case (mv: MonoidVariable, l: ListMonoid) => (commutative(mv), idempotent(mv)) match {
+      case (Some(true), _) => false
+      case (_, Some(true)) => false
+      case _ =>
+        monoidsVarMap.union(mv, l)
+        true
+    }
+    case (mv1: MonoidVariable, mv2: MonoidVariable) =>
+      val (mv1c, mv1i) = props(mv1)
+      val (mv2c, mv2i) = props(mv2)
+      if ((mv1c.isDefined && mv2c.isDefined && mv1c != mv2c) ||
+          (mv1i.isDefined && mv2i.isDefined && mv1i != mv2i))
+        false
+      else {
+        val nc = maxOf(commutative(mv1), commutative(mv2))
+        val ni = maxOf(idempotent(mv1), idempotent(mv2))
+        if ((nc, ni) == props(mv1))
+          monoidsVarMap.union(mv2, mv1)
+        else if ((nc, ni) == props(mv2))
+          monoidsVarMap.union(mv1, mv2)
+        else {
+          val nv = MonoidVariable(mv1.ms ++ mv2.ms)
+          monoidsVarMap.union(mv1, mv2).union(mv2, nv)
+        }
+        true
+      }
+    case (m1, mv: MonoidVariable) => unifyMonoids(mv, m1)
   }
-  
+
   private def unifyAttributes(a1: RecordAttributes, a2: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = (aFind(a1), aFind(a2)) match {
     case (Attributes(atts1), Attributes(atts2)) =>
       if (atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn))
@@ -1047,30 +1105,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  // TODO: I'm afraid this is, in the last pattern case, creating new MonoidVariables with new symbols w/o connecting w/ previous ones
-  private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid = {
-    val ms: Seq[CollectionMonoid] = ts.map(_.m).map(mFind)
-    logger.debug(s"ms is $ms")
-
-    def maxOf(a: Option[Boolean], b: Option[Boolean]) = (a, b) match {
-      case (Some(true), _) => a
-      case (_, Some(true)) => b
-      case (None, _) => a
-      case (_, None) => b
-      case _         => a
-    }
-
-    val props: Seq[(Option[Boolean], Option[Boolean])] = ms.map(m => (m.commutative, m.idempotent))
-
-    val m = props.fold((Some(false), Some(false)))((a, b) => (maxOf(a._1, b._1), maxOf(a._2, b._2)))
-
-    (m._1, m._2) match {
-      case (Some(true), Some(true))  => SetMonoid()
-      case (Some(true), Some(false)) => BagMonoid()
-      case (Some(false), Some(false)) => ListMonoid()
-      case _ => MonoidVariable(m._1, m._2)
-    }
-  }
+  /** This creates a monoid variable... comment it later :) it's used to postpone unification later: see MaxOfMonoid
+    * where unifyMonoids is copied with the *NEW VARIABLE* we created here
+    */
+  private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid =
+    MonoidVariable(ts.map(_.m).toSet)
 
 //  private def structuralMatch(p: Pattern, t: Type): Boolean = {
 //    def recurse(p: Pattern, t: Type): Boolean = (p, t) match {
@@ -1147,14 +1186,22 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case ExpMonoidSubsetOf(e, m) =>
         val t = expType(e)
-        // Subset of monoid
-        val rc = if (m.commutative.isDefined && m.commutative.get) None else m.commutative
-        val ri = if (m.idempotent.isDefined && m.idempotent.get) None else m.idempotent
-        val r = unify(t, CollectionType(MonoidVariable(rc, ri), TypeVariable()))
-        if (!r) {
-          tipeErrors += IncompatibleMonoids(m, walk(t), Some(e.pos))
+        find(t) match {
+          case CollectionType(m1, _) =>
+            m match {
+              case _: PrimitiveMonoid =>
+                val (c1, i1) = props(m)
+                val (c2, i2) = props(m1)
+                !((c1.isDefined && c2.isDefined && c1 != c2) ||
+                  (i1.isDefined && i2.isDefined && i1 != i2))
+              case m: CollectionMonoid =>
+                val r = unifyMonoids(m, MonoidVariable(Set(m1)))
+                if (!r) {
+                  tipeErrors += IncompatibleMonoids(m, walk(t), Some(e.pos))
+                }
+                r
+            }
         }
-        r
 
       case MaxOfMonoids(n, gs) =>
         val t = expType(n)
@@ -1175,22 +1222,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 }
             }
             val nm = maxMonoid(fromMs)
-            m match {
-              case _: MonoidVariable =>
-                val r = unifyMonoids(m, nm)
-                if (!r) {
-                  // TODO: Fix error message: should have m and nm?
-                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(n.pos))
-                }
-                r
-              case _ =>
-                val r = (m.commutative.get || !nm.commutative.get) && (m.idempotent.get || !nm.idempotent.get)
-                if (!r) {
-                  // TODO: Fix error message: should have m and nm?
-                  tipeErrors += IncompatibleMonoids(nm, walk(t), Some(n.pos))
-                }
-                r
+            val r = unifyMonoids(m, nm)
+            if (!r) {
+              // TODO: Fix error message: should have m and nm?
+              tipeErrors += IncompatibleMonoids(nm, walk(t), Some(n.pos))
             }
+            r
           case _: NothingType           => true
         }
 
@@ -1427,6 +1464,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def aFind(t: RecordAttributes): RecordAttributes =
     if (recAttsVarMap.contains(t)) recAttsVarMap(t).root else t
 
+  private def monWalk(c: CollectionMonoid): CollectionMonoid = mFind(c) match {
+    case s: SetMonoid => s
+    case b: BagMonoid => b
+    case l: ListMonoid => l
+    case m: MonoidVariable =>
+      GenericMonoid(commutative(m), idempotent(m), m.sym)
+  }
+
   /** Reconstruct the type by resolving all inner variable types as much as possible.
     * Also, try to match the type into an existing user type.
     */
@@ -1481,7 +1526,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 RecordType(AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym))
             }
           case PatternType(atts)          => PatternType(atts.map { case att => PatternAttrType(reconstructType(att.tipe, occursCheck + t)) })
-          case CollectionType(m, innerType)    => CollectionType(mFind(m), reconstructType(innerType, occursCheck + t))
+          case CollectionType(m, innerType)    => CollectionType(monWalk(m), reconstructType(innerType, occursCheck + t))
           case FunType(p, e)                   => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
           case t1: TypeVariable => if (!typesVarMap.contains(t1)) t1 else reconstructType(pickMostRepresentativeType(typesVarMap(t1)), occursCheck + t)
         }
