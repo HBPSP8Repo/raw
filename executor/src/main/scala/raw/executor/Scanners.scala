@@ -93,7 +93,9 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
 
   val tag = typeTag[T]
 
-  private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  private[this] val csvSchema = CsvSchema.emptySchema()
+    .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+    .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
   //  private[this] val csvSchema = {
   //  Name:String, year:Int, office:String, department:String
   //    CsvSchema.builder()

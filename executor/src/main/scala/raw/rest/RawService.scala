@@ -5,6 +5,7 @@ import java.nio.file.{DirectoryNotEmptyException, Files}
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.util.Timeout
+import com.typesafe.scalalogging.StrictLogging
 import raw._
 import raw.executor.{CompilationException, PythonShellExecutor, RawServer}
 import raw.rest.RawRestServer._
@@ -14,7 +15,7 @@ import spray.http._
 
 import scala.concurrent.duration._
 
-class RawService(rawServer: RawServer) extends Actor with ActorLogging {
+class RawService(rawServer: RawServer) extends Actor with StrictLogging {
 
   import DefaultJsonMapper._
   import HttpMethods._
@@ -44,18 +45,18 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
       f(httpRequest)
     } catch {
       case e: ClientErrorException =>
-        log.warning(s"Request to $uri failed", e)
+        logger.warn(s"Request to $uri failed", e)
         HttpResponse(StatusCodes.BadRequest, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
 
       case e: CompilationException =>
-        log.warning(s"Request to $uri failed: ${e.queryError}")
+        logger.warn(s"Request to $uri failed: ${e.queryError}")
         val errorAsJson = createJsonResponse(e.queryError)
         val statusCode = e.queryError match {
           case se: SemanticErrors => StatusCodes.BadRequest
           case pe: ParserError => StatusCodes.BadRequest
           case ie: InternalError => StatusCodes.InternalServerError
           case _ => {
-            log.warning(s"No match found for query error class: ${e.queryError}")
+            logger.warn(s"No match found for query error class: ${e.queryError}")
             StatusCodes.InternalServerError
           }
         }
@@ -63,7 +64,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
 
       // Generate an internal error response for any other unknown/unexpected exception.
       case e: Throwable =>
-        log.warning(s"Request to $uri failed.", e)
+        logger.warn(s"Request to $uri failed.", e)
         HttpResponse(StatusCodes.InternalServerError, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
     }
   }
@@ -73,7 +74,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
     case _: Http.Connected => sender ! Http.Register(self)
 
     case Timedout(HttpRequest(_, Uri.Path("/timeout/timeout"), _, _, _)) =>
-      log.info("Dropping Timeout message")
+      logger.info("Dropping Timeout message")
 
     case Timedout(HttpRequest(method, uri, _, _, _)) =>
       sender ! HttpResponse(
@@ -91,7 +92,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
       complete(sender, processRequest(r, doSchemas))
 
     case r@_ =>
-      log.warning("Unknown request: " + r)
+      logger.warn("Unknown request: " + r)
       complete(sender, HttpResponse(StatusCodes.BadRequest, HttpEntity(s"Unknown request: $r")))
   }
 
@@ -110,7 +111,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
 
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
     val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
-    log.info(s"Query request: $request")
+    logger.info(s"Query request: $request")
     // TODO: Send query language in request
     val queryLanguage = QueryLanguages("qrawl")
     val rawUser = DropboxClient.getUserName(request.token)
@@ -118,15 +119,15 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
     val result = rawServer.doQuery(queryLanguage, query, rawUser)
     val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
     val serializedResponse = mapper.writeValueAsString(response)
-    log.info("Query succeeded. Returning result: " + serializedResponse.take(100))
+    logger.info("Query succeeded. Returning result: " + serializedResponse.take(100))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
     val request = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
-    log.info(s"Module: ${request.module}, token: ${request.token}")
+    logger.info(s"Module: ${request.module}, token: ${request.token}")
     val rawUser = DropboxClient.getUserName(request.token)
-    log.info(s"Returning schemas for $rawUser")
+    logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
     val response = Map("success" -> true, "schemas" -> schemas)
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
@@ -134,7 +135,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
 
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
-    log.info(s"doRegisterFile: $request")
+    logger.info(s"doRegisterFile: $request")
     val stagingDirectory = Files.createTempDirectory("raw-stage")
     try {
       val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
@@ -148,7 +149,7 @@ class RawService(rawServer: RawServer) extends Actor with ActorLogging {
       try {
         Files.deleteIfExists(stagingDirectory)
       } catch {
-        case ex: DirectoryNotEmptyException => log.warning("Could not delete directory", ex)
+        case ex: DirectoryNotEmptyException => logger.warn("Could not delete directory", ex)
       }
     }
   }

@@ -38,9 +38,17 @@ class CSVInferrer(object):
                     raise TypeInferenceException(value)
 
         inferred_type = rawListType(rawRecordType(self._name, ctypes))
+        properties = dict(has_header=has_header,
+                          field_names=field_names,
+                          delimiter=dialect.delimiter,
+                          doublequote=dialect.doublequote,
+                          escapechar=dialect.escapechar,
+                          lineterminator=dialect.lineterminator,
+                          quotechar=dialect.quotechar,
+                          quoting=dialect.quoting,
+                          skipinitialspace=dialect.skipinitialspace)
 
-        return inferred_type, dict(has_header=has_header,
-                                   field_names=field_names)
+        return inferred_type, properties
 
     __regexps = [
         (re.compile("[0-9]*\\.[0-9]+$"), rawFloatType()),

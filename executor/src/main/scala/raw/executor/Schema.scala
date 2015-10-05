@@ -24,12 +24,24 @@ case class RawSchema(name: String, schemaFile: Path, properties: SchemaPropertie
   }
 }
 
-class SchemaProperties(schemaProperties: java.util.Map[String, Object]) {
+class SchemaProperties(schemaProperties: java.util.Map[String, Object]) extends StrictLogging {
   final val HAS_HEADER = "has_header"
+  final val DELIMITER = "delimiter"
   final val FIELD_NAMES = "field_names"
 
   // For convenience, convert null argument to an empty map
   val properties = if (schemaProperties == null) Collections.emptyMap[String, Object]() else schemaProperties
+
+  def delimiter(): Option[Char] = {
+    val v = properties.get(DELIMITER)
+    if (v == null) None
+    else Some({
+      val str = v.asInstanceOf[String]
+      assert(str.length == 1, s"Expected delimiter to consist of a single char. Was: $str")
+      str.charAt(0)
+    }
+    )
+  }
 
   def hasHeader(): Option[Boolean] = {
     val v = properties.get(HAS_HEADER)
