@@ -41,9 +41,12 @@ case class ListMonoid() extends CollectionMonoid
 /** Generic Monoid
   * Used only to report the final monoid
   */
-case class GenericMonoid(commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None, sym: Symbol = SymbolTable.next()) extends CollectionMonoid
+
+sealed abstract class VariableMonoid extends CollectionMonoid {
+  def sym: Symbol
+}
 
 /** Monoid Variable
   */
 // TODO: Rename to CollectionMonoidVariable
-case class MonoidVariable(ms: Set[CollectionMonoid] = Set(), sym: Symbol = SymbolTable.next()) extends CollectionMonoid
+case class MonoidVariable(ms: Set[CollectionMonoid] = Set(), commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None, sym: Symbol = SymbolTable.next()) extends VariableMonoid

@@ -904,28 +904,28 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case (_: SetMonoid, _: SetMonoid)        => true
     case (_: BagMonoid, _: BagMonoid)        => true
     case (_: ListMonoid, _: ListMonoid)      => true
-    case (mv: MonoidVariable, s: SetMonoid)  => (commutative(mv), idempotent(mv)) match {
+    case (mv: VariableMonoid, s: SetMonoid)  => (commutative(mv), idempotent(mv)) match {
       case (Some(false), _) => false
       case (_, Some(false)) => false
       case _ =>
         monoidsVarMap.union(mv, s)
         true
     }
-    case (mv: MonoidVariable, b: BagMonoid)  => (commutative(mv), idempotent(mv)) match {
+    case (mv: VariableMonoid, b: BagMonoid)  => (commutative(mv), idempotent(mv)) match {
       case (Some(false), _) => false
       case (_, Some(true)) => false
       case _               =>
         monoidsVarMap.union(mv, b)
         true
     }
-    case (mv: MonoidVariable, l: ListMonoid) => (commutative(mv), idempotent(mv)) match {
+    case (mv: VariableMonoid, l: ListMonoid) => (commutative(mv), idempotent(mv)) match {
       case (Some(true), _) => false
       case (_, Some(true)) => false
       case _ =>
         monoidsVarMap.union(mv, l)
         true
     }
-    case (mv1: MonoidVariable, mv2: MonoidVariable) =>
+    case (mv1: VariableMonoid, mv2: VariableMonoid) =>
       val (mv1c, mv1i) = props(mv1)
       val (mv2c, mv2i) = props(mv2)
       if ((mv1c.isDefined && mv2c.isDefined && mv1c != mv2c) ||
@@ -938,7 +938,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           monoidsVarMap.union(mv2, mv1)
         else if ((nc, ni) == props(mv2))
           monoidsVarMap.union(mv1, mv2)
-        else {
+        else (mv1, mv2) match {
           val nv = MonoidVariable(mv1.ms ++ mv2.ms)
           monoidsVarMap.union(mv1, mv2).union(mv2, nv)
         }
@@ -1186,22 +1186,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case ExpMonoidSubsetOf(e, m) =>
         val t = expType(e)
-        find(t) match {
-          case CollectionType(m1, _) =>
-            m match {
-              case _: PrimitiveMonoid =>
-                val (c1, i1) = props(m)
-                val (c2, i2) = props(m1)
-                !((c1.isDefined && c2.isDefined && c1 != c2) ||
-                  (i1.isDefined && i2.isDefined && i1 != i2))
-              case m: CollectionMonoid =>
-                val r = unifyMonoids(m, MonoidVariable(Set(m1)))
-                if (!r) {
-                  tipeErrors += IncompatibleMonoids(m, walk(t), Some(e.pos))
-                }
-                r
-            }
+        // Subset of monoid
+        val rc = if (commutative(m).isDefined && commutative(m).get) None else commutative(m)
+        val ri = if (idempotent(m).isDefined && idempotent(m).get) None else idempotent(m)
+        val r = unify(t, CollectionType(GenericMonoid(rc, ri), TypeVariable()))
+        if (!r) {
+          tipeErrors += IncompatibleMonoids(m, walk(t), Some(e.pos))
         }
+        r
 
       case MaxOfMonoids(n, gs) =>
         val t = expType(n)
