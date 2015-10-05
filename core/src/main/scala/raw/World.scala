@@ -112,6 +112,7 @@ object World extends LazyLogging {
       case (_: SetMonoid, _: SetMonoid) => e1 == e2
       case (_: BagMonoid, _: BagMonoid) => e1 == e2
       case (_: ListMonoid, _: ListMonoid) => e1 == e2
+      case (_: MonoidVariable, _: MonoidVariable) => e1 == e2
       case _ => e1 eq e2
     }
 

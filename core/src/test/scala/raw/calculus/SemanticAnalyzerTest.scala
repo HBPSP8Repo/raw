@@ -12,17 +12,15 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
     val analyzer = new SemanticAnalyzer(t, world, Some(query))
-    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
-    analyzer.printTypedTree()
+    analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     analyzer
   }
 
   def success(query: String, world: World, expectedType: Type) = {
     val analyzer = go(query, world)
-    val inferredType = analyzer.tipe(analyzer.tree.root)
-    analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     assert(analyzer.errors.isEmpty)
     analyzer.printTypedTree()
+    val inferredType = analyzer.tipe(analyzer.tree.root)
     logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
     logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
     assert(compare(inferredType.toString, expectedType.toString))
@@ -981,7 +979,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("exists(list(1))", TestWorlds.empty, BoolType())
   }
 
-  test("polymorphic select") {
+  test("polymorphic select #1") {
     success(
       """
         |{
@@ -1167,11 +1165,18 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(AttrType("_1",
+        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("_2", CollectionType(ListMonoid(),
+            RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
+        AttrType("_2",
+          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+            AttrType("_2", CollectionType(ListMonoid(),
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
 
   }
 
-  test("cucu") {
+  test("group_by_age(students), select version") {
     // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
     success(
       """
@@ -1189,7 +1194,24 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
-  test("cucu #2") {
+  test("\\xs -> select x from x in xs (monoid should remain)") {
+    val m = MonoidVariable()
+    val t = TypeVariable()
+    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(m, t), CollectionType(m, t)))
+  }
+
+  test("select x from x in xs (applied to students)") {
+    val m = MonoidVariable()
+    val t = TypeVariable()
+    success("""{
+       a := \xs -> select x from x in xs;
+       a(students)
+       } """, TestWorlds.professors_students,       CollectionType(ListMonoid(),
+          RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
+
+  }
+
+  test("polymorphic select") {
       // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
       success(
         """
@@ -1202,11 +1224,11 @@ class SemanticAnalyzerTest extends FunTest {
         TestWorlds.professors_students,
         RecordType(Attributes(List(AttrType("_1",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("_2", CollectionType(ListMonoid(),
+            AttrType("partition", CollectionType(ListMonoid(),
               RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
                                    AttrType("_2",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("_2", CollectionType(ListMonoid(),
+            AttrType("partition", CollectionType(ListMonoid(),
               RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
 
   }

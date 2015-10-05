@@ -77,9 +77,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * If the constraints could not be solved, the program cannot be typed.
     */
   lazy val tipeEverything = {
-    if (!solve(constraints(tree.root))) {
-      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
-    }
+    val r = solve(constraints(tree.root))
+//    if (!r) {
+//      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
+//    }
   }
 
   /** Return the base type of an expression, i.e. without the nullable flag.
@@ -188,6 +189,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             }
         }
         case ConsCollectionMonoid(m, e1) => CollectionType(m, tipe(e1))
+        case MultiCons(m, exps) => te match {
+          case CollectionType(m2, inner) =>
+            assert(m == m2)
+            val others = exps.map(tipe(_))
+            CollectionType(m, makeNullable(inner, others, others))
+        }
         case IfThenElse(e1, e2, e3) => (tipe(e1), tipe(e2), tipe(e3)) match {
           case (t1, t2, t3) => makeNullable(te, Seq(t2, t3), Seq(t1, t2, t3))
         }
@@ -1068,7 +1075,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case (Some(true), Some(true))  => SetMonoid()
       case (Some(true), Some(false)) => BagMonoid()
       case (Some(false), Some(false)) => ListMonoid()
-      case _ => MonoidVariable(m._1, m._2)
+      case _ => ms.collectFirst{case x: CollectionMonoid if x.commutative == m._1 && x.idempotent == m._2 => x}.get
     }
   }
 
