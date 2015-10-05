@@ -141,10 +141,11 @@ lazy val executor = (project in file("executor")).
 
     TaskKey[File]("mk-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
       val template = """#!/bin/sh
-java -classpath "%s" %s "$@"
+java -Draw.inferrer.path=%s -classpath "%s" %s "$@"
 """
       val mainStr = "raw.rest.RawRestServerMain"
-      val contents = template.format(cp.files.absString, mainStr)
+      val inferrerPath = base + "/../inferrer"
+      val contents = template.format(inferrerPath, cp.files.absString, mainStr)
       val out = base / "../bin/run-rest-server.sh"
       IO.write(out, contents)
       out.setExecutable(true)

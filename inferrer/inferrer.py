@@ -2,15 +2,16 @@ import logging
 from argparse import ArgumentParser
 import os.path
 import json
-import schema_serializer
 
+import schema_serializer
 import inferrer
 
 logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
     argp = ArgumentParser(description="Schema inferrer")
-    argp.add_argument("--file-path", "-f", required=True, dest='file_path', help="Data file whose schema is to be interred")
+    argp.add_argument("--file-path", "-f", required=True, dest='file_path',
+                      help="Data file whose schema is to be interred")
     argp.add_argument("--file_type", "-t", required=True, dest='file_type', help="File type")
     argp.add_argument("--schema-name", "-n", required=True, dest='schema_name', help="Schema name")
 
@@ -37,4 +38,3 @@ if __name__ == '__main__':
     logging.info("Writing properties file: " + propFile)
     with open(propFile, "w") as text_file:
         text_file.write(serialized_properties)
-
