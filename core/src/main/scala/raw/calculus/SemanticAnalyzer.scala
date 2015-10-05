@@ -7,6 +7,8 @@ import raw.World._
 
 import scala.util.parsing.input.Position
 
+case class SemanticAnalyzerException(err: String) extends RawException(err)
+
 /** Analyzes the semantics of an AST.
   * This includes the type checker, type inference and semantic checks (e.g. whether monoids compose correctly).
   *
@@ -71,9 +73,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private val tipeErrors =
     scala.collection.mutable.MutableList[Error]()
 
-  /** ...
+  /** Type the root of the program.
+    * If the constraints could not be solved, the program cannot be typed.
     */
-  lazy val tipeEverything = solve(constraints(tree.root))
+  lazy val tipeEverything = {
+    if (!solve(constraints(tree.root))) {
+      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
+    }
+  }
 
   /** Return the base type of an expression, i.e. without the nullable flag.
     */
@@ -1268,7 +1275,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 tipeErrors += UnknownDecl(idn)
                 false
               case _: MultipleEntity =>
-                // We found the attribute identifer more than once
+                // We found the attribute identifier more than once
                 tipeErrors += AmbiguousIdn(idn)
                 false
             }
