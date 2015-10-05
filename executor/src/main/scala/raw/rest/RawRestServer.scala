@@ -3,7 +3,10 @@ package raw.rest
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.{DirectoryNotEmptyException, Files, Path, Paths}
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props, _}
+import akka.io.{IO, Tcp}
+import akka.routing.RoundRobinPool
+import akka.util.Timeout
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -13,13 +16,18 @@ import org.apache.spark.SparkContext
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import raw._
 import raw.executor._
+import raw.rest.DefaultJsonMapper._
+import raw.rest.RawRestServer._
+import raw.rest.RawRestServer._
 import raw.spark._
+import spray.can.Http
 import spray.can.Http.Bound
-import spray.http.{MediaTypes, StatusCodes}
-import spray.routing.{ExceptionHandler, SimpleRoutingApp}
-import spray.util.LoggingContext
+import spray.http.HttpHeaders.{`Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
+import spray.http._
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
+
 
 /* Object mapper used to read/write any JSON received/sent by the rest server */
 object DefaultJsonMapper extends StrictLogging {
@@ -78,54 +86,147 @@ object RawRestServer {
 
 }
 
-import spray.http.HttpHeaders._
-import spray.http.HttpMethods._
-import spray.http.{AllOrigins, HttpMethod, HttpMethods, HttpResponse}
-import spray.routing._
+class RawRestService(rawServer: RawServer) extends Actor with ActorLogging {
 
-// see also https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
-trait CORSSupport {
-  this: HttpService =>
+  import HttpMethods._
 
-  private val allowOriginHeader = `Access-Control-Allow-Origin`(AllOrigins)
-  private val optionsCorsHeaders = List(
+  implicit val timeout: Timeout = 1.second
+  // for the actor 'asks' // ExecutionContext for the futures and scheduler
+  val queryPath = "/query"
+  val registerPath = "/register-file"
+  val schemasPath = "/schemas"
+
+  val corsHeaders = List(
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
-    `Access-Control-Max-Age`(1728000))
+    `Access-Control-Max-Age`(1728000),
+    `Access-Control-Allow-Origin`(AllOrigins))
 
-  def cors[T]: Directive0 = mapRequestContext { ctx => ctx.withRouteResponseHandling({
-    //It is an option requeset for a resource that responds to some other method
-    case Rejected(x) if (ctx.request.method.equals(HttpMethods.OPTIONS) && !x.filter(_.isInstanceOf[MethodRejection]).isEmpty) => {
-      val allowedMethods: List[HttpMethod] = x.filter(_.isInstanceOf[MethodRejection]).map(rejection => {
-        rejection.asInstanceOf[MethodRejection].supported
-      })
-      ctx.complete(HttpResponse().withHeaders(
-        `Access-Control-Allow-Methods`(OPTIONS, allowedMethods: _*) :: allowOriginHeader ::
-          optionsCorsHeaders
-      ))
-    }
-  }).withHttpResponseHeadersMapped { headers =>
-    allowOriginHeader :: headers
-
+  def withCORS(response: HttpResponse): HttpResponse = {
+    response.withHeaders(response.headers ++ corsHeaders)
   }
+
+  def complete(sender: ActorRef, response: HttpResponse): Unit = {
+    sender ! withCORS(response)
+  }
+
+  def processRequest(httpRequest: HttpRequest, f: (HttpRequest) => HttpResponse): HttpResponse = {
+    val uri = httpRequest.uri
+    try {
+      f(httpRequest)
+    } catch {
+      case e: ClientErrorException =>
+        log.warning(s"Request to $uri failed", e)
+        HttpResponse(StatusCodes.BadRequest, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
+
+      case e: CompilationException =>
+        log.warning(s"Request to $uri failed: ${e.queryError}")
+        val errorAsJson = createJsonResponse(e.queryError)
+        val statusCode = e.queryError match {
+          case se: SemanticErrors => StatusCodes.BadRequest
+          case pe: ParserError => StatusCodes.BadRequest
+          case ie: InternalError => StatusCodes.InternalServerError
+          case _ => {
+            log.warning(s"No match found for query error class: ${e.queryError}")
+            StatusCodes.InternalServerError
+          }
+        }
+        HttpResponse(statusCode, HttpEntity(ContentTypes.`application/json`, errorAsJson))
+
+      // Generate an internal error response for any other unknown/unexpected exception.
+      case e: Throwable =>
+        log.warning(s"Request to $uri failed.", e)
+        HttpResponse(StatusCodes.InternalServerError, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
+    }
+  }
+
+  override def receive: Receive = {
+    // when a new connection comes in we register ourselves as the connection handler
+    case _: Http.Connected => sender ! Http.Register(self)
+
+    case Timedout(HttpRequest(_, Uri.Path("/timeout/timeout"), _, _, _)) =>
+      log.info("Dropping Timeout message")
+
+    case Timedout(HttpRequest(method, uri, _, _, _)) =>
+      sender ! HttpResponse(
+        status = 500,
+        entity = "The " + method + " request to '" + uri + "' has timed out..."
+      )
+
+    case r@HttpRequest(POST, Uri.Path("/query"), _, _, _) =>
+      complete(sender, processRequest(r, doQuery))
+
+    case r@HttpRequest(POST, Uri.Path("/register-file"), _, _, _) =>
+      complete(sender, processRequest(r, doRegisterFile))
+
+    case r@HttpRequest(POST, Uri.Path("/schemas"), _, _, _) =>
+      complete(sender, processRequest(r, doSchemas))
+
+    case r@_ =>
+      log.warning("Unknown request: " + r)
+      complete(sender, HttpResponse(StatusCodes.BadRequest, HttpEntity(s"Unknown request: $r")))
+  }
+
+
+  private[this] def createJsonResponse(queryError: QueryError): String = {
+    val response = new CompilationErrorResponse(queryError.getClass.getSimpleName, queryError)
+    mapper.writeValueAsString(response)
+  }
+
+  private[this] def createJsonResponse(exception: Throwable): String = {
+    val sw = new StringWriter()
+    exception.printStackTrace(new PrintWriter(sw))
+    val response = new ExceptionResponse(exception.getClass.getName, exception.getMessage, sw.toString)
+    mapper.writeValueAsString(response)
+  }
+
+  private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
+    val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
+    log.info(s"Query request: $request")
+    // TODO: Send query language in request
+    val queryLanguage = QueryLanguages("qrawl")
+    val rawUser = DropboxClient.getUserName(request.token)
+    val query = request.query
+    val result = rawServer.doQuery(queryLanguage, query, rawUser)
+    val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
+    val serializedResponse = mapper.writeValueAsString(response)
+    log.info("Query succeeded. Returning result: " + serializedResponse.take(100))
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
+  }
+
+  private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
+    val request = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
+    log.info(s"Module: ${request.module}, token: ${request.token}")
+    val rawUser = DropboxClient.getUserName(request.token)
+    log.info(s"Returning schemas for $rawUser")
+    val schemas: Seq[String] = rawServer.getSchemas(rawUser)
+    val response = Map("success" -> true, "schemas" -> schemas)
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
+  }
+
+  private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
+    val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
+    log.info(s"doRegisterFile: $request")
+    val stagingDirectory = Files.createTempDirectory("raw-stage")
+    try {
+      val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
+      DropboxClient.downloadFile(request.url, localFile)
+      PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
+      // Register the schema
+      rawServer.registerSchema(request.name, stagingDirectory, DropboxClient.getUserName(request.token))
+      val response = Map("success" -> true, "name" -> request.name)
+      HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
+    } finally {
+      try {
+        Files.deleteIfExists(stagingDirectory)
+      } catch {
+        case ex: DirectoryNotEmptyException => log.warning("Could not delete directory", ex)
+      }
+    }
   }
 }
 
-/**
- * REST server exposing the following calls:
- *
- * - /register
- * - /query
- * - /schemas
- *
- * See the wiki on the github repo for details on the rest interface
- * @param executorArg scala or spark executor. Currently, on Scala executor is implemented.
- */
-class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends ActorPoolRoutingApp with StrictLogging with CORSSupport {
-  // TODO: Add CORS headers globally to all paths. The error responses generated by Spray do not contain these headers
-  // so we get a CORS warning on the browser whenever a request fails before getting to our route.
 
-  import DefaultJsonMapper._
-  import RawRestServer._
+class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends StrictLogging {
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {
@@ -154,150 +255,22 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
       throw new IllegalArgumentException(s"Invalid executor: $exec. Valid options: [scala, spark]")
   }
 
-  // val restService = context.actorOf(RoundRobinPool(5).props(Props[TestActor]), "router")
-  implicit val system = ActorSystem("simple-routing-app")
+  implicit val system = ActorSystem()
 
-  private[this] def createJsonResponse(queryError: QueryError): String = {
-    val response = new CompilationErrorResponse(queryError.getClass.getSimpleName, queryError)
-    mapper.writeValueAsString(response)
-  }
-
-  private[this] def createJsonResponse(exception: Throwable): String = {
-    val sw = new StringWriter()
-    exception.printStackTrace(new PrintWriter(sw))
-    val response = new ExceptionResponse(exception.getClass.getName, exception.getMessage, sw.toString)
-    mapper.writeValueAsString(response)
-  }
-
-
-  def exceptionHandler(implicit log: LoggingContext) =
-    ExceptionHandler {
-      case e: ClientErrorException =>
-        cors {
-          requestUri { uri =>
-            logger.warn(s"Request to $uri failed", e)
-            respondWithMediaType(MediaTypes.`application/json`) {
-              complete(StatusCodes.BadRequest, createJsonResponse(e))
-            }
-          }
-        }
-      case e: CompilationException =>
-        cors {
-          requestUri { uri =>
-            logger.warn(s"Request to $uri failed: ${e.queryError}")
-            respondWithMediaType(MediaTypes.`application/json`) {
-              val errorAsJson = createJsonResponse(e.queryError)
-              e.queryError match {
-                case se: SemanticErrors =>
-                  complete(StatusCodes.BadRequest, errorAsJson)
-                case pe: ParserError =>
-                  complete(StatusCodes.BadRequest, errorAsJson)
-                case ie: InternalError =>
-                  complete(StatusCodes.InternalServerError, errorAsJson)
-                case _ => {
-                  logger.info(s"No match found for query error class: ${e.queryError}")
-                  complete(StatusCodes.InternalServerError, errorAsJson)
-                }
-              }
-            }
-          }
-        }
-      // Generate an internal error response for any other unknown/unexpected exception.
-      case e: Throwable =>
-        cors {
-          requestUri { uri =>
-            logger.warn(s"Request to $uri failed.", e)
-            respondWithMediaType(MediaTypes.`application/json`) {
-              complete(StatusCodes.InternalServerError, createJsonResponse(e))
-            }
-          }
-        }
-      // Any other exception will be handled by Spray and return a 500 status code.
-    }
+  import akka.pattern.ask
 
   def start(): Future[Bound] = {
-    val queryPath = "query"
-    val registerPath = "register-file"
-    val schemasPath = "schemas"
-    // TODO get endpoints from the route
-    logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath,$schemasPath}")
-
-    val future: Future[Bound] = startServer("0.0.0.0", port = port) {
-      handleExceptions(exceptionHandler) {
-        cors {
-          (path(queryPath) & post) {
-            entity(as[String]) { body =>
-              val request = queryRequestReader.readValue[QueryRequest](body)
-              logger.info(s"Query request: $request")
-              // TODO: Send query language in request
-              val queryLanguage = QueryLanguages("qrawl")
-              val rawUser = DropboxClient.getUserName(request.token)
-              val query = request.query
-              val result = rawServer.doQuery(queryLanguage, query, rawUser)
-              // return jsonify(dict(success=True, output=r['output'], execution_time=r['execution_time'], compile_time=r['compile_time']))
-              val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
-              val serializedResponse = mapper.writeValueAsString(response)
-              logger.info("Query succeeded. Returning result: " + serializedResponse.take(100))
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete(serializedResponse)
-              }
-            }
-          }
-        } ~
-          (path(registerPath) & post) {
-            cors {
-              entity(as[String]) { body =>
-                val request = registerRequestReader.readValue[RegisterFileRequest](body)
-                doRegisterFile(request)
-                respondWithMediaType(MediaTypes.`application/json`) {
-                  val response = Map("success" -> true, "name" -> request.name)
-                  complete(mapper.writeValueAsString(response))
-                }
-              }
-            }
-          } ~
-          (path(schemasPath) & post) {
-            cors {
-              entity(as[String]) { body =>
-                val request = schemaRequestReader.readValue[SchemaRequest](body)
-                val schemas: Seq[String] = doSchemas(request.module, request.token)
-                respondWithMediaType(MediaTypes.`application/json`) {
-                  val response = Map("success" -> true, "schemas" -> schemas)
-                  complete(mapper.writeValueAsString(response))
-                }
-              }
-            }
-          }
-      }
-    }
-    future
-  }
-
-  def doSchemas(module: String, token: String): Seq[String] = {
-    logger.info(s"Module: $module, token: $token")
-    val rawUser = DropboxClient.getUserName(token)
-    logger.info(s"Returning schemas for $rawUser")
-    rawServer.getSchemas(rawUser)
-  }
-
-  // TODO: Convert files with - to have _
-  def doRegisterFile(request: RegisterFileRequest) = {
-    logger.info(s"doRegisterFile: $request")
-    val stagingDirectory = Files.createTempDirectory("raw-stage")
-    try {
-      val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
-      DropboxClient.downloadFile(request.url, localFile)
-      PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
-      // Register the schema
-      rawServer.registerSchema(request.name, stagingDirectory, DropboxClient.getUserName(request.token))
-    } finally {
-      try {
-        Files.deleteIfExists(stagingDirectory)
-      } catch {
-        case ex: DirectoryNotEmptyException => logger.warn("Could not delete directory", ex)
-      }
-
-    }
+    val handler = system.actorOf(
+      RoundRobinPool(5).props(Props {
+        new RawRestService(rawServer)
+      }),
+      name = "handler")
+    IO(Http).ask(Http.Bind(handler, interface = "0.0.0.0", port = 54321))(1.second)
+      .flatMap {
+      case b: Http.Bound ⇒ Future.successful(b)
+      case Tcp.CommandFailed(b: Http.Bind) => Future.failed(new RuntimeException(
+        "Binding failed. Switch on DEBUG-level logging for `akka.io.TcpListener` to log the cause."))
+    }(system.dispatcher)
   }
 
   def stop(): Unit = {
@@ -306,7 +279,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   }
 }
 
-object RawRestServerMain extends StrictLogging {
+object RawRestServerMain2 extends StrictLogging {
   def main(args: Array[String]) {
     object Conf extends ScallopConf(args) {
       banner("Scala/Spark OQL execution server")
@@ -314,7 +287,7 @@ object RawRestServerMain extends StrictLogging {
       val storageDir: ScallopOption[String] = opt[String]("storage-dir", default = None, short = 's')
     }
 
-    val restServer = new RawRestServer(Conf.executor(), Conf.storageDir.get)
-    restServer.start()
+    val server = new RawRestServer(Conf.executor(), Conf.storageDir.get)
+    server.start()
   }
 }
