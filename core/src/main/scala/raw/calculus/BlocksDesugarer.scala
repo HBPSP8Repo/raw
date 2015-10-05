@@ -40,7 +40,7 @@ class BlocksDesugarer extends PipelinedTransformer {
     */
 
   private object RulePatternGen {
-    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_: PatternProd, _) => g })
+    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(Some(_: PatternProd), _) => g })
   }
 
   private lazy val rulePatternGen = rule[Comp] {

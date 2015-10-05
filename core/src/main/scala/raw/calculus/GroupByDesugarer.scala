@@ -12,12 +12,28 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
   def strategy = desugar
 
   private lazy val desugar =
+//  child(3, desugarPartition)
+//  child(4, desugarPartition)
+//  child(5, desugarPartition)
+//  child(6, desugarPartition)
+//  child(7, desugarPartition)
+//  child(1, desugarPartition)
 //    attempt(manybu(desugarPartition)) <* reduce(dropGroupBy)
 //      attempt(manytd(desugarPartition)) <* reduce(dropGroupBy)
     reduce(selectGroupBy)
 
-  // TODO: I think the issue here is that I can only replace the projs after I did the froms, and I'm not sure this is respecting it
-  // TODO: Yep, makes sense; a congruence issue?
+//
+//  i think i probably need to get its entity
+//
+//
+//
+//
+//
+//
+//
+//
+//  // TODO: I think the issue here is that I can only replace the projs after I did the froms, and I'm not sure this is respecting it
+//  // TODO: Yep, makes sense; a congruence issue? Fix that first; and only after, check the rest
 
   private lazy val partitionSelect: Select => Select = attr {
     s =>
@@ -29,7 +45,15 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
         Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
   }
 
-  private lazy val desugarPartition = rule[Exp] {
+  private lazy val desugarPartitionInFrom = rule[Exp] {
+    case p: Partition =>
+      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
+      analyzer.partitionEntity(p) match {
+        case PartitionEntity(s, _) => partitionSelect(s)
+      }
+  }
+
+  private lazy val desugarPartitionInRest = rule[Exp] {
     case p: Partition =>
       logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
       analyzer.partitionEntity(p) match {
@@ -44,8 +68,8 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
 
   /** De-sugar a SELECT with a GROUP BY
     */
-
-
+//
+//
   // TODO: Rewrite this to use the partition entity notion.
   // TODO: Could be split into 2 rules: one to replace partition by a corresponding Select,
   // TODO: and another to rewrite the Select itself to remove the groupby part.
@@ -72,7 +96,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
           Select(ns.from, false, None, nproj, Some(BinaryExp(Eq(), deepclone(groupby), ns.group.get)), None, None)
 
       val projWithoutPart = rewrite(everywherebu(rule[Exp] {
-        case p: Partition =>
+        case p: Partition => // if analyzer.partitionEntity.asInstanceOf[PartitionEntity].s eq s =>
           deepclone(partition)
       }))(proj)
 
