@@ -332,7 +332,7 @@ class SemanticAnalyzerTest extends FunTest {
 //        CollectionType(BagMonoid(),RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable())), None))))
 
   test("for ((a, b) <- list((1, 2.2))) yield set (a, b)") {
-    success("""for ((a, b) <- list((1, 2.2))) yield set (a, b)""", TestWorlds.empty, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", FloatType()))), None)))
+    success("""for ((a, b) <- list((1, 2.2))) yield set (a, b)""", TestWorlds.empty, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", FloatType()))), None)))
   }
 
   test("1 + 1.") {
@@ -510,8 +510,8 @@ class SemanticAnalyzerTest extends FunTest {
         }
       """, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("_1", RecordType(Attributes(List(AttrType("_1",  IntType()), AttrType("_2", IntType()))), None)),
-        AttrType("_2", RecordType(Attributes(List(AttrType("_1",  BoolType()), AttrType("_2", IntType()))), None)))),
+        AttrType("_1", RecordType(Attributes(List(AttrType("x",  IntType()), AttrType("_2", IntType()))), None)),
+        AttrType("_2", RecordType(Attributes(List(AttrType("x",  BoolType()), AttrType("_2", IntType()))), None)))),
         None))
   }
 
@@ -556,8 +556,8 @@ class SemanticAnalyzerTest extends FunTest {
         (f, g, if true then f else g)
         }
       """, TestWorlds.empty, RecordType(Attributes(List(
-      AttrType("_1", FunType(x, BoolType())),
-      AttrType("_2", FunType(rec, age)),
+      AttrType("f", FunType(x, BoolType())),
+      AttrType("g", FunType(rec, age)),
       AttrType("_3", FunType(rec2, BoolType())))), None))
   }
 
@@ -592,7 +592,7 @@ class SemanticAnalyzerTest extends FunTest {
         (f, f(1))
       }
       """, TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("_1", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(n2, BoolType())))), None))
+      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(n2, BoolType())))), None))
   }
 
   test("map") {
@@ -1133,7 +1133,10 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(),
+        RecordType(Attributes(List(AttrType("age", IntType()),
+                                   AttrType("_2", CollectionType(ListMonoid(),
+                                                                 RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None)))
 
   }
 
@@ -1147,7 +1150,8 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(),
+        RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None)))
 
   }
 
@@ -1177,7 +1181,8 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(),
+        RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None)))
 
   }
 
@@ -1192,7 +1197,15 @@ class SemanticAnalyzerTest extends FunTest {
         """.stripMargin,
 
         TestWorlds.professors_students,
-      IntType())
+        RecordType(Attributes(List(AttrType("_1",
+          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+            AttrType("_2", CollectionType(ListMonoid(),
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None))),
+                                   AttrType("_2",
+          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+            AttrType("_2", CollectionType(ListMonoid(),
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None))))),
+        None))
 
   }
 
