@@ -49,16 +49,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case IncompatibleTypes(t1, t2, p1, p2) =>
       if (p1.isDefined && p2.isDefined && (p2.get.line < p1.get.line || (p1.get.line == p2.get.line && p2.get.column < p1.get.column)))
         show(IncompatibleTypes(t2, t1, p2, p1))
-      else
-        (t1, t2) match {
-          case (RecordType(_, name1), RecordType(_, name2)) if name1 != name2 =>
-            s"records from different sources"
-            // TODO: Put back nicer error message on incompatible types
-//          case (RecordType(atts1, _), RecordType(atts2, _)) if atts1.length != atts2.length || atts1.map(_.idn) != atts2.map(_.idn) =>
-//            s"records with different attributes"
-          case _ =>
-            s"incompatible types: ${FriendlierPrettyPrinter(t1)} (${p1.getOrElse("no position")}) and ${FriendlierPrettyPrinter(t2)} (${p2.getOrElse("no position")})"
-        }
+      else s"incompatible types: ${FriendlierPrettyPrinter(t1)} (${p1.getOrElse("no position")}) and ${FriendlierPrettyPrinter(t2)} (${p2.getOrElse("no position")})"
     case UnexpectedType(t, _, Some(desc), p) =>
       s"$desc but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case UnexpectedType(t, expected, None, p) =>

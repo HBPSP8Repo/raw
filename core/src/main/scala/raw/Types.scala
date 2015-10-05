@@ -50,7 +50,7 @@ case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.nex
 /** Record Type
   */
 
-case class RecordType(recAtts: RecordAttributes, name: Option[String]) extends Type {
+case class RecordType(recAtts: RecordAttributes) extends Type {
   def getType(idn: String): Option[Type] = recAtts.getType(idn)
 }
 

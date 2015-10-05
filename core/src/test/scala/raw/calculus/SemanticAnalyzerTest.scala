@@ -87,11 +87,11 @@ class SemanticAnalyzerTest extends FunTest {
 //  }
 
   test("for (e <- Events; m <- e.muons) yield set m") {
-    success("for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))), None)))
+    success("for (e <- Events; m <- e.muons) yield set m", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))))))
   }
 
   test("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon: m)") {
-    success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon: m)", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("muon", RecordType(Attributes(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))), None)))), None)))
+    success("for (e <- Events; e.RunNumber > 100; m <- e.muons) yield set (muon: m)", TestWorlds.cern, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("muon", RecordType(Attributes(List(AttrType("pt", FloatType()), AttrType("eta", FloatType()))))))))))
   }
 
   test("for (i <- Items) yield set i") {
@@ -109,7 +109,7 @@ class SemanticAnalyzerTest extends FunTest {
   test("departments - from Fegaras's paper") {
     success(
       """for ( el <- for ( d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""", TestWorlds.departments,
-      CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("name", StringType()), AttrType("address", RecordType(Attributes(List(AttrType("street", StringType()), AttrType("zipcode", StringType()))), None)))), None)))
+      CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("name", StringType()), AttrType("address", RecordType(Attributes(List(AttrType("street", StringType()), AttrType("zipcode", StringType()))))))))))
   }
 
   test("for (d <- Departments) yield set d") {
@@ -121,7 +121,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName: name) }""") {
-    success( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName: name) }""", TestWorlds.departments, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("deptName", StringType()))), None)))
+    success( """for ( d <- Departments; d.name = "CSE") yield set { name := d.name; (deptName: name) }""", TestWorlds.departments, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("deptName", StringType()))))))
   }
 
   test("employees - from Fegaras's paper") {
@@ -132,12 +132,12 @@ class SemanticAnalyzerTest extends FunTest {
           AttrType("E",
             RecordType(Attributes(List(
               AttrType("dno", IntType()),
-              AttrType("children", CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age", IntType()))), None))),
+              AttrType("children", CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age", IntType())))))),
               AttrType("manager", RecordType(Attributes(List(
                 AttrType("name", StringType()),
                 AttrType("children", CollectionType(ListMonoid(),RecordType(Attributes(List(
-                  AttrType("age", IntType()))), None))))), None)))), None)),
-          AttrType("M", IntType()))), None)))
+                  AttrType("age", IntType())))))))))))))),
+          AttrType("M", IntType()))))))
   }
 
   test("for (r <- integers) yield max r") {
@@ -269,7 +269,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   ignore("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r") {
-    success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", TestWorlds.unknown, CollectionType(SetMonoid(),RecordType(AttributesVariable(Set(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType()))), None)))
+    success("for (r <- unknown; ((r.age + r.birth) > 2015) = r.alive) yield set r", TestWorlds.unknown, CollectionType(SetMonoid(),RecordType(AttributesVariable(Set(AttrType("age", IntType()), AttrType("birth", IntType()), AttrType("alive", BoolType()))))))
   }
 
   test("for (r <- unknownrecords) yield set r.dead or r.alive") {
@@ -277,7 +277,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (r <- unknownrecords; r.dead or r.alive) yield set r") {
-    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", TestWorlds.unknown, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("dead", BoolType()), AttrType("alive", BoolType()))), None)))
+    success("for (r <- unknownrecords; r.dead or r.alive) yield set r", TestWorlds.unknown, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("dead", BoolType()), AttrType("alive", BoolType()))))))
   }
 
   test("expression block with multiple comprehensions") {
@@ -301,7 +301,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test( """\(a, b) -> a + b + 2""") {
-    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), None), IntType()))
+    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType())))), IntType()))
   }
 
   test( """\a -> a""") {
@@ -310,29 +310,29 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test( """\x -> x.age + 2""") {
-    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(RecordType(AttributesVariable(Set(AttrType("age", IntType()))), None), IntType()))
+    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(RecordType(AttributesVariable(Set(AttrType("age", IntType())))), IntType()))
   }
 
   test( """\(x, y) -> x + y""") {
     val n = NumberType()
-    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n))), None), n))
+    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n)))), n))
   }
 
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {
     var arg = TypeVariable()
     val out = TypeVariable()
     val f = FunType(arg, out)
-    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", f), AttrType("_2", arg))), None), out))
+    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", f), AttrType("_2", arg)))), out))
   }
 
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //    success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 //      FunType(
-//        ConstraintCollectionType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("name", TypeVariable()))), None, None),
-//        CollectionType(BagMonoid(),RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable())), None))))
+//        ConstraintCollectionType(ConstraintRecordType(Set(AttrType("age", IntType()), AttrType("name", TypeVariable())))),
+//        CollectionType(BagMonoid(),RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", TypeVariable()))))))
 
   test("for ((a, b) <- list((1, 2.2))) yield set (a, b)") {
-    success("""for ((a, b) <- list((1, 2.2))) yield set (a, b)""", TestWorlds.empty, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", FloatType()))), None)))
+    success("""for ((a, b) <- list((1, 2.2))) yield set (a, b)""", TestWorlds.empty, CollectionType(SetMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", FloatType()))))))
   }
 
   test("1 + 1.") {
@@ -392,7 +392,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("if 1 then 1 else 0") {
-    failure("if 1 then 1 else 0", TestWorlds.empty, UnexpectedType(IntType(), BoolType(), None))
+    failure("if 1 then 1 else 0", TestWorlds.empty, UnexpectedType(IntType(), BoolType()))
   }
 
   test("if true then 1 else 1.") {
@@ -428,7 +428,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (s <- students) yield list (a: 1, b: s)") {
-    success("for (s <- students) yield list (a: 1, b: s)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))))), None)))
+    success("for (s <- students) yield list (a: 1, b: s)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))))))))
   }
 
   test("for (s <- students; p <- professors; s = p) yield list s") {
@@ -436,24 +436,24 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)") {
-    success("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None)))
+    success("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
   }
 
   test("for (s <- students; p <- professors) yield list (a: 1, b: s, c: p)") {
-    success("for (s <- students; p <- professors) yield list (a: 1, b: s, c: p)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))), AttrType("c", UserType(Symbol("professor"))))), None)))
+    success("for (s <- students; p <- professors) yield list (a: 1, b: s, c: p)", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("a", IntType()), AttrType("b", UserType(Symbol("student"))), AttrType("c", UserType(Symbol("professor"))))))))
   }
 
   test("""\(x, y) -> x + y + 10""") {
-    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType()))), None), IntType()))
+    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType())))), IntType()))
   }
 
   test("""\(x, y) -> x + y + 10.2""") {
-    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", FloatType()), AttrType("_2", FloatType()))), None), FloatType()))
+    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())))), FloatType()))
   }
 
   test("""\(x, y) -> { z := x; y + z }""") {
     val n = NumberType()
-    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n))), None), n))
+    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n)))), n))
   }
 
   test("""{ x := { y := 1; z := y; z }; x }""") {
@@ -474,7 +474,7 @@ class SemanticAnalyzerTest extends FunTest {
         }
 
       """, TestWorlds.professors_students,
-      FunType(RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, n)))), None), n))
+      FunType(RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, n))))), n))
   }
 
   test("""home-made count applied to wrong type""") {
@@ -487,7 +487,7 @@ class SemanticAnalyzerTest extends FunTest {
         }
 
       """, TestWorlds.empty,
-      UnexpectedType(FunType(CollectionType(MonoidVariable(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()), None)
+      UnexpectedType(FunType(CollectionType(MonoidVariable(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()))
     )
   }
 
@@ -498,7 +498,7 @@ class SemanticAnalyzerTest extends FunTest {
           f := \x -> x;
           (f(1), f(true))
         }
-      """, TestWorlds.empty, RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", BoolType()))), None))
+      """, TestWorlds.empty, RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", BoolType())))))
   }
 
   test("""let-polymorphism #2""") {
@@ -510,9 +510,8 @@ class SemanticAnalyzerTest extends FunTest {
         }
       """, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("_1", RecordType(Attributes(List(AttrType("x",  IntType()), AttrType("_2", IntType()))), None)),
-        AttrType("_2", RecordType(Attributes(List(AttrType("x",  BoolType()), AttrType("_2", IntType()))), None)))),
-        None))
+        AttrType("_1", RecordType(Attributes(List(AttrType("x",  IntType()), AttrType("_2", IntType()))))),
+        AttrType("_2", RecordType(Attributes(List(AttrType("x",  BoolType()), AttrType("_2", IntType())))))))))
   }
 
   test("""let-polymorphism #3""") {
@@ -546,8 +545,8 @@ class SemanticAnalyzerTest extends FunTest {
   test("""let-polymorphism #5""") {
     val x = TypeVariable()
     val age = TypeVariable()
-    val rec = RecordType(AttributesVariable(Set(AttrType("age", age))), None)
-    val rec2 = RecordType(AttributesVariable(Set(AttrType("age", BoolType()))), None)
+    val rec = RecordType(AttributesVariable(Set(AttrType("age", age))))
+    val rec2 = RecordType(AttributesVariable(Set(AttrType("age", BoolType()))))
     success(
       """
         {
@@ -558,7 +557,7 @@ class SemanticAnalyzerTest extends FunTest {
       """, TestWorlds.empty, RecordType(Attributes(List(
       AttrType("f", FunType(x, BoolType())),
       AttrType("g", FunType(rec, age)),
-      AttrType("_3", FunType(rec2, BoolType())))), None))
+      AttrType("_3", FunType(rec2, BoolType()))))))
   }
 
   test("""let-polymorphism #6""") {
@@ -592,7 +591,7 @@ class SemanticAnalyzerTest extends FunTest {
         (f, f(1))
       }
       """, TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(n2, BoolType())))), None))
+      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(n2, BoolType()))))))
   }
 
   test("map") {
@@ -604,18 +603,18 @@ class SemanticAnalyzerTest extends FunTest {
         col2 := list(1.0);
         (map(col1, \x -> x + 1), map(col2, \x -> x + 1.1))
         }
-      """, TestWorlds.empty, RecordType(Attributes(List(AttrType("_1", CollectionType(ListMonoid(),IntType())), AttrType("_2", CollectionType(ListMonoid(),FloatType())))), None))
+      """, TestWorlds.empty, RecordType(Attributes(List(AttrType("_1", CollectionType(ListMonoid(),IntType())), AttrType("_2", CollectionType(ListMonoid(),FloatType()))))))
   }
 
   test("""\(x, y) -> x.age = y""") {
     val y = TypeVariable()
-    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", RecordType(AttributesVariable(Set(AttrType("age", y))), None)), AttrType("_2", y))), None), BoolType()))
+    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", RecordType(AttributesVariable(Set(AttrType("age", y))))), AttrType("_2", y)))), BoolType()))
   }
 
   test("""\(x, y) -> (x, y)""") {
     val x = TypeVariable()
     val y = TypeVariable()
-    val rec = RecordType(Attributes(List(AttrType("_1", x), AttrType("_2", y))), None)
+    val rec = RecordType(Attributes(List(AttrType("_1", x), AttrType("_2", y))))
     success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(rec, rec))
   }
 
@@ -625,7 +624,7 @@ class SemanticAnalyzerTest extends FunTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
       FunType(
-        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz)))), None),
+        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz))))),
         yz))
   }
 
@@ -635,7 +634,7 @@ class SemanticAnalyzerTest extends FunTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield max y(z)""", TestWorlds.empty,
       FunType(
-        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz)))), None),
+        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz))))),
         yz))
   }
 
@@ -795,9 +794,7 @@ class SemanticAnalyzerTest extends FunTest {
       success("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""", TestWorlds.options, {
         val ot = CollectionType(SetMonoid(), FunType(RecordType(Attributes(List(AttrType("_1", IntType()),
           AttrType("_2", RecordType(Attributes(List(
-            AttrType("_1", IntType()), AttrType("_2", IntType()))),
-            None)))),
-          None), ob));
+            AttrType("_1", IntType()), AttrType("_2", IntType())))))))), ob));
         ot.nullable = true;
         ot
       })
@@ -824,10 +821,10 @@ class SemanticAnalyzerTest extends FunTest {
       // partition should be an option bag of record with an option int and a non-option int.
       val optionInt = IntType()
       optionInt.nullable = true
-      val partitionType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", IntType()))), None))
+      val partitionType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", IntType())))))
       partitionType.nullable = true // because OLI is an option list
       // select should be an option bag of ...
-      val selectType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", partitionType))), None));
+      val selectType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", partitionType)))));
       selectType.nullable = true // because OLI is an option list
       success("select s+r, partition from s in OLI, r in LOI where s = r group by s+r", TestWorlds.options, selectType)
     }
@@ -865,7 +862,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age, partition from students s group by s.age") {
-    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", UserType(Symbol("students"))))), None)))
+    success("select s.age, partition from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", UserType(Symbol("students"))))))))
   }
 
   test("select partition from students s group by s.age") {
@@ -873,11 +870,11 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age, (select p.name from partition p) from students s group by s.age") {
-    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))), None)))
+    success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))))))
   }
 
   test("select s.dept, count(partition) as n from students s group by s.dept") {
-    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("department", StringType()), AttrType("n", IntType()))), None)))
+    success("select s.department, count(partition) as n from students s group by s.department", TestWorlds.school, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("department", StringType()), AttrType("n", IntType()))))))
   }
 
   ignore("select dpt, count(partition) as n from students s group by dpt: s.dept") {
@@ -885,11 +882,11 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
-    success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("decade",IntType()), AttrType("names",CollectionType(ListMonoid(),StringType())))),None)))
+    success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("decade",IntType()), AttrType("names",CollectionType(ListMonoid(),StringType())))))))
   }
 
   test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
-    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name",StringType()), AttrType("partition",UserType(Symbol("students"))))),None))))),None)))
+    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name",StringType()), AttrType("partition",UserType(Symbol("students")))))))))))))
   }
 
   test("sum(list(1))") {
@@ -1041,7 +1038,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for ( <- students ) yield set (name, age)") {
-    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))),None)))
+    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
   }
 
   test("for ( <- students; <- professors ) yield set name") {
@@ -1049,7 +1046,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for ( <- students; age > (for ( <- professors ) yield max age)) yield set (name, age)") {
-    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))),None)))
+    success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
   }
 
   test("(a: 1, a: 2)") {
@@ -1140,7 +1137,7 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(ListMonoid(),
         RecordType(Attributes(List(AttrType("age", IntType()),
                                    AttrType("_2", CollectionType(ListMonoid(),
-                                                                 RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None)))
+                                                                 RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))
 
   }
 
@@ -1155,7 +1152,7 @@ class SemanticAnalyzerTest extends FunTest {
 
       TestWorlds.professors_students,
       CollectionType(ListMonoid(),
-        RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None)))
+        RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
 
   }
 
@@ -1186,7 +1183,9 @@ class SemanticAnalyzerTest extends FunTest {
 
       TestWorlds.professors_students,
       CollectionType(ListMonoid(),
-        RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None)))
+        RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("partition", CollectionType(ListMonoid(),
+            RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))
 
   }
 
@@ -1204,12 +1203,11 @@ class SemanticAnalyzerTest extends FunTest {
         RecordType(Attributes(List(AttrType("_1",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
             AttrType("_2", CollectionType(ListMonoid(),
-              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None))),
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
                                    AttrType("_2",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
             AttrType("_2", CollectionType(ListMonoid(),
-              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))), None))))), None))))),
-        None))
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
 
   }
 
@@ -1224,42 +1222,42 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "select age, * from students",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))))))
   }
 
   test("select age, * from students group by age") {
     success(
       "select age, * from students group by age",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))))))
   }
 
   test("select age, count(*) from students") {
     success(
       "select age, count(*) from students",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))))))
   }
 
   test("select age, count(*) from students group by age") {
     success(
       "select age, count(*) from students group by age",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))))))
   }
 
   test("select age, (select name from partition), count(*), max(select age from partition) from students group by age") {
     success(
       "select age, (select name from partition), count(*), max(select age from partition) from students group by age",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(ListMonoid(), StringType())), AttrType("_3", IntType()), AttrType("_4", IntType()))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(ListMonoid(), StringType())), AttrType("_3", IntType()), AttrType("_4", IntType()))))))
   }
 
   test("select name, count(*) from students group by age") {
     success(
       "select name, count(*) from students group by age",
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("_2", IntType()))), None)))
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("_2", IntType()))))))
   }
 
   test("for ( <- students) yield list *") {
