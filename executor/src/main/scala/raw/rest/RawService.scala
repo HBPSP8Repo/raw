@@ -70,6 +70,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
   }
 
   override def receive: Receive = {
+    // TODO: What other lifecycle commands can this actor receive? ConfirmedClose
     // when a new connection comes in we register ourselves as the connection handler
     case _: Http.Connected => sender ! Http.Register(self)
 
@@ -91,9 +92,12 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
     case r@HttpRequest(POST, Uri.Path("/schemas"), _, _, _) =>
       complete(sender, processRequest(r, doSchemas))
 
-    case r@_ =>
+    case r@HttpRequest(_, _, _, _, _) =>
       logger.warn("Unknown request: " + r)
       complete(sender, HttpResponse(StatusCodes.BadRequest, HttpEntity(s"Unknown request: $r")))
+
+    case r@_ =>
+      logger.warn("Ignoring command: " + r)
   }
 
 
@@ -136,7 +140,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
     logger.info(s"doRegisterFile: $request")
-    val stagingDirectory = Files.createTempDirectory("raw-stage")
+    val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.tmpDir, "raw-stage")
     try {
       val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
       DropboxClient.downloadFile(request.url, localFile)
@@ -149,7 +153,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
       try {
         Files.deleteIfExists(stagingDirectory)
       } catch {
-        case ex: DirectoryNotEmptyException => logger.warn("Could not delete directory", ex)
+        case ex: Exception => logger.warn("Could not delete temporary directory. Expected an empty directory.", ex)
       }
     }
   }

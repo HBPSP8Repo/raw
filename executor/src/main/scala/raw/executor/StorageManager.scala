@@ -22,11 +22,19 @@ class StorageManager(val storagePath: Path = StorageManager.defaultStorageDir) e
   // Map from (user, schema) -> schemaScanner
   private[this] val scanners = new mutable.HashMap[(String, String), RawScanner[_]]
 
+  private[this] final val TMP_DIR_NAME = "tmp"
+
   {
     logger.info("Storing data files at: " + storagePath)
     // Create directory if it does not exist
     RawUtils.createDirectory(storagePath)
     loadScannersFromDisk()
+  }
+
+  val tmpDir = {
+    val t = storagePath.resolve(TMP_DIR_NAME)
+    RawUtils.createDirectory(t)
+    t
   }
 
   private[this] def loadScannersFromDisk(): Unit = {
@@ -54,7 +62,8 @@ class StorageManager(val storagePath: Path = StorageManager.defaultStorageDir) e
 
   def listUsers(): Set[String] = {
     val directories = RawUtils.listSubdirectories(storagePath)
-    directories.map(dir => dir.getFileName.toString).toSet
+    // Ignore the special tmp directory, used for staging files.
+    directories.filter(p => p.getFileName == TMP_DIR_NAME).map(dir => dir.getFileName.toString).toSet
   }
 
   def extractFilename(uri: URI): String = {
