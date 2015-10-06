@@ -1,6 +1,9 @@
+import java.nio.file.{Paths, Files}
+
 import Dependencies._
 import Resolvers._
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
+import org.apache.commons.io.FileUtils
 import sbt.Keys._
 
 
@@ -56,11 +59,21 @@ lazy val executor = (project in file("executor")).
     // therefore increasing the final image size by about 150Mb.
     dockerCommands := dockerCommands.value.filterNot {
       // ExecCmd is a case class, and args is a varargs variable, so you need to bind it with @
-      case ExecCmd("RUN", args @ _*) => args.contains("chown")
-      case Cmd("USER", args @ _*) => true
+      case ExecCmd("RUN", args@_*) => args.contains("chown")
+      case Cmd("USER", args@_*) => true
       // dont filter the rest
-      case cmd                       => false
-    }
+      case cmd => false
+    },
+    // The inferrer scripts are not part of the scala build, so they have to be added explicitly
+    // Override the stage task to also copy the inferrer scripts to the stage directory.
+    stage in Docker <<= (baseDirectory, stage in Docker) map { (base, stageDir) =>
+      val inferrerDir = new File(base.getParent, "inferrer")
+      println(s"Copying inferrer scripts from ${inferrerDir} to $stageDir")
+      FileUtils.copyDirectoryToDirectory(inferrerDir, stageDir)
+      stageDir
+    },
+    // Update the dockerfile to also copy the inferrer scripts into the image.
+    dockerCommands ++= Seq(Cmd("ADD", "inferrer", "/opt/inferrer"))
   ).
 
   settings(buildSettings ++ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)).
@@ -112,7 +125,7 @@ lazy val executor = (project in file("executor")).
       duration=XX[smhd]
       dumponexit=true,dumponexitpath=path
      */
-    javaOptions ++= Seq("""-Dspark.master=local[2]"""),
+    javaOptions ++= Seq( """-Dspark.master=local[2]"""),
     //        """-XX:+UnlockCommercialFeatures""",
     //        """-XX:+FlightRecorder""",
     //        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
@@ -142,7 +155,7 @@ lazy val executor = (project in file("executor")).
     TaskKey[File]("mk-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
       val template = """#!/bin/sh
 java -Draw.inferrer.path=%s -classpath "%s" %s "$@"
-"""
+                     """
       val mainStr = "raw.rest.RawRestServerMain"
       val inferrerPath = base + "/../inferrer"
       val contents = template.format(inferrerPath, cp.files.absString, mainStr)
