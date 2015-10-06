@@ -18,13 +18,12 @@ class RawServer(storageDir: Path) extends StrictLogging {
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
-    val cleanedQuery = query.trim.replaceAll("\\s+", " ")
+//    val cleanedQuery = query.trim.replaceAll("\\s+", " ")
 
     val schemas: Seq[String] = storageManager.listUserSchemas(rawUser)
     logger.info("Found schemas: " + schemas.mkString(", "))
     val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
-    //    CodeGenerator.query(queryLanguage, cleanedQuery, scanners)
-    val compiledQuery = CodeGenerator.compileQuery(queryLanguage, cleanedQuery, scanners)
+    val compiledQuery = CodeGenerator.compileQuery(queryLanguage, query, scanners)
     compiledQuery.computeResult
   }
 
