@@ -12,8 +12,7 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
     val analyzer = new SemanticAnalyzer(t, world, Some(query))
-    analyzer.errors.foreach(err => logger.error(ErrorsPrettyPrinter(err)))
-    analyzer.printTypedTree()
+    analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     analyzer
   }
 
@@ -301,7 +300,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test( """\(a, b) -> a + b + 2""") {
-    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType())))), IntType()))
+    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(IntType()), PatternAttrType(IntType()))), IntType()))
   }
 
   test( """\a -> a""") {
@@ -315,14 +314,14 @@ class SemanticAnalyzerTest extends FunTest {
 
   test( """\(x, y) -> x + y""") {
     val n = NumberType()
-    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n)))), n))
+    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(n), PatternAttrType(n))), n))
   }
 
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {
     var arg = TypeVariable()
     val out = TypeVariable()
     val f = FunType(arg, out)
-    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", f), AttrType("_2", arg)))), out))
+    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(PatternType(List(PatternAttrType(f), PatternAttrType(arg))), out))
   }
 
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
@@ -444,16 +443,16 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\(x, y) -> x + y + 10""") {
-    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType())))), IntType()))
+    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(IntType()), PatternAttrType(IntType()))), IntType()))
   }
 
   test("""\(x, y) -> x + y + 10.2""") {
-    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", FloatType()), AttrType("_2", FloatType())))), FloatType()))
+    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(FloatType()), PatternAttrType(FloatType()))), FloatType()))
   }
 
   test("""\(x, y) -> { z := x; y + z }""") {
     val n = NumberType()
-    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", n)))), n))
+    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(n), PatternAttrType(n))), n))
   }
 
   test("""{ x := { y := 1; z := y; z }; x }""") {
@@ -608,14 +607,13 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("""\(x, y) -> x.age = y""") {
     val y = TypeVariable()
-    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(RecordType(Attributes(List(AttrType("_1", RecordType(AttributesVariable(Set(AttrType("age", y))))), AttrType("_2", y)))), BoolType()))
+    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(RecordType(AttributesVariable(Set(AttrType("age", y))))), PatternAttrType(y))), BoolType()))
   }
 
   test("""\(x, y) -> (x, y)""") {
     val x = TypeVariable()
     val y = TypeVariable()
-    val rec = RecordType(Attributes(List(AttrType("_1", x), AttrType("_2", y))))
-    success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(rec, rec))
+    success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(x), PatternAttrType(y))), RecordType(Attributes(List(AttrType("x", x), AttrType("y", y))))))
   }
 
   test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
@@ -981,7 +979,7 @@ class SemanticAnalyzerTest extends FunTest {
     success("exists(list(1))", TestWorlds.empty, BoolType())
   }
 
-  test("polymorphic select") {
+  test("polymorphic select #1") {
     success(
       """
         |{
@@ -1167,11 +1165,18 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(AttrType("_1",
+        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("_2", CollectionType(ListMonoid(),
+            RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
+        AttrType("_2",
+          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+            AttrType("_2", CollectionType(ListMonoid(),
+              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
 
   }
 
-  test("cucu") {
+  test("group_by_age(students), select version") {
     // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
     success(
       """
@@ -1189,7 +1194,24 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
-  test("cucu #2") {
+  test("\\xs -> select x from x in xs (monoid should remain)") {
+    val m = MonoidVariable()
+    val t = TypeVariable()
+    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(m, t), CollectionType(m, t)))
+  }
+
+  test("select x from x in xs (applied to students)") {
+    val m = MonoidVariable()
+    val t = TypeVariable()
+    success("""{
+       a := \xs -> select x from x in xs;
+       a(students)
+       } """, TestWorlds.professors_students,       CollectionType(ListMonoid(),
+          RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
+
+  }
+
+  test("polymorphic select") {
       // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
       success(
         """
@@ -1202,11 +1224,11 @@ class SemanticAnalyzerTest extends FunTest {
         TestWorlds.professors_students,
         RecordType(Attributes(List(AttrType("_1",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("_2", CollectionType(ListMonoid(),
+            AttrType("partition", CollectionType(ListMonoid(),
               RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
                                    AttrType("_2",
           CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("_2", CollectionType(ListMonoid(),
+            AttrType("partition", CollectionType(ListMonoid(),
               RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
 
   }
@@ -1274,6 +1296,63 @@ class SemanticAnalyzerTest extends FunTest {
   test("""set(("dbname", "authors"), ("dbname", "publications"))""") {
     success(
       """set(("dbname", "authors"), ("dbname", "publications"))""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("1223fff simpler") {
+    success(
+      """
+\xs -> for (x <- xs) yield list x
+ """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("1223fff") {
+    success(
+      """
+        |{
+        | a := \xs -> for (x <- xs) yield list x;
+        | a
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("1223fff #2") {
+    success(
+      """
+        |{
+        | a := \xs -> for (x <- xs) yield sum x;
+        | a
+        |}
+      """.stripMargin,
+    TestWorlds.empty,
+    IntType())
+  }
+
+  test("1223fff #3") {
+    success(
+      """
+        |{
+        | a := \xs,ys -> for (x <- xs; y <- ys) yield sum x;
+        | a
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("1223fff #4") {
+    success(
+      """
+        |{
+        | a := \xs, ys -> for (i <- (select x from x in xs, y in ys)) yield bag i;
+        | a
+        |}
+      """.stripMargin,
       TestWorlds.empty,
       IntType())
   }

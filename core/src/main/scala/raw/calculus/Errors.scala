@@ -83,25 +83,25 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
 
   override def tipe(t: Type) = t match {
     // TODO: Replace this by a more useful description of possible alternative types with the given properties (e.g. expected a bag or a list)
-    case CollectionType(m: MonoidVariable, innerType) =>
-      def mdesc(m: Monoid) = m match {
-        case m: GenericMonoid =>
-          val c = m.commutative match {
-            case Some(true)  => Seq("commutative")
-            case Some(false) => Seq("non-commutative")
-            case _           => Seq()
-          }
-          val i = m.idempotent match {
-            case Some(true)  => Seq("idempotent")
-            case Some(false) => Seq("non-idempotent")
-            case _           => Seq()
-          }
-          c ++ i
-      }
-      if (mdesc(m).nonEmpty)
-        monoid(m) <+> opt(t.nullable) <> "collection of" <+> tipe(innerType)
-      else
-        opt(t.nullable) <> "collection of" <+> tipe(innerType)
+//    case CollectionType(m: MonoidVariable, innerType) =>
+//      def mdesc(m: Monoid) = m match {
+//        case m: GenericMonoid =>
+//          val c = m.commutative match {
+//            case Some(true)  => Seq("commutative")
+//            case Some(false) => Seq("non-commutative")
+//            case _           => Seq()
+//          }
+//          val i = m.idempotent match {
+//            case Some(true)  => Seq("idempotent")
+//            case Some(false) => Seq("non-idempotent")
+//            case _           => Seq()
+//          }
+//          c ++ i
+//      }
+//      if (mdesc(m).nonEmpty)
+//        monoid(m) <+> opt(t.nullable) <> "collection of" <+> tipe(innerType)
+//      else
+//        opt(t.nullable) <> "collection of" <+> tipe(innerType)
     // TODO: Put back nicer error message on incompatible types
 //    case PartialRecordType(atts, _)                =>
 //      val satts = atts.map { case att => s"attribute ${att.idn} of type ${FriendlierPrettyPrinter(att.tipe)}" }.mkString(" and ")

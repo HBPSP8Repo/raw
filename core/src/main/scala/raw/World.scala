@@ -67,6 +67,9 @@ object World extends LazyLogging {
     def getRoots: Set[A] =
       m.map(_._2).map(_.root).toSet
 
+    def keys: List[A] =
+      m.map(_._1)
+
   }
 
   class TypesVarMap extends VarMap[Type] {
@@ -112,6 +115,7 @@ object World extends LazyLogging {
       case (_: SetMonoid, _: SetMonoid) => e1 == e2
       case (_: BagMonoid, _: BagMonoid) => e1 == e2
       case (_: ListMonoid, _: ListMonoid) => e1 == e2
+      case (_: MonoidVariable, _: MonoidVariable) => e1 == e2
       case _ => e1 eq e2
     }
 

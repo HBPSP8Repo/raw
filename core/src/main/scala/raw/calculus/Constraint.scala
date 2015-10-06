@@ -25,7 +25,7 @@ object Constraint extends LazyLogging {
 
   case class StarHasType(s: Star) extends Constraint
 
-  case class MaxOfMonoids(e: Exp, gs: Seq[Decl]) extends Constraint
+  case class MaxOfMonoids(e: Exp, gs: Seq[Gen]) extends Constraint
 
   case class BoundByType(b: Bind) extends Constraint
 
