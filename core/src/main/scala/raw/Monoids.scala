@@ -41,7 +41,7 @@ case class ListMonoid() extends CollectionMonoid
 /** Generic Monoid
   * Used only to report the final monoid
   */
-case class GenericMonoid(commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None, sym: Symbol = SymbolTable.next()) extends CollectionMonoid
+case class GenericMonoid(commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None) extends CollectionMonoid
 
 /** Monoid Variable
   * Monoids have a relative ordering between them: e.g. list < bag < set.

@@ -50,7 +50,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: SetMonoid      => "set"
     case _: ListMonoid     => "list"
     case MonoidVariable(ms, sym) => sym.idn <> parens(group("ms" <> "=" <> lsep(ms.map(monoid).to, comma)))
-    case GenericMonoid(commutative, idempotent, sym) => sym.idn <> parens(group(lsep(List(
+    case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
       text(if (commutative.isDefined) commutative.get.toString else "?"),
       text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
   }

@@ -1357,6 +1357,20 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
+
+  test("1223fff #5") {
+    success(
+      """
+        |{
+        | a := \xs, ys -> sum(select x from x in xs, y in ys);
+        | a
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
+
+
 }
 
 
