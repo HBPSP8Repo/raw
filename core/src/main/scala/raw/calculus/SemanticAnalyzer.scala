@@ -1712,19 +1712,56 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   private def aFind(t: RecordAttributes): RecordAttributes =
     if (recAttsVarMap.contains(t)) recAttsVarMap(t).root else t
 
+//  private def makeGenMonoid(c: CollectionMonoid, g: GenericMonoid): GenericMonoid = {
+//    g match {
+//      case GenericMonoid(Some(false), Some(false)) => g
+//      case _ =>
+//        val ms = findMaxes(c)
+//        for (m <- ms) {
+//
+//        }
+//    }
+//
+//    val ms = findMaxes(c)
+//
+//    var minCommutative: Option[Boolean] = None
+//    var minIdempotent: Option[Boolean] = None
+//    for (m <- ms) {
+//      if (minCommutative.isEmpty && commutative(m).isDefined && !commutative(m).get) {
+//        minCommutative = Some(false)
+//      }
+//      if (minIdempotent.isEmpty && idempotent(m).isDefined && !idempotent(m).get) {
+//        minIdempotent = Some(false)
+//      }
+//    }
+//
+//    if (minCommutative.isDefined && minIdempotent.isDefined)
+//      GenericMonoid(minCommutative, minIdempotent)
+//    else {
+//
+//    }
+//  }
+
   private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
-    val myMaxes = scala.collection.mutable.Set[CollectionMonoid]()
-    for (k <- monoidsVarMap.getRoots) {
-      val g = monoidsVarMap(k)
-      for (m1 <- g.elements) {
-        m1 match {
-          case mv @ MonoidVariable(ms, _) if ms.contains(c) => myMaxes += k
-          case _ =>
-        }
-      }
-    }
-    myMaxes.to
+//    monoidsVarMap.getRoots.flatMap{ r => monoidsVarMap(r).elements.filter{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}.flatMap(findMaxes) }
+    val myRoots = monoidsVarMap.getRoots.filter{ r => r != c && monoidsVarMap(r).elements.exists{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}}
+    if (myRoots.isEmpty) Set(c) else myRoots.flatMap{monoidsVarMap(_).elements}.flatMap(findMaxes)
   }
+
+
+//  private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
+//    val myMaxes = scala.collection.mutable.Set[CollectionMonoid]()
+//    for (k <- monoidsVarMap.getRoots) {
+//      val g = monoidsVarMap(k)
+//      for (m1 <- g.elements) {
+//        m1 match {
+//          case mv @ MonoidVariable(ms, _) if ms.contains(c) => myMaxes += k
+//          case _ =>
+//        }
+//      }
+//    }
+//    myMaxes.to
+//  }
 
   private def monWalk(c: CollectionMonoid): CollectionMonoid = mFind(c) match {
     case s: SetMonoid => s
