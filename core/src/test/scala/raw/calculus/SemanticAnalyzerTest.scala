@@ -1370,6 +1370,48 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
+  test("1223fff #6") {
+    success(
+      """
+        |select x from x in students, y in professors
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("1223fff #7") {
+    success(
+      """
+        |\xs -> sum(select x.age from x in students, y in xs)
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test(".......") {
+    success(
+      """
+        |{
+        |  a := list((1,2,3),(4,5,6));
+        |  for ( row <- a )
+        |    yield list row
+        |
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+
+  }
+  test("....") {
+    success(
+      """
+        list((1,2,3),(4,5,6))
+
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+
+  }
 
 }
 

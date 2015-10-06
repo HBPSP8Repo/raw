@@ -1742,36 +1742,36 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //    }
 //  }
 
-//  private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
-    private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None, minIdempotent: Option[Boolean] = None): CollectionMonoid = {
-//    monoidsVarMap.getRoots.flatMap{ r => monoidsVarMap(r).elements.filter{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}.flatMap(findMaxes) }
-//    val myRoots = monoidsVarMap.getRoots.filter{ r => r != c && monoidsVarMap(r).elements.exists{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}}
+  // TODO perhaps we should pass a monoid (generic or not) so that we can compare below
+private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None, minIdempotent: Option[Boolean] = None): CollectionMonoid = {
   val myRoots = monoidsVarMap.getRoots.filter{ r => monoidsVarMap(r).elements.exists{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}}
-//    if (myRoots.isEmpty) Set(c) else myRoots.flatMap{monoidsVarMap(_).elements}.flatMap(findMaxes)
-    if (myRoots.isEmpty)
-      GenericMonoid(
-        if (commutative(c).isDefined && !commutative(c).get) Some(false) else minCommutative,
-        if (idempotent(c).isDefined && !idempotent(c).get) Some(false) else minIdempotent)
-    else {
-      var curCommutative: Option[Boolean] = minCommutative
-      var curIdempotent: Option[Boolean] = minIdempotent
-      for (root <- myRoots) {
-        val els = monoidsVarMap(root).elements
-        for (el <- els) {
-          val mx = findMax(el, curCommutative, curIdempotent)
-          if (curCommutative.isEmpty && commutative(mx).isDefined && !commutative(mx).get) {
-            curCommutative = Some(false)
-          }
-          if (curIdempotent.isEmpty && idempotent(mx).isDefined && !idempotent(mx).get) {
-            curIdempotent = Some(false)
-          }
-          if (curCommutative.isDefined && curIdempotent.isDefined)
-            return GenericMonoid(curCommutative, curIdempotent)
+  if (myRoots.isEmpty) {
+    // TODO perhaps if we are better defined (c=Bag and we got (?, false), we can return ourselves)?
+    GenericMonoid(
+      if (commutative(c).isDefined && !commutative(c).get) Some(false) else minCommutative,
+      if (idempotent(c).isDefined && !idempotent(c).get) Some(false) else minIdempotent)
+  } else {
+    var curCommutative: Option[Boolean] = minCommutative
+    var curIdempotent: Option[Boolean] = minIdempotent
+    for (root <- myRoots) {
+      val els = monoidsVarMap(root).elements
+      for (el <- els) {
+        // TODO perhaps we better collect all the maxes in case they are all the same (ListMonoid, whatever)
+        // in which case we return this monoid instead of forging a GenericMonoid
+        val mx = findMax(el, curCommutative, curIdempotent)
+        if (curCommutative.isEmpty && commutative(mx).isDefined && !commutative(mx).get) {
+          curCommutative = Some(false)
         }
+        if (curIdempotent.isEmpty && idempotent(mx).isDefined && !idempotent(mx).get) {
+          curIdempotent = Some(false)
+        }
+        if (curCommutative.isDefined && curIdempotent.isDefined)
+          return GenericMonoid(curCommutative, curIdempotent)
       }
-      GenericMonoid(curCommutative, curIdempotent)
     }
+    GenericMonoid(curCommutative, curIdempotent)
   }
+}
 
 
   private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
@@ -1795,6 +1795,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case m: MonoidVariable =>
       logger.debug(s"c is ${PrettyPrinter(c)}")
       val nm = findMax(m)
+//      val (commutative(nm), idempotent(nm)) match {
+//        case (Some(true), Some(true))  => SetMonoid()
+//        case (Some(true), Some(false)) => BagMonoid()
+//        case (Some(false), Some(false))  => ListMonoid()
+//        case
+//      }
+
       logger.debug(s"nm is ${PrettyPrinter(nm)}")
       nm
   }
@@ -2293,9 +2300,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
 
       case n @ MultiCons(m, head :: tail) if tail.nonEmpty =>
-        val thead = CollectionType(m, expType(head))
-        tail.map { case e => HasType(e, thead) }
-
+        val thead = expType(head)
+        tail.map { case e => HasType(e, thead) } :+ HasType(n, CollectionType(m, thead))
       case _ =>
         Seq()
     }
