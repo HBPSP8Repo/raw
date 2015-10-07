@@ -622,7 +622,7 @@ class SemanticAnalyzerTest extends FunTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
       FunType(
-        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz))))),
+        PatternType(List(PatternAttrType(CollectionType(m, z)), PatternAttrType(FunType(z, yz)))),
         yz))
   }
 
@@ -632,7 +632,7 @@ class SemanticAnalyzerTest extends FunTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield max y(z)""", TestWorlds.empty,
       FunType(
-        RecordType(Attributes(List(AttrType("_1", CollectionType(m, z)), AttrType("_2", FunType(z, yz))))),
+        PatternType(List(PatternAttrType(CollectionType(m, z)), PatternAttrType(FunType(z, yz)))),
         yz))
   }
 
@@ -790,10 +790,10 @@ class SemanticAnalyzerTest extends FunTest {
 
     test("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""") {
       success("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""", TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), FunType(RecordType(Attributes(List(AttrType("_1", IntType()),
-          AttrType("_2", RecordType(Attributes(List(
-            AttrType("_1", IntType()), AttrType("_2", IntType())))))))), ob));
-        ot.nullable = true;
+        val ot = CollectionType(SetMonoid(), FunType(PatternType(List(PatternAttrType(IntType()),
+          PatternAttrType(RecordType(Attributes(List(
+            AttrType("_1", IntType()), AttrType("_2", IntType()))))))), ob))
+        ot.nullable = true
         ot
       })
     }
@@ -896,7 +896,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("sum(1)") {
-    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(), NumberType())))
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(GenericMonoid(idempotent=Some(false)), NumberType())))
   }
 
   test("max(list(1))") {
