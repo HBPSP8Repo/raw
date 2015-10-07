@@ -63,7 +63,7 @@ class StorageManager(val storagePath: Path = StorageManager.defaultStorageDir) e
   def listUsers(): Set[String] = {
     val directories = RawUtils.listSubdirectories(storagePath)
     // Ignore the special tmp directory, used for staging files.
-    directories.filter(p => p.getFileName == TMP_DIR_NAME).map(dir => dir.getFileName.toString).toSet
+    directories.filter(p => !p.getFileName.toString.equals(TMP_DIR_NAME)).map(dir => dir.getFileName.toString).toSet
   }
 
   def extractFilename(uri: URI): String = {

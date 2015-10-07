@@ -3,6 +3,7 @@ package raw.utils
 import java.net.URL
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
+import java.util
 import java.util.function.BiPredicate
 
 import com.google.common.io.Resources
@@ -15,9 +16,10 @@ object RawUtils extends StrictLogging {
 
   def cleanOrCreateDirectory(p: Path) = {
     if (Files.isDirectory(p)) {
+      logger.info(s"Directory already exists. Deleting contents: $p.")
       FileUtils.cleanDirectory(p.toFile)
     } else {
-      logger.info(s"Creating results directory: $p")
+      logger.info(s"Creating directory: $p")
       Files.createDirectories(p)
     }
   }
@@ -31,9 +33,12 @@ object RawUtils extends StrictLogging {
   }
 
   def createDirectory(p: Path) = {
-    logger.info("Creating directory tree: " + p)
-    // Does not throw an exception if the directory already exists
-    Files.createDirectories(p)
+    if (Files.isDirectory(p)) {
+      logger.info("Directory already exists. Contents: " + util.Arrays.toString(Files.list(p).toArray))
+    } else {
+      logger.info("Creating directory tree: " + p)
+      Files.createDirectory(p)
+    }
   }
 
   def listSubdirectories(basePath: Path): Iterator[Path] = {
