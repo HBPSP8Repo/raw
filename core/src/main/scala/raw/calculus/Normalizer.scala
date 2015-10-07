@@ -23,7 +23,6 @@ class Normalizer extends PipelinedTransformer {
     case _: SetMonoid => Some(true)
     case _: BagMonoid => Some(true)
     case _: ListMonoid => Some(false)
-    case GenericMonoid(c, _, _) => c
   }
 
   private def idempotent(m: Monoid): Option[Boolean] = m match {
@@ -36,7 +35,6 @@ class Normalizer extends PipelinedTransformer {
     case _: SetMonoid => Some(true)
     case _: BagMonoid => Some(false)
     case _: ListMonoid => Some(false)
-    case GenericMonoid(_, i, _) => i
   }
 
   /** Rule 1

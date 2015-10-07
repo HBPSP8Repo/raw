@@ -66,18 +66,7 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
     super.pretty(show(n)).layout
 
   override def monoid(m: Monoid) = m match {
-    case m: GenericMonoid =>
-      val c = m.commutative match {
-        case Some(true) => Seq("commutative")
-        case Some(false) => Seq("non-commutative")
-        case _ => Seq()
-      }
-      val i = m.idempotent match {
-        case Some(true)  => Seq("idempotent")
-        case Some(false) => Seq("non-idempotent")
-        case _           => Seq()
-      }
-      (c ++ i).mkString(" and ")
+    // TODO!
     case _ => super.monoid(m)
   }
 

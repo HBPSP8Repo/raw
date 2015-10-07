@@ -1373,6 +1373,23 @@ class SemanticAnalyzerTest extends FunTest {
         n))
   }
 
+  test("sum over polymorphic select #1") {
+    val n = NumberType()
+    success(
+      """
+        |{
+        | a := \xs -> sum(xs);
+        | a
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      FunType(
+        PatternType(List(
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
+        n))
+  }
+
   test("select x from x in students, y in professors") {
     success(
       """select x from x in students, y in professors""",
@@ -1380,7 +1397,7 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
-  test("\\xs -> sum(select x.age from x in students, y in xs)") {
+  test("""xs -> sum(select x.age from x in students, y in xs)""") {
     success(
       """\xs -> sum(select x.age from x in students, y in xs)""",
       TestWorlds.professors_students,
@@ -1406,6 +1423,28 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType()), AttrType("_3", IntType()))))))
   }
+
+  test("""\xs -> sum(xs)""") {
+    success(
+      """\xs -> sum(xs)""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("""\xs -> sum(xs), xs union xs""") {
+    success(
+      """\xs -> sum(xs), xs union xs""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("""\xs,ys -> sum(xs), ys union ys""") {
+    success(
+      """\xs,ys -> sum(xs), ys union ys""",
+      TestWorlds.empty,
+      IntType())
+  }
+
 
 }
 

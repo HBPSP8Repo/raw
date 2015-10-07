@@ -39,20 +39,23 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ListMonoid     => "append"
   }
 
+  def shortMonoid(m: Monoid): Doc = m match {
+    case _: MaxMonoid           => "max"
+    case _: MinMonoid           => "min"
+    case _: MultiplyMonoid      => "multiply"
+    case _: SumMonoid           => "sum"
+    case _: AndMonoid           => "and"
+    case _: OrMonoid            => "or"
+    case _: BagMonoid           => "bag"
+    case _: SetMonoid           => "set"
+    case _: ListMonoid          => "list"
+    case MonoidVariable(_, _, sym) => sym.idn
+  }
+
   def monoid(m: Monoid): Doc = m match {
-    case _: MaxMonoid      => "max"
-    case _: MinMonoid      => "min"
-    case _: MultiplyMonoid => "multiply"
-    case _: SumMonoid      => "sum"
-    case _: AndMonoid      => "and"
-    case _: OrMonoid       => "or"
-    case _: BagMonoid      => "bag"
-    case _: SetMonoid      => "set"
-    case _: ListMonoid     => "list"
-    case MonoidVariable(ms, sym) => sym.idn <> parens(group("ms" <> "=" <> lsep(ms.map(monoid).to, comma)))
-    case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
-      text(if (commutative.isDefined) commutative.get.toString else "?"),
-      text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
+    case MonoidVariable(leqMonoids, geqMonoids, sym) =>
+      parens(text(sym.idn)) <> parens(group(lsep(leqMonoids.map(shortMonoid).toList ++ Seq(text(sym.idn)) ++ geqMonoids.map(shortMonoid).toList, text("<"))))
+    case _ => shortMonoid(m)
   }
 
   def atts(recAtts: RecordAttributes): Doc = recAtts match {
@@ -71,7 +74,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: FloatType                         => "float"
     case RecordType(recAtts)                  => "record" <> parens(atts(recAtts))
     case PatternType(pAtts)                   => "pattern" <> parens(group(lsep(pAtts.map { case att => tipe(att.tipe) }, comma)))
-    case CollectionType(m, innerType)         => monoid(m) <> parens(tipe(innerType))
+    case CollectionType(m, innerType)         => monoid(m) <> brackets(tipe(innerType))
     case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
     case _: AnyType                           => "any"
     case _: NothingType                       => "nothing"

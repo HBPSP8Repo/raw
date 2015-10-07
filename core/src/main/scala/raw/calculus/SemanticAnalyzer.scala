@@ -763,15 +763,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     def getMonoid(m: CollectionMonoid): CollectionMonoid = {
       val mr = if (monoidsVarMap.contains(m)) monoidsVarMap(m).root else m
 
-      val nm = mr match {
-        case MonoidVariable(ms, sym) =>
-          MonoidVariable(ms.map(getMonoid), if (monoidSyms.contains(sym)) getNewSym(sym) else sym)
+      mr match {
+        case MonoidVariable(leqMonoids, geqMonoids, sym) =>
+          MonoidVariable(leqMonoids.map(getMonoid), geqMonoids.map(getMonoid), if (monoidSyms.contains(sym)) getNewSym(sym) else sym)
         case _ => mr
       }
-
-      for (m1 <- findMaxes(m))
-        unifyMonoids(m1, MonoidVariable(Set(nm)))
-      nm
+//
+//      for (m1 <- findMaxes(m))
+//        unifyMonoids(m1, MonoidVariable(Set(nm)))
+//      nm
     }
 
     /*
@@ -903,24 +903,29 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Compute our property based on properties of our children 'a' and 'b'.
     */
 
-  // TODO: Should consult max of list to return Some(true) when we already know it's true
-
   private def maxOf(a: Option[Boolean], b: Option[Boolean]) = (a, b) match {
+    case (Some(true), _) => a
+    case (_, Some(true)) => b
+    case _               => None
+  }
+
+  private def minOf(a: Option[Boolean], b: Option[Boolean]) = (a, b) match {
     case (Some(false), _) => a
     case (_, Some(false)) => b
     case _                => None
   }
 
-  private def props(m: Monoid) = (commutative(m), idempotent(m))
-
-  private def commutative(m: Monoid): Option[Boolean] = m match {
+  private def commutative(m: Monoid): Option[Boolean] = { logger.debug(s"Getting called with $m"); m match {
     case _: PrimitiveMonoid => Some(true)
     case _: SetMonoid       => Some(true)
     case _: BagMonoid       => Some(true)
     case _: ListMonoid      => Some(false)
-    case g: GenericMonoid   => g.commutative
-    case MonoidVariable(ms, _) => ms.map(mFind).map(commutative).fold(None)((a, b) => maxOf(a, b))
-  }
+    case MonoidVariable(leq, geq, _) =>
+      val myMin = leq.map(mFind).map(commutative).fold(None)((a, b) => maxOf(a, b))
+      val myMax = geq.map(mFind).map(commutative).fold(None)((a, b) => minOf(a, b))
+      assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get))  // min > max is an implementation bug
+      myMin.orElse(myMax.orElse(None))
+  } }
 
   private def idempotent(m: Monoid): Option[Boolean] = m match {
     case _: MaxMonoid      => Some(true)
@@ -932,64 +937,31 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: SetMonoid      => Some(true)
     case _: BagMonoid      => Some(false)
     case _: ListMonoid     => Some(false)
-    case g: GenericMonoid  => g.idempotent
-    case MonoidVariable(ms, _) => ms.map(mFind).map(idempotent).fold(None)((a, b) => maxOf(a, b))
+    case MonoidVariable(leq, geq, _) =>
+      val myMin = leq.map(mFind).map(idempotent).fold(None)((a, b) => maxOf(a, b))
+      val myMax = geq.map(mFind).map(idempotent).fold(None)((a, b) => minOf(a, b))
+      assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get))  // min > max is an implementation bug
+      myMin.orElse(myMax.orElse(None))
   }
-
-  // they have to be "compatible on the minimums" to unify
 
   private def unifyMonoids(m1: CollectionMonoid, m2: CollectionMonoid): Boolean = (mFind(m1), mFind(m2)) match {
-    case (_: SetMonoid, _: SetMonoid)               => true
-    case (_: BagMonoid, _: BagMonoid)               => true
-    case (_: ListMonoid, _: ListMonoid)             => true
-    case (mv: MonoidVariable, s: SetMonoid)         =>
-      // A Set is greater or equal than any other monoid
+    case (nm1, nm2) if nm1 == nm2 => true
+    case (mv: MonoidVariable, s: SetMonoid) if (commutative(mv).isEmpty || commutative(mv).get) && (idempotent(mv).isEmpty || idempotent(mv).get) =>
       monoidsVarMap.union(mv, s)
       true
-    case (mv: MonoidVariable, b: BagMonoid)         => idempotent(mv) match {
-      case Some(true) =>
-        // A Bag is only smaller than a idempotent monoid
-        false
-      case _ =>
-        monoidsVarMap.union(mv, b)
-        true
-    }
-    case (mv: MonoidVariable, l: ListMonoid)        => (commutative(mv), idempotent(mv)) match {
-      case (Some(true), _) =>
-        // A List is smaller than a commutative monoid
-        false
-      case (_, Some(true)) =>
-        // A List is smaller than a idempotent monoid
-        false
-      case _ =>
-        monoidsVarMap.union(mv, l)
-        true
-    }
-    case (mv1: MonoidVariable, mv2: MonoidVariable) =>
-      //      val (mv1c, mv1i) = props(mv1)
-      //      val (mv2c, mv2i) = props(mv2)
-      //      if ((mv1c.isDefined && mv2c.isDefined && mv1c != mv2c) ||
-      //          (mv1i.isDefined && mv2i.isDefined && mv1i != mv2i))
-      //        false
-      //      else {
-      //        logger.debug(s"got here with mv1 ${PrettyPrinter(mv1)} and mv2 ${PrettyPrinter(mv2)}")
-      // If monoids are compatible, create a new monoid variable that is bigger than both input monoid variables
-      //        val nc = maxOf(commutative(mv1), commutative(mv2))
-      //        val ni = maxOf(idempotent(mv1), idempotent(mv2))
-      //        if ((nc, ni) == props(mv1))
-      //          monoidsVarMap.union(mv2, mv1)
-      //        else if ((nc, ni) == props(mv2))
-      //          monoidsVarMap.union(mv1, mv2)
-      //        else {
-      val nv = MonoidVariable(mv1.lesserMonoids ++ mv2.lesserMonoids)
-      monoidsVarMap.union(mv1, mv2).union(mv2, nv)
-      //        }
+    case (mv: MonoidVariable, b: BagMonoid) if (commutative(mv).isEmpty || commutative(mv).get) && (idempotent(mv).isEmpty || !idempotent(mv).get) =>
+      monoidsVarMap.union(mv, b)
       true
-    //      }
-    case (m1, mv: MonoidVariable) => unifyMonoids(mv, m1)
+    case (mv: MonoidVariable, l: ListMonoid) if (commutative(mv).isEmpty || !commutative(mv).get) && (idempotent(mv).isEmpty || !idempotent(mv).get) =>
+      monoidsVarMap.union(mv, l)
+      true
+    case (mv1: MonoidVariable, mv2: MonoidVariable) if (commutative(mv1).isEmpty || commutative(mv2).isEmpty || commutative(mv1) == commutative(mv2)) && (idempotent(mv1).isEmpty || idempotent(mv2).isEmpty || idempotent(mv1) == idempotent(mv2)) =>
+      val nv = MonoidVariable(mv1.leqMonoids ++ mv2.leqMonoids, mv1.geqMonoids ++ mv2.geqMonoids)
+      monoidsVarMap.union(mv1, mv2).union(mv2, nv)
+      true
+    case (nm1, mv: MonoidVariable) => unifyMonoids(mv, nm1)
+    case _ => false
   }
-
-  // Rationale: Compute the max and that becomes the new min :)
 
   //
   //
@@ -1180,7 +1152,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * where unifyMonoids is copied with the *NEW VARIABLE* we created here
     */
   private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid =
-    MonoidVariable(ts.map(_.m).toSet)
+    MonoidVariable(leqMonoids=ts.map(_.m).toSet, geqMonoids=Set())
 
   //    MonoidVariable(
   //      ts.flatMap {
@@ -1765,69 +1737,82 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //    }
 //  }
 
-  // TODO perhaps we should pass a monoid (generic or not) so that we can compare below
-private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None, minIdempotent: Option[Boolean] = None): CollectionMonoid = {
-  val myRoots = monoidsVarMap.getRoots.filter{ r => monoidsVarMap(r).elements.exists{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}}
-  if (myRoots.isEmpty) {
-    // TODO perhaps if we are better defined (c=Bag and we got (?, false), we can return ourselves)?
-    GenericMonoid(
-      if (commutative(c).isDefined && !commutative(c).get) Some(false) else minCommutative,
-      if (idempotent(c).isDefined && !idempotent(c).get) Some(false) else minIdempotent)
-  } else {
-    var curCommutative: Option[Boolean] = minCommutative
-    var curIdempotent: Option[Boolean] = minIdempotent
-    for (root <- myRoots) {
-      val els = monoidsVarMap(root).elements
-      for (el <- els) {
-        // TODO perhaps we better collect all the maxes in case they are all the same (ListMonoid, whatever)
-        // in which case we return this monoid instead of forging a GenericMonoid
-        val mx = findMax(el, curCommutative, curIdempotent)
-        if (curCommutative.isEmpty && commutative(mx).isDefined && !commutative(mx).get) {
-          curCommutative = Some(false)
-        }
-        if (curIdempotent.isEmpty && idempotent(mx).isDefined && !idempotent(mx).get) {
-          curIdempotent = Some(false)
-        }
-        if (curCommutative.isDefined && curIdempotent.isDefined)
-          return GenericMonoid(curCommutative, curIdempotent)
-      }
-    }
-    GenericMonoid(curCommutative, curIdempotent)
-  }
-}
+  // this is broken
+  // find the max should say we found the max
+  // but the max has to be compatible with my min
 
-
-  private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
-    val myMaxes = scala.collection.mutable.Set[CollectionMonoid]()
-    for (k <- monoidsVarMap.getRoots) {
-      val g = monoidsVarMap(k)
-      for (m1 <- g.elements) {
-        m1 match {
-          case mv @ MonoidVariable(ms, _) if ms.contains(c) => myMaxes += k
-          case _ =>
-        }
-      }
-    }
-    myMaxes.to
-  }
-
-  private def monWalk(c: CollectionMonoid): CollectionMonoid = mFind(c) match {
-    case s: SetMonoid => s
-    case b: BagMonoid => b
-    case l: ListMonoid => l
-    case m: MonoidVariable =>
-      logger.debug(s"c is ${PrettyPrinter(c)}")
-      val nm = findMax(m)
-//      val (commutative(nm), idempotent(nm)) match {
-//        case (Some(true), Some(true))  => SetMonoid()
-//        case (Some(true), Some(false)) => BagMonoid()
-//        case (Some(false), Some(false))  => ListMonoid()
-//        case
+//  // TODO perhaps we should pass a monoid (generic or not) so that we can compare below
+//private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None, minIdempotent: Option[Boolean] = None): CollectionMonoid = {
+//    logger.debug(s"findMax of $c")
+//  val myRoots = monoidsVarMap.getRoots.filter{ r => monoidsVarMap(r).elements.exists{ case mv @ MonoidVariable(ms, _) if ms.contains(c) => true case _ => false}}
+//  if (myRoots.isEmpty) {
+//    // TODO perhaps if we are better defined (c=Bag and we got (?, false), we can return ourselves)?
+//    logger.debug(s"here with $c and mins $minCommutative and $minIdempotent")
+//
+//    val maxCommutative = commutative(c)
+//    val maxIdempotent = idempotent(c)
+//    logger.debug(s"and maxes $maxCommutative and $maxIdempotent")
+//    assert(!(maxCommutative.isDefined && minCommutative.isDefined && !maxCommutative && minCommutative))
+//    assert(maxCommutative.isEmpty || minCommutative.isEmpty || maxCommutative.get || !minCommutative.get)
+//    assert(maxIdempotent.isEmpty || minIdempotent.isEmpty || maxIdempotent.get || !minIdempotent.get)
+//
+//    GenericMonoid(if (maxCommutative.isDefined && !maxCommutative.get) Some(false) else minCommutative, if (maxIdempotent.isDefined && !maxIdempotent.get) Some(false) else minIdempotent)
+//  } else {
+//    var curCommutative: Option[Boolean] = minCommutative
+//    var curIdempotent: Option[Boolean] = minIdempotent
+//    for (root <- myRoots) {
+//      val els = monoidsVarMap(root).elements
+//      for (el <- els) {
+//        // TODO perhaps we better collect all the maxes in case they are all the same (ListMonoid, whatever)
+//        // in which case we return this monoid instead of forging a GenericMonoid
+//        val mx = findMax(el, curCommutative, curIdempotent)
+//        if (curCommutative.isEmpty && commutative(mx).isDefined && !commutative(mx).get) {
+//          curCommutative = Some(false)
+//        }
+//        if (curIdempotent.isEmpty && idempotent(mx).isDefined && !idempotent(mx).get) {
+//          curIdempotent = Some(false)
+//        }
+//        if (curCommutative.isDefined && curIdempotent.isDefined)
+//          return GenericMonoid(curCommutative, curIdempotent)
 //      }
-
-      logger.debug(s"nm is ${PrettyPrinter(nm)}")
-      nm
-  }
+//    }
+//    GenericMonoid(curCommutative, curIdempotent)
+//  }
+//}
+//
+//
+//  private def findMaxes(c: CollectionMonoid): Set[CollectionMonoid] = {
+//    val myMaxes = scala.collection.mutable.Set[CollectionMonoid]()
+//    for (k <- monoidsVarMap.getRoots) {
+//      val g = monoidsVarMap(k)
+//      for (m1 <- g.elements) {
+//        m1 match {
+//          case mv @ MonoidVariable(ms, _) if ms.contains(c) => myMaxes += k
+//          case _ =>
+//        }
+//      }
+//    }
+//    myMaxes.to
+//  }
+//
+//  private def monWalk(c: CollectionMonoid): CollectionMonoid = mFind(c) match {
+//    case s: SetMonoid => s
+//    case b: BagMonoid => b
+//    case l: ListMonoid => l
+//    case m: MonoidVariable =>
+//      logger.debug(s"c is ${PrettyPrinter(c)}")
+//      logger.debug(s"monoidVarMap is\n${monoidsVarMap.toString}")
+//      val nm = findMax(m)
+////      val (commutative(nm), idempotent(nm)) match {
+////        case (Some(true), Some(true))  => SetMonoid()
+////        case (Some(true), Some(false)) => BagMonoid()
+////        case (Some(false), Some(false))  => ListMonoid()
+////        case
+////      }
+//
+//      logger.debug(s"nm is ${PrettyPrinter(nm)}")
+//      nm
+//  }
 
   /** Reconstruct the type by resolving all inner variable types as much as possible.
     * Also, try to match the type into an existing user type.
@@ -1883,7 +1868,7 @@ private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None,
                 RecordType(AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym))
             }
           case PatternType(atts)          => PatternType(atts.map { case att => PatternAttrType(reconstructType(att.tipe, occursCheck + t)) })
-          case CollectionType(m, innerType)    => CollectionType(monWalk(m), reconstructType(innerType, occursCheck + t))
+          case CollectionType(m, innerType)    => CollectionType(mFind(m), reconstructType(innerType, occursCheck + t))
           case FunType(p, e)                   => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))
           case t1: TypeVariable => if (!typesVarMap.contains(t1)) t1 else reconstructType(pickMostRepresentativeType(typesVarMap(t1)), occursCheck + t)
         }
@@ -2293,7 +2278,7 @@ private def findMax(c: CollectionMonoid, minCommutative: Option[Boolean] = None,
       case n @ Sum(e) =>
         val tn = NumberType()
         Seq(
-          HasType(e, CollectionType(MonoidVariable(Set(BagMonoid())), tn)),
+          HasType(e, CollectionType(MonoidVariable(geqMonoids=Set(SumMonoid())), tn)),
           HasType(n, tn))
 
       case n @ Max(e) =>
