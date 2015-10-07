@@ -109,9 +109,10 @@ object World extends LazyLogging {
     }
   }
 
-  class MonoidsVarMap extends VarMap[CollectionMonoid] {
+  class MonoidsVarMap extends VarMap[Monoid] {
 
-    def groupEq(e1: CollectionMonoid, e2: CollectionMonoid) = (e1, e2) match {
+    def groupEq(e1: Monoid, e2: Monoid) = (e1, e2) match {
+      case (_: PrimitiveMonoid, _: PrimitiveMonoid) => e1 == e2
       case (_: SetMonoid, _: SetMonoid) => e1 == e2
       case (_: BagMonoid, _: BagMonoid) => e1 == e2
       case (_: ListMonoid, _: ListMonoid) => e1 == e2

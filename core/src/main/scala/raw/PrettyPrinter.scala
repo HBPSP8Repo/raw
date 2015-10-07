@@ -50,11 +50,23 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: SetMonoid           => "set"
     case _: ListMonoid          => "list"
     case MonoidVariable(_, _, sym) => sym.idn
+
+    case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
+      text(if (commutative.isDefined) commutative.get.toString else "?"),
+      text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
   }
 
   def monoid(m: Monoid): Doc = m match {
     case MonoidVariable(leqMonoids, geqMonoids, sym) =>
-      parens(text(sym.idn)) <> parens(group(lsep(leqMonoids.map(shortMonoid).toList ++ Seq(text(sym.idn)) ++ geqMonoids.map(shortMonoid).toList, text("<"))))
+      val items = scala.collection.mutable.MutableList[Doc]()
+      if (leqMonoids.nonEmpty) {
+        items += parens(group(lsep(leqMonoids.map(shortMonoid).toList, comma)))
+      }
+      items += text(sym.idn)
+      if (geqMonoids.nonEmpty) {
+        items += parens(group(lsep(geqMonoids.map(shortMonoid).toList, comma)))
+      }
+      lsep(items.to, ":<")
     case _ => shortMonoid(m)
   }
 
