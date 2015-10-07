@@ -1046,8 +1046,11 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("(a: 1, a: 2)") {
-    // TODO: same attr name appears twice in the record: report error
     failure("(a: 1, a: 2)", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
+  }
+
+  test("{ a := 1; (a, a) }") {
+    failure("{ a := 1; (a, a) }", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
   }
 
   test("simple function call") {
@@ -1164,7 +1167,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
-  test("\\xs -> select x from x in xs (monoid should remain)") {
+  test("""\xs -> select x from x in xs (monoid should remain)""") {
     val m = MonoidVariable()
     val t = TypeVariable()
     success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(m, t), CollectionType(m, t)))
@@ -1182,25 +1185,23 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("polymorphic select") {
-      // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
-      success(
-        """
-          |{
-          | group_by_age := \xs -> select x.age, partition from x in xs group by x.age;
-          | (group_by_age(students), group_by_age(professors))
-          |}
-        """.stripMargin,
+    success(
+      """
+        |{
+        | group_by_age := \xs -> select x.age, partition from x in xs group by x.age;
+        | (group_by_age(students), group_by_age(professors))
+        |}
+      """.stripMargin,
 
-        TestWorlds.professors_students,
-        RecordType(Attributes(List(AttrType("_1",
-          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("partition", CollectionType(ListMonoid(),
-              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
-                                   AttrType("_2",
-          CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-            AttrType("partition", CollectionType(ListMonoid(),
-              RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
-
+      TestWorlds.professors_students,
+      RecordType(Attributes(List(AttrType("_1",
+        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("partition", CollectionType(ListMonoid(),
+            RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
+                                 AttrType("_2",
+        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("partition", CollectionType(ListMonoid(),
+            RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
   }
 
   test("select * from students") {
@@ -1270,13 +1271,14 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
-  test("1223fff simpler") {
+  test("list over comprehension") {
+    val t = TypeVariable()
     success(
-      """
-\xs -> for (x <- xs) yield list x
- """.stripMargin,
+      """\xs -> for (x <- xs) yield list x""",
       TestWorlds.empty,
-      IntType())
+      FunType(
+        CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t),
+        CollectionType(ListMonoid(), t)))
   }
 
   test("list over polymorphic comprehension") {
@@ -1292,6 +1294,26 @@ class SemanticAnalyzerTest extends FunTest {
       FunType(
         CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t),
         CollectionType(ListMonoid(), t)))
+  }
+
+  test("2x list over polymorphic comprehension") {
+    val t1 = TypeVariable()
+    val t2 = TypeVariable()
+    success(
+      """
+        |{
+        | a := \xs -> for (x <- xs) yield list x;
+        | (field1: a, field2: a)
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      RecordType(Attributes(List(
+        AttrType("field1", FunType(
+          CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t1),
+          CollectionType(ListMonoid(), t1))),
+        AttrType("field2", FunType(
+          CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t2),
+          CollectionType(ListMonoid(), t2)))))))
   }
 
   test("sum over polymorphic comprehension #1") {
