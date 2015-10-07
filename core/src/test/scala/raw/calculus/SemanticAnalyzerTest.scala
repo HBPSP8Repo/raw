@@ -431,7 +431,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (s <- students; p <- professors; s = p) yield list s") {
-    failure("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, IncompatibleTypes(UserType(Symbol("professor")), UserType(Symbol("student"))))
+    success("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, CollectionType(ListMono id(), (UserType(Symbol("student")))))
   }
 
   test("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)") {
