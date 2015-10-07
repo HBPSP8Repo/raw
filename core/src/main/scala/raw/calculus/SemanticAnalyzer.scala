@@ -900,12 +900,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n => TypeVariable()
   }
 
+  /** Compute our property based on properties of our children 'a' and 'b'.
+    */
+
+  // TODO: Should consult max of list to return Some(true) when we already know it's true
+
   private def maxOf(a: Option[Boolean], b: Option[Boolean]) = (a, b) match {
-    case (Some(true), _) => a
-    case (_, Some(true)) => b
-    case (None, _) => a
-    case (_, None) => b
-    case _         => a
+    case (Some(false), _) => a
+    case (_, Some(false)) => b
+    case _                => None
   }
 
   private def props(m: Monoid) = (commutative(m), idempotent(m))
@@ -916,11 +919,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: BagMonoid       => Some(true)
     case _: ListMonoid      => Some(false)
     case g: GenericMonoid   => g.commutative
-    case MonoidVariable(ms, _) =>
-      if (ms.isEmpty)
-        None
-      else
-        ms.map(mFind).map(commutative).fold(Some(false))((a, b) => maxOf(a, b))
+    case MonoidVariable(ms, _) => ms.map(mFind).map(commutative).fold(None)((a, b) => maxOf(a, b))
   }
 
   private def idempotent(m: Monoid): Option[Boolean] = m match {
@@ -933,12 +932,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: SetMonoid      => Some(true)
     case _: BagMonoid      => Some(false)
     case _: ListMonoid     => Some(false)
-    case g: GenericMonoid   => g.idempotent
-    case MonoidVariable(ms, _) =>
-      if (ms.isEmpty)
-        None
-      else
-        ms.map(mFind).map(idempotent).fold(Some(false))((a, b) => maxOf(a, b))
+    case g: GenericMonoid  => g.idempotent
+    case MonoidVariable(ms, _) => ms.map(mFind).map(idempotent).fold(None)((a, b) => maxOf(a, b))
   }
 
   // they have to be "compatible on the minimums" to unify
@@ -1264,6 +1259,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
+  // TODO: Make the fromTypes be an attribute of Select and Comp nodes.
+
   private lazy val selectType: Select => CollectionType = attr {
     s => tipeFromGens(s.from)
   }
@@ -1450,6 +1447,32 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             }
         }
         val nm = maxMonoid(fromTypes)
+
+        /*
+
+
+        suppose nm wouldnt exist
+        suppose we'd remove lesserMOnoids from MonoidsVariable
+        we'd then add fromTypes to a lesserMonoids map which maps monoid 'm' to list of monoids that are less than m.
+        we'd also go from the list of monoids that are lss than m and add entry to the biggerMonoids list, mapping to m.
+        this way we can easily walk both ways.
+        then we'd create a new lesserThanMonoid function that returns a bollean if thing is less than. no unification involved.
+
+////
+
+        ....
+
+        /////
+
+       in any case, maybe build biggerThan map (the other one) and use it in the walk.
+
+        /////
+
+
+
+
+
+         */
 
         val m = n match {
           case Comp(_: BoolMonoid, _, _) => SetMonoid()

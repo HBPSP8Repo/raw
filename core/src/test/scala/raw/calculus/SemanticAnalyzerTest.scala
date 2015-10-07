@@ -1085,15 +1085,6 @@ class SemanticAnalyzerTest extends FunTest {
     failure("""for ((name, age, foo) <- students) yield set name""", TestWorlds.professors_students, PatternMismatch(PatternProd(List(PatternIdn(IdnDef("name")), PatternIdn(IdnDef("age")), PatternIdn(IdnDef("foo")))), UserType(Symbol("student"))))
   }
 
-  test("fff") {
-    """
-      |{
-      | for ( student <- students; (name, age) := student; professor := (name, age); student = professor) THIS MUST FAIL
-      |
-      |
-    """.stripMargin
-  }
-
   test("cucu simpler") {
     // to see the shape of nest/outer-join chains, this leads to outer-join/outer-join/outer-join/..../nest/nest/nest/....
     success(
