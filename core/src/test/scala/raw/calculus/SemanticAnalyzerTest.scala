@@ -1303,7 +1303,8 @@ class SemanticAnalyzerTest extends FunTest {
     IntType())
   }
 
-  test("1223fff #3") {
+  test("sum over polymorphic comprehension") {
+    val n = NumberType()
     success(
       """
         |{
@@ -1312,10 +1313,15 @@ class SemanticAnalyzerTest extends FunTest {
         |}
       """.stripMargin,
       TestWorlds.empty,
-      IntType())
+      FunType(
+        PatternType(List(
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
+        n))
   }
 
-  test("1223fff #4") {
+  test("bag over polymorphic comprehension") {
+    val t = TypeVariable()
     success(
       """
         |{
@@ -1324,11 +1330,16 @@ class SemanticAnalyzerTest extends FunTest {
         |}
       """.stripMargin,
       TestWorlds.empty,
-      IntType())
+      FunType(
+        PatternType(List(
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), t)),
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
+        CollectionType(BagMonoid(), t))
+    )
   }
 
 
-  test("sum over polymorphic collection") {
+  test("sum over polymorphic select") {
     val n = NumberType()
     success(
       """
