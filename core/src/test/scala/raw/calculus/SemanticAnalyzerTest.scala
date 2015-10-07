@@ -431,7 +431,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("for (s <- students; p <- professors; s = p) yield list s") {
-    success("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, CollectionType(ListMono id(), (UserType(Symbol("student")))))
+    success("for (s <- students; p <- professors; s = p) yield list s", TestWorlds.professors_students, CollectionType(ListMonoid(), UserType(Symbol("student"))))
   }
 
   test("for (s <- students; p <- professors) yield list (name: s.name, age: p.age)") {
@@ -1014,8 +1014,6 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin, TestWorlds.professors_students, IntType())
   }
 
-  // TODO: Fix Constraint type scheme instantiotion but first write test that fails!
-  // TODO: Rename Constraint to Partial record since it can propagate up to the user during errors...
   test("polymorphic partial record w/ polymorphic select") {
     success(
       """
@@ -1083,34 +1081,6 @@ class SemanticAnalyzerTest extends FunTest {
   test("extract bad generator") {
     failure("""for ((name, age, foo) <- students) yield set name""", TestWorlds.professors_students, PatternMismatch(PatternProd(List(PatternIdn(IdnDef("name")), PatternIdn(IdnDef("age")), PatternIdn(IdnDef("foo")))), UserType(Symbol("student"))))
   }
-
-  // TODO:
-
-  // maybe remove partition and use * ?
-
-  // or have bothh
-  // - partition goes to closest group by as today. And if there's a group by, * is the same as the partition
-  // - if no group by, there's no partition and * goes to the froms as a flatMap.
-
-  // select s.age, (select partition from professors) from students s group by s.age
-
-  // (select s.age, (select p.name from partition p) from students group by s.ge
-
-  // (select s.age, (select name from *) from students s group by s.ge
-
-  // (select s.age, (select * from *) from students s group by s.age ??
-
-  // select * from students   ==> HERE, IF THE ONLY ONE WE DON'T CREATE A RECORD INSIDE TO HOLD THE *
-  // select partition from students group by 1
-
-
-
-  // the question is just if we have a polymorphic that has one symbol bound to the outside
-  // and if that works
-
-  // actually the global thing should be poly at this phase!!!
-  // then have it use in another scope outside or whatever to bind.
-  // how about AnonGen that gets desugared to normal Gen ?
 
   test("fff") {
     """
@@ -1379,38 +1349,31 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
-  test("1223fff #7") {
+  test("\\xs -> sum(select x.age from x in students, y in xs)") {
     success(
-      """
-        |\xs -> sum(select x.age from x in students, y in xs)
-      """.stripMargin,
+      """\xs -> sum(select x.age from x in students, y in xs)""",
       TestWorlds.professors_students,
-      IntType())
+      FunType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable()), IntType()))
   }
 
-  test(".......") {
+  test("build 2d array and scan it") {
     success(
       """
         |{
         |  a := list((1,2,3),(4,5,6));
         |  for ( row <- a )
         |    yield list row
-        |
         |}
       """.stripMargin,
       TestWorlds.empty,
-      IntType())
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType()), AttrType("_3", IntType()))))))
 
   }
-  test("....") {
+  test("list((1,2,3),(4,5,6))") {
     success(
-      """
-        list((1,2,3),(4,5,6))
-
-      """.stripMargin,
+      """list((1,2,3),(4,5,6))""",
       TestWorlds.empty,
-      IntType())
-
+      CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", IntType()), AttrType("_3", IntType()))))))
   }
 
 }
