@@ -1328,7 +1328,8 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
 
-  test("1223fff #5") {
+  test("sum over polymorphic collection") {
+    val n = NumberType()
     success(
       """
         |{
@@ -1337,14 +1338,16 @@ class SemanticAnalyzerTest extends FunTest {
         |}
       """.stripMargin,
       TestWorlds.empty,
-      IntType())
+      FunType(
+        PatternType(List(
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
+          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
+        n))
   }
 
-  test("1223fff #6") {
+  test("select x from x in students, y in professors") {
     success(
-      """
-        |select x from x in students, y in professors
-      """.stripMargin,
+      """select x from x in students, y in professors""",
       TestWorlds.professors_students,
       IntType())
   }
