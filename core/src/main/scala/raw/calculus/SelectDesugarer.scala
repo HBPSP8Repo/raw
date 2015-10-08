@@ -11,7 +11,7 @@ class SelectDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransforme
 
   def strategy = translate
 
-  private def translate = reduce(selectToComp)
+  private def translate = manytd(selectToComp)
 
   private lazy val selectToComp = rule[Exp] {
     case s @ Select(from, distinct, None, proj, where, None, None) =>
