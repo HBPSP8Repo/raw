@@ -36,17 +36,14 @@ object World extends LazyLogging {
     def apply(t: A): Group[A] = get(t).head
 
     def union(t1: A, t2: A) = {
+      logger.debug(s"does g2 exist? ${contains(t2)}")
       val g1 = getOrElse(t1, new Group[A](t1, Set(t1)))
-      val g2 = getOrElse(t2, new Group[A](t2, Set(t2)))
-      if (!(g1 eq g2)) {
-        val ntipes = g1.elements union g2.elements
-        val ng = new Group(t2, ntipes)
-        assert(ng.elements.contains(t1))
-        assert(ng.elements.contains(t2))
+      if (!contains(t2)) {
+        val ng = new Group(t2, g1.elements + t2)
         val nm = scala.collection.mutable.MutableList[(A, Group[A])]()
         for ((k, g) <- m) {
           var found = false
-          for (k1 <- ntipes) {
+          for (k1 <- g1.elements) {
             if (groupEq(k, k1)) {
               found = true
             }
@@ -55,11 +52,44 @@ object World extends LazyLogging {
             nm += ((k, g))
           }
         }
-        for (k <- ntipes) {
+        for (k <- ng.elements) {
           nm += ((k, ng))
         }
-
         m = nm.toList
+      } else {
+        val g2 = apply(t2)
+        if (!(g1 eq g2)) {
+//          logger.debug(s"g1 elements size ${g1.elements.size}")
+//          logger.debug(s"g2 elements size ${g2.elements.size}")
+//          logger.debug("union1")
+          val ntipes = g1.elements union g2.elements
+//          logger.debug("union2")
+          val ng = new Group(t2, ntipes)
+//          logger.debug("union3")
+          assert(ng.elements.contains(t1))
+//          logger.debug("union4")
+          assert(ng.elements.contains(t2))
+//          logger.debug("union5")
+          val nm = scala.collection.mutable.MutableList[(A, Group[A])]()
+//          logger.debug("union6")
+          for ((k, g) <- m) {
+            var found = false
+            for (k1 <- ntipes) {
+              if (groupEq(k, k1)) {
+                found = true
+              }
+            }
+            if (!found) {
+              nm += ((k, g))
+            }
+          }
+          logger.debug("union7")
+          for (k <- ntipes) {
+            nm += ((k, ng))
+          }
+
+          m = nm.toList
+        }
       }
       this
     }

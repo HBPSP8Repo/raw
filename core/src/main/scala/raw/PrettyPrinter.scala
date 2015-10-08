@@ -49,7 +49,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: BagMonoid           => "bag"
     case _: SetMonoid           => "set"
     case _: ListMonoid          => "list"
-    case MonoidVariable(_, _, sym) => sym.idn
+    case mv: MonoidVariable => mv.sym.idn
 
     case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
       text(if (commutative.isDefined) commutative.get.toString else "?"),
@@ -66,7 +66,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
       if (geqMonoids.nonEmpty) {
         items += parens(group(lsep(geqMonoids.map(shortMonoid).toList, comma)))
       }
-      lsep(items.to, ":<")
+      group(lsep(items.to, ":<"))
     case _ => shortMonoid(m)
   }
 

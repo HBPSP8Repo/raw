@@ -584,7 +584,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => monoidsVarMap(v).root }
         val prevRecAttRootsUpdated = prevRecAttRoots.map { case v => recAttsVarMap(v).root }
 
-        // Collect all symbols from variable types that were not in TypesVarMap before we started typing the body of the Bind.
+        // Collect all symbols from variable types that were not in the maps before we started typing the body of the Bind.
         val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
         val freeMonoidSyms = monoidVars.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
         val freeAttSyms = attVars.collect { case v: AttributesVariable => v }.filter { case v => !prevRecAttRootsUpdated.contains(v) }.map(_.sym)
@@ -633,6 +633,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   private def getVariableMonoids(t: Type, occursCheck: Set[Type] = Set()): Set[MonoidVariable] = {
+    def getInnerMonoids(m: Monoid, moccursCheck: Set[Monoid] = Set()): Set[MonoidVariable] =
+      if (moccursCheck.contains(m))
+        Set()
+      else {
+        mFind(m) match {
+          case mv: MonoidVariable =>
+            val nleqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.flatMap{ case m1 => getInnerMonoids(m1, moccursCheck + m)} else Set()
+            val ngeqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.flatMap{ case m1 => getInnerMonoids(m1, moccursCheck + m)} else Set()
+            Set(mv) ++ nleqMonoids ++ ngeqMonoids
+          case _                  => Set()
+        }
+      }
+
     if (occursCheck.contains(t))
       Set()
     else {
@@ -653,11 +666,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             Set()
         case RecordType(recAtts) => recAtts.atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }.toSet
         case PatternType(atts)   => atts.flatMap { case att => getVariableMonoids(att.tipe, occursCheck + t) }.toSet
-        case CollectionType(m, innerType) =>
-          (mFind(m) match {
-            case m: MonoidVariable => Set(m)
-            case _                 => Set()
-          }) ++ getVariableMonoids(innerType, occursCheck + t)
+        case CollectionType(m, innerType) => getInnerMonoids(m) ++ getVariableMonoids(innerType, occursCheck + t)
         case FunType(p, e) => getVariableMonoids(p, occursCheck + t) ++ getVariableMonoids(e, occursCheck + t)
       }
     }
@@ -753,6 +762,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * object is used to allow unification to proceed unaffected.
     */
   private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) = {
+    logger.debug(s"instantiateTypeScheme called with ${PrettyPrinter(t)} typeSyms $typeSyms monoidSyms $monoidSyms attSyms $attSyms")
+
     val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getNewSym(sym: Symbol): Symbol = {
@@ -761,49 +772,32 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       newSyms(sym)
     }
 
-    def getMonoid(m: Monoid): CollectionMonoid = {
-      val mr = if (monoidsVarMap.contains(m)) monoidsVarMap(m).root else m
-
-      mr match {
-        case MonoidVariable(leqMonoids, geqMonoids, sym) =>
-          MonoidVariable(leqMonoids.map(getMonoid), geqMonoids.map(getMonoid), if (monoidSyms.contains(sym)) getNewSym(sym) else sym)
-        case c: CollectionMonoid => c
-      }
-      //
-      //      for (m1 <- findMaxes(m))
-      //        unifyMonoids(m1, MonoidVariable(Set(nm)))
-      //      nm
+    def getMonoid(m: Monoid, moccursCheck: Set[Monoid] = Set()): Monoid =
+      mFind(m) match {
+      case mv: MonoidVariable =>
+        assert(monoidSyms.contains(mv.sym))
+        val nmv = MonoidVariable(sym = getNewSym(mv.sym))
+        if (moccursCheck.contains(m))
+          nmv
+        else {
+          val nleqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.map{ case m1 => getMonoid(m1, moccursCheck + m)} else Set()
+          val ngeqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map{ case m1 => getMonoid(m1, moccursCheck + m)} else Set()
+          val nlinks = MonoidLinks(nleqMonoids, ngeqMonoids)
+          monoidGraph.put(nmv, nlinks)
+          nmv
+        }
+      case mr => mr
     }
 
-    /*
-
-    y := \xs -> for (x <- xs) yield list x
-
-
-
-
-     */
-
-    // ms.map(getMonoid)
-
-    // fixed ( free )
-    // free ( fixed )
-    // fixed ( fixed )
-    // free ( free )
-
-    // the ones i may less than
-
-    // look for the one which have the original sym as the lesserMonoids
-
-
     // TODO: DO WE NEED occursCheck HERE?????
-    // TODO: And in the main method???
-
+    // TODO: And do we even need it in the main method???
     def getAttributes(m: RecordAttributes, occursCheck: Set[Type]): RecordAttributes = {
       val ar = if (recAttsVarMap.contains(m)) recAttsVarMap(m).root else m
       ar match {
         case AttributesVariable(atts, sym) =>
-          AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, if (attSyms.contains(sym)) getNewSym(sym) else sym)
+          assert(attSyms.contains(sym))
+          AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, getNewSym(sym))
+//          AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, if (attSyms.contains(sym)) getNewSym(sym) else sym)
         case Attributes(atts) =>
           Attributes(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) })
       }
@@ -831,7 +825,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case PatternType(atts)             => PatternType(atts.map { case att => PatternAttrType(recurse(att.tipe, occursCheck + t)) })
           case c1 @ CollectionType(m, inner) =>
             val nm = getMonoid(m)
-            CollectionType(nm, recurse(inner, occursCheck + t))
+            CollectionType(nm.asInstanceOf[CollectionMonoid], recurse(inner, occursCheck + t))
           case FunType(p, e)                 =>
             FunType(recurse(p, occursCheck + t), recurse(e, occursCheck + t))
         }
@@ -901,6 +895,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n => TypeVariable()
   }
 
+
+  ////
+
+  case class MonoidLinks(leqMonoids: Set[Monoid], geqMonoids: Set[Monoid])
+
+  val monoidGraph = scala.collection.mutable.HashMap[MonoidVariable, MonoidLinks]()
+
+
+
+
+  ////
+
   /** Compute our property based on properties of our children 'a' and 'b'.
     */
 
@@ -916,15 +922,119 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _                => None
   }
 
+  // m is a leqMonoid: is it forcing the monoidVariable holding it as a leq to have a commutative property?
+  private def commutativeForLeq(m: Monoid): Option[Boolean] = m match {
+    case _: PrimitiveMonoid          => Some(true)
+    case _: SetMonoid                => Some(true)
+    case _: BagMonoid                => Some(true)
+    case _: ListMonoid               => None
+    case mv: MonoidVariable =>
+      if (!monoidGraph.contains(mv)) {
+        return None
+      }
+      for (leq <- monoidGraph(mv).leqMonoids) {
+        if (commutativeForLeq(mFind(leq)) == Some(true))
+          return Some(true)
+      }
+      None
+//      if (leq.map(mFind).map(commutativeForLeq).contains(Some(true)))
+//        Some(true)
+//      else
+//        None
+  }
+
+  // m is a geqMonoid: is it forcing the monoidVariable holding it as a geq to NOT have a commutative property?
+  private def commutativeForGeq(m: Monoid): Option[Boolean] = m match {
+    case _: PrimitiveMonoid          => None
+    case _: SetMonoid                => None
+    case _: BagMonoid                => None
+    case _: ListMonoid               => Some(false)
+    case mv: MonoidVariable =>
+      if (!monoidGraph.contains(mv)) {
+        return None
+      }
+      for (geq <- monoidGraph(mv).geqMonoids) {
+        if (commutativeForGeq(mFind(geq)) == Some(false))
+          return Some(false)
+      }
+      None
+//      if (geq.map(mFind).map(commutativeForGeq).contains(Some(false)))
+//        Some(false)
+//      else
+//        None
+  }
+
+  private def idempotentForLeq(m: Monoid): Option[Boolean] = m match {
+    case _: MaxMonoid                => Some(true)
+    case _: MinMonoid                => Some(true)
+    case _: MultiplyMonoid           => None
+    case _: SumMonoid                => None
+    case _: AndMonoid                => Some(true)
+    case _: OrMonoid                 => Some(true)
+    case _: SetMonoid                => Some(true)
+    case _: BagMonoid                => None
+    case _: ListMonoid               => None
+    case mv: MonoidVariable =>
+      if (!monoidGraph.contains(mv)) {
+        return None
+      }
+      for (leq <- monoidGraph(mv).leqMonoids) {
+        if (idempotentForLeq(mFind(leq)) == Some(true))
+          return Some(true)
+      }
+      None
+//      if (leq.map(mFind).map(idempotentForLeq).contains(Some(true)))
+//        Some(true)
+//      else
+//        None
+//      leq.map(mFind).map(idempotentForLeq).fold(None)((a, b) => maxOf(a, b))
+  }
+
+  private def idempotentForGeq(m: Monoid): Option[Boolean] = m match {
+    case _: MaxMonoid                => None
+    case _: MinMonoid                => None
+    case _: MultiplyMonoid           => Some(false)
+    case _: SumMonoid                => Some(false)
+    case _: AndMonoid                => None
+    case _: OrMonoid                 => None
+    case _: SetMonoid                => None
+    case _: BagMonoid                => Some(false)
+    case _: ListMonoid               => Some(false)
+    case mv: MonoidVariable =>
+      if (!monoidGraph.contains(mv)) {
+        return None
+      }
+      for (geq <- monoidGraph(mv).geqMonoids) {
+        if (idempotentForGeq(mFind(geq)) == Some(false))
+          return Some(false)
+      }
+      None
+//
+//      if (geqMonoids.map(mFind).map(idempotentForGeq).contains(Some(false)))
+//        Some(false)
+//      else
+//        None
+//      geq.map(mFind).map(idempotentForGeq).fold(None)((a, b) => minOf(a, b))
+  }
+
   private def commutative(m: Monoid): Option[Boolean] = {
     m match {
       case _: PrimitiveMonoid          => Some(true)
       case _: SetMonoid                => Some(true)
       case _: BagMonoid                => Some(true)
       case _: ListMonoid               => Some(false)
-      case MonoidVariable(leq, geq, _) =>
-        val myMin = leq.map(mFind).map(commutative).fold(None)((a, b) => maxOf(a, b))
-        val myMax = geq.map(mFind).map(commutative).fold(None)((a, b) => minOf(a, b))
+      case mv: MonoidVariable =>
+//        if (leq.map(mFind).map(commutativeForLeq).contains(Some(true)))
+//          Some(true)
+//        else if (geq.map(mFind).map(commutativeForGeq).contains(Some(false)))
+//          Some(false)
+//        else
+//          None
+        logger.debug("Start C Min")
+        val myMin = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.map(mFind).map(commutativeForLeq).foldLeft(None: Option[Boolean])((a, b) => maxOf(a, b)) else None
+        logger.debug("Start C Max")
+        val myMax = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map(mFind).map(commutativeForGeq).foldLeft(None: Option[Boolean])((a, b) => minOf(a, b)) else None
+        logger.debug("Done C")
         assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get)) // min > max is an implementation bug
         myMin.orElse(myMax.orElse(None))
     }
@@ -940,9 +1050,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: SetMonoid                => Some(true)
     case _: BagMonoid                => Some(false)
     case _: ListMonoid               => Some(false)
-    case MonoidVariable(leq, geq, _) =>
-      val myMin = leq.map(mFind).map(idempotent).fold(None)((a, b) => maxOf(a, b))
-      val myMax = geq.map(mFind).map(idempotent).fold(None)((a, b) => minOf(a, b))
+    case mv: MonoidVariable =>
+//      if (leq.map(mFind).map(idempotentForLeq).contains(Some(true)))
+//        Some(true)
+//      else if (geq.map(mFind).map(idempotentForGeq).contains(Some(false)))
+//        Some(false)
+//      else
+//        None
+      logger.debug("Start I Min")
+      val myMin = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.map(mFind).map(idempotentForLeq).foldLeft(None: Option[Boolean])((a, b) => maxOf(a, b)) else None
+      logger.debug("Start I Max")
+      val myMax = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map(mFind).map(idempotentForGeq).foldLeft(None: Option[Boolean])((a, b) => minOf(a, b)) else None
+      logger.debug("Done")
       assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get)) // min > max is an implementation bug
       myMin.orElse(myMax.orElse(None))
   }
@@ -961,8 +1080,51 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         monoidsVarMap.union(mv, l)
         true
       case (mv1: MonoidVariable, mv2: MonoidVariable) if (commutative(mv1).isEmpty || commutative(mv2).isEmpty || commutative(mv1) == commutative(mv2)) && (idempotent(mv1).isEmpty || idempotent(mv2).isEmpty || idempotent(mv1) == idempotent(mv2)) =>
-        val nv = MonoidVariable(mv1.leqMonoids ++ mv2.leqMonoids, mv1.geqMonoids ++ mv2.geqMonoids)
+        logger.debug("Unify 1")
+//
+//        logger.debug(s"mv1.leqMonoids.size ${mv1.leqMonoids.size}")
+//        logger.debug(s"mv1.geqMonoids.size ${mv1.geqMonoids.size}")
+//        logger.debug(s"mv2.leqMonoids.size ${mv2.leqMonoids.size}")
+//        logger.debug(s"mv2.geqMonoids.size ${mv2.geqMonoids.size}")
+
+        val links1 = monoidGraph.getOrElse(mv1, MonoidLinks(Set(), Set()))
+        val links2 = monoidGraph.getOrElse(mv2, MonoidLinks(Set(), Set()))
+
+        val nleqMonoids = links1.leqMonoids union links2.leqMonoids
+//        logger.debug(s"nleq.size ${nleq.size}")
+        val ngeqMonoids = links1.geqMonoids union links2.geqMonoids
+//        logger.debug(s"ngeq.size ${ngeq.size}")
+        val nv = MonoidVariable()
         monoidsVarMap.union(mv1, mv2).union(mv2, nv)
+
+        monoidGraph.put(nv, MonoidLinks(nleqMonoids, ngeqMonoids))
+
+        for (nleq <- nleqMonoids) {
+          nleq match {
+            case nleqv: MonoidVariable =>
+              val links = monoidGraph.getOrElse(nleqv, MonoidLinks(Set(), Set()))
+              monoidGraph.put(nleqv, MonoidLinks(links.leqMonoids, links.geqMonoids + nv))
+            case _ =>
+            }
+        }
+
+        for (ngeq <- ngeqMonoids) {
+          ngeq match {
+            case ngeqv: MonoidVariable =>
+              val links = monoidGraph.getOrElse(ngeqv, MonoidLinks(Set(), Set()))
+              monoidGraph.put(ngeqv, MonoidLinks(links.leqMonoids + nv, links.geqMonoids))
+            case _ =>
+          }
+        }
+
+        //        logger.debug("Unify 1.5")
+//        logger.debug(s"${monoidsVarMap.keys.length}")
+//        logger.debug("Unify 2")
+//        nv.leqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(geqMonoids = Set(nv))) }
+//        logger.debug("Unify 3")
+//        nv.geqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(leqMonoids = Set(nv))) }
+//        logger.debug("Unify 4")
+//
         true
       case (nm1, mv: MonoidVariable) => unifyMonoids(mv, nm1)
       case _ => false
@@ -1156,8 +1318,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** This creates a monoid variable... comment it later :) it's used to postpone unification later: see MaxOfMonoid
     * where unifyMonoids is copied with the *NEW VARIABLE* we created here
     */
-  private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid =
-    MonoidVariable(leqMonoids=ts.map(_.m).toSet, geqMonoids=Set())
+  private def maxMonoid(ts: Seq[CollectionType]): CollectionMonoid = {
+    val nm = MonoidVariable()
+    monoidGraph.put(nm, MonoidLinks(leqMonoids = ts.map(_.m).toSet, geqMonoids = Set()))
+    nm
+  }
 
   //    MonoidVariable(
   //      ts.flatMap {
@@ -1264,6 +1429,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val t = expType(e)
         logger.debug(s"HasType(${CalculusPrettyPrinter(e)}, ${PrettyPrinter(expected)})")
         val r = unify(t, expected)
+        logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
+        logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
         if (!r) {
           tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
         }
@@ -1413,39 +1580,38 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
 
       case MaxOfMonoids(n, gs) =>
-        val t = expType(n)
-
-        //        val fromTypes = tipeFromGens(gs)
         val fromTypes = gs.map {
           case Gen(_, e) =>
-            val t1 = expType(e)
-            find(t1) match {
-              case t: CollectionType => t
-              case _                 => return true
+            val te = expType(e)
+            find(te) match {
+              case tf: CollectionType => tf
+              case _                  => return true
             }
         }
-        val nm = maxMonoid(fromTypes)
+        val mv = maxMonoid(fromTypes)
 
+        val t = expType(n)
         val m = n match {
-          case Comp(p: PrimitiveMonoid, _, _) => p
+          case Comp(pm: PrimitiveMonoid, _, _) => pm
           // TODO: AlgebraNode is too general for reduce
           case (_: AlgebraNode | Comp(_: CollectionMonoid, _, _) | _: Select) =>
             find(t) match {
-              case CollectionType(m1, _) => m1
+              case CollectionType(cm, _) => cm
               case _: NothingType => return true
             }
         }
 
-        logger.debug(s"m is ${PrettyPrinter(m)}")
         logger.debug(s"n is ${CalculusPrettyPrinter(n)}")
         logger.debug(s"gs are ${gs.map(CalculusPrettyPrinter(_))}")
         logger.debug(s"fromTypes are ${fromTypes.map(PrettyPrinter(_)).mkString(",")}")
-        logger.debug(s"nm is ${PrettyPrinter(nm)}")
+        logger.debug(s"m is ${PrettyPrinter(m)}")
+        logger.debug(s"mv is ${PrettyPrinter(mv)}")
 
-        val r = unifyMonoids(m, nm)
-        logger.debug(monoidsVarMap.toString)
-        logger.debug(typesVarMap.toString)
+        val r = unifyMonoids(m, mv)
+        logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
+        logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
         if (!r) {
+          logger.debug("Hey we failed here")
           // TODO: Fix error message: should have m and nm?
           tipeErrors += IncompatibleMonoids(m, walk(t), Some(n.pos))
         }
@@ -1823,8 +1989,29 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
 
     def reconstructMonoid(m: Monoid): Monoid = {
+      def findLeqs(m: Monoid): Set[Monoid] = m match {
+        case mv: MonoidVariable => if (monoidGraph(mv).leqMonoids.isEmpty) Set(mv) else monoidGraph(mv).leqMonoids.flatMap(findLeqs)
+        case _ => Set(m)
+      }
+
+      def findGeqs(m: Monoid): Set[Monoid] = m match {
+        case mv: MonoidVariable => if (monoidGraph(mv).geqMonoids.isEmpty) Set(mv) else monoidGraph(mv).geqMonoids.flatMap(findGeqs)
+        case _ => Set(m)
+      }
+
       mFind(m) match {
-        case MonoidVariable(leqMonoids, geqMonoids, sym) => MonoidVariable(leqMonoids.map(reconstructMonoid), geqMonoids.map(reconstructMonoid), sym)
+        case mv: MonoidVariable =>
+//          logger.debug(monoidGraph.toString)
+          logger.debug(s"I am ${PrettyPrinter(mv)}")
+//          val leqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids else Set()
+//          val geqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids else Set()
+//          logger.debug(s"leqMonoids ${leqMonoids.map(PrettyPrinter(_)).mkString(",")}")
+//          logger.debug(s"geqMonoids ${geqMonoids.map(PrettyPrinter(_)).mkString(",")}")
+
+          val leqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.flatMap(findLeqs) else Set()
+          val geqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.flatMap(findGeqs) else Set()
+
+          MonoidVariable(leqMonoids, geqMonoids, mv.sym) // TODO: Add lost info! walk monoidgraph
         case rm => rm
       }
     }
@@ -2260,12 +2447,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // Sugar nodes
 
       case n @ Sum(e) =>
+        val mv = MonoidVariable()
+        monoidGraph.put(mv, MonoidLinks(leqMonoids=Set(), geqMonoids=Set(SumMonoid())))
         val tn = NumberType()
-        val eMonoid = MonoidVariable(geqMonoids=Set(SumMonoid()))
-        logger.debug(s"summonoid=${PrettyPrinter(eMonoid)}")
-
         Seq(
-          HasType(e, CollectionType(eMonoid, tn)),
+          HasType(e, CollectionType(mv, tn)),
           HasType(n, tn))
 
       case n @ Max(e) =>
