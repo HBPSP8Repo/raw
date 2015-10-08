@@ -998,7 +998,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       """
         |{
-        |  a := \xs -> select x.age, count(partition) from x in xs where x.age > 15;
+        |  a := \xs -> select x.age, count(partition) from x in xs where x.age > 15 group by x.age;
         |  (a(students), a(professors))
         |}
       """.stripMargin, TestWorlds.professors_students, IntType())
@@ -1008,10 +1008,20 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       """
         |{
-        |  a := \xs -> select x.age, partition from x in xs where x.age > 15;
+        |  a := \xs -> select x.age, partition from x in xs where x.age > 15 group by x.age;
         |  (a(students), a(professors))
         |}
       """.stripMargin, TestWorlds.professors_students, IntType())
+  }
+
+  test("polymorphic partition #3") {
+    success(
+      """
+        |{
+        |  a := \xs -> select x.a, partition from x in xs where x.a > 15 group by x.a;
+        |  (a, a(things), \xs -> select x.a, partition from x in xs where x.a > 15 group by x.a)
+        |}
+      """.stripMargin, TestWorlds.things, IntType())
   }
 
   test("polymorphic partial record w/ polymorphic select") {

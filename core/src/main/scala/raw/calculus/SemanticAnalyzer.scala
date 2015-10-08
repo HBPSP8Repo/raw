@@ -1989,14 +1989,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
 
     def reconstructMonoid(m: Monoid): Monoid = {
-      def findLeqs(m: Monoid): Set[Monoid] = m match {
+      def findLeqs(m: Monoid): Set[Monoid] = mFind(m) match {
         case mv: MonoidVariable => if (monoidGraph(mv).leqMonoids.isEmpty) Set(mv) else monoidGraph(mv).leqMonoids.flatMap(findLeqs)
-        case _ => Set(m)
+        case mr => Set(mr)
       }
 
-      def findGeqs(m: Monoid): Set[Monoid] = m match {
+      def findGeqs(m: Monoid): Set[Monoid] = mFind(m) match {
         case mv: MonoidVariable => if (monoidGraph(mv).geqMonoids.isEmpty) Set(mv) else monoidGraph(mv).geqMonoids.flatMap(findGeqs)
-        case _ => Set(m)
+        case mr => Set(mr)
       }
 
       mFind(m) match {
