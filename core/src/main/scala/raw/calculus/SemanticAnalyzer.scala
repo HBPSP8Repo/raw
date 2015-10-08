@@ -863,7 +863,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: StringConst => StringType()
 
     // Rule 5
-    case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))))
+    case RecordCons(atts) => RecordType(Attributes(atts.zipWithIndex.map{
+      case (att,i) if att.idn.startsWith("$") => AttrType(s"_${i+1}", expType(att.e))
+      case (att,i) => AttrType(att.idn, expType(att.e))
+    }))
 
     // Rule 9
     case ZeroCollectionMonoid(_: BagMonoid) => CollectionType(BagMonoid(), TypeVariable())
@@ -1424,7 +1427,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     if (fromTypes.length == 1)
       fromTypes.head
     else {
-      val idns = gs.map { case Gen(Some(PatternIdn(IdnDef(idn))), _) => idn }
+      val idns = gs.zipWithIndex.map {
+        case (Gen(Some(PatternIdn(IdnDef(idn))), _), _) => idn
+        case (Gen(None, _), i) => s"_${i+1}"
+      }
       CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) })))
     }
   }
@@ -1612,11 +1618,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         logger.debug(s"n ${CalculusPrettyPrinter(n)}")
         logger.debug(s"gs ${gs.map(CalculusPrettyPrinter(_)).mkString("  ")}")
 
-        val fromMonoids = gs.map {
+        val fromTypes = gs.map {
           case Gen(_, e) =>
             val te = expType(e)
             find(te) match {
-              case tf: CollectionType => tf.m
+              case tf: CollectionType => tf
               case _                  => return true
             }
         }
@@ -1633,7 +1639,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
         logger.debug(s"m is ${PrettyPrinter(m)}")
 
-        for (minM <- fromMonoids) {
+        for (minType <- fromTypes) {
+          val minM = minType.m
           logger.debug(s"minM is ${PrettyPrinter(minM)}")
           val nv = MonoidVariable()
           monoidGraph.put(nv, MonoidLinks(Set(), Set(m)))
@@ -1643,7 +1650,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           if (!r) {
             logger.debug("Hey we failed here")
             // TODO: Fix error message: should have m and nm?
-            tipeErrors += IncompatibleMonoids(m, walk(t), Some(n.pos))
+            tipeErrors += IncompatibleMonoids(m, walk(minType), Some(n.pos))
             return false
           }
         }
@@ -1668,6 +1675,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         starEntity(s) match {
           case StarEntity(e, t) =>
             e match {
+              case s1: Select if s1.proj eq s =>
+                val t1 = find(selectType(s1)) match {
+                  case CollectionType(_, inner) => inner
+                }
+                val r = unify(t, t1)
+                if (!r) {
+                  ???
+                  false
+                }
+                r
               case s1: Select =>
                 val t1 = selectType(s1)
                 val r = unify(t, t1)

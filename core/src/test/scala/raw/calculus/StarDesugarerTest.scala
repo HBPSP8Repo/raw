@@ -12,10 +12,10 @@ class StarDesugarerTest extends CalculusTest {
       TestWorlds.professors_students)
   }
 
-  test("select * from students, professors") {
+  test("select * from students, p in professors") {
     check(
-      """select * from students, professors""",
-      """select $0, $1 from $0 <- students, $1 <- professors""",
+      """select * from students, p in professors""",
+      """select ($0: $0,p: p) from $0 <- students, p <- professors""",
       TestWorlds.professors_students)
   }
 

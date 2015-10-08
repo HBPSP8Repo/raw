@@ -8,7 +8,7 @@ class SelectDesugarerTest extends CalculusTest {
   test("select s.name from students s") {
     check(
       """select s.name from students s""",
-      """for ($0 <- students) yield list $0.name""",
+      """for (s <- students) yield list s.name""",
       TestWorlds.professors_students)
   }
 

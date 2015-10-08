@@ -1209,7 +1209,15 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "select * from students",
       TestWorlds.professors_students,
-      UserType(Symbol("students")))
+      CollectionType(MonoidVariable(), UserType(Symbol("students"))))
+  }
+
+  test("select * from students, p in professors") {
+    success(
+      "select * from students, p in professors",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
   }
 
   test("select age, * from students") {
@@ -1217,6 +1225,7 @@ class SemanticAnalyzerTest extends FunTest {
       "select age, * from students",
       TestWorlds.professors_students,
       CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))))))
+
   }
 
   test("select age, * from students group by age") {

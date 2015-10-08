@@ -48,9 +48,16 @@ class AnonGensDesugarerTest extends CalculusTest {
   test("select * from students, professors") {
     check(
       """select * from students, professors""",
-      """""",
+      """select * from $0 <- students, $1 <- professors""",
+      TestWorlds.professors_students)
+  }
+
+  test("select * from students, p in professors") {
+    check(
+      """select * from students, p in professors""",
+      """select * from $0 <- students, p <- professors""",
       TestWorlds.professors_students)
   }
 
 
-  }
+}
