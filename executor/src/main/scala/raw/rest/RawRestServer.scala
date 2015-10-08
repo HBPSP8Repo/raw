@@ -15,6 +15,7 @@ import raw._
 import raw.executor._
 import raw.rest.RawRestServer._
 import raw.spark._
+import raw.storage.{LocalStorageBackend, StorageBackend, StorageManager}
 import spray.can.Http
 import spray.can.Http.Bound
 
@@ -68,19 +69,31 @@ object RawRestServer {
 
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends StrictLogging {
 
+
   import akka.pattern.ask
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {
       case None =>
         try {
-          Paths.get(ConfigFactory.load().getString("raw.datadir"))
+          Paths.get(ConfigFactory.load().getString("raw.storage.datadir"))
         } catch {
-          case ex: ConfigException.Missing => StorageManager.defaultStorageDir
+          case ex: ConfigException.Missing => StorageManager.defaultDataDir
         }
       case Some(dir) => Paths.get(dir)
     }
-    new RawServer(storageDir)
+
+    val storageBackend =
+      try {
+        StorageBackend(ConfigFactory.load().getString("raw.storage.backend"))
+      } catch {
+        case ex: ConfigException.Missing => {
+          logger.info("No value for property \"raw.storage.backend\". Using local storage")
+          LocalStorageBackend
+        }
+      }
+
+    new RawServer(storageDir, storageBackend)
   }
 
   val sc: Option[SparkContext] = executorArg match {

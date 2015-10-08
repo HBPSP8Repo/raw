@@ -98,7 +98,8 @@ lazy val executor = (project in file("executor")).
           scallop,
           metrics,
           multisets,
-          dropboxSDK
+          dropboxSDK,
+          awsSDK
         )
         ++ sprayDeps,
 

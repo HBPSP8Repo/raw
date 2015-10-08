@@ -6,16 +6,17 @@ import java.util.Collections
 
 import com.typesafe.scalalogging.StrictLogging
 import raw._
+import raw.storage.RawResource
 
 import scala.collection.immutable.Seq
 import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.HashMap
 import scala.xml.{Elem, Node, XML}
 
-
-case class RawSchema(name: String, schemaFile: Path, properties: SchemaProperties, dataFile: Path) {
+case class RawSchema(name: String, schemaFile: RawResource, properties: SchemaProperties, dataFile: RawResource) {
+  //case class RawSchema(name: String, schemaFile: Path, properties: SchemaProperties, dataFile: Path) {
   def fileType: String = {
-    val filename = dataFile.getFileName.toString
+    val filename = dataFile.fileName.toString
     val i = filename.lastIndexOf('.')
     if (i < 0) {
       throw new Exception("Invalid data file, could not determine file type: " + dataFile)
@@ -148,10 +149,15 @@ object SchemaParser extends StrictLogging {
 
   private object XmlToRawType {
     def apply(schema: RawSchema): SchemaAsRawType = {
-      val schemaXML = Files.newBufferedReader(schema.schemaFile)
-      val root: Elem = XML.load(schemaXML)
-      val result = new RecursionWrapper(root, schema)
-      SchemaAsRawType(result.records.toMap, result.rawType)
+      val is = schema.schemaFile.openInputStream()
+      try {
+        val root: Elem = XML.load(is)
+        val result = new RecursionWrapper(root, schema)
+        SchemaAsRawType(result.records.toMap, result.rawType)
+      } finally {
+        is.close()
+      }
+
     }
 
     private[this] class RecursionWrapper(root: Elem, schema: RawSchema) {

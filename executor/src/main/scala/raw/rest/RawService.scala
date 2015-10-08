@@ -6,6 +6,7 @@ import java.nio.file.{DirectoryNotEmptyException, Files}
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.io.FileUtils
 import raw._
 import raw.executor.{CompilationException, PythonShellExecutor, RawServer}
 import raw.rest.RawRestServer._
@@ -140,21 +141,19 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
     logger.info(s"doRegisterFile: $request")
-    val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.tmpDir, "raw-stage")
+    val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
+    val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
+    DropboxClient.downloadFile(request.url, localFile)
+    PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
+    // Register the schema
+    rawServer.registerSchema(request.name, stagingDirectory, DropboxClient.getUserName(request.token))
+    val response = Map("success" -> true, "name" -> request.name)
+    // Do not delete the staging directory if there is a failure (exception). Leave it for debugging
     try {
-      val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
-      DropboxClient.downloadFile(request.url, localFile)
-      PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
-      // Register the schema
-      rawServer.registerSchema(request.name, stagingDirectory, DropboxClient.getUserName(request.token))
-      val response = Map("success" -> true, "name" -> request.name)
-      HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
-    } finally {
-      try {
-        Files.deleteIfExists(stagingDirectory)
-      } catch {
-        case ex: Exception => logger.warn("Could not delete temporary directory. Expected an empty directory.", ex)
-      }
+      FileUtils.deleteDirectory(stagingDirectory.toFile)
+    } catch {
+      case ex: Exception => logger.warn("Could not delete temporary directory. Expected an empty directory.", ex)
     }
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
   }
 }

@@ -48,4 +48,5 @@ object Dependencies {
   val multisets = "io.github.nicolasstucki" % "multisets_2.11" % "0.3"
 
   val dropboxSDK = "com.dropbox.core" % "dropbox-core-sdk" % "1.8.1"
+  val awsSDK = "com.amazonaws" % "aws-java-sdk" % "1.10.22"
 }

@@ -4,10 +4,15 @@ import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
 import raw.QueryLanguages.QueryLanguage
+import raw.storage._
 
-class RawServer(storageDir: Path) extends StrictLogging {
+class RawServer(storageDir: Path, storageBackend: StorageBackend) extends StrictLogging {
 
-  val storageManager = new StorageManager(storageDir)
+  val storageManager: StorageManager = storageBackend match {
+    case LocalStorageBackend => new LocalStorageManager(storageDir)
+    case S3StorageBackend => new S3StorageManager(storageDir)
+  }
+  storageManager.loadFromStorage()
 
   def registerSchema(schemaName: String, stagingDirectory: Path, user: String): Unit = {
     storageManager.registerSchema(schemaName, stagingDirectory, user)
@@ -18,7 +23,7 @@ class RawServer(storageDir: Path) extends StrictLogging {
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
     // But this can still fail for large enough plans, so check if spliting the lines prevents this error.
-//    val cleanedQuery = query.trim.replaceAll("\\s+", " ")
+    //    val cleanedQuery = query.trim.replaceAll("\\s+", " ")
 
     val schemas: Seq[String] = storageManager.listUserSchemas(rawUser)
     logger.info("Found schemas: " + schemas.mkString(", "))
