@@ -34,37 +34,37 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
 //
 //  // TODO: I think the issue here is that I can only replace the projs after I did the froms, and I'm not sure this is respecting it
 //  // TODO: Yep, makes sense; a congruence issue? Fix that first; and only after, check the rest
-
-  private lazy val partitionSelect: Select => Select = attr {
-    s =>
-      val ns = rewriteInternalIdns(deepclone(s))
-
-      if (ns.where.isDefined)
-        Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
-      else
-        Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
-  }
-
-  private lazy val desugarPartitionInFrom = rule[Exp] {
-    case p: Partition =>
-      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
-      analyzer.partitionEntity(p) match {
-        case PartitionEntity(s, _) => partitionSelect(s)
-      }
-  }
-
-  private lazy val desugarPartitionInRest = rule[Exp] {
-    case p: Partition =>
-      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
-      analyzer.partitionEntity(p) match {
-        case PartitionEntity(s, _) => partitionSelect(s)
-      }
-  }
-
-  private lazy val dropGroupBy = rule[Exp] {
-    case Select(from, distinct, Some(_), proj, where, order, having) =>
-      Select(from, distinct, None, proj, where, order, having)
-  }
+//
+//  private lazy val partitionSelect: Select => Select = attr {
+//    s =>
+//      val ns = rewriteInternalIdns(deepclone(s))
+//
+//      if (ns.where.isDefined)
+//        Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+//      else
+//        Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
+//  }
+//
+//  private lazy val desugarPartitionInFrom = rule[Exp] {
+//    case p: Partition =>
+//      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
+//      analyzer.partitionEntity(p) match {
+//        case PartitionEntity(s, _) => partitionSelect(s)
+//      }
+//  }
+//
+//  private lazy val desugarPartitionInRest = rule[Exp] {
+//    case p: Partition =>
+//      logger.debug(s"Desugaring partition ${CalculusPrettyPrinter(p)} with parent ${analyzer.tree.parent(p)}")
+//      analyzer.partitionEntity(p) match {
+//        case PartitionEntity(s, _) => partitionSelect(s)
+//      }
+//  }
+//
+//  private lazy val dropGroupBy = rule[Exp] {
+//    case Select(from, distinct, Some(_), proj, where, order, having) =>
+//      Select(from, distinct, None, proj, where, order, having)
+//  }
 
   /** De-sugar a SELECT with a GROUP BY
     */

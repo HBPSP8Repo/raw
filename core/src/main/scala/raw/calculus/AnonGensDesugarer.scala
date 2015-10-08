@@ -18,7 +18,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   def strategy = desugar
 
   private lazy val desugar =
-    manybu(anonRecords) <* reduce(anonGens)
+    attempt(manybu(anonRecords)) <* reduce(anonGens)
 
   // Generate unique IDs for Gens w/o pattern
   private lazy val anonGenSymbol: Gen => Symbol = attr {

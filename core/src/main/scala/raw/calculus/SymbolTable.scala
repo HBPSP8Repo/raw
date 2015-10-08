@@ -3,7 +3,7 @@ package calculus
 
 import org.kiama.util.Environments
 
-case class Symbol(idn: String)
+case class Symbol(idn: String) extends RawNode
 
 object SymbolTable extends Environments {
 

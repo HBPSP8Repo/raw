@@ -1455,6 +1455,13 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
+  test("select A from authors A") {
+    success(
+      "select A from authors A",
+      TestWorlds.publications,
+      IntType())
+  }
+
 
 }
 

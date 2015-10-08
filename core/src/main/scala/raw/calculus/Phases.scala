@@ -13,6 +13,7 @@ object Phases extends LazyLogging {
     Seq(  "AnonGensDesugarer"         -> classOf[AnonGensDesugarer]),
     Seq(  "Uniquifier1"               -> classOf[Uniquifier]),
     Seq(  "GroupByDesugarer"          -> classOf[GroupByDesugarer]),
+    Seq(  "StarDesugarer"             -> classOf[StarDesugarer]),
     Seq(  "SelectDesugarer"           -> classOf[SelectDesugarer]),
     Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
           "BlocksDesugarer"           -> classOf[BlocksDesugarer]),

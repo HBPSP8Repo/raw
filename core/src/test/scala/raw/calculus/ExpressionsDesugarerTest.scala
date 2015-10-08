@@ -54,7 +54,9 @@ class ExpressionsDesugarerTest extends CalculusTest {
   }
 
   test("list(1,2,3)") {
-    check("list(1,2,3)", ???)
+    check(
+      "list(1,2,3)",
+      "list(1) append list(2) append list(3)")
   }
 
 }

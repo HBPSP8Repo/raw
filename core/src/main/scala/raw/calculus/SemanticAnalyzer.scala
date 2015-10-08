@@ -534,7 +534,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** lookup up star entity.
     */
-  private lazy val starEntity: Star => Entity = attr {
+  lazy val starEntity: Star => Entity = attr {
     e => {
       logger.debug(s"we get here from ${CalculusPrettyPrinter(e)}");
       lookup(starEnv.in(e), "*", UnknownEntity())
@@ -1067,16 +1067,42 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   private def unifyMonoids(m1: Monoid, m2: Monoid): Boolean = {
+    def updateLinks(mv: MonoidVariable, knownMonoid: Monoid) = {
+      val linksMv = monoidGraph.getOrElse(mv, MonoidLinks(Set(), Set()))
+
+      for (nleq <- linksMv.leqMonoids) {
+        nleq match {
+          case nleqv: MonoidVariable =>
+            val links = monoidGraph.getOrElse(nleqv, MonoidLinks(Set(), Set()))
+            monoidGraph.put(nleqv, MonoidLinks(links.leqMonoids, links.geqMonoids + knownMonoid))
+          case _ =>
+        }
+      }
+
+      for (ngeq <- linksMv.geqMonoids) {
+        ngeq match {
+          case ngeqv: MonoidVariable =>
+            val links = monoidGraph.getOrElse(ngeqv, MonoidLinks(Set(), Set()))
+            monoidGraph.put(ngeqv, MonoidLinks(links.leqMonoids + knownMonoid, links.geqMonoids))
+          case _ =>
+        }
+      }
+    }
+
+
     logger.debug(s"unifyMonoids ${PrettyPrinter(mFind(m1))}, ${PrettyPrinter(mFind(m2))}")
     (mFind(m1), mFind(m2)) match {
       case (nm1, nm2) if nm1 == nm2 => true
       case (mv: MonoidVariable, s: SetMonoid) if (commutative(mv).isEmpty || commutative(mv).get) && (idempotent(mv).isEmpty || idempotent(mv).get) =>
+        updateLinks(mv, s)
         monoidsVarMap.union(mv, s)
         true
       case (mv: MonoidVariable, b: BagMonoid) if (commutative(mv).isEmpty || commutative(mv).get) && (idempotent(mv).isEmpty || !idempotent(mv).get) =>
+        updateLinks(mv, b)
         monoidsVarMap.union(mv, b)
         true
       case (mv: MonoidVariable, l: ListMonoid) if (commutative(mv).isEmpty || !commutative(mv).get) && (idempotent(mv).isEmpty || !idempotent(mv).get) =>
+        updateLinks(mv, l)
         monoidsVarMap.union(mv, l)
         true
       case (mv1: MonoidVariable, mv2: MonoidVariable) if (commutative(mv1).isEmpty || commutative(mv2).isEmpty || commutative(mv1) == commutative(mv2)) && (idempotent(mv1).isEmpty || idempotent(mv2).isEmpty || idempotent(mv1) == idempotent(mv2)) =>
@@ -1582,6 +1608,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
 
       case MaxOfMonoids(n, gs) =>
+        logger.debug(s"In MaxOfMonoids")
+        logger.debug(s"n ${CalculusPrettyPrinter(n)}")
+        logger.debug(s"gs ${gs.map(CalculusPrettyPrinter(_)).mkString("  ")}")
+
         val fromMonoids = gs.map {
           case Gen(_, e) =>
             val te = expType(e)
@@ -1601,8 +1631,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               case _: NothingType => return true
             }
         }
+        logger.debug(s"m is ${PrettyPrinter(m)}")
 
         for (minM <- fromMonoids) {
+          logger.debug(s"minM is ${PrettyPrinter(minM)}")
           val nv = MonoidVariable()
           monoidGraph.put(nv, MonoidLinks(Set(), Set(m)))
           val r = unifyMonoids(minM, nv)
@@ -2096,27 +2128,25 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       // Select
       case n@Select(froms, d, g, proj, w, o, h) =>
-        proj match {
+        val m =
+          if (o.isDefined)
+            ListMonoid()
+          else if (d)
+            SetMonoid()
+          else
+            MonoidVariable()
+
+        val c = proj match {
           // Special handling for "SELECT *"
           // If we did not do a special handling of SELECT *, then the output of "SELECT * FROM students" would be a
           // list of a list of students, instead of the SQL behaviour of a list of students
-          case s: Star =>
-            Seq(
-              HasType(n, starType(starEntity(s))))
-
-          case _ =>
-            val m =
-              if (o.isDefined)
-                ListMonoid()
-              else if (d)
-                SetMonoid()
-              else
-                MonoidVariable()
-
-            Seq(
-              HasType(n, CollectionType(m, expType(proj))),
-              MaxOfMonoids(n, froms))
+          case s: Star => HasType(n, CollectionType(m, starType(starEntity(s))))
+          case _ => HasType(n, CollectionType(m, expType(proj)))
         }
+
+        Seq(
+          c,
+          MaxOfMonoids(n, froms))
 
       // Rule 4
       case n@RecordProj(e, idn) =>
@@ -2179,10 +2209,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // Rule 14
       case n@Comp(m: CollectionMonoid, qs, e1) =>
         val gs = qs.collect { case g: Gen => g }
+
         val tc = e1 match {
           // Special handling for "yield *"
           case s: Star =>
-            HasType(n, starType(starEntity(s)))
+            HasType(n, CollectionType(m, starType(starEntity(s))))
 
           case _ =>
             HasType(n, CollectionType(m, expType(e1)))

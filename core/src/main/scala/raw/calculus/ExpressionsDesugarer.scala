@@ -78,7 +78,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   private lazy val ruleMultiCons = rule[Exp] {
     case MultiCons(m, Nil) => ZeroCollectionMonoid(m)
     case MultiCons(m, head :: Nil) => ConsCollectionMonoid(m, head)
-    case MultiCons(m, head :: tail) => tail.fold(head)((a, b) => MergeMonoid(m, a, b))
+    case MultiCons(m, head :: tail) => MergeMonoid(m, ConsCollectionMonoid(m, head), MultiCons(m, tail))
   }
 
 }

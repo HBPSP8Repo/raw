@@ -29,4 +29,28 @@ class AnonGensDesugarerTest extends CalculusTest {
     )
   }
 
-}
+  test("for ( <- students) yield set *") {
+    check(
+      """for ( <- students) yield set *""",
+      """for ($0 <- students) yield set *""",
+      TestWorlds.professors_students
+    )
+  }
+
+  test("select * from students") {
+    check(
+      """select * from students""",
+      """select * from $0 <- students""",
+      TestWorlds.professors_students
+    )
+  }
+
+  test("select * from students, professors") {
+    check(
+      """select * from students, professors""",
+      """""",
+      TestWorlds.professors_students)
+  }
+
+
+  }
