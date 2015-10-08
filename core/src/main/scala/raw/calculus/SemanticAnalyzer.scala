@@ -1067,7 +1067,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   private def unifyMonoids(m1: Monoid, m2: Monoid): Boolean = {
-    logger.debug(s"unifyMonoids ${PrettyPrinter(mFind(m1))} ${PrettyPrinter(mFind(m2))}")
+    logger.debug(s"unifyMonoids ${PrettyPrinter(mFind(m1))}, ${PrettyPrinter(mFind(m2))}")
     (mFind(m1), mFind(m2)) match {
       case (nm1, nm2) if nm1 == nm2 => true
       case (mv: MonoidVariable, s: SetMonoid) if (commutative(mv).isEmpty || commutative(mv).get) && (idempotent(mv).isEmpty || idempotent(mv).get) =>
@@ -1098,6 +1098,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         monoidsVarMap.union(mv1, mv2).union(mv2, nv)
 
         monoidGraph.put(nv, MonoidLinks(nleqMonoids, ngeqMonoids))
+        logger.debug(s"new var = " + monoidGraph(nv).toString())
 
         for (nleq <- nleqMonoids) {
           nleq match {
@@ -1224,6 +1225,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         true
 
       case (CollectionType(m1, inner1), CollectionType(m2, inner2)) =>
+        logger.debug(s"unifyMonoids of ${PrettyPrinter(m1)} and ${PrettyPrinter(m2)}")
         if (!unifyMonoids(m1, m2)) {
           return false
         }
@@ -1580,15 +1582,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
 
       case MaxOfMonoids(n, gs) =>
-        val fromTypes = gs.map {
+        val fromMonoids = gs.map {
           case Gen(_, e) =>
             val te = expType(e)
             find(te) match {
-              case tf: CollectionType => tf
+              case tf: CollectionType => tf.m
               case _                  => return true
             }
         }
-        val mv = maxMonoid(fromTypes)
 
         val t = expType(n)
         val m = n match {
@@ -1601,21 +1602,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             }
         }
 
-        logger.debug(s"n is ${CalculusPrettyPrinter(n)}")
-        logger.debug(s"gs are ${gs.map(CalculusPrettyPrinter(_))}")
-        logger.debug(s"fromTypes are ${fromTypes.map(PrettyPrinter(_)).mkString(",")}")
-        logger.debug(s"m is ${PrettyPrinter(m)}")
-        logger.debug(s"mv is ${PrettyPrinter(mv)}")
-
-        val r = unifyMonoids(m, mv)
-        logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
-        logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
-        if (!r) {
-          logger.debug("Hey we failed here")
-          // TODO: Fix error message: should have m and nm?
-          tipeErrors += IncompatibleMonoids(m, walk(t), Some(n.pos))
+        for (minM <- fromMonoids) {
+          val nv = MonoidVariable()
+          monoidGraph.put(nv, MonoidLinks(Set(), Set(m)))
+          val r = unifyMonoids(minM, nv)
+          logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
+          logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
+          if (!r) {
+            logger.debug("Hey we failed here")
+            // TODO: Fix error message: should have m and nm?
+            tipeErrors += IncompatibleMonoids(m, walk(t), Some(n.pos))
+            return false
+          }
         }
-        r
+        return true
 
       case PartitionHasType(p) =>
         partitionEntity(p) match {
@@ -2001,7 +2001,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       mFind(m) match {
         case mv: MonoidVariable =>
-//          logger.debug(monoidGraph.toString)
           logger.debug(s"I am ${PrettyPrinter(mv)}")
 //          val leqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids else Set()
 //          val geqMonoids = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids else Set()
@@ -2010,7 +2009,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
           val leqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.flatMap(findLeqs) else Set()
           val geqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.flatMap(findGeqs) else Set()
-
+                    logger.debug(s"leqMonoids ${leqMonoids.map(PrettyPrinter(_)).mkString(",")}")
+                    logger.debug(s"geqMonoids ${geqMonoids.map(PrettyPrinter(_)).mkString(",")}")
+                    if (monoidGraph.contains(mv)) {
+                      logger.debug(monoidGraph(mv).leqMonoids.map {
+                        PrettyPrinter(_)
+                      }.mkString(","))
+                      logger.debug(monoidGraph(mv).geqMonoids.map {
+                        PrettyPrinter(_)
+                      }.mkString(","))
+                    }
           MonoidVariable(leqMonoids, geqMonoids, mv.sym) // TODO: Add lost info! walk monoidgraph
         case rm => rm
       }
@@ -2147,11 +2155,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           SameType(e1, e2))
 
       // Rule 12
-      case n@MergeMonoid(_: CollectionMonoid, e1, e2) =>
+      case n@MergeMonoid(m: CollectionMonoid, e1, e2) =>
         Seq(
           SameType(n, e1),
           SameType(e1, e2),
-          HasType(e2, CollectionType(MonoidVariable(), TypeVariable())))
+          HasType(e2, CollectionType(m, TypeVariable())))
 
       // Rule 13
       case n@Comp(_: NumberMonoid, qs, e) =>
