@@ -14,7 +14,7 @@ import scala.collection.mutable
 import scala.collection.JavaConversions
 
 
-class RawFile(val p: Path) extends RawResource {
+class RawLocalFile(val p: Path) extends RawResource {
   override def openInputStream(): InputStream = Files.newInputStream(p)
 
   override def toString = s"RawFile[${p.toString}]"
@@ -110,7 +110,7 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
     val properties = schemaDir.resolve("properties.json")
     val userData = jsonMapper.readValue(properties.toFile, classOf[java.util.Map[String, Object]])
 
-    RawSchema(schemaName, new RawFile(schemaDir.resolve("schema.xml")), new SchemaProperties(userData), new RawFile(list.head))
+    RawSchema(schemaName, new RawLocalFile(schemaDir.resolve("schema.xml")), new SchemaProperties(userData), new RawLocalFile(list.head))
   }
 
 }

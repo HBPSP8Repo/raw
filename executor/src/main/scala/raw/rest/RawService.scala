@@ -16,7 +16,7 @@ import spray.http._
 
 import scala.concurrent.duration._
 
-class RawService(rawServer: RawServer) extends Actor with StrictLogging {
+class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
 
   import DefaultJsonMapper._
   import HttpMethods._
@@ -119,7 +119,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
     logger.info(s"Query request: $request")
     // TODO: Send query language in request
     val queryLanguage = QueryLanguages("qrawl")
-    val rawUser = DropboxClient.getUserName(request.token)
+    val rawUser = dropboxClient.getUserName(request.token)
     val query = request.query
     val result = rawServer.doQuery(queryLanguage, query, rawUser)
     val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
@@ -131,7 +131,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
     val request = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
     logger.info(s"Module: ${request.module}, token: ${request.token}")
-    val rawUser = DropboxClient.getUserName(request.token)
+    val rawUser = dropboxClient.getUserName(request.token)
     logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
     val response = Map("success" -> true, "schemas" -> schemas)
@@ -143,10 +143,10 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
     logger.info(s"doRegisterFile: $request")
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
-    DropboxClient.downloadFile(request.url, localFile)
+    dropboxClient.downloadFile(request.url, localFile)
     PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
     // Register the schema
-    rawServer.registerSchema(request.name, stagingDirectory, DropboxClient.getUserName(request.token))
+    rawServer.registerSchema(request.name, stagingDirectory, dropboxClient.getUserName(request.token))
     val response = Map("success" -> true, "name" -> request.name)
     // Do not delete the staging directory if there is a failure (exception). Leave it for debugging
     try {

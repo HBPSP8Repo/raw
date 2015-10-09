@@ -1,6 +1,6 @@
 package raw.executor
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{StandardCopyOption, Files, Path, Paths}
 import java.util
 
 import com.google.common.io.Resources
@@ -14,7 +14,8 @@ import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.QueryLanguages.OQL
-import raw.rest.RawRestServer
+import raw.rest.RawRestServer.RegisterFileRequest
+import raw.rest.{DefaultJsonMapper, DropboxClient, RawRestServer}
 import raw.utils.RawUtils
 
 import scala.concurrent.Await
@@ -27,8 +28,8 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
 
   override def beforeAll() = {
     testDir = RawUtils.getTemporaryDirectory("test-basedata")
-//    RawUtils.cleanOrCreateDirectory(testDir)
-    restServer = new RawRestServer("scala", Some(testDir.toString))
+    //    RawUtils.cleanOrCreateDirectory(testDir)
+    restServer = new RawRestServer("scala", Some(testDir.toString)) with TestDropboxClient
     val serverUp = restServer.start()
     logger.info("Waiting for rest server to start")
     Await.ready(serverUp, Duration(2, SECONDS))
@@ -89,7 +90,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
                                             AttrType(v3,StringType()),
                                             AttrType(v4,StringType())),
                                         students_1)))))
-                     """
+                           """
 
 
   val brainFeatureSetPlan =
@@ -142,7 +143,7 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
     post
   }
 
-  def newQueryPost(logicalPlan:String): HttpPost = {
+  def newQueryPost(logicalPlan: String): HttpPost = {
     val queryPost = new HttpPost("http://localhost:54321/query")
     queryPost.setHeader("Raw-User", "joedoe")
     queryPost.setHeader("Raw-Query-Language", "qrawl")
@@ -204,23 +205,30 @@ class RawRestServerTest extends FunSuite with StrictLogging with BeforeAndAfterA
   }
 
   test("schemas") {
-    val schemasGet = new HttpGet("http://localhost:54321/schemas")
-    schemasGet.setHeader("Raw-User", "joedoe")
-    executeRequest(schemasGet)
+    val schemasPost = new HttpPost("http://localhost:54321/schemas")
+    val req = new RawRestServer.SchemaRequest("unnused", "joedoe")
+    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(req)
+    schemasPost.setEntity(new StringEntity(reqBody))
+    executeRequest(schemasPost)
   }
 
-//  test("Large") {
-//    val rawUser = "joedoe"
-//    val storageManager = restServer.rawServer.storageManager
-//
-//    val schemas = storageManager.listUserSchemas(rawUser)
-//    logger.info("Found schemas: " + schemas.mkString(", "))
-//    val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
-//    var i = 0
-//    while (i < 5) {
-//      val result = CodeGenerator.query(studentsHeaderPlan, scanners)
-//      logger.info("Result: " + result)
-//      i += 1
-//    }
-//  }
+  ignore("register file") {
+    val schemasPost = new HttpPost("http://localhost:54321/register-file")
+    val req = new RegisterFileRequest("file", "localfile", "authors.json", "authors", "json", "joedoe")
+  }
+
+  //  test("Large") {
+  //    val rawUser = "joedoe"
+  //    val storageManager = restServer.rawServer.storageManager
+  //
+  //    val schemas = storageManager.listUserSchemas(rawUser)
+  //    logger.info("Found schemas: " + schemas.mkString(", "))
+  //    val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
+  //    var i = 0
+  //    while (i < 5) {
+  //      val result = CodeGenerator.query(studentsHeaderPlan, scanners)
+  //      logger.info("Result: " + result)
+  //      i += 1
+  //    }
+  //  }
 }

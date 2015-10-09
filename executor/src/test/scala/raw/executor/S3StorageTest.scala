@@ -1,9 +1,5 @@
-package raw
+package raw.executor
 
-import java.nio.file.Paths
-
-import com.amazonaws.regions.{Region, Regions}
-import com.amazonaws.services.s3.AmazonS3Client
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}

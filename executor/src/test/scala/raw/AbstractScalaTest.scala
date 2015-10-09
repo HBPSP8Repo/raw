@@ -6,7 +6,7 @@ import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import raw.datasets.{Author, Patient, Publication}
 import raw.executor.{RawScanner, RawSchema}
-import raw.storage.RawFile
+import raw.storage.RawLocalFile
 
 import scala.collection.mutable
 
@@ -30,7 +30,7 @@ object TestScanners extends StrictLogging {
   def createScanner[T: Manifest](dataFileResource: String): RawScanner[T] = {
     val p = Paths.get(Resources.getResource(dataFileResource).toURI)
     val schemaName = getSchemaName(p)
-    val schema = new RawSchema(schemaName, null, null, new RawFile(p))
+    val schema = new RawSchema(schemaName, null, null, new RawLocalFile(p))
 //    val scanner = RawScanner(schema, manifest[T])
     val scanner = RawScanner[T](schema)
     scanners += scanner

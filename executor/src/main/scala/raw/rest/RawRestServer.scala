@@ -68,7 +68,7 @@ object RawRestServer {
 
 
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends StrictLogging {
-
+  dropboxClient: DropboxClient =>
 
   import akka.pattern.ask
 
@@ -115,7 +115,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   def start(): Future[Bound] = {
     val handler = system.actorOf(
       RoundRobinPool(5).props(Props {
-        new RawService(rawServer)
+        new RawService(rawServer, dropboxClient)
       }),
       name = "handler")
 

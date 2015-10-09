@@ -11,7 +11,7 @@ object RawRestServerMain extends StrictLogging {
       val storageDir: ScallopOption[String] = opt[String]("storage-dir", default = None, short = 's')
     }
 
-    val server = new RawRestServer(Conf.executor(), Conf.storageDir.get)
+    val server = new RawRestServer(Conf.executor(), Conf.storageDir.get) with RealDropboxClient
     server.start()
   }
 }
