@@ -36,22 +36,21 @@ sealed abstract class RecordAttributes extends RawNode {
   def getType(idn: String): Option[Type]
 }
 
-/**
+/** Attributes (fixed-size, well known)
  */
 
 case class Attributes(atts: Seq[AttrType]) extends RecordAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
-/** Attributes Variable
+/** Attributes Variable (a set of some known attributes)
   */
 
 case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends RecordAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
-/**
- *
+/** Concatenation of attributes.
  */
 
 case class ConcatAttributes(atts: Seq[AttrType] = Seq(), sym: Symbol = SymbolTable.next()) extends RecordAttributes {
