@@ -54,8 +54,7 @@ case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.nex
  *
  */
 
-case class ConcatAttributes(sym: Symbol = SymbolTable.next()) extends RecordAttributes {
-  def atts = ??? // most likely used after we reconstruct the type so that we should have rebuild it
+case class ConcatAttributes(atts: Seq[AttrType] = Seq(), sym: Symbol = SymbolTable.next()) extends RecordAttributes {
   def getType(idn: String) = ???
 }
 

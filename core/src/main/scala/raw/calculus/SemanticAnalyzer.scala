@@ -1597,6 +1597,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
         if (s.from.length == 1) {
           // we know group by is defined otherwise we would have terminated earlier
+          // we don't want to make a concat for that (we don't concatenate actually)
           CollectionType(maxMonoid(fromTypes), fromTypes.head.innerType)
         } else {
           // maybe there is no group by
@@ -2224,6 +2225,53 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
     }
 
+    // TODO should we pass occurscheck from the reconstruct type? I guess yes
+    def reconstructAttributes(atts: RecordAttributes, occursCheck: Set[Type]): RecordAttributes = atts match {
+      case concat: ConcatAttributes => {
+        val links = concatGraph.get(concat).head
+        val possibleRecordAttributes = links.froms.map {
+          // for each from list, build its type.
+          case f =>
+            val items: Seq[(Option[Idn], Type)] = f.map {
+              // walk the gens and build their type, we keep the gen name if we should use it later
+              //              case Gen(Some(PatternIdn(idn)), e) => (Some(idn.idn), reconstructType(expType(e), occursCheck).asInstanceOf[CollectionType].innerType)
+              //              case Gen(None, e) => (None, find(expType(e)).asInstanceOf[CollectionType].innerType)
+              case Gen(p, e) =>
+                val inner = reconstructType(expType(e), occursCheck) match {
+                  case UserType(m) => world.tipes(m) match {
+                    case CollectionType(_, inner) => inner
+                  }
+                  case CollectionType(_, inner) => inner
+                }
+                p match {
+                  case Some(PatternIdn(idn)) => (Some(idn.idn), inner)
+                  case None => (None, inner)
+                }
+            }
+//            // because we wouldn't have a concat attributes with just one from
+            assert(items.length != 1)
+//            // length is > 1, we make a concatenation of records
+            val flatItems: Seq[(Option[Idn], Type)] = items.flatMap {
+              case item => item._2 match {
+                case r: RecordType => r.recAtts.atts.map{case a => (Some(a.idn), a.tipe)} // we can have a concat here
+                case _ => Seq((item._1, item._2)) // can be considered as a record of one field since we concatenate
+              }
+            }
+//            // this is where we generate names and all, here I just replace None by the index, since it's flattened it is good
+            val newAttrs = flatItems.zipWithIndex.map{case (item, idx) =>
+              AttrType(if (item._1.isEmpty) s"_${idx+1}" else item._1.get, reconstructType(item._2, occursCheck))
+            }
+            ConcatAttributes(newAttrs, concat.sym)
+        }
+        assert(possibleRecordAttributes.size == 1) // TODO to merge all
+        possibleRecordAttributes.head
+      }
+      case Attributes(atts)              =>
+        Attributes(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) })
+      case AttributesVariable(atts, sym) =>
+        AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
+    }
+
     def reconstructMonoid(m: Monoid): Monoid = {
       def findLeqs(m: Monoid): Set[Monoid] = mFind(m) match {
         case mv: MonoidVariable => if (monoidGraph(mv).leqMonoids.isEmpty) Set(mv) else monoidGraph(mv).leqMonoids.flatMap(findLeqs)
@@ -2275,13 +2323,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: PrimitiveType                => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case RecordType(a)                   =>
-            val a1 = aFind(a)
-            a1 match {
-              case Attributes(atts)              =>
-                RecordType(Attributes(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }))
-              case AttributesVariable(atts, sym) =>
-                RecordType(AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym))
-            }
+            RecordType(reconstructAttributes(aFind(a), occursCheck))
           case PatternType(atts)          => PatternType(atts.map { case att => PatternAttrType(reconstructType(att.tipe, occursCheck + t)) })
           case CollectionType(m, innerType)    => CollectionType(reconstructMonoid(m).asInstanceOf[CollectionMonoid], reconstructType(innerType, occursCheck + t))
           case FunType(p, e)                   => FunType(reconstructType(p, occursCheck + t), reconstructType(e, occursCheck + t))

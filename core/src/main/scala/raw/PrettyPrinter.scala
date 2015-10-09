@@ -73,6 +73,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
   def atts(recAtts: RecordAttributes): Doc = recAtts match {
     case Attributes(atts) => group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma)))
     case AttributesVariable(atts, sym) => group(nest(text(sym.idn) <> ":" <> lsep(atts.toList.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)) :+ text("..."), comma)))
+    case ConcatAttributes(atts, sym) => group(nest(text(sym.idn) <> ":" <> lsep(atts.toList.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)) :+ text("..."), comma)))
   }
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
