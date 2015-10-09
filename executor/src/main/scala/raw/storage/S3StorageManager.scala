@@ -31,7 +31,20 @@ class RawS3Object(val key: String, s3: AmazonS3Client) extends RawResource {
 object S3StorageManager {
   final val bucket = "raw-labs-executor"
 
-  case class ScalaObjectListing(delegate: ObjectListing, summaries: List[S3ObjectSummary], path: String, commonPrefixes: List[String], directories: List[String], files: List[String])
+  /** The ObjectListing instance returned by the Java S3 API uses Java collections, which are cumbersome to use from 
+    * Scala. This class provides a thin adapter exposing Scala collections. Additionally, it also exposes a hierarchical
+    * view of the keyspace, that is, it extracts from the keynames the parts corresponding to the "directory" and the "file".
+    * Recall that S3 does not support hierarchies, so these have to be emulated with keys in the form 
+    * "root/dirA/dirB/file.json".
+    *
+    * @param delegate The object returned by the S3 API call.
+    * @param summaries Description of each subelement of this directory
+    * @param path The path of this directory.
+    * @param commonPrefixes The full path of the subdirectories.
+    * @param subdirectories The subdirectories within this directory. Only the last path component, so the relative name.
+    * @param files The files contained in this directory.
+    */
+  case class ScalaObjectListing(delegate: ObjectListing, summaries: List[S3ObjectSummary], path: String, commonPrefixes: List[String], subdirectories: List[String], files: List[String])
 
   private[this] def toScala[T](col: util.Collection[T]): List[T] = {
     JavaConversions.collectionAsScalaIterable(col).toList
@@ -81,11 +94,11 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
   }
 
   override def listUserSchemasFromStorage(user: String): List[String] = {
-    listContents(user + "/").directories
+    listContents(user + "/").subdirectories
   }
 
   override def listUsersFromStorage(): List[String] = {
-    listContents("").directories
+    listContents("").subdirectories
   }
 
   override def loadSchemaFromStorage(user: String, schemaName: String): RawSchema = {
