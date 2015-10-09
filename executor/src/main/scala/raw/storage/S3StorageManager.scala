@@ -10,6 +10,7 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.util.IOUtils
 import com.typesafe.scalalogging.StrictLogging
 import raw.executor.{CodeGenerator, RawSchema, SchemaProperties}
+import raw.utils.RawUtils
 
 import scala.collection.JavaConversions
 
@@ -60,6 +61,9 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
   private[this] val s3 = new AmazonS3Client()
   s3.setRegion(Region.getRegion(Regions.EU_WEST_1))
 
+  logger.info(s"Staging directory: $stageDirectory")
+  RawUtils.createDirectory(stageDirectory)
+
   override def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String): Unit = {
     logger.info(s"Registering schema: $schemaName, stageDir: $stagingDirectory, user: $rawUser")
 
@@ -86,18 +90,18 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
 
   override def loadSchemaFromStorage(user: String, schemaName: String): RawSchema = {
     val schemaDir = s"$user/$schemaName/"
-    logger.info(s"Loading schema: $schemaName at directory: $schemaDir")
+    logger.info(s"Loading schema: $schemaName, key: $schemaDir")
     val contents: ScalaObjectListing = listContents(schemaDir)
-    logger.info("Files of schema: " + contents.files)
+    logger.info("Found files: " + contents.files)
 
     val list: List[String] = contents.files.filter(s => s.startsWith(schemaName + "."))
-    assert(list.size == 1, s"Expected one data file for schema: $schemaName in directory: $schemaDir. Found: $list.")
+    assert(list.size == 1, s"Expected one data file for schema: $schemaName in key: $schemaDir. Found: $list.")
 
     val schemaFileName = list.head
     val dataFileKey = schemaDir + schemaFileName
     val propertiesFileKey = schemaDir + "properties.json"
+    // Alternatively, download contents here instead of passing the reference. Only problematic if schemas become large.
     val schemaFileKey = schemaDir + "schema.xml"
-    logger.info(s"Datafile: $dataFileKey, properties: $propertiesFileKey, schemaFile: $schemaFileKey")
     val propertiesString = getObjectAsString(propertiesFileKey)
     val properties = new SchemaProperties(jsonMapper.readValue(propertiesString, classOf[java.util.Map[String, Object]]))
     RawSchema(schemaName, new RawS3Object(schemaFileKey, s3), properties, new RawS3Object(dataFileKey, s3))
@@ -108,13 +112,13 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
       .withBucketName(bucket)
       .withPrefix(prefix)
       .withDelimiter("/")
-    logger.info("Request: " + req.getPrefix)
+    logger.info(s"Listing contents of: $prefix")
     val objs: ScalaObjectListing = ScalaObjectListing(s3.listObjects(req))
-    logger.info(s"Prefix: $prefix.\nCommon prefixes: " + objs.commonPrefixes + "\nDirectories: " + objs.directories + "\nFiles: " + objs.files)
     objs
   }
 
   private[this] def getObjectAsString(key: String): String = {
+    logger.info(s"Retrieving: $key")
     val obj: S3Object = s3.getObject(bucket, key)
     val is: S3ObjectInputStream = obj.getObjectContent
     try {

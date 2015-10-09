@@ -14,7 +14,6 @@ import scala.collection.mutable.HashMap
 import scala.xml.{Elem, Node, XML}
 
 case class RawSchema(name: String, schemaFile: RawResource, properties: SchemaProperties, dataFile: RawResource) {
-  //case class RawSchema(name: String, schemaFile: Path, properties: SchemaProperties, dataFile: Path) {
   def fileType: String = {
     val filename = dataFile.fileName.toString
     val i = filename.lastIndexOf('.')

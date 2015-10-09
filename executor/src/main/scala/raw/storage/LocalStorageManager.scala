@@ -33,6 +33,7 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
 
   override val stageDirectory = {
     val t = storagePath.resolve(TMP_DIR_NAME)
+    logger.info(s"Staging directory: $t")
     RawUtils.createDirectory(t)
     t
   }

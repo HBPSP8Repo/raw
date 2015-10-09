@@ -98,7 +98,7 @@ class RawService(rawServer: RawServer) extends Actor with StrictLogging {
       complete(sender, HttpResponse(StatusCodes.BadRequest, HttpEntity(s"Unknown request: $r")))
 
     case r@_ =>
-      logger.warn("Ignoring command: " + r)
+      logger.debug("Ignoring command: " + r)
   }
 
 
