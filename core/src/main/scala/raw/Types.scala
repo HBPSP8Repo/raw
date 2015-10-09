@@ -36,6 +36,9 @@ sealed abstract class RecordAttributes extends RawNode {
   def getType(idn: String): Option[Type]
 }
 
+/**
+ */
+
 case class Attributes(atts: Seq[AttrType]) extends RecordAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
@@ -45,6 +48,15 @@ case class Attributes(atts: Seq[AttrType]) extends RecordAttributes {
 
 case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends RecordAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
+}
+
+/**
+ *
+ */
+
+case class ConcatAttributes(sym: Symbol = SymbolTable.next()) extends RecordAttributes {
+  def atts = ??? // most likely used after we reconstruct the type so that we should have rebuild it
+  def getType(idn: String) = ???
 }
 
 /** Record Type

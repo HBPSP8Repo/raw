@@ -427,6 +427,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   /** Chain for looking up aliases, which are autmaticaly inferred from anonymous generators.
     */
 
+  // TODO Check recordtypes are never empty (record with no fields).
+
   private lazy val aliasEnv: Chain[Environment] =
     chain(aliasEnvIn, aliasEnvOut)
 
@@ -479,6 +481,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   /** Chain for looking up the partition keyword.
+    * The partition scope opens on the projection but only if the SELECT has a GROUP BY.
     */
 
   private lazy val partitionEnv: Chain[Environment] =
@@ -497,6 +500,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   /** Chain for looking up the star keyword.
+    * The star scope opens on the projection for SELECT or the yield for for-comprehensions.
     */
 
   private lazy val starEnv: Chain[Environment] =
@@ -507,7 +511,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case tree.parent.pair(e: Exp, s: Select) if e eq s.proj =>
       val env = enter(in(e))
       define(env, "*", StarEntity(s, TypeVariable()))
+
     case tree.parent.pair(e: Exp, c: Comp) if e eq c.e =>
+      // TODO: In the case of a Comp make sure there is at least a Gen or this doesn't make sense!!!! Same on envOut.
       val env = enter(in(e))
       define(env, "*", StarEntity(c, TypeVariable()))
   }
@@ -863,10 +869,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case _: StringConst => StringType()
 
     // Rule 5
-    case RecordCons(atts) => RecordType(Attributes(atts.zipWithIndex.map{
-      case (att,i) if att.idn.startsWith("$") => AttrType(s"_${i+1}", expType(att.e))
-      case (att,i) => AttrType(att.idn, expType(att.e))
-    }))
+    case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))))
 
     // Rule 9
     case ZeroCollectionMonoid(_: BagMonoid) => CollectionType(BagMonoid(), TypeVariable())
@@ -905,6 +908,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   val monoidGraph = scala.collection.mutable.HashMap[MonoidVariable, MonoidLinks]()
 
+  ////
+
+  case class ConcatLinks(froms: Set[Seq[Gen]], outers: Set[Type])
+
+  val concatGraph = scala.collection.mutable.HashMap[ConcatAttributes, ConcatLinks]()
+
+  ////
 
 
 
@@ -1414,35 +1424,228 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   //
   //    recurse(p, t)
   //  }
+  // TODO: SUMMARY OF
+//
+//  for ((name, age) <- students; x <- professors) yield set *
+//
+//  (name, age, x)
+//
+//  one idea: star always unrolls it all
+//
+//  it's always the same, and always flat, and always everything concat'ed
+//
+//  what about partition?
+//    partiton should just copy the inner select, as is: get the type based on those generators and that output?
+//    unsure
+//
+//  select age, partition from students group by age
+//
+//  type:
+//
+//  age, student -> which is simply the inner type of student
+//
+//  if
+//    select age, partition, from students s, professors p where s.age = p.age group by s.age
+//  then partition HAS to have names, or its output record type contains repeated field names
+//    so i should be
+//      age, (s, p)
+//
+//     what about:
+//       select age, partition from students, professors ?
+//    there is no group by, hence, no worries: there's no partition either, so this is invalid
+//
+//  what if there is a field one table has but the other one doesnt?
+//  select unique_student_field, partition from students s, professors group by s.unique_student_field
+//
+//    here, i'd expect the output field to be
+//    (unique_student_field,
+//      (s, ...professor fields flattened) )
+//
+//  so i think there's a rule here:
+//      if generators have aliases, i assumed they are to be grouped that way
+//      if they dont, i unroll it
+//  but this means i will *always* group things when doing a join
+//    unless star unrolls them?
+//
+//  -> star always unrolls
+//  -> partition groups by the generator pattern; if no pattern, then it unrolls
+//  -> as for automatic attribute lookups, they should probably only occur when no pattern is specified
+  //
+  // but if I do select age, * from students group by students?
+  //      here I should expect the students unrolled, similarly to a plain select * from students
+  // if I do select * from students s group by s.age ? again, unrolled
+  // and if I do select s.age, * from students s group by students? again, unrolled
+  // if I do select s.age, * from students s, professors p where s.age = p.age group by s.age ?
+        // perhaps here we could have a distinction:
+         // select s.age, partition from students s, professors p where s.ge = p.age group by s.age
+          // would return (age, (s,p))
+          // and
+  // select s.age, partition from students s, professors where s.ge = p.age group by s.age
+    // would return (age, (s, ...unrolled p...))
+        // while
+  // select s.age, * from students s, professors p where s.ge = p.age group by s.age
+  //  would return (age, ...unrolled s and p...)
+  // or can we survive w/ one?
+  // or does it help to have a "record unroll" operator? that's hard because it must replace recordcons altogether...
 
-  private def tipeFromGens(gs: Seq[Gen]): CollectionType = {
-    val fromTypes = gs.map {
-      case Gen(_, e) =>
-        val t = expType(e)
-        find(t) match {
-          case t: CollectionType => t
-          //case _                 => Not resolved yet: how to cope with maxMonoid below? Monoid variable? Is it even valid?
+  /** The type of a partition in a given SELECT.
+    * Examples:
+    *   SELECT age, PARTITION FROM students GROUP BY age
+    *   The type of the SELECT is list(age, list[student])
+    *
+    *   SELECT age, PARTITION FROM students S GROUP BY age
+    *   The type of the SELECT is (same as before): list(age, list[student])
+    *
+    *   SELECT age, PARTITION FROM students, professors WHERE student_age = professor_age GROUP BY student_age
+    *   The type of the SELECT is list(age, list[(_1: student, _2: professor)])
+    *
+    *   SELECT age, PARTITION FROM students S, professors WHERE s.student_age = professor_age GROUP BY student_age
+    *   The type of the SELECT is list(age, list[(s: student, _2: professor)])
+    */
+  private lazy val selectPartitionType: Select => Type = attr {
+    s =>
+      def aux: Type = {
+        val fromTypes = s.from.map {
+          case Gen(_, e) =>
+            val t = expType(e)
+            find(t) match {
+              case t1: CollectionType => t1
+              case _ => return NothingType()
+            }
         }
-    }
-    if (fromTypes.length == 1)
-      fromTypes.head
-    else {
-      val idns = gs.zipWithIndex.map {
-        case (Gen(Some(PatternIdn(IdnDef(idn))), _), _) => idn
-        case (Gen(None, _), i) => s"_${i+1}"
+        val ninner =
+          if (fromTypes.length == 1) {
+            fromTypes.head.innerType
+          } else {
+            val idns = s.from.zipWithIndex.map {
+              case (Gen(Some(PatternIdn(IdnDef(idn))), _), _) => idn
+              case (Gen(None, _), i)                          => s"_${i + 1}"
+            }
+            assert(idns.toSet.size == idns.length) // TODO: Making sure that user PatternIdns do not match _1, _2 by accident!
+            RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) }))
+          }
+        CollectionType(maxMonoid(fromTypes), ninner)
       }
-      CollectionType(maxMonoid(fromTypes), RecordType(Attributes(idns.zip(fromTypes.map(_.innerType)).map { case (idn, innerType) => AttrType(idn, innerType) })))
-    }
+    aux
   }
 
-  // TODO: Make the fromTypes be an attribute of Select and Comp nodes.
+  /** The type of a * in a given SELECT.
+    * Examples:
+    *   SELECT * FROM students
+    *   The type of the SELECT is list[student]
+    *
+    *   SELECT age, * FROM students
+    *   Reports an error (it's too dangerous to multiply the table by itself)
+    *
+    *   SELECT age, * FROM students GROUP BY age
+    *   The type of the SELECT is list(age, list[student])
+    *
+    *   SELECT age, * FROM students S GROUP BY age
+    *   The type of the SELECT is (same as before): list(age, list[student])
+    *
+    *   SELECT * FROM students GROUP BY age
+    *   The type of the SELECT is list[list[student]]
+    *
+    *   SELECT * FROM students, professors
+    *   The type of the SELECT is list(... student ... professor ...)
+    *   If field names are shared in the inner tables, these are renamed by prefixing an auto-generated name.
+    *
+    *   SELECT * FROM students S, professors P
+    *   The type of the SELECT is list(... student ... professor ...)
+    *   If field names are shared in the inner tables, these are renamed by prefixing the generator name.
+    *
+    *   SELECT age, * FROM students, professors WHERE student_age = professor_age GROUP BY student_age
+    *   The type of the SELECT is (age, list[... student ... professor ...])
+    *   (Same field renaming policy applies as above)
+    *
+    *   SELECT age, PARTITION FROM students S, professors WHERE s.student_age = professor_age GROUP BY student_age
+    *   The type of the SELECT is (age, list[... student ... professor ...])
+    *   (Same field renaming policy applies as above)
+    */
+  private lazy val selectStarType: Select => Type = attr {
+    s =>
+      def aux: Type = {
+        val fromTypes: Seq[CollectionType] = s.from.map {
+          case Gen(_, e) =>
+            val t = expType(e)
+            find(t) match {
+              case t1: CollectionType => t1
+              case _ => return NothingType()
+            }
+        }
 
-  private lazy val selectType: Select => CollectionType = attr {
-    s => tipeFromGens(s.from)
-  }
+        s.proj match {
+          case _: Star if s.group.isEmpty && fromTypes.length == 1 =>
+            // SELECT * FROM students
+            return fromTypes.head.innerType
+          case _ if s.group.isDefined && fromTypes.length == 1 =>
+            // SELECT * FROM students GROUP BY age
+            return CollectionType(maxMonoid(fromTypes), fromTypes.head.innerType)
+          case _ =>
+        }
 
-  private lazy val compType: Comp => CollectionType = attr {
-    c => tipeFromGens(c.qs.collect { case g: Gen => g })
+        if (s.proj != Star() && s.group.isEmpty) {
+          // SELECT age, * FROM students
+          tipeErrors += IllegalStar(s)
+          return NothingType()
+        }
+
+        //   SELECT age, * FROM students GROUP BY age
+        //   SELECT age, * FROM students, professors GROUP BY age
+        //   SELECT * FROM students, professors
+
+
+        if (s.from.length == 1) {
+          // we know group by is defined otherwise we would have terminated earlier
+          CollectionType(maxMonoid(fromTypes), fromTypes.head.innerType)
+        } else {
+          // maybe there is no group by
+          // compute the inner type and
+          val attributes = ConcatAttributes()
+          // add to the map attributes -> froms
+
+          val existing = concatGraph.put(attributes, ConcatLinks(Set(s.from), Set()))
+
+          val inner = RecordType(attributes)
+          if (s.group.isDefined) {
+            CollectionType(maxMonoid(fromTypes), inner)
+          } else {
+            inner
+          }
+        }
+
+//        if (s.group.isEmpty) {
+//          // SELECT * FROM students, professors
+//          val patterns = s.from.map {
+//            case Gen(None, _) => None
+//            case Gen(Some(PatternIdn(IdnDef(idn))), _) => Some(idn)
+//          }
+//          val inners = fromTypes.map(_.innerType)
+//
+//          val nidns = patterns.zip(inners).flatMap {
+//            case (_, RecordType(Attributes(atts))) =>
+//              atts.map {  }
+//
+//            case r: RecordType =>
+//            case _ => (None, )
+//          }
+//
+//          walk the froms
+//          take the inner types
+//          2 options: either they are records or not
+//          if they are records, unrolled them into an idn list
+//          if they are not records, append that one to the idn list
+//          check if idn list if valid and do renames accordingly
+//          then build new record type with these new idns, and the original types
+//
+//
+//
+//        } else {
+//
+//        }
+
+      }
+      aux
   }
 
   /** Type Checker constraint solver.
@@ -1659,10 +1862,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case PartitionHasType(p) =>
         partitionEntity(p) match {
           case PartitionEntity(s, t) =>
-            val t1 = selectType(s)
+            val t1 = selectPartitionType(s)
             val r = unify(t, t1)
             if (!r) {
-              ???
+              tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"))
               false
             }
             r
@@ -1675,32 +1878,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         starEntity(s) match {
           case StarEntity(e, t) =>
             e match {
-              case s1: Select if s1.proj eq s =>
-                val t1 = find(selectType(s1)) match {
-                  case CollectionType(_, inner) => inner
-                }
-                val r = unify(t, t1)
-                if (!r) {
-                  ???
-                  false
-                }
-                r
               case s1: Select =>
-                val t1 = selectType(s1)
+                val t1 = find(selectStarType(s1))
                 val r = unify(t, t1)
                 if (!r) {
-                  ???
+                  tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"))
                   false
                 }
                 r
               case c: Comp =>
-                val t1 = compType(c)
-                val r = unify(t, t1)
-                if (!r) {
-                  ???
-                  false
-                }
-                r
+                ???
             }
           case _                =>
             tipeErrors += UnknownStar(s)
@@ -2153,16 +2340,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           else
             MonoidVariable()
 
-        val c = proj match {
-          // Special handling for "SELECT *"
-          // If we did not do a special handling of SELECT *, then the output of "SELECT * FROM students" would be a
-          // list of a list of students, instead of the SQL behaviour of a list of students
-          case s: Star => HasType(n, CollectionType(m, starType(starEntity(s))))
-          case _ => HasType(n, CollectionType(m, expType(proj)))
-        }
-
         Seq(
-          c,
+          HasType(n, CollectionType(m, expType(proj))),
           MaxOfMonoids(n, froms))
 
       // Rule 4
@@ -2226,17 +2405,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // Rule 14
       case n@Comp(m: CollectionMonoid, qs, e1) =>
         val gs = qs.collect { case g: Gen => g }
-
-        val tc = e1 match {
-          // Special handling for "yield *"
-          case s: Star =>
-            HasType(n, CollectionType(m, starType(starEntity(s))))
-
-          case _ =>
-            HasType(n, CollectionType(m, expType(e1)))
-        }
         Seq(
-          tc,
+          HasType(n, CollectionType(m, expType(e1))),
           MaxOfMonoids(n, gs))
 
       // Binary Expression
@@ -2554,11 +2724,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case g @ Gen(_, e1) => constraints(e1) ++ constraint(g) case b @ Bind(_, e1) => constraint(b) } ++ constraints(e) ++ constraint(n)
     case n @ Select(from, _, g, proj, w, o, h) =>
       val fc = from.flatMap { case it @ Gen(_, e) => constraints(e) ++ constraint(it) }
-      val wc = if (w.isDefined) constraints(w.get) else Nil
       val gc = if (g.isDefined) constraints(g.get) else Nil
+      val wc = if (w.isDefined) constraints(w.get) else Nil
       val oc = if (o.isDefined) constraints(o.get) else Nil
       val hc = if (h.isDefined) constraints(h.get) else Nil
-      fc ++ wc ++ gc ++ oc ++ hc ++ constraint(n) ++ constraints(proj)
+      fc ++ gc ++ constraints(proj) ++ wc ++ oc ++ hc ++ constraint(n)
     case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
     case n @ ExpBlock(binds, e) => binds.toList.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
     case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
@@ -2575,7 +2745,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ MultiCons(_, es) => es.flatMap(constraints) ++ constraint(n)
     case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
     case n: Partition => constraint(n)
-    case s: Star => constraint(s)
+    case n: Star => constraint(n)
     case n @ Reduce(m, g, e) => constraints(g.e) ++ constraint(g) ++ constraints(e) ++ constraint(n)
     case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
@@ -2702,7 +2872,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 }
 
 // TODO: Change constraints to do proper collect in order, so that we don't ever forget anything. Exceptions (if any) can be handled in a pattern match at the beginning
-// TODO: Add support for new Algebra nodes: in constraint and in constraints
 // TODO: Add detailed description of the type checker: the flow, the unification, partial records, how are errors handled, ...
 // TODO: Add more tests to the SemanticAnalyzer:
 //        - let-polymorphism in combination with patterns;
@@ -2718,8 +2887,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //       e.g. if Int, Bool on usage generate 2 versions of the method;
 //       more interestingly, if ConstraintRecordType, find out the actual records used and generate versions for those.
 // TODO: Add notion of declaration. Bind and NamedFunc are now declarations. ExpBlock takes sequence of declarations followed by an expression.
+// TODO: Add abstract class to encompass both Select, Comp (and even CanComp)?
+// TODO: We don't typecheck CanComp: should we?
 // TODO: Add support for typing an expression like max(students.age) where students is a collection. Or even max(students.personal_info.age)
 // TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
 //       success("""\x -> for (y <- x) yield bag (y.age * 2, y.name)""", world,
 // TODO: I should be able to do for (x <- col) yield f(x) to keep same collection type as in col
 //       This should only happen for a single col I guess?. It helps write the map function.
+// TODO: Syntactic sugar for functions of 1,2,3,4,5,6,7,8,9,10,...20 arguments. Should support recursion?
+//        {
+//          fact1 := \(f, n1) -> if (n1 = 0) then 1 else n1 * (f(f, n1 - 1));
+//          fact := \n -> fact1(fact1, n);
+//          fact
+//        }
+//      def fact(n) := if (n = 0) then 1 else n * fact(n - 1)
+//      -> Func1(fact, n, if (n = 0) then 1 else n * fact(n - 1))
+//
+// TODO: Support markdown syntax in comments

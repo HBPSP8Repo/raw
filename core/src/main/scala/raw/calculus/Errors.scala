@@ -29,6 +29,8 @@ case class IncompatibleTypes(t1: Type, t2: Type, p1: Option[Position] = None, p2
 
 case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, p: Option[Position] = None) extends Error
 
+case class IllegalStar(s: Calculus.Select) extends Error
+
 /** ErrorPrettyPrinter
   */
 object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
@@ -54,6 +56,8 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
       s"$desc but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
     case UnexpectedType(t, expected, None, p) =>
       s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
+    case IllegalStar(s) =>
+      s"cannot use * together with other attributes in a projection without GROUP BY"
   }
 }
 

@@ -117,7 +117,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i)).rawType) }), None)
+          case regex(n) => raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i)).rawType) }))
         }
       case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Function") =>
         val regex = """scala\.Function(\d+)""".r
@@ -128,7 +128,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case t@TypeRef(_, sym, Nil) =>
         val symName = sym.fullName
         val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-        raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }), Some(symName))
+        raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }))
 
       case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" =>
         raw.CollectionType(ListMonoid(), inferType(t1).rawType)
@@ -157,14 +157,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def toCannonicalForm(recordType: RecordType): String =
     PrettyPrinter(recordType)
 
-  def recordTypeSym(r: RecordType): Option[String] = r match {
-    case RecordType(_, Some(symName)) => Some(symName)
-    case r @ RecordType(_, None) => userCaseClassesMap.get(toCannonicalForm(r))
-//      if (isUserType(r))
-//        Some(userCaseClassesMap(toCannonicalForm(r)))
-//      else
-//        None
-  }
+  def recordTypeSym(r: RecordType): String = userCaseClassesMap(toCannonicalForm(r))
 
   def buildScalaType(t: raw.Type, world: World): String = {
     val baseType = t match {
@@ -173,14 +166,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
-      case r@RecordType(recAtts, _) =>
-        recordTypeSym(r) match {
-          case Some(sym) => sym
-          case None =>
-            recAtts.atts
-              .map(att => s"(${buildScalaType(att.tipe, world)})")
-              .mkString("(", ", ", ")")
-        }
+      case r @ RecordType(Attributes(atts)) =>
+        atts
+          .map(att => s"(${buildScalaType(att.tipe, world)})")
+          .mkString("(", ", ", ")")
       //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
       //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
       case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
@@ -199,41 +188,41 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       baseType
   }
 
-  /** Collect all anonymous record types in the tree.
+  /** Collect all record types in the tree.
     * The record types are converted to their Scala string descriptions for two reasons:
     * 1) they become naturally unique when we turn it into a set
     * 2) the nullables are present in the type explicitely, not as an implicit attribute.
     */
-  def collectAnonRecordTypes(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Seq[RecordType] = {
+  def collectRecordTypes(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Seq[RecordType] = {
     import org.kiama.rewriting.Rewriter._
 
-    val anonRecordTypes = scala.collection.mutable.MutableList[RecordType]()
+    val recordTypes = scala.collection.mutable.MutableList[RecordType]()
 
-    val queryAnonRecordTypes = everywhere(query[Calculus.Exp] {
+    val queryRecordTypes = everywhere(query[Calculus.Exp] {
       case e => analyzer.tipe(e) match {
-        case r @ RecordType(_, None) => anonRecordTypes += r
-        case _                       =>
+        case r: RecordType => recordTypes += r
+        case _             =>
       }
     })
 
-    queryAnonRecordTypes(tree)
+    queryRecordTypes(tree)
 
-    anonRecordTypes.to
+    recordTypes.to
   }
 
   /** Build case classes for the anonymous record types used to hold the results of Reduce nodes
     */
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
-    val anonRecords = collectAnonRecordTypes(tree, world, analyzer)
-    logger.debug(s"buildCaseClasses $anonRecords")
+    val records = collectRecordTypes(tree, world, analyzer)
+    logger.debug(s"buildCaseClasses $records")
 
       /** Create a map between the canonical form of anonymous record types, i.e. record types with explicit nullable
         * information, and symbols to identify those user records.
         */
     this.userCaseClassesMap = {
       var i = 0
-      anonRecords
+      records
         .map(toCannonicalForm)
         .toSet
         .map((cannonicalType: String) => {
@@ -243,24 +232,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         .toMap
     }
 
-//    /** Store the list of the specific instances of user record types.
-//      * This is used to distinguish between types generated by the code generation and user types.
-//      * Therefore, if the generated code happens to generate the same structural type, that types will not be replaced
-//      * in `buildScalaType()` by the user record type symbol, since the type is not present in this list.
-//      */
-//    this.userRecordTypes = anonRecords
-
     /** Create corresponding case classes.
       * This is turned into a set to remove repeated case class definitions.
       */
     val code: Set[String] =
-      anonRecords
+      records
         .map{ case r =>
           val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
           logger.info(s"Build case class: $r.atts => $args")
-          recordTypeSym(r) match {
-            case Some(sym) => s"""case class $sym($args)"""
-            case None => bail(s"No case class available for record: $r") }}
+          val sym = recordTypeSym(r)
+          s"""case class $sym($args)"""}
         .toSet
 
     code.map(c.parse)
@@ -309,12 +290,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"${build(e1)}.$id"
       case RecordCons(atts) =>
         val t = analyzer.tipe(e).asInstanceOf[RecordType]
-        val sym = recordTypeSym(t).getOrElse("")
         val vals = atts
           .map(att => build(att.e))
           .mkString(",")
-        //            logger.info(s"exp(): $atts => $vals")
-        c.parse( s"""$sym($vals)""")
+        c.parse( s"""($vals)""")
       case IfThenElse(e1, e2, e3) =>
         q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
@@ -546,10 +525,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Unnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
         q"""
         ${build(child)}
@@ -574,10 +550,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ OuterUnnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
         q"""
         ${build(child)}
@@ -608,10 +581,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Join(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
         q"""
         val rightCode = ${build(childRight)}.toSeq
@@ -637,10 +607,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ OuterJoin(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
         q"""
         val rightCode = ${build(childRight)}.toSeq
@@ -696,10 +663,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -730,10 +694,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -765,10 +726,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType]) match {
-          case Some(sym) => q"${Ident(TermName(sym))}"
-          case None      => q"scala.Tuple2"
-        }
+        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
