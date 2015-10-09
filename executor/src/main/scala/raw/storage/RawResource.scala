@@ -10,17 +10,18 @@ import raw.utils.RawUtils
 
 import scala.collection.mutable
 
+/* Represents a data file for Raw, either an S3 file or a local file. Used to read the file, regardless of its
+ * source. */
 abstract class RawResource() {
   val fileName: String
 
   def openInputStream(): InputStream
 }
 
-object StorageManager {
-  val defaultDataDir = RawUtils.getTemporaryDirectory().resolve("rawstage")
-}
-
-
+/* Type-safe representation of the type of storage backend. */
+sealed trait StorageBackend
+case object S3StorageBackend extends StorageBackend
+case object LocalStorageBackend extends StorageBackend
 object StorageBackend {
   def apply(backendConfigOption: String): StorageBackend = {
     backendConfigOption.toLowerCase match {
@@ -31,13 +32,12 @@ object StorageBackend {
   }
 }
 
-sealed trait StorageBackend
 
-case object S3StorageBackend extends StorageBackend
+object StorageManager {
+  val defaultDataDir = RawUtils.getTemporaryDirectory().resolve("rawstage")
+}
 
-case object LocalStorageBackend extends StorageBackend
-
-
+/* Base functionality shared by all Storage managers*/
 abstract class StorageManager extends StrictLogging {
   protected final val jsonMapper = new ObjectMapper()
 
@@ -61,16 +61,6 @@ abstract class StorageManager extends StrictLogging {
     )
   }
 
-  val stageDirectory: Path
-
-  protected[this] def listUsersFromStorage(): List[String]
-
-  protected[this] def listUserSchemasFromStorage(user: String): List[String]
-
-  def loadSchemaFromStorage(user: String, schemaName: String): RawSchema
-
-  def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String)
-
   def listUsers(): List[String] = {
     scanners.keys.map(p => p._2).toSet.toList
   }
@@ -83,4 +73,17 @@ abstract class StorageManager extends StrictLogging {
     logger.info(s"Getting scanner for $rawUser, $schemaName")
     scanners((rawUser, schemaName))
   }
+
+  /*
+   * Abstract methods, implement in subclasses
+   */
+  val stageDirectory: Path
+
+  protected[this] def listUsersFromStorage(): List[String]
+
+  protected[this] def listUserSchemasFromStorage(user: String): List[String]
+
+  def loadSchemaFromStorage(user: String, schemaName: String): RawSchema
+
+  def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String)
 }

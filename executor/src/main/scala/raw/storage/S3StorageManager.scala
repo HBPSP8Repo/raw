@@ -60,7 +60,6 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
   private[this] val s3 = new AmazonS3Client()
   s3.setRegion(Region.getRegion(Regions.EU_WEST_1))
 
-  // Load schema and properties from local files instead of hitting S3
   override def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String): Unit = {
     logger.info(s"Registering schema: $schemaName, stageDir: $stagingDirectory, user: $rawUser")
 
@@ -70,6 +69,7 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     logger.info(s"Uploading: $prefixWithDirName <- $files")
     // TODO: check if it already exists
     files.foreach(f => uploadFile(bucket, prefixWithDirName, f))
+    // TODO: Load schema and properties from local files instead of hitting S3, avoids a few additional GETs
     val schema = loadSchemaFromStorage(rawUser, schemaName)
     val scanner = CodeGenerator.loadScanner(schemaName, schema)
     logger.info("Created scanner: " + scanner)
@@ -128,13 +128,12 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     assert(Files.isDirectory(directory))
     val files = JavaConversions.asScalaIterator(Files.list(directory).iterator()).toList
     val prefixWithDirName = prefix + "/" + directory.getFileName
-    logger.info(s"Uploading: $prefixWithDirName <- $files")
     files.foreach(f => uploadFile(bucket, prefixWithDirName, f))
   }
 
   private[this] def uploadFile(bucket: String, prefix: String, p: Path) = {
     val keyName = prefix + "/" + p.getFileName
-    logger.info("Uploading: " + keyName + " <- " + p)
+    logger.info(s"Uploading $p to $keyName")
     s3.putObject(new PutObjectRequest(bucket, keyName, p.toFile))
   }
 }
