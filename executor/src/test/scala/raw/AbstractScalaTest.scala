@@ -14,12 +14,20 @@ import scala.collection.mutable
 object TestScanners extends StrictLogging {
   val scanners = new mutable.ListBuffer[RawScanner[_]]()
 
-  val publications: RawScanner[Publication] = createScanner[Publication]("data/publications/publications.json")
-  val authors: RawScanner[Author] = createScanner[Author]("data/publications/authors.json")
-  val authorsSmall: RawScanner[Author] = createScanner[Author]("data/publications/authorsSmall.json")
-  val publicationsSmall: RawScanner[Publication] = createScanner[Publication]("data/publications/publicationsSmall.json")
-  val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication]("data/publications/publicationsSmallWithDups.json")
-  val patients: RawScanner[Patient] = createScanner[Patient]("data/patients/patients.json")
+  val publicationsPath = toPath("data/publications/publications.json")
+  val authorsPath = toPath("data/publications/authors.json")
+  val authorsSmallPath = toPath("data/publications/authorsSmall.json")
+  val publicationsSmallPath = toPath("data/publications/publicationsSmall.json")
+  val publicationsSmallWithDupsPath = toPath("data/publications/publicationsSmallWithDups.json")
+  val patientsPath = toPath("data/patients/patients.json")
+  val studentsPath = toPath("data/students/students.csv")
+
+  lazy val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
+  lazy val authors: RawScanner[Author] = createScanner[Author](authorsPath)
+  lazy val authorsSmall: RawScanner[Author] = createScanner[Author](authorsSmallPath)
+  lazy val publicationsSmall: RawScanner[Publication] = createScanner[Publication](publicationsPath)
+  lazy val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication](publicationsSmallWithDupsPath)
+  lazy val patients: RawScanner[Patient] = createScanner[Patient](patientsPath)
 
   private[this] def getSchemaName(p: Path): String = {
     val fileName = p.getFileName.toString
@@ -27,11 +35,12 @@ object TestScanners extends StrictLogging {
     fileName.substring(0, dotIndex)
   }
 
-  def createScanner[T: Manifest](dataFileResource: String): RawScanner[T] = {
-    val p = Paths.get(Resources.getResource(dataFileResource).toURI)
+  private[this] def toPath(resource: String): Path = Paths.get(Resources.getResource(resource).toURI)
+
+  def createScanner[T: Manifest](p: Path): RawScanner[T] = {
     val schemaName = getSchemaName(p)
     val schema = new RawSchema(schemaName, null, null, new RawLocalFile(p))
-//    val scanner = RawScanner(schema, manifest[T])
+    //    val scanner = RawScanner(schema, manifest[T])
     val scanner = RawScanner[T](schema)
     scanners += scanner
     logger.info("Scanner: " + scanner)

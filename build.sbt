@@ -126,7 +126,8 @@ lazy val executor = (project in file("executor")).
       duration=XX[smhd]
       dumponexit=true,dumponexitpath=path
      */
-    javaOptions ++= Seq( """-Dspark.master=local[2]"""),
+    javaOptions ++= Seq( """-Dspark.master=local[2]""",
+      """-Draw.inferrer.path=""" + baseDirectory.value + """/../inferrer"""),
     //        """-XX:+UnlockCommercialFeatures""",
     //        """-XX:+FlightRecorder""",
     //        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),

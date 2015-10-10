@@ -4,7 +4,9 @@ import java.nio.file.{StandardCopyOption, Files, Paths, Path}
 
 import raw.rest.DropboxClient
 
-
+/**
+ * Mock version of the dropbox client for use in tests.
+ */
 trait TestDropboxClient extends DropboxClient {
   /** Returns the token */
   override def getUserName(token: String): String = token
