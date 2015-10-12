@@ -555,6 +555,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /////
 
+
+  //////
+
   // TODO: Move this to the Types.scala and have it used inside the TypeScheme definition for uniformity!
   case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol])
 
@@ -569,13 +572,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
         // Add all pattern identifier types to the map before processing the rhs
         // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-        patternIdnTypes(p).foreach { case pt => typesVarMap.union(pt, pt) }
+//        patternIdnTypes(p).foreach { case pt => typesVarMap.union(pt, pt) }
 
         // Collect all the roots known in the TypesVarMap.
         // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
         val prevTypeRoots = typesVarMap.getRoots
-        val prevMonoidRoots = monoidsVarMap.getRoots
-        val prevRecAttRoots = recAttsVarMap.getRoots
+//        val prevMonoidRoots = monoidsVarMap.getRoots
+//        val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind
         solve(constraints(e))
@@ -586,27 +589,32 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           return None
         }
 
-        // find all parameter types of inner funabs
-
-        val lambda_ptypes = collect[Set, Set[Type]] {
-          case FunAbs(p, _) => patternIdnTypes(p).toSet
-        }
-
-        val to_walk: Set[Type] = lambda_ptypes(e).flatMap(identity)
-        val typeVars = to_walk.flatMap(getVariableTypes(_))
-        val monoidVars = to_walk.flatMap(getVariableMonoids(_))
-        val attVars = to_walk.flatMap(getVariableAtts(_))
-        logger.debug(s"${CalculusPrettyPrinter(e)} => types are ${typeVars.map(PrettyPrinter(_))}, eType is ${PrettyPrinter(walk(t))}")
+//        // find all parameter types of inner funabs
+//
+//        val lambda_ptypes = collect[Set, Set[Type]] {
+//          case FunAbs(p, _) => patternIdnTypes(p).toSet
+//        }
+//
+//        val to_walk: Set[Type] = lambda_ptypes(e).flatMap(identity)
+//        val typeVars = to_walk.flatMap(getVariableTypes(_))
+//        val monoidVars = to_walk.flatMap(getVariableMonoids(_))
+//        val attVars = to_walk.flatMap(getVariableAtts(_))
+//        logger.debug(s"${CalculusPrettyPrinter(e)} => types are ${typeVars.map(PrettyPrinter(_))}, eType is ${PrettyPrinter(walk(t))}")
 
         // Find all type variables used in the type
-//        val typeVars = getVariableTypes(t)
-//        val monoidVars = getVariableMonoids(t)
-//        val attVars = getVariableAtts(t)
+        val typeVars = getVariableTypes(t)
+//        logger.debug(s"typeVars = ")
+        val monoidVars = getVariableMonoids(t)
+        val attVars = getVariableAtts(t)
+
+        // go to the old roots
+        // extract its type variables <-- this is new
+        // walk thm in the new map: those are the new roots
 //
         // For all the "previous roots", get their new roots
-        val prevTypeRootsUpdated = prevTypeRoots.map { case v => typesVarMap(v).root }
-        val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => monoidsVarMap(v).root }
-        val prevRecAttRootsUpdated = prevRecAttRoots.map { case v => recAttsVarMap(v).root }
+        val prevTypeRootsUpdated = prevTypeRoots.flatMap { case v => getVariableTypes(v) }.map { case v => find(v) }
+        val prevMonoidRootsUpdated = prevTypeRoots.flatMap { case v => getVariableMonoids(v) }.map { case v => mFind(v) }
+        val prevRecAttRootsUpdated = prevTypeRoots.flatMap { case v => getVariableAtts(v) }.map { case v => aFind(v) }
 
         // Collect all symbols from variable types that were not in the maps before we started typing the body of the Bind.
         val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)

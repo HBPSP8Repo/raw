@@ -578,7 +578,6 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("""let-polymorphism #7""") {
     val n1 = NumberType()
-    val n2 = NumberType()
     success(
       """
       {
@@ -590,7 +589,7 @@ class SemanticAnalyzerTest extends FunTest {
         (f, f(1))
       }
       """, TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(n2, BoolType()))))))
+      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(IntType(), BoolType()))))))
   }
 
   test("map") {
@@ -1660,6 +1659,14 @@ class SemanticAnalyzerTest extends FunTest {
   test("""\xs -> { a := max(xs); a,a }""") {
     success(
       """\xs -> { a := max(xs); a,a }""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+
+  test("""{ b := \xs -> { a := max(xs); a,a }; b }""") {
+    success(
+      """{ b := \xs -> { a := max(xs); a,a }; b }""",
       TestWorlds.empty,
       IntType())
   }
