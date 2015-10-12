@@ -3,7 +3,7 @@ from splitstream import splitfile
 
 from .csv_inferrer import CSVInferrer
 from .json_inferrer import JSONInferrer
-
+from .common import InferrerException
 
 def json_sample(path, n_objs = 10):
     """ Tries to get n_objs objects from a json file
@@ -48,7 +48,7 @@ def check_types(rawType):
             check_types(v)
     else:
         # ValueException is unknown, I switched it to ValueError
-        raise ValueError("Unknown type: %s" % rawType)
+        raise InferrerException("Unknown type: %s" % rawType)
 
 def csv_sample(path, n_lines = 100):
     # check if this is the best way of doing it
