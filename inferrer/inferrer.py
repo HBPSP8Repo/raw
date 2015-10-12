@@ -21,9 +21,19 @@ if __name__ == '__main__':
     name = args.schema_name
 
     logging.info("Inferring schema %s", args)
-    # Infer schema
-    schema, properties = inferrer.from_local(name, file, type)
-    logging.info("Schema: %s; Properties: %s" % (schema, properties))
+    #TODO: move this loop to the inferrer module
+    n_objs = 100
+    n_max = 5000
+    while n_objs < n_max:
+        try :
+            # Infer schema
+            schema, properties = inferrer.from_local(name, file, type, n_objs=n_objs)
+            logging.info("Schema: %s; Properties: %s" % (schema, properties))
+            serialized_schema = schema_serializer.serialize(schema)
+            break
+        except schema_serializer.SerializerException :
+            logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
+            n_objs = 2*n_objs
 
     basedir = os.path.dirname(file)
     serialized_schema = schema_serializer.serialize(schema)

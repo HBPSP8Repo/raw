@@ -36,9 +36,9 @@ def json_sample(path, n_objs = 10):
 
 def check_types(rawType):
     """ Check if all types are defined """
-    if isinstance(rawType, rawIntType)
-        or isinstance(rawType, rawStringType)
-        or isinstance(rawType, rawFloatType)
+    if isinstance(rawType, rawIntType) \
+        or isinstance(rawType, rawStringType) \
+        or isinstance(rawType, rawFloatType) \
         or isinstance(rawType, rawBooleanType):
         return True
     elif isinstance(rawType, rawListType):
