@@ -3,6 +3,12 @@ from collections import OrderedDict
 import xml.dom.minidom
 import logging
 
+
+class SerializerException(Exception):
+    def __init__(self, msg):
+        super(SerializerException, self).__init__("could not serialize: %s" % msg)
+
+
 def recurse(rawType):
     if isinstance(rawType, rawIntType):
         return "<int/>"
@@ -23,7 +29,8 @@ def recurse(rawType):
         tmp += "</record>"
         return tmp
     else:
-        raise ValueException("Unknown type: " + rawType)
+        # ValueException is unknown, I switched it to ValueError
+        raise SerializerException("Unknown type: %s" % rawType)
 
 def serialize(rawType):
     rawXml = recurse(rawType)

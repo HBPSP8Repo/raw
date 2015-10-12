@@ -27,6 +27,8 @@ if __name__ == '__main__':
 
     basedir = os.path.dirname(file)
     serialized_schema = schema_serializer.serialize(schema)
+
+
     logging.debug("Serialized Schema:\n%s" % serialized_schema)
     schemaFile = os.path.join(basedir, "schema.xml")
     logging.info("Writing schema: " + schemaFile)

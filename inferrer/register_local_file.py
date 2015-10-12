@@ -4,6 +4,7 @@ import os.path
 import json
 import os
 import shutil
+import sys 
 
 import schema_serializer
 import inferrer
@@ -49,11 +50,20 @@ if __name__ == '__main__':
     link= os.path.join(basedir, os.path.basename(file))
     os.symlink(file, link)
     logging.info("Inferring schema %s", args)
-    # Infer schema
-    schema, properties = inferrer.from_local(name, file, type)
-    logging.info("Schema: %s; Properties: %s" % (schema, properties))
 
-    serialized_schema = schema_serializer.serialize(schema)
+    n_objs = 1
+    n_max = 1000
+    while n_objs < n_max:
+        try :
+            # Infer schema
+            schema, properties = inferrer.from_local(name, file, type, n_objs=n_objs)
+            logging.info("Schema: %s; Properties: %s" % (schema, properties))
+            serialized_schema = schema_serializer.serialize(schema)
+            break
+        except schema_serializer.SerializerException :
+            logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
+            n_objs = 2*n_objs
+
     logging.debug("Serialized Schema:\n%s" % serialized_schema)
     schemaFile = os.path.join(basedir, "schema.xml")
     logging.info("Writing schema: " + schemaFile)
