@@ -2,6 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.TestScanners
 import raw.utils.RawUtils
 
 /*
@@ -13,14 +14,14 @@ class RestServerEmptyStorageTest extends FunSuite with RawRestServerContext with
 
   // Support for CSV files with no header. The columns should be given names like v1, v2...
   test("CSV register && query: students, no file header") {
-    clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, RawUtils.toPath("data/students_no_header/students.csv"), "studentsnoheader")
+    clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, TestScanners.studentsNoHeaderPath, "studentsnoheader")
     val resp: String = clientProxy.query("select s.v1 from studentsnoheader s", RestServerPreloadedTest.TestUserJoe)
     assert(resp == """[ "Student1", "Student2", "Student3", "Student4", "Student5", "Student6", "Student7" ]""")
   }
 
   // Same csv file, with headers
   test("CSV register && query: students, with file header") {
-    clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, RawUtils.toPath("data/students/students.csv"), "studentsheader")
+    clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, TestScanners.studentsPath, "studentsheader")
     val resp: String = clientProxy.query("select s.Name from studentsheader s", RestServerPreloadedTest.TestUserJoe)
     assert(resp == """[ "Student1", "Student2", "Student3", "Student4", "Student5", "Student6", "Student7" ]""")
   }

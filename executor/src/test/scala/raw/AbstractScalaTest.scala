@@ -22,6 +22,7 @@ object TestScanners extends StrictLogging {
   val publicationsSmallWithDupsPath = RawUtils.toPath("data/publications/publicationsSmallWithDups.json")
   val patientsPath = RawUtils.toPath("data/patients/patients.json")
   val studentsPath = RawUtils.toPath("data/students/students.csv")
+  val studentsNoHeaderPath = RawUtils.toPath("data/students/students_no_header.csv")
 
   lazy val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
   lazy val authors: RawScanner[Author] = createScanner[Author](authorsPath)
