@@ -1,6 +1,7 @@
 package raw.rest
 
-import java.net.URL
+import java.io.IOException
+import java.net.{MalformedURLException, URL}
 import java.nio.file.{StandardCopyOption, Files, Path}
 import java.util.Locale
 
@@ -28,13 +29,20 @@ trait RealDropboxClient extends DropboxClient with StrictLogging {
   }
 
   override def downloadFile(url: String, localFile: Path) = {
-    // TODO: Use FileChannel, more efficient.
-    val is = new URL(url).openStream()
     try {
-      val size = Files.copy(is, localFile, StandardCopyOption.REPLACE_EXISTING)
-      logger.info(s"Downloaded $size bytes to $localFile")
-    } finally {
-      is.close()
+      val _url = new URL(url)
+      val is = _url.openStream()
+      try {
+        // TODO: Use FileChannel, more efficient.
+        val size = Files.copy(is, localFile, StandardCopyOption.REPLACE_EXISTING)
+        logger.info(s"Downloaded $size bytes to $localFile")
+      } finally {
+        is.close()
+      }
+    } catch {
+      case ex: MalformedURLException => throw new ClientErrorException(ex)
+      case ex: IOException => throw new ClientErrorException(ex)
+      case ex: IllegalArgumentException => throw new ClientErrorException(ex)
     }
   }
 }

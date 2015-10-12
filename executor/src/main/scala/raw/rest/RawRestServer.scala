@@ -36,9 +36,13 @@ object DefaultJsonMapper extends StrictLogging {
 }
 
 
-/* Generic exception, which the request handler code can raise to send a 400 response to the client. 
+/* Generic exception, which the request handler code can raise to send a 400 response to the client.
 * This exception will be caught by the exception handler below and transformed in a 400 response*/
-class ClientErrorException(msg: String) extends Exception(msg)
+class ClientErrorException(msg: String, cause: Throwable) extends Exception(msg, cause) {
+  def this(msg: String) = this(msg, null)
+  def this(cause: Throwable) = this(cause.getMessage, cause)
+}
+
 
 object RawRestServer {
 
@@ -121,10 +125,10 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
 
     IO(Http).ask(Http.Bind(handler, interface = "0.0.0.0", port = port))(1.second)
       .flatMap {
-      case b: Http.Bound ⇒ Future.successful(b)
-      case Tcp.CommandFailed(b: Http.Bind) => Future.failed(new RuntimeException(
-        "Binding failed. Switch on DEBUG-level logging for `akka.io.TcpListener` to log the cause."))
-    }(system.dispatcher)
+        case b: Http.Bound ⇒ Future.successful(b)
+        case Tcp.CommandFailed(b: Http.Bind) => Future.failed(new RuntimeException(
+          "Binding failed. Switch on DEBUG-level logging for `akka.io.TcpListener` to log the cause."))
+      }(system.dispatcher)
   }
 
   def stop(): Unit = {

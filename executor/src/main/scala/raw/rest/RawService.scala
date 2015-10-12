@@ -124,7 +124,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     val result = rawServer.doQuery(queryLanguage, query, rawUser)
     val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
     val serializedResponse = mapper.writeValueAsString(response)
-    logger.info("Query succeeded. Returning result: " + serializedResponse.take(100))
+    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 

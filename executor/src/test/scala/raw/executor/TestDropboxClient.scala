@@ -1,8 +1,9 @@
 package raw.executor
 
-import java.nio.file.{StandardCopyOption, Files, Paths, Path}
+import java.io.IOException
+import java.nio.file._
 
-import raw.rest.DropboxClient
+import raw.rest.{ClientErrorException, DropboxClient}
 
 /**
  * Mock version of the dropbox client for use in tests.
@@ -13,7 +14,11 @@ trait TestDropboxClient extends DropboxClient {
 
   /** Expects the url to represent a file. Moves it to the destination */
   override def downloadFile(url: String, localFile: Path): Unit = {
-    val srcPath = Paths.get(url)
-    Files.move(srcPath, localFile, StandardCopyOption.REPLACE_EXISTING)
+    try {
+      val srcPath = Paths.get(url)
+      Files.move(srcPath, localFile, StandardCopyOption.REPLACE_EXISTING)
+    } catch {
+      case ex: IOException => throw new ClientErrorException(ex)
+    }
   }
 }

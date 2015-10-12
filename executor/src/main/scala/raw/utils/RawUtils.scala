@@ -50,6 +50,8 @@ object RawUtils extends StrictLogging {
     JavaConversions.asScalaIterator(Files.find(basePath, 1, directoryFilter).iterator())
   }
 
+  def toPath(resource: String): Path = Paths.get(Resources.getResource(resource).toURI)
+
   /**
    * Extracts a resource from the classpath into the temporary directory.
    *

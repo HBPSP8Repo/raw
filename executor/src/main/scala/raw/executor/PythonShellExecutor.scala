@@ -1,9 +1,11 @@
 package raw.executor
 
+import java.io.{ByteArrayOutputStream, PrintWriter}
 import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import raw.rest.ClientErrorException
 
 import scala.sys.process._
 
@@ -18,10 +20,27 @@ object PythonShellExecutor extends StrictLogging {
     p
   }
 
+  /* Runs a command in the shell, returning the status code and the output (stdout and stderro) */
+  def runCommand(cmd: String): (Int, String) = {
+    val output = new ByteArrayOutputStream
+    //    val stderr = new ByteArrayOutputStream
+    val outputWriter = new PrintWriter(output)
+    //    val stderrWriter = new PrintWriter(stderr)
+    val exitValue = cmd.!(ProcessLogger(outputWriter.println, outputWriter.println))
+    outputWriter.close()
+    //    stderrWriter.close()
+    (exitValue, output.toString)
+  }
+
   def inferSchema(filePath: Path, fileType: String, schemaName: String): Unit = {
     val cmdLine = s"python ${inferrerPath.toString} -f ${filePath.toString} -t $fileType -n $schemaName"
     logger.info(s"Executing command: $cmdLine")
-    val s: Int = cmdLine.!
-    assert(s == 0, s"Error executing command (status:$s): $cmdLine")
+    val (s, output) = runCommand(cmdLine)
+    // TODO: Distinguish between inferrer failures because of bad input (client error) versus other problems/bugs (internal error)
+    // Currently, assume that return status 1 means bad input and anything else (other than 0) means bug.
+    if (s == 1) {
+      throw new ClientErrorException(s"Failed to infer schema. Inferrer output:\n$output")
+    }
+    assert(s == 0, s"Error executing command (status:$s): $cmdLine. Output:\n$output")
   }
 }

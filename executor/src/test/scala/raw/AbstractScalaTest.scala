@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import raw.datasets.{Author, Patient, Publication}
 import raw.executor.{RawScanner, RawSchema}
 import raw.storage.RawLocalFile
+import raw.utils.RawUtils
 
 import scala.collection.mutable
 
@@ -14,13 +15,13 @@ import scala.collection.mutable
 object TestScanners extends StrictLogging {
   val scanners = new mutable.ListBuffer[RawScanner[_]]()
 
-  val publicationsPath = toPath("data/publications/publications.json")
-  val authorsPath = toPath("data/publications/authors.json")
-  val authorsSmallPath = toPath("data/publications/authorsSmall.json")
-  val publicationsSmallPath = toPath("data/publications/publicationsSmall.json")
-  val publicationsSmallWithDupsPath = toPath("data/publications/publicationsSmallWithDups.json")
-  val patientsPath = toPath("data/patients/patients.json")
-  val studentsPath = toPath("data/students/students.csv")
+  val publicationsPath = RawUtils.toPath("data/publications/publications.json")
+  val authorsPath = RawUtils.toPath("data/publications/authors.json")
+  val authorsSmallPath = RawUtils.toPath("data/publications/authorsSmall.json")
+  val publicationsSmallPath = RawUtils.toPath("data/publications/publicationsSmall.json")
+  val publicationsSmallWithDupsPath = RawUtils.toPath("data/publications/publicationsSmallWithDups.json")
+  val patientsPath = RawUtils.toPath("data/patients/patients.json")
+  val studentsPath = RawUtils.toPath("data/students/students.csv")
 
   lazy val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
   lazy val authors: RawScanner[Author] = createScanner[Author](authorsPath)
@@ -35,7 +36,6 @@ object TestScanners extends StrictLogging {
     fileName.substring(0, dotIndex)
   }
 
-  private[this] def toPath(resource: String): Path = Paths.get(Resources.getResource(resource).toURI)
 
   def createScanner[T: Manifest](p: Path): RawScanner[T] = {
     val schemaName = getSchemaName(p)

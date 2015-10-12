@@ -4,14 +4,15 @@ import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Suite, BeforeAndAfterAll}
-import raw.rest.RawRestServer
+import raw.rest.{RealDropboxClient, RawRestServer}
 import raw.spark.DefaultSparkConfiguration
 import raw.utils.RawUtils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-trait RawRestService extends BeforeAndAfterAll with StrictLogging {
+// Mixable trait to start and stop a RawService for tests.
+trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging {
   self: Suite =>
 
   val testDir: Path = RawUtils.getTemporaryDirectory("it-test-data")

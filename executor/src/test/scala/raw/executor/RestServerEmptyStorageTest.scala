@@ -1,10 +1,18 @@
 package raw.executor
 
+import java.nio.file.Paths
+
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import raw.TestScanners
+import raw.utils.RawUtils
 
-/** TODO: Register files and other tests that should be done with an empty storage. */
-class RestServerEmptyStorageTest extends FunSuite with RawRestService with StrictLogging with BeforeAndAfterAll {
+/*
+ * Register file:
+ * - non-existing file
+ * - wrong contents
+*/
+class RestServerEmptyStorageTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 
   //  private[this] def stageResourceDir(ressource: String, toDir: String): Unit = {
   //    val downloadDir = testDir.resolve(toDir)
@@ -67,5 +75,33 @@ class RestServerEmptyStorageTest extends FunSuite with RawRestService with Stric
   //    logger.info("Result: " + result)
   //  }
 
+  test("register: malformed url") {
+    try {
+      clientProxy.registerFile("http", """foo-bar""", "badurlfilename.json", "badurlSchema", "json", RestServerPreloadedTest.TestUserJoe)
+      fail("Expected exception but register file succeeded")
+    } catch {
+      case _: ClientErrorWrapperException => // Test pass.
+      case ex: Throwable => fail("Wrong type of exception: " + ex)
+    }
+  }
 
+  test("register: file does not exist") {
+    try {
+      clientProxy.registerFile("http", """http://rawlabs.com/doesnnotexist.json""", "doesnnotexist.json", "dummySchema", "json", RestServerPreloadedTest.TestUserJoe)
+      fail("Expected exception but register file succeeded")
+    } catch {
+      case _: ClientErrorWrapperException => // Test pass.
+      case ex: Throwable => fail("Wrong type of exception: " + ex)
+    }
+  }
+
+  test("register: file with invalid contents.") {
+    try {
+      clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, RawUtils.toPath("data/badfile.json"))
+      fail("Expected exception but register file succeeded")
+    } catch {
+      case _: ClientErrorWrapperException => // Test pass.
+      case ex: Throwable => fail("Wrong type of exception: " + ex)
+    }
+  }
 }
