@@ -35,7 +35,7 @@ class SyntaxAnalyzerTest extends FunTest {
     assert(r.isLeft)
     if (expected.isDefined)
       r match {
-        case Left(err) => assert(err.contains(expected.get))
+        case Left(err: SyntaxAnalyzer.NoSuccess) => assert(err.msg.contains(expected.get))
       }
   }
 
@@ -170,11 +170,11 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("backticks") {
-    matches("""for (e <- Employees) yield set (`Employee Children`: e.children)""")
+    matches( """for (e <- Employees) yield set (`Employee Children`: e.children)""")
   }
 
   test("record projection #1") {
-    matches("""("Foo", "Bar")._1""", """(_1: "Foo", _2: "Bar")._1""")
+    matches( """("Foo", "Bar")._1""", """(_1: "Foo", _2: "Bar")._1""")
   }
 
   test("record projection #2") {
@@ -184,11 +184,11 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("expression block #1") {
-    matches("""{ a := 1; a + 1 }""")
+    matches( """{ a := 1; a + 1 }""")
   }
 
   test("expression block #2") {
-    matches("""for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
+    matches( """for (d <- Departments) yield set { name := d.name; (deptName: name) }""")
   }
 
   test("expression block #3 - newline") {
@@ -210,15 +210,15 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("patterns #2") {
-    matches("""{ (a, (b, c)) := (_1: 1, _2: (_1: 2, _2: 3)); a + b + c }""")
+    matches( """{ (a, (b, c)) := (_1: 1, _2: (_1: 2, _2: 3)); a + b + c }""")
   }
 
   test("patterns #3") {
-    matches("""\(a, b) -> a + b + 1""")
+    matches( """\(a, b) -> a + b + 1""")
   }
 
   test("patterns #4") {
-    matches("""\(a, (b, c)) -> a + b + c + 1""")
+    matches( """\(a, (b, c)) -> a + b + c + 1""")
   }
 
   test("patterns #5") {
@@ -247,24 +247,24 @@ class SyntaxAnalyzerTest extends FunTest {
     sameAST("(x.f).g(1)", "((x.f).g)(1)")
   }
 
-  test("""\x -> f(x)""") {
-    matches("""\x -> f(x)""")
+  test( """\x -> f(x)""") {
+    matches( """\x -> f(x)""")
   }
 
-  test("""\x -> x * 1""") {
-    sameAST("""\x -> x * 1""", """\x -> (x * 1)""")
+  test( """\x -> x * 1""") {
+    sameAST( """\x -> x * 1""", """\x -> (x * 1)""")
   }
 
-  test("""\x -> 1 * x""") {
-    sameAST("""\x -> 1 * x""", """\x -> (1 * x)""")
+  test( """\x -> 1 * x""") {
+    sameAST( """\x -> 1 * x""", """\x -> (1 * x)""")
   }
 
-  test("""\x -> f(g(x)) * 1""") {
-    matches("""\x -> f(g(x)) * 1""")
+  test( """\x -> f(g(x)) * 1""") {
+    matches( """\x -> f(g(x)) * 1""")
   }
 
-  test("""\(x,y) -> x + y""") {
-    sameAST("""\(x,y) -> x + y""", """\x,y -> (x + y)""")
+  test( """\(x,y) -> x + y""") {
+    sameAST( """\(x,y) -> x + y""", """\x,y -> (x + y)""")
   }
 
   test("f(x,y)") {
@@ -374,7 +374,8 @@ class SyntaxAnalyzerTest extends FunTest {
         for (v <- values) // yield set v
            yield max v
            // check if type inference assumes v is a int/float
-      """, """for (v <- values) yield max v""")
+      """,
+      """for (v <- values) yield max v""")
   }
 
   test("cern events") {
@@ -382,63 +383,63 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("paper query 1") {
-    matches("""for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""")
+    matches( """for (el <- for (d <- Departments; d.name = "CSE") yield set d.instructors; e <- el; for (c <- e.teaches) yield or c.name = "cse5331") yield set (name: e.name, address: e.address)""")
   }
 
   test("paper query 2") {
-    matches("""for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
+    matches( """for (e <- Employees) yield set (E: e, M: for (c <- e.children; for (d <- e.manager.children) yield and c.age > d.age) yield sum 1)""")
   }
 
   test("#63 (support for !=)") {
-    sameAST("""{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
+    sameAST( """{ a := 1 != 2; a }""", """{ a := 1 <> 2; a }""")
   }
 
   test("#71 (keywords issue) #1") {
-    matches("""{ v := nothing; v }""")
+    matches( """{ v := nothing; v }""")
   }
 
   test("#71 (keywords issue) #2") {
-    matches("""{ v := nottrue; v }""")
+    matches( """{ v := nottrue; v }""")
   }
 
   test("#71 (keywords issue) #3") {
-    parseError("""for (v <- collection) yield unionv""", "illegal monoid")
+    parseError( """for (v <- collection) yield unionv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #4") {
-    parseError("""for (v <- collection) yield bag_unionv""", "illegal monoid")
+    parseError( """for (v <- collection) yield bag_unionv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #5") {
-    parseError("""for (v <- collection) yield appendv""", "illegal monoid")
+    parseError( """for (v <- collection) yield appendv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #6") {
-    parseError("""for (v <- collection) yield setv""", "illegal monoid")
+    parseError( """for (v <- collection) yield setv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #7") {
-    parseError("""for (v <- collection) yield listv""", "illegal monoid")
+    parseError( """for (v <- collection) yield listv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #8") {
-    parseError("""for (v <- collection) yield bagv""", "illegal monoid")
+    parseError( """for (v <- collection) yield bagv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #9") {
-    parseError("""for (v <- booleans) yield andv""", "illegal monoid")
+    parseError( """for (v <- booleans) yield andv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #10") {
-    parseError("""for (v <- booleans) yield andfalse""", "illegal monoid")
+    parseError( """for (v <- booleans) yield andfalse""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #11") {
-    parseError("""for (v <- booleans) yield orv""", "illegal monoid")
+    parseError( """for (v <- booleans) yield orv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #12") {
-    parseError("""for (v <- booleans) yield ortrue""", "illegal monoid")
+    parseError( """for (v <- booleans) yield ortrue""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #13") {
@@ -448,55 +449,55 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("#71 (keywords issue) #15") {
-    parseError("""for (v <- numbers) yield maxv""", "illegal monoid")
+    parseError( """for (v <- numbers) yield maxv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #16") {
-    parseError("""for (v <- numbers) yield max12""", "illegal monoid")
+    parseError( """for (v <- numbers) yield max12""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #17") {
-    parseError("""for (v <- numbers) yield sumv""", "illegal monoid")
+    parseError( """for (v <- numbers) yield sumv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #18") {
-    parseError("""for (v <- numbers) yield sum123""", "illegal monoid")
+    parseError( """for (v <- numbers) yield sum123""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #19") {
-    parseError("""for (v <- numbers) yield multiplyv""", "illegal monoid")
+    parseError( """for (v <- numbers) yield multiplyv""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #20") {
-    parseError("""for (v <- numbers) yield multiply123""", "illegal monoid")
+    parseError( """for (v <- numbers) yield multiply123""", "illegal monoid")
   }
 
   test("#71 (keywords issue) #21") {
-    matches("""for (r <- records; v := trueandfalse) yield set v""")
+    matches( """for (r <- records; v := trueandfalse) yield set v""")
   }
 
   test("#71 (keywords issue) #22") {
-    matches("""for (r <- records; v := falseortrue) yield set v""")
+    matches( """for (r <- records; v := falseortrue) yield set v""")
   }
 
   test("#71 (keywords issue) #23") {
-    matches("""{ v := iftruethen1else2; v }""")
+    matches( """{ v := iftruethen1else2; v }""")
   }
 
   test("#92 (record projection priorities) #1") {
-    sameAST("""for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
+    sameAST( """for (t <- bools; ((t.A) = (t.B)) or true) yield set t""", """for (t <- bools; t.A = t.B or true) yield set t""")
   }
 
   test("#92 (record projection priorities) #2") {
-    sameAST("""(t.A) and (t.B)""", """t.A and t.B""")
+    sameAST( """(t.A) and (t.B)""", """t.A and t.B""")
   }
 
   test("#52 (chained logical operators) #1") {
-    sameAST("""(a < b) = c""", """a < b = c""")
+    sameAST( """(a < b) = c""", """a < b = c""")
   }
 
   test("#52 (chained logical operators) #2") {
-    sameAST("""(2 < 4) = false""", """2 < 4 = false""")
+    sameAST( """(2 < 4) = false""", """2 < 4 = false""")
   }
 
   test("select name from students") {

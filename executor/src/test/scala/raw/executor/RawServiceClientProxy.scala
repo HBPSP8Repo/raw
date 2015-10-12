@@ -75,6 +75,14 @@ class RawServiceClientProxy extends StrictLogging {
     registerFile("file", file.toString, filename, schema, fileType, user)
   }
 
+  def registerLocalFile(user: String, file: Path, schema:String): String = {
+    val filename = file.getFileName.toString
+    val i = filename.lastIndexOf('.')
+    assert(i > 0, s"Cannot recognize type of input file: $file.")
+    val fileType = filename.substring(i + 1)
+    registerFile("file", file.toString, filename, schema, fileType, user)
+  }
+
   def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, token: String): String = {
     val req = new RegisterFileRequest(protocol, url, filename, name, `type`, token)
     val registerPost = new HttpPost("http://localhost:54321/register-file")
@@ -129,7 +137,8 @@ class RawServiceClientProxy extends StrictLogging {
         case "ParserError" => parseErrorResponseReader.readValue[ParseErrorResponse](body).error
         case a@_ => throw new AssertionError("Unknown error type: " + a)
       }
-      throw new CompilationException(qe)
+      logger.info("Query error: " + qe)
+      throw new CompilationException(qe.toString, qe)
     } else {
       throw new IOException("Unexpected status code. Was expecting 2XX or 4XX. Found: " + response.getStatusLine + "\n" + body)
     }

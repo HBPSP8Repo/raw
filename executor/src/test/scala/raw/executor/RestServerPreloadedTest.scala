@@ -108,33 +108,5 @@ class RestServerPreloadedTest extends FunSuite with RawRestServerContext with St
     testQueryFailsWithParserError(TestUserJoe, "selec tstudents")
   }
 
-  private[this] def schemasTest(user: String, expected: Set[String]): Unit = {
-    val actual = clientProxy.getSchemas(user)
-    assert(actual === expected)
-  }
 
-  private[this] def testQuery(user: String, query: String, expected: String): Unit = {
-    val actual = clientProxy.query(query, user)
-    assert(actual === expected)
-  }
-
-  private[this] def testQueryFails(user: String, query: String, expectedErrorClass: Class[_]): Unit = {
-    try {
-      val actual = clientProxy.query(query, user)
-      fail(s"Query should have failed. Instead succeeded with result:\n$actual")
-    } catch {
-      case ex: CompilationException =>
-        val qe = ex.queryError
-        logger.info(s"Query error: $qe")
-        assert(ex.queryError.getClass === expectedErrorClass)
-    }
-  }
-
-  private[this] def testQueryFailsWithSemanticError(user: String, query: String): Unit = {
-    testQueryFails(user, query, classOf[SemanticErrors])
-  }
-
-  private[this] def testQueryFailsWithParserError(user: String, query: String): Unit = {
-    testQueryFails(user, query, classOf[ParserError])
-  }
 }

@@ -23,7 +23,9 @@ object RawCompiler {
 }
 
 // Represents an error during query compilation.
-class CompilationException(val queryError: QueryError) extends Exception
+class CompilationException(msg: String, val queryError: QueryError) extends Exception(msg) {
+  def this(queryError: QueryError) = this("", queryError)
+}
 
 class InternalException(cause: Throwable) extends Exception(cause)
 
@@ -147,14 +149,15 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
     val args = scanners
       .map(scanner => {
-      val containerName = getContainerClass(scanner).getSimpleName
-      val containerTypeParameter = scanner.tt.tpe.finalResultType
-      s"${scanner.schema.name}: ${containerName}[${containerTypeParameter}]"
-    })
+        val containerName = getContainerClass(scanner).getSimpleName
+        val containerTypeParameter = scanner.tt.tpe.finalResultType
+        s"${scanner.schema.name}: ${containerName}[${containerTypeParameter}]"
+      })
       .mkString(", ")
     //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
-    val code = s"""
+    val code =
+      s"""
 package raw.query
 
 import raw.executor.RawScanner

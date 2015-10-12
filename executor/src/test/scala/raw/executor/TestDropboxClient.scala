@@ -16,7 +16,7 @@ trait TestDropboxClient extends DropboxClient {
   override def downloadFile(url: String, localFile: Path): Unit = {
     try {
       val srcPath = Paths.get(url)
-      Files.move(srcPath, localFile, StandardCopyOption.REPLACE_EXISTING)
+      Files.copy(srcPath, localFile, StandardCopyOption.REPLACE_EXISTING)
     } catch {
       case ex: IOException => throw new ClientErrorException(ex)
     }
