@@ -221,7 +221,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     """`[\w\t ]+`""".r ^^ {case s => s.drop(1).dropRight(1) }
 
   lazy val ident: PackratParser[String] =
-    not(reserved) ~> """[_a-zA-Z]\w*""".r
+     not(reserved) ~> """[_a-zA-Z]\w*""".r
 
   lazy val baseExp: PackratParser[Exp] =
     expBlock |

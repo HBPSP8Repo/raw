@@ -1216,6 +1216,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "select * from students, professors",
       TestWorlds.professors_students,
+    // TODO: Fix!!!
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
     )
   }
@@ -1223,6 +1224,64 @@ class SemanticAnalyzerTest extends FunTest {
   test("select * from students, p in professors") {
     success(
       "select * from students, p in professors",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+  test("select a.name from a in (select * from students, p in professors)") {
+    success(
+      "select a.name from a in (select * from students, p in professors)",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+
+  test("{ a:= select * from students, p in professors; select name from a }") {
+    success(
+      "{ a:= select * from students, p in professors; select name from a }",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+
+  test("select * from i in list(1,2,3)") {
+    success(
+      "select * from i in list(1,2,3)",
+      TestWorlds.empty,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+  test("select * from i in list(1,2,3), j in list(1,2,3)") {
+    success(
+      "select * from i in list(1,2,3), j in list(1,2,3)",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+  test("select * from list(1,2,3), j in list(1,2,3)") {
+    success(
+      "select * from list(1,2,3), j in list(1,2,3)",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+  test("select * from list(1,2,3), list(1,2,3)") {
+    success(
+      "select * from list(1,2,3), list(1,2,3)",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+    )
+  }
+
+  test("select * from i in list(1,2,3), students") {
+    success(
+      "select * from i in list(1,2,3), students",
       TestWorlds.professors_students,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
     )
@@ -1479,6 +1538,143 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
+  test("......#2") {
+    success(
+      """
+        |
+        |   \ys -> {
+        |     A := (select a from a in ys); // later we see ys is union with a set, so we should be min'd by a set
+        |     x := ys union set(1,2,3);
+        |     (A, x)
+        |     }
+        |
+      """.stripMargin,
+      //    """
+      //      |{
+      //      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
+      //      | a
+      //      |}
+      //    """.stripMargin,
+      TestWorlds.empty,
+      IntType()
+    )
+  }
+
+
+  test("......#3") {
+    success(
+      """
+        |
+        |   \ys -> {
+        |     A := (select a from a in ys);
+        |     A}
+        |
+      """.stripMargin,
+      //    """
+      //      |{
+      //      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
+      //      | a
+      //      |}
+      //    """.stripMargin,
+      TestWorlds.empty,
+      IntType()
+    )
+  }
+
+  test("......") {
+    success(
+    """
+      |
+      |   \ys -> {
+      |     A := (select a from a in ys); // later we see ys is union with a set, so we should be min'd by a set
+      |     B := sum(A);                  // but we do sum of A
+      |     (ys union set(1,2,3), A, B)
+      |     }
+      |
+    """.stripMargin,
+//    """
+//      |{
+//      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
+//      | a
+//      |}
+//    """.stripMargin,
+    TestWorlds.empty,
+    IntType()
+    )
+  }
+
+  test("free variables #1. Check that only the xs inner and monoid are free") {
+    success(
+      """
+        |{
+        |  a := \xs -> sum(select x from x in xs);
+        |  (a, a, a(list(1)))
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
+  }
+
+  test("free variables #2. What should be the output type of a?") {
+    success(
+      """
+        |{
+        |  a := \xs -> { b := \ys -> sum(select x from x in ys); b };
+        |  (a(true),a(1.2),a("tralala"))
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
+  }
+
+  test("free variables #3. What should be the output type of a?") {
+    success(
+      """
+        |{
+        |  a := \xs -> (\ys -> sum(select x from x in ys));
+        |  (a,a,a)
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
+  }
+
+  test("free variables #4") {
+    success(
+      """
+        |{
+        |  a := list((\x -> x+x), (\x -> x+x+x));
+        |  (a,a,a)
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
+  }
+
+
+  test("free variables #5") {
+    success(
+      """
+        |{
+        |  a := \xs -> {
+        |    b := \xs2 -> sum(select x + y from x in xs, y in xs2);
+        |    b
+        |  };
+        |  (a, a(list(1.2, 1.3)), a(list(1,2,3)))
+        |}
+      """.stripMargin, TestWorlds.empty, IntType())
+  }
+
+  test("""\xs -> { a := max(xs); a,a }""") {
+    success(
+      """\xs -> { a := max(xs); a,a }""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+  // Dependency Graph
+
+  /*
+
+
+
+
+
+
+
+   */
 
 }
 

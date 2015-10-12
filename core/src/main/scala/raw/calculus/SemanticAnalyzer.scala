@@ -586,11 +586,23 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           return None
         }
 
-        // Find all type variables used in the type
-        val typeVars = getVariableTypes(t)
-        val monoidVars = getVariableMonoids(t)
-        val attVars = getVariableAtts(t)
+        // find all parameter types of inner funabs
 
+        val lambda_ptypes = collect[Set, Set[Type]] {
+          case FunAbs(p, _) => patternIdnTypes(p).toSet
+        }
+
+        val to_walk: Set[Type] = lambda_ptypes(e).flatMap(identity)
+        val typeVars = to_walk.flatMap(getVariableTypes(_))
+        val monoidVars = to_walk.flatMap(getVariableMonoids(_))
+        val attVars = to_walk.flatMap(getVariableAtts(_))
+        logger.debug(s"${CalculusPrettyPrinter(e)} => types are ${typeVars.map(PrettyPrinter(_))}, eType is ${PrettyPrinter(walk(t))}")
+
+        // Find all type variables used in the type
+//        val typeVars = getVariableTypes(t)
+//        val monoidVars = getVariableMonoids(t)
+//        val attVars = getVariableAtts(t)
+//
         // For all the "previous roots", get their new roots
         val prevTypeRootsUpdated = prevTypeRoots.map { case v => typesVarMap(v).root }
         val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => monoidsVarMap(v).root }
@@ -787,7 +799,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     def getMonoid(m: Monoid, moccursCheck: Set[Monoid] = Set()): Monoid =
       mFind(m) match {
       case mv: MonoidVariable =>
-        assert(monoidSyms.contains(mv.sym))
+        // TODO (ben) I removed this, why?
+        // assert(monoidSyms.contains(mv.sym))
         val nmv = MonoidVariable(sym = getNewSym(mv.sym))
         if (moccursCheck.contains(m))
           nmv
@@ -1054,6 +1067,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         logger.debug("Start C Max")
         val myMax = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map(mFind).map(commutativeForGeq).foldLeft(None: Option[Boolean])((a, b) => minOf(a, b)) else None
         logger.debug("Done C")
+        // TODO: We now believe that min>max is not an implementation bug. Rather, there should be a point, either here or in unifyMonoids
+        // TODO: where we are missing a check and we could indeed trigger this assert, which would NOT be an implementation bug, but
+        // TODO: rather, a typing bug. The general idea is that at some point my leqs could impose some condition that is incompatible with my geqs.
+        // TODO: We believe now that this could happen, and again, it's a typing error..
         assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get)) // min > max is an implementation bug
         myMin.orElse(myMax.orElse(None))
     }
@@ -1081,6 +1098,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       logger.debug("Start I Max")
       val myMax = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map(mFind).map(idempotentForGeq).foldLeft(None: Option[Boolean])((a, b) => minOf(a, b)) else None
       logger.debug("Done")
+      // TODO: We now believe that min>max is not an implementation bug. Rather, there should be a point, either here or in unifyMonoids
+      // TODO: where we are missing a check and we could indeed trigger this assert, which would NOT be an implementation bug, but
+      // TODO: rather, a typing bug. The general idea is that at some point my leqs could impose some condition that is incompatible with my geqs.
+      // TODO: We believe now that this could happen, and again, it's a typing error..
       assert(!(myMin.isDefined && myMax.isDefined && !myMax.get && myMin.get)) // min > max is an implementation bug
       myMin.orElse(myMax.orElse(None))
   }
@@ -1108,7 +1129,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
     }
 
-
     logger.debug(s"unifyMonoids ${PrettyPrinter(mFind(m1))}, ${PrettyPrinter(mFind(m2))}")
     (mFind(m1), mFind(m2)) match {
       case (nm1, nm2) if nm1 == nm2 => true
@@ -1124,83 +1144,167 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         updateLinks(mv, l)
         monoidsVarMap.union(mv, l)
         true
-      case (mv1: MonoidVariable, mv2: MonoidVariable) if (commutative(mv1).isEmpty || commutative(mv2).isEmpty || commutative(mv1) == commutative(mv2)) && (idempotent(mv1).isEmpty || idempotent(mv2).isEmpty || idempotent(mv1) == idempotent(mv2)) =>
-        logger.debug("Unify 1")
-//
-//        logger.debug(s"mv1.leqMonoids.size ${mv1.leqMonoids.size}")
-//        logger.debug(s"mv1.geqMonoids.size ${mv1.geqMonoids.size}")
-//        logger.debug(s"mv2.leqMonoids.size ${mv2.leqMonoids.size}")
-//        logger.debug(s"mv2.geqMonoids.size ${mv2.geqMonoids.size}")
+      case (mv1: MonoidVariable, mv2: MonoidVariable) =>
+        if ((commutative(mv1).isEmpty || commutative(mv2).isEmpty || commutative(mv1) == commutative(mv2)) && (idempotent(mv1).isEmpty || idempotent(mv2).isEmpty || idempotent(mv1) == idempotent(mv2))) {
+          logger.debug("Unify 1")
+          //
+          //        logger.debug(s"mv1.leqMonoids.size ${mv1.leqMonoids.size}")
+          //        logger.debug(s"mv1.geqMonoids.size ${mv1.geqMonoids.size}")
+          //        logger.debug(s"mv2.leqMonoids.size ${mv2.leqMonoids.size}")
+          //        logger.debug(s"mv2.geqMonoids.size ${mv2.geqMonoids.size}")
 
-        val links1 = monoidGraph.getOrElse(mv1, MonoidLinks(Set(), Set()))
-        val links2 = monoidGraph.getOrElse(mv2, MonoidLinks(Set(), Set()))
+          val links1 = monoidGraph.getOrElse(mv1, MonoidLinks(Set(), Set()))
+          val links2 = monoidGraph.getOrElse(mv2, MonoidLinks(Set(), Set()))
 
-        val nleqMonoids = links1.leqMonoids union links2.leqMonoids
-//        logger.debug(s"nleq.size ${nleq.size}")
-        val ngeqMonoids = links1.geqMonoids union links2.geqMonoids
-//        logger.debug(s"ngeq.size ${ngeq.size}")
-        val nv = MonoidVariable()
-        monoidsVarMap.union(mv1, mv2).union(mv2, nv)
+          val nleqMonoids = links1.leqMonoids union links2.leqMonoids
+          //        logger.debug(s"nleq.size ${nleq.size}")
+          val ngeqMonoids = links1.geqMonoids union links2.geqMonoids
+          //        logger.debug(s"ngeq.size ${ngeq.size}")
+          val nv = MonoidVariable()
+          monoidsVarMap.union(mv1, mv2).union(mv2, nv)
 
-        monoidGraph.put(nv, MonoidLinks(nleqMonoids, ngeqMonoids))
-        logger.debug(s"new var = " + monoidGraph(nv).toString())
+          monoidGraph.put(nv, MonoidLinks(nleqMonoids, ngeqMonoids))
+          logger.debug(s"new var = " + monoidGraph(nv).toString())
 
-        for (nleq <- nleqMonoids) {
-          nleq match {
-            case nleqv: MonoidVariable =>
-              val links = monoidGraph.getOrElse(nleqv, MonoidLinks(Set(), Set()))
-              monoidGraph.put(nleqv, MonoidLinks(links.leqMonoids, links.geqMonoids + nv))
-            case _ =>
+          for (nleq <- nleqMonoids) {
+            nleq match {
+              case nleqv: MonoidVariable =>
+                val links = monoidGraph.getOrElse(nleqv, MonoidLinks(Set(), Set()))
+                monoidGraph.put(nleqv, MonoidLinks(links.leqMonoids, links.geqMonoids + nv))
+              case _                     =>
             }
-        }
-
-        for (ngeq <- ngeqMonoids) {
-          ngeq match {
-            case ngeqv: MonoidVariable =>
-              val links = monoidGraph.getOrElse(ngeqv, MonoidLinks(Set(), Set()))
-              monoidGraph.put(ngeqv, MonoidLinks(links.leqMonoids + nv, links.geqMonoids))
-            case _ =>
           }
-        }
 
-        //        logger.debug("Unify 1.5")
-//        logger.debug(s"${monoidsVarMap.keys.length}")
-//        logger.debug("Unify 2")
-//        nv.leqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(geqMonoids = Set(nv))) }
-//        logger.debug("Unify 3")
-//        nv.geqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(leqMonoids = Set(nv))) }
-//        logger.debug("Unify 4")
-//
-        true
+          for (ngeq <- ngeqMonoids) {
+            ngeq match {
+              case ngeqv: MonoidVariable =>
+                val links = monoidGraph.getOrElse(ngeqv, MonoidLinks(Set(), Set()))
+                monoidGraph.put(ngeqv, MonoidLinks(links.leqMonoids + nv, links.geqMonoids))
+              case _                     =>
+            }
+          }
+
+          //        logger.debug("Unify 1.5")
+          //        logger.debug(s"${monoidsVarMap.keys.length}")
+          //        logger.debug("Unify 2")
+          //        nv.leqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(geqMonoids = Set(nv))) }
+          //        logger.debug("Unify 3")
+          //        nv.geqMonoids.map { case mv: MonoidVariable => unifyMonoids(mv, MonoidVariable(leqMonoids = Set(nv))) }
+          //        logger.debug("Unify 4")
+          //
+          true
+        }
+        else
+          false
       case (nm1, mv: MonoidVariable) => unifyMonoids(mv, nm1)
       case _ => false
     }
   }
+
+  // first, have a method that returns the attributes from the beginning that work. Possibly an empty list.
+  // this method only ask it's children (your froms).
+  // we return the longest seq of attributes, since this has the most information.
   //
   //
-  //  private def monoidsCompatible(m1: Monoid, m2: Monoid): Boolean =
-  //    !((commutative(m1).isDefined && commutative(m2).isDefined && commutative(m1) != commutative(m2)) ||
-  //      (idempotent(m1).isDefined && idempotent(m2).isDefined && idempotent(m1) != idempotent(m2)))
-  //
-  //  private def unifyMonoids(m1: CollectionMonoid, m2: CollectionMonoid): Boolean = (mFind(m1), mFind(m2)) match {
-  //    case (_: SetMonoid, _: SetMonoid) => true
-  //    case (_: BagMonoid, _: BagMonoid) => true
-  //    case (_: ListMonoid, _: ListMonoid) => true
-  //    case (v1: MonoidVariable, v2: MonoidVariable) if commutative(v1) == commutative(v2) && idempotent(v1) == idempotent(v2) =>
-  //      monoidsVarMap.union(v1, v2)
-  //      true
-  //    case (v1: MonoidVariable, v2: MonoidVariable) if monoidsCompatible(v1, v2) =>
-  //      val nv = MonoidVariable(v1.lesserMonoids ++ v2.lesserMonoids)
-  //      monoidsVarMap.union(v1, v2).union(v2, nv)
-  //      true
-  //    case (v1: MonoidVariable, x2) if monoidsCompatible(v1, x2) =>
-  //      monoidsVarMap.union(v1, x2)
-  //      true
-  //    case (_, _: MonoidVariable) =>
-  //      unifyMonoids(m2, m1)
-  //    case _ =>
-  //      false
-  //  }
+
+
+//  private def partialAtts
+
+  private def resolveConcat(c: ConcatAttributes): RecordAttributes = {
+
+    def tryFrom(gs: Seq[Gen]): Option[Attributes] = {
+
+      def getInners(gs: Seq[Gen]): Seq[(Option[Pattern], Type)] = {
+        val inners = scala.collection.mutable.MutableList[(Option[Pattern], Type)]()
+        for (g <- gs) {
+          g match {
+            case Gen(p, e) =>
+              val t = expType(e)
+              find(t) match {
+                case ResolvedType(CollectionType(_, inner1)) =>
+                  find(inner1) match {
+                    case ResolvedType(RecordType(_: AttributesVariable)) =>
+                      // Return early since we cannot know the sequence of attributes from the beginning
+                      return inners.to
+                    case ResolvedType(RecordType(_: ConcatAttributes)) =>
+                      // TODO: Return early for now. In principle, in some cases we may be able to squash the ConcatAttributes
+                      //       into a fixed set of attributes(?)
+                      return inners.to
+                    case inner2 =>
+                      inners += ((p, inner2))
+                  }
+                case _ =>
+                  // Return early since we don't know yet if is a collection type
+                  return inners.to
+              }
+          }
+        }
+        inners.to
+      }
+
+      def getAtts(inners: Seq[(Option[Pattern], Type)]): Seq[AttrType] = {
+        val usedIdns = scala.collection.mutable.Set[Idn]()
+
+        def uniqueIdn(i: Idn, j: Int = 0): Idn = {
+          val ni = if (j == 0) i else s"${i}_$j"
+          if (usedIdns.contains(ni))
+            uniqueIdn(i, j + 1)
+          else {
+            usedIdns += ni
+            ni
+          }
+        }
+
+        val atts = scala.collection.mutable.MutableList[AttrType]()
+        for (inner <- inners) {
+          // TODO: find(inner) ???
+          inner match {
+            case (_, ResolvedType(RecordType(Attributes(atts1)))) =>
+              for (att <- atts1) {
+                atts += AttrType(uniqueIdn(att.idn), att.tipe)
+              }
+            case (Some(PatternIdn(IdnDef(idn))), inner1)          =>
+              atts += AttrType(uniqueIdn(idn), inner1)
+            case (None, inner1)                                   =>
+              // TODO: This _1_2 convention (in case of uniqueIdn) isn't...great
+              atts += AttrType(uniqueIdn(s"_${atts.length + 1}"), inner1)
+          }
+        }
+
+        logger.debug(s"atts is $atts")
+        assert(atts.map(_.idn).toSet.size == atts.map(_.idn).length) // TODO: Ensure that there are no overlapping idn names
+
+        atts.to
+      }
+
+
+      val inners = getInners(gs)
+      if (inners.length == gs.length) {
+        // We solved all generators to actual types.
+        // Let's now check the attributes.
+        val atts = getAtts(inners)
+        Some(Attributes(atts))
+        // TODO: The following optimization is not supported for now
+        //      } else if (inners.nonEmpty) {
+        //        // We at least solved smtg from the beginning
+        //        ConcatAttributes(atts, ...)
+      } else {
+        None
+      }
+    }
+
+    val links = concatGraph(c)
+    for (gs <- links.froms) {
+      tryFrom(gs) match {
+        case Some(atts: Attributes) =>
+          // We resolved ConcatAttributes to a fully-fixed record, so let's return it early
+          return atts
+        case _ =>
+      }
+    }
+    // Could not resolve further
+    c
+  }
 
   private def unifyAttributes(a1: RecordAttributes, a2: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = (aFind(a1), aFind(a2)) match {
     case (Attributes(atts1), Attributes(atts2))                             =>
@@ -1227,6 +1331,42 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         recAttsVarMap.union(a1, a2).union(a2, na)
         true
       }
+//
+//    case (c1 : ConcatAttributes, c2: ConcatAttributes) =>
+//      val nc1 = resolveConcat(c1)
+//      val nc2 = resolveConcat(c2)
+//      if (nc1 != c1) {
+//        recAttsVarMap.union(c1, nc1)
+//      }
+//      if (nc2 != c2) {
+//        recAttsVarMap.union(c2, nc2)
+//      }
+//      if (nc1 != c1 || nc2 != c2)
+//        unifyAttributes(nc1, nc2, occursCheck)
+//      else {
+//        val nc = ConcatAttributes()
+//
+//        val concatLinks1 = concatGraph(c1)
+//        val concatLinks2 = concatGraph(c2)
+//
+//        val nfroms = concatLinks1.froms ++ concatLinks2.froms
+//        val nouters = concatLinks1.outers ++ concatLinks2.outers
+//
+//        val nconcatLinks = ConcatLinks(froms=nfroms, outers=nouters)
+//
+//        concatGraph.put(nc, nconcatLinks)
+//
+//      }
+
+
+//    case (ConcatAttributes(_, sym1), ConcatAttributes(_, sym2)) =>
+//      if both start fully defined, and they are incompatible types, blow up
+//      otherwise, create a new concat attributes that concats the inner ones
+//      ???
+
+//    case (ConcatAttributes, Attributes
+
+
     case (AttributesVariable(atts1, _), Attributes(atts2))                  =>
       if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
         false
@@ -1296,12 +1436,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case (RecordType(Attributes(atts1)), PatternType(atts2)) =>
         unify(t2, t1, occursCheck + ((t1, t2)))
-      //
-      //      case (PatternType(atts1), RecordType(AttributesVariable(atts2), _)) =>
-      //        if (atts1.length == atts2.length)
-      //          atts1.zip(atts2).map { case (att1, att2) => unify(att1.tipe, att2.tipe, occursCheck + ((t1, t2))) }.forall(identity)
-      //        else
-      //          false
 
       case (p1: PrimitiveType, p2: PrimitiveType) =>
         typesVarMap.union(p2, p1)
@@ -1361,7 +1495,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  //<<<<<<< HEAD
   /** This creates a monoid variable... comment it later :) it's used to postpone unification later: see MaxOfMonoid
     * where unifyMonoids is copied with the *NEW VARIABLE* we created here
     */
@@ -1795,7 +1928,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           // Return full sequence of fully-resolved attribute types, if possible
           def getInners(gs: Seq[Gen]): Option[Seq[AttrType]] = {
 
-            // Collect sequence of (pattern, inner type) for generators with known collection types
+            // Collect sequence of (pattern, inner type) for generators with known collection types.
+            // Fail early if some generator type is not yet known.
             val inners = scala.collection.mutable.MutableList[(Option[Pattern], Type)]()
             for (g <- gs) {
               g match {
@@ -1826,16 +1960,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               inner match {
                 case (_, ResolvedType(RecordType(Attributes(atts1)))) =>
                   for (att <- atts1) {
-                    atts += AttrType(uniqueIdn(att.idn), reconstructType(att.tipe, occursCheck))
+                    atts += AttrType(uniqueIdn(att.idn), att.tipe)
                   }
                 case (_, ResolvedType(_: RecordType)) =>
                   // Not fully defined record, so cannot narrow
                   return None
                 case (Some(PatternIdn(IdnDef(idn))), inner1) =>
-                  atts += AttrType(uniqueIdn(idn), reconstructType(inner1, occursCheck))
+                  atts += AttrType(uniqueIdn(idn), inner1)
                 case (None, inner1) =>
                   // TODO: This _1_2 convention (in case of uniqueIdn) isn't...great
-                  atts += AttrType(uniqueIdn(s"_${atts.length + 1}"), reconstructType(inner1, occursCheck))
+                  atts += AttrType(uniqueIdn(s"_${atts.length + 1}"), inner1)
               }
             }
 
@@ -2059,9 +2193,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       // Rule 12
       case n@MergeMonoid(m: CollectionMonoid, e1, e2) =>
         Seq(
-          SameType(n, e1),
+          HasType(e1, CollectionType(m, TypeVariable())),
           SameType(e1, e2),
-          HasType(e2, CollectionType(m, TypeVariable())))
+          SameType(n, e1))
 
       // Rule 13
       case n@Comp(_: NumberMonoid, qs, e) =>

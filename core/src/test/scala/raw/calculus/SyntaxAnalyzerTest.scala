@@ -577,4 +577,6 @@ class SyntaxAnalyzerTest extends FunTest {
             """set((_1: "dbname", _2: "authors"), (_1: "dbname", _2: "publications"))""")
   }
 
+  // TODO: Test case using "as" (keyword) as a function argument fails with a bad/weird error
+
 }
