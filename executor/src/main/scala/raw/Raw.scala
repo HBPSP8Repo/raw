@@ -1358,17 +1358,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     if (annottees.size > 1) {
       bail(s"Expected a single annottated element. Found: ${annottees.size}\n" + annottees.map(expr => showCode(expr.tree)).mkString("\n"))
     }
-    val annottee: Expr[Any] = annottees.head
-    val annottation = c.prefix.tree
-    val makro = annottee.tree
-    //    logger.debug("Annotation: " + annottation)
-    logger.info("Expanding annotated target:\n{}", showCode(makro))
-    //    logger.debug("Tree:\n" + showRaw(makro))
-
-    val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
-    logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
-
     try {
+      val annottee: Expr[Any] = annottees.head
+      val annottation = c.prefix.tree
+      val makro = annottee.tree
+      //    logger.debug("Annotation: " + annottation)
+      logger.info("Expanding annotated target:\n{}", showCode(makro))
+      //    logger.debug("Tree:\n" + showRaw(makro))
+
+      val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
+      logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
       generateCode(makro, query, language, accessPaths)
     } catch {
       // raised by calling c.bail(). Just passthrough because we already set the error information in RawImpl.queryError

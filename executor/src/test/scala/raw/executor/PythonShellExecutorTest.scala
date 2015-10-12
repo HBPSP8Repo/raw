@@ -4,13 +4,14 @@ import java.nio.file.Paths
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
+import raw.TestScanners
+import raw.utils.RawUtils
 
-class PythonShellExecutorTest extends FunSuite with StrictLogging {
+class PythonShellExecutorTest extends FunSuite with StrictLogging with InferrerConfiguration {
 
-  test("Hello") {
+  test("Can call inferrer") {
     val fileType = "json"
-    val filePath = Paths.get("/tmp/raw-stage6848337328611766446/array2d.json")
     val schemaName = "array2d"
-    PythonShellExecutor.inferSchema(filePath, fileType, schemaName)
+    PythonShellExecutor.inferSchema(TestScanners.authorsPath, fileType, schemaName)
   }
 }

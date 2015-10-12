@@ -12,10 +12,8 @@ import raw.utils.RawUtils
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-// Mixable trait to start and stop a RawService for tests.
-trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging {
-  self: Suite =>
 
+trait InferrerConfiguration extends StrictLogging {
   // Set the path to the inferrer. Should be <project root>/inferrer
   private[this] def setInferrerPath() = {
     val cwd = System.getProperty("user.dir")
@@ -30,6 +28,11 @@ trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging {
   }
 
   setInferrerPath()
+}
+
+// Mixable trait to start and stop a RawService for tests.
+trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging with InferrerConfiguration {
+  self: Suite =>
 
   val testDir: Path = RawUtils.getTemporaryDirectory("it-test-data")
   val clientProxy = new RawServiceClientProxy
