@@ -10,13 +10,15 @@ trait MonoidsGraph extends LazyLogging {
   case class MonoidProperties(commutative: Option[Boolean],
                               idempotent: Option[Boolean])
 
-  case class MonoidOrder(min: Monoid, max: Monoid)
+  private case class MonoidOrder(min: Monoid, max: Monoid)
 
-  val monoidProperties = scala.collection.mutable.HashMap[Monoid, MonoidProperties]()
+  private val monoidProperties = scala.collection.mutable.HashMap[Monoid, MonoidProperties]()
   private var monoidOrders = scala.collection.mutable.ListBuffer[MonoidOrder]()
   private val monoidsVarMap = new MonoidsVarMap()
 
-  def monoidRoots() = monoidsVarMap.getRoots
+  def printMonoidsGraph() = monoidProperties.toString
+
+  def monoidRoots() = monoidProperties.keySet.to[scala.collection.immutable.Set]   // or monoidsVarMap.getRoots ?
 
   def mFind(t: Monoid): Monoid =
     if (monoidsVarMap.contains(t)) monoidsVarMap(t).root else t

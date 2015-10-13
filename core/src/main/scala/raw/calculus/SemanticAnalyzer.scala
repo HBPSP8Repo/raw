@@ -573,7 +573,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // Collect all the roots known in the TypesVarMap.
         // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
         val prevTypeRoots = typesVarMap.getRoots
-        val prevMonoidRoots = monoidProperties.keySet // monoidsVarMap.getRoots
+        val prevMonoidRoots = monoidRoots() // monoidsVarMap.getRoots
 //        val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind

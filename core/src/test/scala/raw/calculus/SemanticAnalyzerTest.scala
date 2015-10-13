@@ -104,7 +104,7 @@ class SemanticAnalyzerTest extends FunTest {
     }
 //    assert(compare(inferredType.toString, expectedType.toString))
 //    assert(typesEq(inferredType, expectedType))
-    logger.debug(analyzer.monoidProperties.toString)
+    logger.debug(analyzer.printMonoidsGraph)
   }
 
   private def typesEq(t1: Type, t2: Type): Boolean =
