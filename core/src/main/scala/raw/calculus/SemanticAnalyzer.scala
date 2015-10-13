@@ -573,7 +573,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // Collect all the roots known in the TypesVarMap.
         // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
         val prevTypeRoots = typesVarMap.getRoots
-//        val prevMonoidRoots = monoidsVarMap.getRoots
+        val prevMonoidRoots = monoidsVarMap.getRoots
 //        val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind
@@ -597,24 +597,48 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //        val attVars = to_walk.flatMap(getVariableAtts(_))
 //        logger.debug(s"${CalculusPrettyPrinter(e)} => types are ${typeVars.map(PrettyPrinter(_))}, eType is ${PrettyPrinter(walk(t))}")
 
+        // we should clone all monoids that were recently created and were not in the map before
+        // so indeed, i could walk the old map
+        // and, extract all its roots.
+        // actually, now whenever i create
+
+        // so i could collect ALL - really, all - monoid (roots) (it's basically keys of monoidProperties)
+        // i do the same after
+        // and, well, regardless of them being in the type of not, i should clone it all (?)
+        // i should clone the ones athat are independent of what was in the map before...
+
+        // BTW, when I create a freshVar, ADD IT TO THE MAP.
+
+
         // Find all type variables used in the type
         val typeVars = getVariableTypes(t)
 //        logger.debug(s"typeVars = ")
-        val monoidVars = getVariableMonoids(t)
+//        val monoidVars = getVariableMonoids(t)
         val attVars = getVariableAtts(t)
 
         // go to the old roots
         // extract its type variables <-- this is new
         // walk thm in the new map: those are the new roots
 //
+
+        // i think the find should be cloning all thnigs internally
+
+
+//        so we must clone all things that are new and that are somehow related to this type
+//        but if they are new they are somehow related to this body
+//        so, basically, it's all things new, period.
+
+
         // For all the "previous roots", get their new roots
         val prevTypeRootsUpdated = prevTypeRoots.flatMap { case v => getVariableTypes(v) }.map { case v => find(v) }
-        val prevMonoidRootsUpdated = prevTypeRoots.flatMap { case v => getVariableMonoids(v) }.map { case v => mFind(v) }
+        val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => mFind(v) }
         val prevRecAttRootsUpdated = prevTypeRoots.flatMap { case v => getVariableAtts(v) }.map { case v => aFind(v) }
+
+        // TODO QUESTION TO BEN: why typeVars? why not walk ALL THE ROOTs? arent these things somehow needed/related?
 
         // Collect all symbols from variable types that were not in the maps before we started typing the body of the Bind.
         val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
-        val freeMonoidSyms = monoidVars.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
+        val freeMonoidSyms = monoidsVarMap.getRoots.collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
         val freeAttSyms = attVars.collect { case v: AttributesVariable => v }.filter { case v => !prevRecAttRootsUpdated.contains(v) }.map(_.sym)
 
         Some(FreeSymbols(freeTypeSyms, freeMonoidSyms, freeAttSyms))
@@ -784,24 +808,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       newSyms(sym)
     }
 
+    val newMonoidSyms = cloneMonoids(monoidSyms)
+
     def getMonoid(m: Monoid, moccursCheck: Set[Monoid] = Set()): Monoid =
-      mFind(m)
-//      match {
-//      case mv: MonoidVariable =>
-//        // TODO (ben) I removed this, why?
-//        // assert(monoidSyms.contains(mv.sym))
-//        val nmv = MonoidVariable(sym = getNewSym(mv.sym))
-//        if (moccursCheck.contains(m))
-//          nmv
-//        else {
-//          val nleqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).leqMonoids.map{ case m1 => getMonoid(m1, moccursCheck + m)} else Set()
-//          val ngeqMonoids: Set[Monoid] = if (monoidGraph.contains(mv)) monoidGraph(mv).geqMonoids.map{ case m1 => getMonoid(m1, moccursCheck + m)} else Set()
-//          val nlinks = MonoidLinks(nleqMonoids, ngeqMonoids)
-//          monoidGraph.put(nmv, nlinks)
-//          nmv
-//        }
-//      case mr => mr
-//    }
+      mFind(m) match {
+        case MonoidVariable(sym) if newMonoidSyms.contains(sym) => MonoidVariable(newMonoidSyms(sym))
+        case _ => m
+      }
+
 
     // TODO: DO WE NEED occursCheck HERE?????
     // TODO: And do we even need it in the main method???
@@ -1027,7 +1041,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   private def replaceInMonoidOrders(o: Monoid, n: Monoid) = {
     val norders = scala.collection.mutable.Set[MonoidOrder]()
-
     for (order <- monoidOrders) {
       norders += (order match {
         case MonoidOrder(min, max) if min == o && max == o => MonoidOrder(n, n)
@@ -1036,7 +1049,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _                                 => order
       })
     }
-
     monoidOrders = norders
   }
 
@@ -1171,8 +1183,52 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     true
   }
 
+  private def cloneMonoids(syms: Set[Symbol]) = {
+
+    val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
+
+    def freshMonoid(sym: Symbol): MonoidVariable = {
+      if (!newSyms.contains(sym))
+        newSyms += (sym -> SymbolTable.next())
+      MonoidVariable(newSyms(sym))
+    }
+
+    // Clone monoid properties
+
+    val nprops = scala.collection.mutable.HashMap[Monoid, MonoidProperties]()
+    for ((m, p) <- monoidProperties) {
+      m match {
+        case MonoidVariable(sym) if syms.contains(sym) =>
+          nprops += freshMonoid(sym) -> MonoidProperties(p.commutative, p.idempotent)
+        case _ =>
+      }
+    }
+    for ((m, p) <- nprops) {
+      monoidProperties += m -> p
+    }
+
+    // Clone orders
+
+    val norders = scala.collection.mutable.Set[MonoidOrder]()
+    for (o <- monoidOrders) {
+      norders += (o match {
+        case MonoidOrder(MonoidVariable(a), MonoidVariable(b)) if syms.contains(a) && syms.contains(b) => MonoidOrder(freshMonoid(a), freshMonoid(b))
+        case MonoidOrder(MonoidVariable(a), b) if syms.contains(a) => MonoidOrder(freshMonoid(a), b)
+        case MonoidOrder(a, MonoidVariable(b)) if syms.contains(b) => MonoidOrder(a, freshMonoid(b))
+        case _                                 => o
+      })
+    }
+    for (o <- norders) {
+      monoidOrders += o
+    }
+
+    newSyms
+  }
+
   def monoidProps(m: Monoid): MonoidProperties =
     monoidProperties.getOrElse(m, defaultMonoidProperties((m)))
+
+
 
   ////
 
