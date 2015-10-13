@@ -926,63 +926,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   ////
 
 
-//
-//
-//  abstract class DependencyGraph[T <: Variable] {
-//
-//    private case class Node(uses: Set[T], usedBy: Set[T])
-//
-//    private var map: VarMap[T]
-//
-//    private var graph = Map[Symbol, Node]()
-//
-//
-//
-//    def union(a: T, b: T): DependencyGraph[T] = {
-//      val nodeA = graph.getOrElse(a.sym, Node(Set(), Set()))
-//      val nodeB = graph.getOrElse(b.sym, Node(Set(), Set()))
-//
-//      val nmap = map.union(a, b)  // 'b' is the new root
-//
-//      nodeA.addDependency()
-//
-//      in this case, it is up to each impl to tell me if it remains consistent or not
-//
-//      for (dep <- nodeA.uses) {
-//        nodeA.add
-//      }
-//
-////      for each one less, recursively add dependency and check if things ok; otherwise dont add dependency
-////        build all new graph
-////      for each one greater, do the smae
-////        this is the whole new graph
-////
-////      if ok, then union in the varmap and set that new graph to be the correct one
-////      otherwise fail
-//
-//
-//
-//
-//      // check if updating my thing wont break the parent
-//      // how do i check that?
-//      // basically check integrity of commutative vs idempotent
-//      // so, first update the dependency graph, by saying: all u guys less than me: add me as ur greater; and all guys greater than me, add me as ur lesser. then compute ur commutative / idempotent and tell me if it's possible
-//
-//      // if it's not, it means that we can't unify (?)
-//      // do we have to "rollback"?
-//      // if all immutable, yes.
-//
-//      // update links
-//
-//      //
-//
-//      map.union(a, b)
-//    }
-//
-//  }
-
-
-
   ////
 
   case class ConcatLinks(froms: Set[Seq[Gen]], outers: Set[Type])
@@ -1010,7 +953,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   case class MonoidOrder(min: Monoid, max: Monoid)
 
   val monoidProperties = scala.collection.mutable.HashMap[Monoid, MonoidProperties]()
-  var monoidOrders = scala.collection.mutable.Set[MonoidOrder]()
+  var monoidOrders = scala.collection.mutable.ListBuffer[MonoidOrder]()
   val monoidsVarMap = new MonoidsVarMap()
 
   private def defaultMonoidProperties(m: Monoid) =
@@ -1040,7 +983,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   }
 
   private def replaceInMonoidOrders(o: Monoid, n: Monoid) = {
-    val norders = scala.collection.mutable.Set[MonoidOrder]()
+    val norders = scala.collection.mutable.ListBuffer[MonoidOrder]()
     for (order <- monoidOrders) {
       norders += (order match {
         case MonoidOrder(min, max) if min == o && max == o => MonoidOrder(n, n)
@@ -1209,9 +1152,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     // Clone orders
 
-    val norders = scala.collection.mutable.Set[MonoidOrder]()
+    val norders = scala.collection.mutable.ListBuffer[MonoidOrder]()
     for (o <- monoidOrders) {
-      norders += (o match {
+      norders.append(o match {
         case MonoidOrder(MonoidVariable(a), MonoidVariable(b)) if syms.contains(a) && syms.contains(b) => MonoidOrder(freshMonoid(a), freshMonoid(b))
         case MonoidOrder(MonoidVariable(a), b) if syms.contains(a) => MonoidOrder(freshMonoid(a), b)
         case MonoidOrder(a, MonoidVariable(b)) if syms.contains(b) => MonoidOrder(a, freshMonoid(b))

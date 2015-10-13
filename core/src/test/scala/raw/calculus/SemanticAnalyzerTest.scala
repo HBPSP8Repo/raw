@@ -1614,10 +1614,10 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\xs -> sum(xs), xs union xs""") {
-    success(
+    failure(
       """\xs -> sum(xs), xs union xs""",
       TestWorlds.empty,
-      IntType())
+      UnexpectedType(CollectionType(MonoidVariable(), NumberType()), CollectionType(SetMonoid(), TypeVariable())))
   }
 
   test("""\xs,ys -> sum(xs), ys union ys""") {
