@@ -35,7 +35,7 @@ object World extends LazyLogging {
 
     def apply(t: A): Group[A] = get(t).head
 
-    def union(t1: A, t2: A) = {
+    def union(t1: A, t2: A): VarMap[A] = {
       logger.debug(s"does g2 exist? ${contains(t2)}")
       val g1 = getOrElse(t1, new Group[A](t1, Set(t1)))
       if (!contains(t2)) {

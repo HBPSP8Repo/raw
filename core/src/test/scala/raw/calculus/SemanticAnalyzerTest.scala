@@ -26,6 +26,7 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
     assert(compare(inferredType.toString, expectedType.toString))
     assert(typesEq(inferredType, expectedType))
+    logger.debug(analyzer.monoidProperties.toString)
   }
 
   private def typesEq(t1: Type, t2: Type): Boolean =
@@ -1353,7 +1354,7 @@ class SemanticAnalyzerTest extends FunTest {
       """\xs -> for (x <- xs) yield list x""",
       TestWorlds.empty,
       FunType(
-        CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t),
+        CollectionType(MonoidVariable(), t),
         CollectionType(ListMonoid(), t)))
   }
 
@@ -1510,10 +1511,12 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\xs -> sum(xs)""") {
+    val mv = MonoidVariable()
+    val n = NumberType()
     success(
       """\xs -> sum(xs)""",
       TestWorlds.empty,
-      IntType())
+      FunType(CollectionType(mv, n), n))
   }
 
   test("""\xs -> sum(xs), xs union xs""") {
