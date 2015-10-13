@@ -1710,6 +1710,9 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("free variables #2. What should be the output type of a?") {
+    val a1 = NumberType()
+    val a2 = NumberType()
+    val a3 = NumberType()
     success(
       """
         |{
