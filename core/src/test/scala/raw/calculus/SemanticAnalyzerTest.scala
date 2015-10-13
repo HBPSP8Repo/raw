@@ -16,7 +16,55 @@ class SemanticAnalyzerTest extends FunTest {
     analyzer
   }
 
-  def success(query: String, world: World, expectedType: Type) = {
+  case class Mappings(mMap: Map[Monoid, Monoid]=Map(), tMap: Map[Type, Type]=Map()) {
+    def ++(m2: Mappings): Mappings = {
+      val nmmap = this.mMap ++ m2.mMap
+      // we should not see different variables pointing to the same one
+      // TODO report which one is duplicated, something like that
+      assert(nmmap.keys.toSet.size == nmmap.values.toSet.size)
+      val ntmap = this.tMap ++ m2.tMap
+      // we should not see different variables pointing to the same one
+      // TODO report which one is duplicated, something like that
+      assert(ntmap.keys.toSet.size == ntmap.values.toSet.size)
+      Mappings(nmmap, ntmap)
+    }
+  }
+
+  def checkStructure(t1: Type, t2: Type, map: Mappings=Mappings()): Mappings = (t1, t2) match {
+    case (t1, t2) if t1 == t2 => Mappings()
+    case (p1: VariableType, p2: VariableType) => {
+      if (map.tMap.contains(p1)) {
+        assert(map.tMap(p1) == p2)
+        Mappings()
+      } else {
+        Mappings(Map(), Map(p1 -> p2))
+      }
+    }
+    case (r1: RecordType, r2: RecordType) =>
+      (r1.recAtts, r2.recAtts) match {
+        case (as1: Attributes, as2: Attributes) =>
+          assert(as1.atts.length == as2.atts.length)
+          as1.atts.zip(as2.atts).map{
+            case (a1,a2) =>
+              assert(a1.idn == a2.idn)
+              checkStructure(a1.tipe, a2.tipe, map)
+          }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
+      }
+    case (c1: CollectionType, c2: CollectionType) =>
+      if (map.mMap.contains(c1.m)) {
+        assert(map.mMap(c1.m) == c2.m)
+        Mappings()
+      } else {
+        Mappings(Map(c1.m -> c2.m), Map())
+      } ++ checkStructure(c1.innerType, c2.innerType, map)
+    case (f1: FunType, f2: FunType) =>
+      checkStructure(f1.t1, f2.t1) ++ checkStructure(f1.t2, f2.t2)
+  }
+
+  abstract class Check()
+  case class MProp(m: Monoid, c: Option[Boolean], i: Option[Boolean]) extends Check
+
+  def success(query: String, world: World, expectedType: Type, checks: Set[Check]=Set()) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.isEmpty)
     val inferredType = analyzer.tipe(analyzer.tree.root)
@@ -24,6 +72,14 @@ class SemanticAnalyzerTest extends FunTest {
     analyzer.printTypedTree()
     logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
     logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
+    val mappings = checkStructure(expectedType, inferredType)
+    logger.debug(s"mappings: $mappings")
+    for (check <- checks) check match {
+      case MProp(m, c, i) =>
+        val rProps = analyzer.monoidProps(mappings.mMap(m))
+        assert(c == rProps.commutative)
+        assert(i == rProps.idempotent)
+    }
     assert(compare(inferredType.toString, expectedType.toString))
     assert(typesEq(inferredType, expectedType))
     logger.debug(analyzer.monoidProperties.toString)
@@ -1168,20 +1224,21 @@ class SemanticAnalyzerTest extends FunTest {
 
   }
 
-  test("""\xs -> select x from x in xs (monoid should remain)""") {
-    val m = MonoidVariable()
+  test("""\xs -> select x from x in xs (monoid doesn't remain)""") {
+    val mxs = MonoidVariable()
+    val mout = MonoidVariable()
     val t = TypeVariable()
-    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(m, t), CollectionType(m, t)))
+    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(mxs, t), CollectionType(mout, t)))
   }
 
   test("select x from x in xs (applied to students)") {
     val m = MonoidVariable()
-    val t = TypeVariable()
     success("""{
        a := \xs -> select x from x in xs;
        a(students)
-       } """, TestWorlds.professors_students,       CollectionType(ListMonoid(),
-          RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
+       } """, TestWorlds.professors_students,
+      CollectionType(m, UserType(Symbol("student"))),
+      Set(MProp(m, None, None)))
 
   }
 
@@ -1360,6 +1417,7 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("list over polymorphic comprehension") {
     val t = TypeVariable()
+    val m = MonoidVariable()
     success(
       """
         |{
@@ -1369,8 +1427,9 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t),
-        CollectionType(ListMonoid(), t)))
+        CollectionType(m, t),
+        CollectionType(ListMonoid(), t)),
+      Set(MProp(m, Some(true), Some(true))))
   }
 
   test("2x list over polymorphic comprehension") {
