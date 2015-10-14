@@ -6,6 +6,7 @@ import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
 import org.apache.commons.io.FileUtils
 import sbt.Keys._
 
+
 lazy val buildSettings = Seq(
   homepage := Some(url("http://dias.epfl.ch/")),
   organization := "raw",
