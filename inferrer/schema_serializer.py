@@ -1,4 +1,4 @@
-from raw_types import *
+from inferrer.raw_types import *
 from collections import OrderedDict
 import xml.dom.minidom
 import logging

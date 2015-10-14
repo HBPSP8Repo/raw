@@ -6,7 +6,7 @@ import uuid
 import json_inferrer
 
 from json_inferrer import json_sample
-from ..raw_types import *
+from raw_types import *
 
 def test_json():
     i = json_inferrer.JSONInferrer("test_json", """[{"a": 1, "b": [1,2,3]}, {"a": 2, "b": [4,5,6]}]""")
