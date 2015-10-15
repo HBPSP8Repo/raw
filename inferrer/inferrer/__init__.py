@@ -1,5 +1,4 @@
 # Infer schema from a local file
-from splitstream import splitfile
 
 from csv_inferrer import CSVInferrer, csv_sample
 from json_inferrer import JSONInferrer, json_sample

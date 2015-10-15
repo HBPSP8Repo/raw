@@ -72,6 +72,11 @@ lazy val executor = (project in file("executor")).
       FileUtils.copyDirectoryToDirectory(inferrerDir, stageDir)
       stageDir
     },
+    // Add the RUN command that will install python pip as the second command in the file so docker build reuses the
+    // cached layer with this command whenever we rebuild with changes only on our source code.
+    dockerCommands := dockerCommands.value.take(2) ++
+      Seq(Cmd( """RUN apt-get update && apt-get -y install python-pip python-dev && pip install splitstream && apt-get clean && rm -rf /var/lib/apt/lists/*""")) ++
+      dockerCommands.value.drop(2),
     // Update the dockerfile to also copy the inferrer scripts into the image.
     dockerCommands ++= Seq(Cmd("ADD", "inferrer", "/opt/inferrer"))
   ).
@@ -127,7 +132,7 @@ lazy val executor = (project in file("executor")).
       dumponexit=true,dumponexitpath=path
      */
     javaOptions ++= Seq( """-Dspark.master=local[2]"""),
-//      """-Draw.inferrer.path=""" + baseDirectory.value + """/../inferrer"""),
+    //      """-Draw.inferrer.path=""" + baseDirectory.value + """/../inferrer"""),
     //        """-XX:+UnlockCommercialFeatures""",
     //        """-XX:+FlightRecorder""",
     //        """-XX:StartFlightRecording=delay=5s,settings=rawprofile.jfc,dumponexit=true,filename=myrecording.jfr"""),
@@ -155,9 +160,10 @@ lazy val executor = (project in file("executor")).
     //    TaskKey[File]("mk-pubs-authors-rest-server") <<= (baseDirectory, fullClasspath in Compile, mainClass in Runtime) map { (base, cp, main) =>
 
     TaskKey[File]("mk-rest-server") <<= (baseDirectory, fullClasspath in Compile) map { (base, cp) =>
-      val template = """#!/bin/sh
+      val template =
+        """#!/bin/sh
 java -Draw.inferrer.path=%s -classpath "%s" %s "$@"
-                     """
+        """
       val mainStr = "raw.rest.RawRestServerMain"
       val inferrerPath = base + "/../inferrer"
       val contents = template.format(inferrerPath, cp.files.absString, mainStr)
