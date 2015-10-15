@@ -2,14 +2,16 @@ package raw.executor
 
 import java.io.{ByteArrayOutputStream, PrintWriter}
 import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.TimeUnit
 
+import com.google.common.base.Stopwatch
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import raw.rest.ClientErrorException
 
 import scala.sys.process._
 
-object PythonShellExecutor extends StrictLogging {
+object InferrerShellExecutor extends StrictLogging {
   private[this] val inferrerPath = {
     val value = ConfigFactory.load().getString("raw.inferrer.path")
     val p = Paths.get(value).resolve("inferrer.py")
@@ -35,6 +37,7 @@ object PythonShellExecutor extends StrictLogging {
   def inferSchema(filePath: Path, fileType: String, schemaName: String): Unit = {
     val cmdLine = s"python ${inferrerPath.toString} -f ${filePath.toString} -t $fileType -n $schemaName"
     logger.info(s"Executing command: $cmdLine")
+    val start = Stopwatch.createStarted()
     val (s, output) = runCommand(cmdLine)
     // TODO: Distinguish between inferrer failures because of bad input (client error) versus other problems/bugs (internal error)
     // Currently, assume that return status 1 means bad input and anything else (other than 0) means bug.
@@ -42,5 +45,6 @@ object PythonShellExecutor extends StrictLogging {
       throw new ClientErrorException(s"Failed to infer schema. Inferrer output:\n$output")
     }
     assert(s == 0, s"Error executing command (status:$s): $cmdLine. Output:\n$output")
+    logger.info("Inferred schema in " + start.elapsed(TimeUnit.MILLISECONDS) + "ms")
   }
 }

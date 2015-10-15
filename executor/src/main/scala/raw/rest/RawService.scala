@@ -8,7 +8,7 @@ import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import raw._
-import raw.executor.{CompilationException, PythonShellExecutor, RawServer}
+import raw.executor.{CompilationException, InferrerShellExecutor, RawServer}
 import raw.rest.RawRestServer._
 import spray.can.Http
 import spray.http.HttpHeaders.{`Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
@@ -116,7 +116,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
     val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
-    logger.info(s"Query request: $request")
+    logger.info(s"[Query] $request")
     // TODO: Send query language in request
     val queryLanguage = QueryLanguages("qrawl")
     val rawUser = dropboxClient.getUserName(request.token)
@@ -129,8 +129,8 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
-    val request = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
-    logger.info(s"Module: ${request.module}, token: ${request.token}")
+    val request: SchemaRequest = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
+    logger.info(s"[ListSchemas] $request")
     val rawUser = dropboxClient.getUserName(request.token)
     logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
@@ -140,11 +140,11 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
-    logger.info(s"doRegisterFile: $request")
+    logger.info(s"[RegisterFile] $request")
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
     dropboxClient.downloadFile(request.url, localFile)
-    PythonShellExecutor.inferSchema(localFile, request.`type`, request.name)
+    InferrerShellExecutor.inferSchema(localFile, request.`type`, request.name)
     // Register the schema
     rawServer.registerSchema(request.name, stagingDirectory, dropboxClient.getUserName(request.token))
     val response = Map("success" -> true, "name" -> request.name)

@@ -3,11 +3,13 @@ package raw.storage
 import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.util
+import java.util.concurrent.TimeUnit
 
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model._
 import com.amazonaws.util.IOUtils
+import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
 import raw.executor.{CodeGenerator, RawSchema, SchemaProperties}
 import raw.utils.RawUtils
@@ -151,6 +153,8 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
   private[this] def uploadFile(bucket: String, prefix: String, p: Path) = {
     val keyName = prefix + "/" + p.getFileName
     logger.info(s"Uploading $p to $keyName")
+    val start = Stopwatch.createStarted()
     s3.putObject(new PutObjectRequest(bucket, keyName, p.toFile))
+    logger.info(s"Uploaded file in: ${start.elapsed(TimeUnit.MILLISECONDS)}ms")
   }
 }

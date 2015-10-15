@@ -7,11 +7,11 @@ import org.scalatest.FunSuite
 import raw.TestScanners
 import raw.utils.RawUtils
 
-class PythonShellExecutorTest extends FunSuite with StrictLogging with InferrerConfiguration {
+class InferrerShellExecutorTest extends FunSuite with StrictLogging with InferrerConfiguration {
 
   test("Can call inferrer") {
     val fileType = "json"
     val schemaName = "array2d"
-    PythonShellExecutor.inferSchema(TestScanners.authorsPath, fileType, schemaName)
+    InferrerShellExecutor.inferSchema(TestScanners.authorsPath, fileType, schemaName)
   }
 }
