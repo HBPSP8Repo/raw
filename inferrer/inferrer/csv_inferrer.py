@@ -61,3 +61,11 @@ class CSVInferrer(object):
             if reg.match(txt):
                 return v
         return rawStringType()
+        
+
+def csv_sample(path, n_lines = 100):
+    """Returns n_lines from an csv file"""
+    # check if this is the best way of doing it
+    with open(path, 'r') as f:
+        lines = f.readlines(n_lines);
+    return "".join(lines)

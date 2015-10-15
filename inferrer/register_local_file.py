@@ -2,9 +2,14 @@ import logging
 from argparse import ArgumentParser
 import os.path
 import json
+import os
+import shutil
+import sys 
 
 import schema_serializer
 import inferrer
+
+scala_data = os.environ['SCALA_DATA']
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,16 +19,40 @@ if __name__ == '__main__':
                       help="Data file whose schema is to be interred")
     argp.add_argument("--file_type", "-t", required=True, dest='file_type', help="File type")
     argp.add_argument("--schema-name", "-n", required=True, dest='schema_name', help="Schema name")
+    argp.add_argument("--user", "-u", required=False, dest='user', help="User Name")
+    argp.add_argument('-F', '--force', help='Will delete schema-path before registering', action='store_true')
+
 
     args = argp.parse_args()
     file = args.file_path
     type = args.file_type
     name = args.schema_name
+    user = args.user
 
+    if not args.user:
+        print 'ERROR: user not defined'
+        print 'Available options'
+        users = os.listdir(scala_data)
+        for u in users:
+            print '\t', u
+        sys.exit(1)
+    
+    # will put everything directly in the $SCALA_DATA 
+    basedir = os.path.join(scala_data, user, name)
+    if os.path.exists(basedir):
+        if not args.force:
+            raise Exception("Schema name already registered")
+        else:
+            shutil.rmtree(basedir)
+
+    os.makedirs(basedir)
+    # creates a symlink of the file 
+    link= os.path.join(basedir, os.path.basename(file))
+    os.symlink(file, link)
     logging.info("Inferring schema %s", args)
-    #TODO: move this loop to the inferrer module
-    n_objs = 100
-    n_max = 5000
+
+    n_objs = 1
+    n_max = 1000
     while n_objs < n_max:
         try :
             # Infer schema
@@ -34,10 +63,6 @@ if __name__ == '__main__':
         except schema_serializer.SerializerException :
             logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
             n_objs = 2*n_objs
-
-    basedir = os.path.dirname(file)
-    serialized_schema = schema_serializer.serialize(schema)
-
 
     logging.debug("Serialized Schema:\n%s" % serialized_schema)
     schemaFile = os.path.join(basedir, "schema.xml")
