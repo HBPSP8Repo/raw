@@ -573,7 +573,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
         val prevTypeRoots = typesVarMap.getRoots
         val prevMonoidRoots = monoidRoots() // monoidsVarMap.getRoots
-        //        val prevRecAttRoots = recAttsVarMap.getRoots
+        val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind
         solve(constraints(e))
@@ -631,14 +631,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // For all the "previous roots", get their new roots
         val prevTypeRootsUpdated = prevTypeRoots.flatMap { case v => getVariableTypes(v) }.map { case v => find(v) }
         val prevMonoidRootsUpdated = prevMonoidRoots.map { case v => mFind(v) }
-        val prevRecAttRootsUpdated = prevTypeRoots.flatMap { case v => getVariableAtts(v) }.map { case v => aFind(v) }
+        val prevRecAttRootsUpdated = prevRecAttRoots.map { case v => aFind(v) }
 
         // TODO QUESTION TO BEN: why typeVars? why not walk ALL THE ROOTs? arent these things somehow needed/related?
 
         // Collect all symbols from variable types that were not in the maps before we started typing the body of the Bind.
-        val freeTypeSyms = typeVars.collect { case vt: VariableType => vt }.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
+        val freeTypeSyms = typeVars.filter { case vt => !prevTypeRootsUpdated.contains(vt) }.map(_.sym)
         val freeMonoidSyms = monoidRoots().collect { case v: MonoidVariable => v }.filter { case v => !prevMonoidRootsUpdated.contains(v) }.map(_.sym)
-        val freeAttSyms = attVars.collect { case v: AttributesVariable => v }.filter { case v => !prevRecAttRootsUpdated.contains(v) }.map(_.sym)
+        val freeAttSyms = attVars.filter { case v => !prevRecAttRootsUpdated.contains(v) }.map(_.sym)
 
         Some(FreeSymbols(freeTypeSyms, freeMonoidSyms, freeAttSyms))
       }
@@ -672,7 +672,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _: FloatType                 => Set()
         case _: StringType                => Set()
         case _: UserType                  => Set()
-        case RecordType(recAtts)          => recAtts.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
+        case RecordType(r)     =>
+          aFind(r) match {
+            case a: Attributes => a.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
+            case a: AttributesVariable => a.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }
+            case c: ConcatAttributes =>
+              val cdef = concatDefinition(c)
+              cdef.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) } ++
+                cdef.slotsSet.flatMap { case slots => slots.flatMap { case ConcatSlot(_, t1) => getVariableTypes(t1, occursCheck + t)}}
+          }
+
+        //        case RecordType(recAtts)          => recAtts.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
         case PatternType(atts)            => atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
         case CollectionType(_, innerType) => getVariableTypes(innerType, occursCheck + t)
         case FunType(p, e)                => getVariableTypes(p, occursCheck + t) ++ getVariableTypes(e, occursCheck + t)
@@ -683,7 +693,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  private def getVariableAtts(t: Type, occursCheck: Set[Type] = Set()): Set[AttributesVariable] = {
+  private def getVariableAtts(t: Type, occursCheck: Set[Type] = Set()): Set[VariableAttributes] = {
     if (occursCheck.contains(t))
       Set()
     else {
@@ -703,10 +713,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           else
             Set()
         case RecordType(r)     =>
-          (aFind(r) match {
-            case a: AttributesVariable => Set(a)
-            case _                     => Set()
-          }) ++ r.atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) }
+          aFind(r) match {
+            case a: Attributes => a.atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) }.toSet
+            case a: AttributesVariable => Set(a) ++ a.atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) }
+            case c: ConcatAttributes =>
+              val cdef = concatDefinition(c)
+              Set(c) ++
+                cdef.atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) } ++
+                cdef.slotsSet.flatMap { case slots => slots.flatMap { case ConcatSlot(_, t1) => getVariableAtts(t1, occursCheck + t)}}
+          }
         case PatternType(atts) => atts.flatMap { case att => getVariableAtts(att.tipe, occursCheck + t) }.toSet
         case CollectionType(_, innerType) => getVariableAtts(innerType, occursCheck + t)
         case FunType(p, e) => getVariableAtts(p, occursCheck + t) ++ getVariableAtts(e, occursCheck + t)
@@ -800,7 +815,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case AttributesVariable(atts, sym) =>
           assert(attSyms.contains(sym))
           AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, getNewSym(sym))
-        //          AttributesVariable(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }, if (attSyms.contains(sym)) getNewSym(sym) else sym)
+        case c @ ConcatAttributes(sym) =>
+          assert(attSyms.contains(sym))
+          val cdef = concatDefinition(c)
+          val natts = cdef.atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) }
+          val nslotsSet = cdef.slotsSet.map { case slots => slots.map { case ConcatSlot(prefix, t1) => ConcatSlot(prefix, recurse(t1, occursCheck))}}
+          val nc = ConcatAttributes()
+          freshConcat(nc, natts, nslotsSet)
+          nc
         case Attributes(atts) =>
           Attributes(atts.map { case att => AttrType(att.idn, recurse(att.tipe, occursCheck)) })
       }
@@ -925,7 +947,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val usedIdns = scala.collection.mutable.Set[Idn]()
 
       def uniqueIdn(i: Idn, j: Int = 0): Idn = {
-        val ni = if (j == 0) i else s"${i}_$j"
+        val ni = if (j == 0 && i.nonEmpty) i else if (i.isEmpty) s"_${j + 1}" else s"${i}_$j"
         if (usedIdns.contains(ni))
           uniqueIdn(i, j + 1)
         else {
@@ -962,7 +984,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             // Return early since we don't know if this type variable will resolve to a record or other type
             return ConcatProperties(resolvedAtts.to, false)
           case t                                               =>
-            resolvedAtts += AttrType(s.prefix, t)
+            resolvedAtts += AttrType(uniqueIdn(s.prefix), t)
         }
       }
       ConcatProperties(resolvedAtts.to, true)

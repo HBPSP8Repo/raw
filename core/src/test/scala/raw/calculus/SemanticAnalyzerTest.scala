@@ -1787,7 +1787,25 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
+  test("""(\xs, ys -> select x.age, count(*) as c, * from x in xs, ys group by x.age)(students, professors)""") {
+    success(
+      """(\xs, ys -> select x.age, count(*) as c, * from x in xs, ys group by x.age)(students, professors)""",
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("""select x.name_1 from x in ((\xs, ys -> select * from x in xs, ys)(students, professors))""") {
+    success(
+      """select x.name_1 from x in ((\xs, ys -> select * from x in xs, ys)(students, professors))""",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), StringType()))
+  }
+
   /*
+
+group_by_age(xs) := select x.age, * from x in xs group by x.age
+
+
 
   List(IncompatibleTypes(
     CollectionType(MonoidVariable(Symbol($8)),RecordType(Attributes(List(
@@ -1805,13 +1823,60 @@ class SemanticAnalyzerTest extends FunTest {
       """
         |{
         |  group_by_age := \xs, ys -> select x.age, * from x in xs, ys group by x.age;
-        |  (group_by_age, group_by_age(students, professors))
+        |  (group_by_age, group_by_age(students, professors), group_by_age(professors, students))
         |}
       """.stripMargin,
-      TestWorlds.empty,
+      TestWorlds.professors_students,
       IntType())
   }
+
+  test("polymorphic select w/ concat attributes #2") {
+    success(
+      """
+        |{
+        |  group_by_age := \xs, ys -> select x.age, * from x in xs, ys group by x.age;
+        |  (group_by_age(students, list(1,2,3)), group_by_age(students, professors))
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("polymorphic select w/ concat attributes #3") {
+    success(
+      """
+        |{
+        |  group_by_age := \xs, ys -> select x.age, * from x in xs, foo in ys group by x.age;
+        |  (group_by_age(students, list(1,2,3)), group_by_age(students, professors))
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+  test("polymorphic select w/ concat attributes #4") {
+    success(
+      """
+        |{
+        |  group_by_age := \xs, ys -> select x.age, * from x in xs, age in ys group by x.age;
+        |  (group_by_age(students, list(1,2,3)), group_by_age(students, professors))
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+
+  test("polymorphic select w/ concat attributes #5") {
+    success(
+      """
+        |{
+        |  group_by_age := \xs, ys -> select x.age, * from x in xs, age in ys group by x.age;
+        |  group_by_age(students, professors) append group_by_age(professors, students)
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
 }
-
-
-

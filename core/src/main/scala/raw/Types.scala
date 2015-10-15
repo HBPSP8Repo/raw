@@ -36,6 +36,10 @@ sealed abstract class RecordAttributes extends RawNode {
   def getType(idn: String): Option[Type]
 }
 
+sealed abstract class VariableAttributes extends RecordAttributes {
+  def sym: Symbol
+}
+
 /** Attributes (fixed-size, well known)
  */
 
@@ -46,14 +50,14 @@ case class Attributes(atts: Seq[AttrType]) extends RecordAttributes {
 /** Attributes Variable (a set of some known attributes)
   */
 
-case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends RecordAttributes {
+case class AttributesVariable(atts: Set[AttrType], sym: Symbol = SymbolTable.next()) extends VariableAttributes {
   def getType(idn: String): Option[Type] = atts.filter { case att => att.idn == idn }.map(_.tipe).headOption
 }
 
 /** Concatenation of attributes.
  */
 
-case class ConcatAttributes(sym: Symbol = SymbolTable.next()) extends RecordAttributes {
+case class ConcatAttributes(sym: Symbol = SymbolTable.next()) extends VariableAttributes {
   // TODO: Fix hierarchy: remove atts and getType(idn: String)
   def getType(idn: String) = ???
   def atts = ???
