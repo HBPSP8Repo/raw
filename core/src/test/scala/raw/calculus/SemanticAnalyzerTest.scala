@@ -1879,4 +1879,31 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       IntType())
   }
 
+  test("........") {
+    success(
+      """
+        |{
+        | group_by_first := \xs, ys -> select x, * from x in xs, y in ys where x = y.age group by x;
+        | group_by_first(list(1,2,3),students)
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
+
+  test("..........") {
+    success(
+      """
+        |{
+        | group_by_first := \xs, ys -> select x, * from x in xs, y in ys where x = y.age group by x;
+        | data := group_by_first(list(1,2,3),students);
+        | filter_more := \xs -> select * from x in xs where x.x > 40;
+        | filter_more(data)
+        |}
+      """.stripMargin,
+      TestWorlds.professors_students,
+      IntType())
+  }
+
 }
