@@ -9,8 +9,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.spark._
-import raw.executor.{RawCompiler, ResultConverter, RawClassLoader, RawCompiler$}
+import raw.executor.{RawClassLoader, RawCompiler, ResultConverter}
 
 import scala.collection.JavaConversions
 
@@ -18,8 +17,10 @@ abstract class AbstractRawTest
   extends FunSuite
   with StrictLogging
   with BeforeAndAfterAll
-  with ResultConverter
   with RawClassLoader {
+
+  import ResultConverter._
+  import raw.rest.DefaultJsonMapper._
 
   var queryCompiler: RawCompiler = _
 

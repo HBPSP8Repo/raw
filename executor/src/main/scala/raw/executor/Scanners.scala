@@ -11,6 +11,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
+import raw.storage.RawResource
 import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
@@ -21,13 +22,12 @@ import scala.reflect.runtime.universe._
 
 object RawScanner {
   def apply[T: TypeTag : ClassTag : Manifest](schema: RawSchema): RawScanner[T] = {
-    val p = schema.dataFile
-    if (p.toString.endsWith(".json")) {
+    if (schema.fileType == "json") {
       new JsonRawScanner(schema)
-    } else if (p.toString.endsWith(".csv")) {
+    } else if (schema.fileType == "csv") {
       new CsvRawScanner(schema)
     } else {
-      throw new IllegalArgumentException("Unsupported file type: " + p)
+      throw new IllegalArgumentException("Unsupported file type: " + schema.schemaFile)
     }
   }
 }
@@ -93,7 +93,9 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
 
   val tag = typeTag[T]
 
-  private[this] val csvSchema = CsvSchema.emptySchema().withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+  private[this] val csvSchema = CsvSchema.emptySchema()
+    .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+    .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
   //  private[this] val csvSchema = {
   //  Name:String, year:Int, office:String, department:String
   //    CsvSchema.builder()
@@ -136,7 +138,7 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
     val p = schema.dataFile
     logger.info(s"Creating iterator for CSV resource: $p")
 
-    val is: Reader = new InputStreamReader(Files.newInputStream(schema.dataFile), StandardCharsets.UTF_8)
+    val is: Reader = new InputStreamReader(schema.dataFile.openInputStream(), StandardCharsets.UTF_8)
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
       .`with`(csvSchema)
@@ -165,7 +167,6 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
 
 
 object JsonRawScanner {
-  // TODO: Is this thread-safe?
   private final val jsonFactory = new JsonFactory()
   private final val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
@@ -183,11 +184,14 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
     val properties = schema.properties
     logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: ${manifest[T]}, TyppeTag: ${typeTag[T]}")
 
-    val is: InputStream = Files.newInputStream(schema.dataFile)
+    // TODO: The jsonFactory can generate a parser that manages the input stream if we pass it the file reference instead
+    // of the inputstream. Check if this works properly and if so, remove the ClosableIterator mechanism.
+    val is: InputStream = schema.dataFile.openInputStream()
     val jp = jsonFactory.createParser(is)
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
-    assert(jp.nextToken() == JsonToken.START_OBJECT)
+    val nt = jp.nextToken()
+    assert(nt == JsonToken.START_OBJECT || nt == JsonToken.START_ARRAY, "Found: " + nt)
     val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues[T](jp))
     new ClosableIterator[T](iter, is)
   }

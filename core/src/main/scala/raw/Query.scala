@@ -2,21 +2,57 @@ package raw
 
 import calculus._
 import com.typesafe.scalalogging.LazyLogging
+import raw.calculus.Calculus.{IdnNode, Exp}
+import scala.collection.immutable.{Seq, List}
+
+import scala.util.parsing.input.{OffsetPosition, Position}
+
+/* Json-friendly version of the Position class. This allows us to control the format of the JSON response sent to the 
+REST client client. */
+case class RawPosition(line:Int, column:Int, source:String)
+
+/* Json-friendly version of the Error class. */
+case class SemanticError(errorType:String, position:RawPosition, message:String, prettyMessage:String)
 
 sealed abstract class QueryError {
   def err: String
 }
 
-case class ParserError(desc: String) extends QueryError {
-  def err = s"Invalid Query Input: $desc"
+case class ParserError(position:RawPosition, message:String, prettyMessage:String) extends QueryError {
+  def err = s"Invalid Query Input: ${prettyMessage}"
 }
 
-case class SemanticErrors(errors: Seq[Error]) extends QueryError {
-  def err = s"Error(s) found:\n${errors.map { case e => ErrorsPrettyPrinter(e) }.mkString("\n")}"
+case class SemanticErrors(errors: List[SemanticError]) extends QueryError {
+  def err = s"Error(s) found:\n${errors.mkString("\n")}"
 }
 
 case class InternalError(desc: String) extends QueryError {
   def err = s"Internal Error: $desc"
+}
+
+
+object RawPositionExtractor {
+  def apply(e: Error): RawPosition = {
+    e match {
+      case MultipleDecl(i) => RawPositionExtractor(Some(i.pos))
+      case UnknownDecl(i) => RawPositionExtractor(Some(i.pos))
+      case UnknownPartition(p) => RawPositionExtractor(Some(p.pos))
+      case CollectionRequired(t, p) => RawPositionExtractor(p)
+      case IncompatibleMonoids(m, t, p) => RawPositionExtractor(p)
+      // IncompatibleTypes has two positions, but we can only return one. The pretty printer message will contain the full description.
+      case IncompatibleTypes(t1, t2, p1, p2) => RawPositionExtractor(p1)
+      case UnexpectedType(t, _, Some(desc), p) => RawPositionExtractor(p)
+      case UnexpectedType(t, expected, None, p) => RawPositionExtractor(p)
+    }
+  }
+
+  def apply(pos:Option[Position]): RawPosition = {
+    pos match {
+      case Some(op:OffsetPosition) => RawPosition(op.line, op.column, op.source.toString)
+      case Some(p:Position) => RawPosition(p.line, p.column, "")
+      case None => RawPosition(0, 0, "")
+    }
+  }
 }
 
 object Query extends LazyLogging {
@@ -36,7 +72,8 @@ object Query extends LazyLogging {
              | << END >>
         """.stripMargin)
         Right(new Calculus.Calculus(ast))
-      case Left(error) => Left(ParserError(error))
+      case Left(error: SyntaxAnalyzer.NoSuccess) =>
+        Left(ParserError(RawPositionExtractor(Some(error.next.pos)), error.msg, error.toString))
     }
   }
 
@@ -44,8 +81,11 @@ object Query extends LazyLogging {
     val analyzer = new calculus.SemanticAnalyzer(tree, world)
     if (analyzer.errors.isEmpty) {
       Right(analyzer.tipe(tree.root))
-    } else
-      Left(SemanticErrors(analyzer.errors))
+    } else {
+      val semanticErrors = analyzer.errors.map((e: Error) => SemanticError(e.getClass.getSimpleName, RawPositionExtractor(e), e.toString, ErrorsPrettyPrinter(e)))
+      val sortedSemanticErrors = semanticErrors.sortBy(se => (se.position.line, se.position.column))
+      Left(SemanticErrors(sortedSemanticErrors.to))
+    }
   }
 
   private def process(tree: Calculus.Calculus, world: World): Calculus.Calculus = {

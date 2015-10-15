@@ -13,6 +13,7 @@ import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.language.experimental.macros
+import scala.reflect.macros.runtime.AbortMacroException
 
 
 // TODO: Make sure we are using the immutable Seq/List, etc
@@ -53,10 +54,6 @@ abstract class RawQuery extends StrictLogging {
   def computeResult: Any
 }
 
-object RawImpl {
-  final val COMPILATION_ABORT = "COMPILATION ABORT"
-}
-
 object QueryLanguages {
   def apply(qlString: String): QueryLanguage = {
     qlString match {
@@ -91,6 +88,19 @@ object QueryLanguages {
 }
 
 
+object RawImpl {
+  /* Used to pass error information between the macro expansion code executed by the runtime compiler and the
+   code which is invoking the compiler (eg., the rest server handler). This is a workaround at the limitation that
+   the compiler framework only allows passing errors as a list of strings collected in a Reporter, there is no
+   way of passing a structured object (AFAIK). To avoid string parsing, we stored in this thread local object the
+   error. This is safe since the compiler is single threaded and is run on the same thread as the one running the
+   RawCompiler instance which is invoking the compiler.
+    */
+  val queryError = new ThreadLocal[Option[AnyRef]] {
+    override def initialValue(): Option[AnyRef] = None
+  }
+}
+
 class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLogging {
   val loggerQueries = LoggerFactory.getLogger("raw.queries")
 
@@ -98,8 +108,22 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   import c.universe._
 
-  /** Bail out during compilation with error message. */
-  def bail(message: String) = c.abort(c.enclosingPosition, message)
+  /** Bail out during compilation with error message. Use for internal errors. */
+  def bail(message: String) = {
+    RawImpl.queryError.set(Some(InternalError(message)))
+    c.abort(c.enclosingPosition, message)
+  }
+
+  def bail(queryError: QueryError) = {
+    RawImpl.queryError.set(Some(queryError))
+    c.abort(c.enclosingPosition, "Compilation failed.")
+  }
+
+
+  def bail(throwable: Throwable) = {
+    RawImpl.queryError.set(Some(throwable))
+    c.abort(c.enclosingPosition, "Compilation failed.")
+  }
 
   case class InferredType(rawType: raw.Type, isSpark: Boolean)
 
@@ -147,9 +171,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   /** Hold this list of specific instances of user-defined types.
     */
-//  var userRecordTypes: Seq[RecordType] = _
+  //  var userRecordTypes: Seq[RecordType] = _
 
-//  def isUserType(r: RecordType) = userRecordTypes.collectFirst { case r1 if r eq r1 => true }.isDefined
+  //  def isUserType(r: RecordType) = userRecordTypes.collectFirst { case r1 if r eq r1 => true }.isDefined
 
   /** Return a "cannonical" representation of a record type.
     * This is a unique representation of a record, including its nullable information.
@@ -217,18 +241,19 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val records = collectRecordTypes(tree, world, analyzer)
     logger.debug(s"buildCaseClasses $records")
 
-      /** Create a map between the canonical form of anonymous record types, i.e. record types with explicit nullable
-        * information, and symbols to identify those user records.
-        */
+    /** Create a map between the canonical form of anonymous record types, i.e. record types with explicit nullable
+      * information, and symbols to identify those user records.
+      */
     this.userCaseClassesMap = {
       var i = 0
       records
         .map(toCannonicalForm)
         .toSet
         .map((cannonicalType: String) => {
-          i = i + 1
-          logger.debug(s"Adding canonicalType $cannonicalType to UserRecord$i")
-          cannonicalType -> s"UserRecord$i"})
+        i = i + 1
+        logger.debug(s"Adding canonicalType $cannonicalType to UserRecord$i")
+        cannonicalType -> s"UserRecord$i"
+      })
         .toMap
     }
 
@@ -367,10 +392,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     def patternType(p: Pattern) =
       buildScalaType(analyzer.patternType(p), world)
-//      p match {
-//      case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
-//      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
-//    }
+    //      p match {
+    //      case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
+    //      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
+    //    }
 
     /** Get the nullable identifiers from a pattern.
       * Used by the Nest to filter out Option[...]
@@ -391,8 +416,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     /** Return the identifiers, optionally de-nullable.
       * e.g. given a `child` with type record(name: string, age: option[int]) returns:
-      *   val name = child._1
-      *   val age = child._2.get
+      * val name = child._1
+      * val age = child._2.get
       * Used by the Nest to handle Option[...]
       */
     def idnVals(parent: String, p: Pattern, denulled: Boolean): Seq[Tree] = {
@@ -527,7 +552,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
-        q"""
+          q"""
         ${build(child)}
           .flatMap($childArg => {
             ..${idnVals("child", patChild, false)}
@@ -552,7 +577,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
-        q"""
+          q"""
         ${build(child)}
           .flatMap($childArg => {
             ..${idnVals("child", patChild, true)}
@@ -583,7 +608,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
-        q"""
+          q"""
         val rightCode = ${build(childRight)}.toSeq
         ${build(childLeft)}
           .flatMap($leftArg => {
@@ -609,7 +634,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
-        q"""
+          q"""
         val rightCode = ${build(childRight)}.toSeq
         ${build(childLeft)}
           .flatMap($leftArg => {
@@ -1202,6 +1227,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def generateCode(makro: Tree, query: String, queryLanguage: QueryLanguage, accessPaths: List[AccessPath]): c.Expr[Any] = {
     val sources = accessPaths.map(ap => (ap.name, ap.rawType)).toMap
     val world = new World(sources)
+    logger.info(s"World source are: ${world.sources}")
 
     loggerQueries.info(s"Query ($queryLanguage):\n$query")
     // Parse the query, using the catalog generated from what the user gave.
@@ -1279,31 +1305,31 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         c.Expr[Any](block)
 
       case Left(err) => {
-        val errorMsg = err match {
-          case ParserError(msg) => c.warning(c.enclosingPosition, err.err)
-          case SemanticErrors(msg) => c.warning(c.enclosingPosition, err.err)
-          case InternalError(msg) => c.error(c.enclosingPosition, err.err)
-        }
-        logger.warn("Aborting compilation")
-        bail(RawImpl.COMPILATION_ABORT)
+        bail(err)
       }
     }
   }
 
   def query_impl(annottees: c.Expr[Any]*): c.Expr[Any] = {
+    RawImpl.queryError.remove()
     if (annottees.size > 1) {
       bail(s"Expected a single annottated element. Found: ${annottees.size}\n" + annottees.map(expr => showCode(expr.tree)).mkString("\n"))
     }
-    val annottee: Expr[Any] = annottees.head
-    val annottation = c.prefix.tree
-    val makro = annottee.tree
-    //    logger.debug("Annotation: " + annottation)
-    logger.info("Expanding annotated target:\n{}", showCode(makro))
-    //    logger.debug("Tree:\n" + showRaw(makro))
+    try {
+      val annottee: Expr[Any] = annottees.head
+      val annottation = c.prefix.tree
+      val makro = annottee.tree
+      //    logger.debug("Annotation: " + annottation)
+      logger.info("Expanding annotated target:\n{}", showCode(makro))
+      //    logger.debug("Tree:\n" + showRaw(makro))
 
-    val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
-    logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
-
-    generateCode(makro, query, language, accessPaths)
+      val (query: String, language: QueryLanguage, accessPaths: List[AccessPath]) = extractQueryAndAccessPath(makro)
+      logger.info("Access paths: {}", accessPaths.map(ap => ap.name + ", isSpark: " + ap.isSpark).mkString("; "))
+      generateCode(makro, query, language, accessPaths)
+    } catch {
+      // raised by calling c.bail(). Just passthrough because we already set the error information in RawImpl.queryError
+      case t: AbortMacroException => throw t
+      case t: Throwable => bail(t) // Other unexpected problems, like MatchError. Call bail to set the error information
+    }
   }
 }

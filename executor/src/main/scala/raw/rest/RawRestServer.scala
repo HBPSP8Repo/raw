@@ -2,81 +2,102 @@ package raw.rest
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
+import akka.io.{IO, Tcp}
+import akka.routing.RoundRobinPool
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
-import org.rogach.scallop.{ScallopConf, ScallopOption}
-import raw.QueryLanguages
+import raw._
 import raw.executor._
+import raw.rest.RawRestServer._
 import raw.spark._
+import raw.storage.{LocalStorageBackend, StorageBackend, StorageManager}
+import spray.can.Http
 import spray.can.Http.Bound
-import spray.http.{MediaTypes, StatusCodes}
-import spray.httpx.SprayJsonSupport
-import spray.json.DefaultJsonProtocol
-import spray.routing.{ExceptionHandler, SimpleRoutingApp}
-import spray.util.LoggingContext
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
-case class RegisterRequest(schemaName: String, schemaDefXml: String, filePath: String)
 
-object RegisterRequestJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
-  implicit val PortofolioFormats = jsonFormat3(RegisterRequest)
+/* Object mapper used to read/write any JSON received/sent by the rest server */
+object DefaultJsonMapper extends StrictLogging {
+  val mapper = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.configure(SerializationFeature.INDENT_OUTPUT, true)
+    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+    om.setSerializationInclusion(Include.ALWAYS)
+    om
+  }
 }
 
-/**
- * REST server exposing the following calls:
- *
- * - /register
- * - /query
- *
- * A register request should contain the schema as XML in the body and have the following headers
- * {{{
-   Content-Type: application/xml
-   Raw-Schema-Name: <schemaName>
-   Raw-File: <http[s]: or file: uri>
 
-   BODY: <Schema in XML format.>
- * }}}
- *
- * If the Raw-File header is an http[s] URI, then the file is downloaded and saved locally in the temporary directory.
- * If if it is a file: URI, then the local file is used.
- *
- *
- * A query request contains the logical plan in the body, as a plain text string. Example:
- *
- * {{{
-    POST /query HTTP/1.1
+/* Generic exception, which the request handler code can raise to send a 400 response to the client.
+* This exception will be caught by the exception handler below and transformed in a 400 response*/
+class ClientErrorException(msg: String, cause: Throwable) extends Exception(msg, cause) {
+  def this(msg: String) = this(msg, null)
+  def this(cause: Throwable) = this(cause.getMessage, cause)
+}
 
-    Reduce(SetMonoid(),
-    Arg(RecordType(Seq(AttrType(name,StringType()),
-    AttrType(title,StringType()),
-    AttrType(year,IntType())),
-    authors_99)),
-    BoolConst(true),
-    Select(BoolConst(true),
-    Scan(authors,
-    SetType(RecordType(Seq(AttrType(name,StringType()),
-    AttrType(title,StringType()),
-    AttrType(year,IntType())),
-    authors_99)))))
- * }}}
- * @param executorArg scala or spark executor. Currently, on Scala executor is implemented.
- */
-class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends SimpleRoutingApp with StrictLogging {
+
+object RawRestServer {
+
+  import DefaultJsonMapper._
+
+  final val port = 54321
+
+  case class QueryRequest(query: String, token: String)
+
+  val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
+
+  case class SchemaRequest(module: String, token: String)
+
+  val schemaRequestReader = mapper.readerFor(classOf[SchemaRequest])
+
+  case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String, token: String)
+
+  val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
+
+  // Response sent when there is an error processing a query
+  case class CompilationErrorResponse(errorType: String, error: QueryError)
+
+  // Response sent when the handler code raises an exception
+  case class ExceptionResponse(exceptionType: String, message: String, stackTrace: String)
+
+}
+
+
+class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends StrictLogging {
+  dropboxClient: DropboxClient =>
+
+  import akka.pattern.ask
 
   val rawServer = {
     val storageDir: Path = storageDirCmdOption match {
       case None =>
         try {
-          Paths.get(ConfigFactory.load().getString("raw.datadir"))
+          Paths.get(ConfigFactory.load().getString("raw.storage.datadir"))
         } catch {
-          case ex: ConfigException.Missing => StorageManager.defaultStorageDir
+          case ex: ConfigException.Missing => StorageManager.defaultDataDir
         }
       case Some(dir) => Paths.get(dir)
     }
-    new RawServer(storageDir)
+
+    val storageBackend =
+      try {
+        StorageBackend(ConfigFactory.load().getString("raw.storage.backend"))
+      } catch {
+        case ex: ConfigException.Missing => {
+          logger.info("No value for property \"raw.storage.backend\". Using local storage")
+          LocalStorageBackend
+        }
+      }
+
+    new RawServer(storageDir, storageBackend)
   }
 
   val sc: Option[SparkContext] = executorArg match {
@@ -93,74 +114,21 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
       throw new IllegalArgumentException(s"Invalid executor: $exec. Valid options: [scala, spark]")
   }
 
-  final val port = 54321
-  implicit val system = ActorSystem("simple-routing-app")
-
-  def myExceptionHandler(implicit log: LoggingContext) =
-    ExceptionHandler {
-      case e: ClientErrorException =>
-        requestUri { uri =>
-          logger.warn(s"Request to $uri could not be handled normally: $e")
-          complete(StatusCodes.BadRequest, e.getMessage)
-        }
-      case e: InternalErrorException =>
-        requestUri { uri =>
-          logger.warn(s"Request to $uri could not be handled normally: $e")
-          complete(StatusCodes.InternalServerError, e.getMessage)
-        }
-      // Any other exception will be handled by Spray and return a 500 status code.
-    }
+  implicit val system = ActorSystem()
 
   def start(): Future[Bound] = {
-    import RegisterRequestJsonSupport._
-    val queryPath = "query"
-    val registerPath = "register"
-    val schemasPath = "schemas"
-    logger.info(s"Listening on localhost:$port/{$registerPath,$queryPath,$schemasPath}")
-    val future: Future[Bound] = startServer("0.0.0.0", port = port) {
-      handleExceptions(myExceptionHandler) {
-        (path(queryPath) & post) {
-          headerValueByName("Raw-User") { rawUser =>
-            headerValueByName("Raw-Query-Language") { queryLanguageString =>
-              entity(as[String]) { query =>
-                logger.info(s"Query request received. User: $rawUser, QueryLanguage: $queryLanguageString, Query:\n$query")
-                val queryLanguage = QueryLanguages(queryLanguageString)
-                val result = rawServer.doQuery(queryLanguage, query, rawUser)
-                logger.info("Query succeeded. Returning result: " + result.take(30))
-                respondWithMediaType(MediaTypes.`application/json`) {
-                  complete(result)
-                }
-              }
-            }
-          }
-        } ~
-          /*
-           dataDir must contain the following files:
-           - <schemaName>.[csv|json]
-           - schema.xml
-           - properties.json
-          */
-          (path(registerPath) & post) {
-            formFields("user", "schemaName", "dataDir") { (user, schemaName, dataDir) =>
-              logger.info(s"$user, $schemaName, $dataDir")
-              rawServer.registerSchema(schemaName, dataDir, user)
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete( """ {"success" = True } """)
-              }
-            }
-          } ~
-          (path(schemasPath) & get) {
-            headerValueByName("Raw-User") { user =>
-              logger.info(s"Returning schemas for $user")
-              val schemas: Seq[String] = rawServer.getSchemas(user)
-              respondWithMediaType(MediaTypes.`application/json`) {
-                complete(schemas)
-              }
-            }
-          }
-      }
-    }
-    future
+    val handler = system.actorOf(
+      RoundRobinPool(5).props(Props {
+        new RawService(rawServer, dropboxClient)
+      }),
+      name = "handler")
+
+    IO(Http).ask(Http.Bind(handler, interface = "0.0.0.0", port = port))(1.second)
+      .flatMap {
+        case b: Http.Bound ⇒ Future.successful(b)
+        case Tcp.CommandFailed(b: Http.Bind) => Future.failed(new RuntimeException(
+          "Binding failed. Switch on DEBUG-level logging for `akka.io.TcpListener` to log the cause."))
+      }(system.dispatcher)
   }
 
   def stop(): Unit = {
@@ -169,15 +137,3 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   }
 }
 
-object RawRestServerMain extends StrictLogging {
-  def main(args: Array[String]) {
-    object Conf extends ScallopConf(args) {
-      banner("Scala/Spark OQL execution server")
-      val executor: ScallopOption[String] = opt[String]("executor", default = Some("scala"), short = 'e')
-      val storageDir: ScallopOption[String] = opt[String]("storage-dir", default = None, short = 's')
-    }
-
-    val restServer = new RawRestServer(Conf.executor(), Conf.storageDir.get)
-    restServer.start()
-  }
-}

@@ -87,9 +87,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
-  def apply(query: String): Either[String, Exp] = parseAll(exp, query) match {
+  def apply(query: String): Either[SyntaxAnalyzer.NoSuccess, Exp] = parseAll(exp, query) match {
     case Success(ast, _) => Right(ast)
-    case f => Left(f.toString)
+    case error : NoSuccess => Left(error)
   }
 
   lazy val exp: PackratParser[Exp] =

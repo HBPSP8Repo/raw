@@ -42,6 +42,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   import decorators.{chain, Chain}
 
+  private val recAttsVarMap = new RecordAttributesVarMap()
+
   /** The map of type variables.
     * Updated during unification.
     */
@@ -1004,8 +1006,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     logger.debug(s"getConcatProperties mostPrecise $mostPrecise")
     mostPrecise
   }
-
-  private val recAttsVarMap = new RecordAttributesVarMap()
 
   private def unifyAttributes(a: RecordAttributes, b: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = {
     logger.debug(s"unifyAttributes a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
