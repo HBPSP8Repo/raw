@@ -232,9 +232,10 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     multiCons |
     unaryFun |
     sugarFun |
+    notExp |
+    //namedFun |
     funAbs |
     partition |
-    notExp |
     starExp |
     "(" ~> exp <~ ")" |
     idnExp

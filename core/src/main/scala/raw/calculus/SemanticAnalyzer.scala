@@ -2499,3 +2499,5 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //
 // TODO: Support markdown syntax in comments
 // TODO: Change code of transformers to rely on resolvedType/ResolvedType instead of world.tipes. Hide world.tipes visiblity from the SemanticAnalyzer (make it private, not public or protected)
+
+// TODO: The monoids stuff is doing impossible checks: e.g. if smtg has been unified before, it can't really narrow further, right?
