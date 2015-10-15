@@ -35,6 +35,8 @@ class SemanticAnalyzerTest extends FunTest {
 
   def success(query: String, world: World, expectedType: Type, checks: Set[Check]=Set()) = {
     val analyzer = go(query, world)
+    analyzer.logMonoidsGraph()
+    analyzer.logConcatProperties()
     assert(analyzer.errors.isEmpty)
     val inferredType = analyzer.tipe(analyzer.tree.root)
     analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
@@ -104,7 +106,6 @@ class SemanticAnalyzerTest extends FunTest {
     }
 //    assert(compare(inferredType.toString, expectedType.toString))
 //    assert(typesEq(inferredType, expectedType))
-    logger.debug(analyzer.printMonoidsGraph)
   }
 
   private def typesEq(t1: Type, t2: Type): Boolean =
@@ -1771,18 +1772,45 @@ class SemanticAnalyzerTest extends FunTest {
       IntType())
   }
 
-  // Dependency Graph
+  test("""\xs, ys -> select x.age, * from x in xs, ys group by x.age""") {
+    success(
+      """\xs, ys -> select x.age, * from x in xs, ys group by x.age""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+
+  test("""(\xs, ys -> select x.age, * from x in xs, ys group by x.age)(students, professors)""") {
+    success(
+      """(\xs, ys -> select x.age, * from x in xs, ys group by x.age)(students, professors)""",
+      TestWorlds.professors_students,
+      IntType())
+  }
 
   /*
 
-
-
-
-
+  List(IncompatibleTypes(
+    CollectionType(MonoidVariable(Symbol($8)),RecordType(Attributes(List(
+      AttrType(age,IntType()),
+      AttrType(_2,CollectionType(MonoidVariable(Symbol($24)),RecordType(ConcatAttributes(Symbol($23))))))))),
+    CollectionType(MonoidVariable(Symbol($8)),RecordType(Attributes(List(
+      AttrType(age,IntType()),
+      AttrType(_2,CollectionType(MonoidVariable(Symbol($24)),RecordType(ConcatAttributes(Symbol($23))))))))),
 
 
    */
 
+  test("polymorphic select w/ concat attributes") {
+    success(
+      """
+        |{
+        |  group_by_age := \xs, ys -> select x.age, * from x in xs, ys group by x.age;
+        |  (group_by_age, group_by_age(students, professors))
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
 }
 
 

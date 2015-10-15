@@ -167,6 +167,7 @@ object World extends LazyLogging {
 
     def groupEq(g1: RecordAttributes, g2: RecordAttributes): Boolean = (g1, g2) match {
       case (_: AttributesVariable, _: AttributesVariable) => g1 == g2
+      case (_: ConcatAttributes, _: ConcatAttributes) => g1 == g2
       case _ => g1 eq g2
     }
 
@@ -182,4 +183,5 @@ object World extends LazyLogging {
       s
     }
   }
+
 }

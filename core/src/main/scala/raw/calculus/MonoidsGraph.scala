@@ -16,7 +16,16 @@ trait MonoidsGraph extends LazyLogging {
   private var monoidOrders = scala.collection.mutable.ListBuffer[MonoidOrder]()
   private val monoidsVarMap = new MonoidsVarMap()
 
-  def printMonoidsGraph() = monoidProperties.toString
+  def logMonoidsGraph() = {
+    def pp(p: Option[Boolean]) =
+      if (p.isDefined) p.get.toString else "?"
+
+    logger.debug(
+      s"Monoid details:\n" +
+      monoidProperties.map {
+      case (m, props) => s"${PrettyPrinter(m)}(commutative:${pp(props.commutative)}, idempotent:${pp(props.idempotent)})"
+      }.mkString("\n"))
+  }
 
   def monoidRoots() = monoidProperties.keySet.to[scala.collection.immutable.Set]   // or monoidsVarMap.getRoots ?
 
@@ -63,7 +72,7 @@ trait MonoidsGraph extends LazyLogging {
   }
 
   def unifyMonoids(a: Monoid, b: Monoid): Boolean = {
-    logger.debug(s"a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
+    logger.debug(s"unifyMonoids a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
 
     addMonoidProperties(a)
     addMonoidProperties(b)
