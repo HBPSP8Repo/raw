@@ -59,5 +59,11 @@ class AnonGensDesugarerTest extends CalculusTest {
       TestWorlds.professors_students)
   }
 
+  test("select * from list(1,2,3) l") {
+    check(
+      """select * from list(1,2,3) l""",
+      """select * from l <- list(1, 2, 3)""",
+      TestWorlds.professors_students)
+  }
 
 }

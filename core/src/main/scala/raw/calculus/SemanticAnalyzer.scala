@@ -2511,3 +2511,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 // TODO: Schema.scala does some funky generation of user record names: I'm worried that it is not thread-safe. Make it depend on the extent name? Or is it a non-issue?
 
 // TODO: Add the HAVING
+
+// TODO: For all testcases, change the compare suite to actually parse the 2nd expression and compare trees, after rewriting all IDNs to a common set.
+//       This requires a debug toggle on the parser, where $ can be parsed!
