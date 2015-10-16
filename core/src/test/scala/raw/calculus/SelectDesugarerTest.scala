@@ -8,43 +8,35 @@ class SelectDesugarerTest extends CalculusTest {
   test("select s.name from students s") {
     check(
       """select s.name from students s""",
-      """for (s <- students) yield list s.name""",
+      """for ($0 <- students) yield $1 $0.name""",
       TestWorlds.professors_students)
   }
 
   test("select s.name from students s where s.age > 10") {
     check(
       """select s.name from students s where s.age > 10""",
-      """for ($0 <- students; $0.age > 10) yield list $0.name""",
+      """for ($0 <- students; $0.age > 10) yield $1 $0.name""",
       TestWorlds.professors_students)
   }
 
   test("select s.age/10, partition from students s group by s.age/10") {
-    // TODO: The issue is that the SemanticAnalyzer has removed some uses of UserType.
-    // TODO: This is convenient because later on I do pattern match based on e.g. ColllectionType, instead of having
-    // TODO: to always unwrap potentially recursive UserTypes. On the other hand, as the test code shows, we do leave
-    // TODO: some user types in place, so we won't be able to infer that, e.g. the thing is a RecordType.
-    // TODO: So I think we need a more coherent strategy, which is likely to report the UserType but then add another
-    // TODO: type function, which is used by everyone else, that walks the user type when it is seen. Of course
-    // TODO: having this handle recursive behaviour isn't easy.. humm.. Most likely just leave a single UserType
-    // TODO: to walk it once?
     check(
       """select s.age/10, partition from students s group by s.age/10""",
-      """for ($0 <- students) yield list (_1: $0.age / 10, _2: for ($1 <- students; $0.age / 10 = $1.age / 10) yield list $1)""",
+      """for ($0 <- students) yield $1 (_1: $0.age / 10, partition: for ($2 <- students; $0.age / 10 = $2.age / 10) yield $3 $2)""",
       TestWorlds.professors_students)
   }
 
   test("select s.age/10 as decade, partition as students from students s group by s.age/10") {
     check(
       """select s.age/10 as decade, partition as students from students s group by s.age/10""",
-      """for ($0 <- students) yield list (decade: $0.age / 10, students: for ($1 <- students; $0.age / 10 = $1.age / 10) yield list $1)""",
+      """for ($0 <- students) yield $1 (decade: $0.age / 10, students: for ($2 <- students; $0.age / 10 = $2.age / 10) yield $3 $2)""",
       TestWorlds.professors_students)
   }
 
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
     check(
       """select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10""",
-      """for ($0 <- students) yield list (decade: $0.age / 10, names: for ($2 <- for ($1 <- students; $0.age / 10 = $1.age / 10) yield list $1) yield list $2.name)""",
+      """for ($0 <- students) yield $1 (decade: $0.age / 10, names: for ($2 <- for ($3 <- students; $0.age / 10 = $3.age / 10) yield $4 $3) yield $5 $2.name)""",
       TestWorlds.professors_students)
   }
 

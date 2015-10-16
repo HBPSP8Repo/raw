@@ -115,14 +115,14 @@ class GroupByDesugarerTest extends CalculusTest {
   test("select *, partition from students s group by s.age") {
     check(
       """select *, partition from students s group by s.age""",
-      """select (_1: select * from $0 <- students where s.age = $0.age, partition: select $1 from $1 <- students where s.age = $1.age) from s <- students""",
+      """select (_1: select * from $0 <- students where s.age = $0.age, partition: select $0 from $0 <- students where s.age = $0.age) from s <- students""",
       TestWorlds.professors_students)
   }
 
   test("select partition, * from students s group by s.age") {
     check(
       """select partition, * from students s group by s.age""",
-      """select (partition: select $0 from $0 <- students where s.age = $0.age, _2: select * from $1 <- students where s.age = $1.age) from s <- students""",
+      """select (partition: select $0 from $0 <- students where s.age = $0.age, _2: select * from $0 <- students where s.age = $0.age) from s <- students""",
       TestWorlds.professors_students)
   }
 
@@ -147,21 +147,21 @@ class GroupByDesugarerTest extends CalculusTest {
   test("select count(*), *, partition from students s group by s.age") {
     check(
       """select count(*), *, partition from students s group by s.age""",
-      """select (_1: count(select * from $0 <- students where s.age = $0.age), _2: select * from $0 <- students where s.age = $0.age, partition: select $1 from $1 <- students where s.age = $1.age) from s <- students""",
+      """select (_1: count(select * from $0 <- students where s.age = $0.age), _2: select * from $0 <- students where s.age = $0.age, partition: select $0 from $0 <- students where s.age = $0.age) from s <- students""",
       TestWorlds.professors_students)
   }
 
   test("select *, partition from students s, professors group by s.age") {
     check(
       """select *, partition from students s, professors group by s.age""",
-      """select (_1: select * from $0 <- students, $1 <- professors where s.age = $0.age, partition: select (s: $2, _2: $3) from $2 <- students, $3 <- professors where s.age = $2.age) from s <- students, $4 <- professors""",
+      """select (_1: select * from $0 <- students, $1 <- professors where s.age = $0.age, partition: select (s: $0, _2: $1) from $0 <- students, $1 <- professors where s.age = $0.age) from s <- students, $2 <- professors""",
       TestWorlds.professors_students)
   }
 
   test("select partition, * from students s, professors group by s.age") {
     check(
       """select partition, * from students s, professors group by s.age""",
-      """select (partition: select (s: $0, _2: $1) from $0 <- students, $1 <- professors where s.age = $0.age, _2: select * from $2 <- students, $3 <- professors where s.age = $2.age) from s <- students, $4 <- professors""",
+      """select (partition: select (s: $0, _2: $1) from $0 <- students, $1 <- professors where s.age = $0.age, _2: select * from $0 <- students, $1 <- professors where s.age = $0.age) from s <- students, $2   <- professors""",
       TestWorlds.professors_students)
   }
 

@@ -17,10 +17,7 @@ class SelectDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransforme
     case s @ Select(from, distinct, None, proj, where, None, None) =>
       val whereq = if (where.isDefined) Seq(where.head) else Seq()
       analyzer.tipe(s) match {
-        case CollectionType(m, _) => Comp(m, from ++ whereq, proj)
-        case UserType(sym) => analyzer.world.tipes(sym) match {
-          case CollectionType(m, _) => Comp(m, from ++ whereq, proj)
-        }
+        case analyzer.ResolvedType(CollectionType(m, _)) => Comp(m, from ++ whereq, proj)
       }
   }
 
