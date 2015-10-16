@@ -108,18 +108,27 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   import c.universe._
 
-  /** Bail out during compilation with error message. Use for internal errors. */
+  /** Map the canonical form of a record type to a user case class name.
+    */
+  val classesMap = scala.collection.mutable.HashMap[String, String]()
+
+  /** Bail out during compilation with error message.
+    * Used for internal errors.
+    */
   def bail(message: String) = {
     RawImpl.queryError.set(Some(InternalError(message)))
     c.abort(c.enclosingPosition, message)
   }
 
+  /** Bail out with a query error.
+    */
   def bail(queryError: QueryError) = {
     RawImpl.queryError.set(Some(queryError))
     c.abort(c.enclosingPosition, "Compilation failed.")
   }
 
-
+  /** Bail out with an exception.
+    */
   def bail(throwable: Throwable) = {
     RawImpl.queryError.set(Some(throwable))
     c.abort(c.enclosingPosition, "Compilation failed.")
@@ -127,36 +136,71 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   case class InferredType(rawType: raw.Type, isSpark: Boolean)
 
-  /** Infer RAW's type from the Scala type. */
+  /** Infer RAW's type from the Scala type.
+    * Enforces that the Scala class names used to represent a record type are unique.
+    */
+  // TODO: isSpark in the midst of type inference sounds hacky. Move it to a separate phase/method, also to make sure
+  //       that info propagates properly across e.g. FunTypes
   def inferType(t: c.Type): InferredType = {
+    def isAny(sym: String) =
+      sym == "scala.Any"
+
+    def isInt(sym: String) =
+      sym == "scala.Int"
+
+    def isString(sym: String) =
+      sym == "scala.Predef.String" || sym == "java.lang.String"
+
+    def isSet(sym: String) =
+      sym == "scala.Predef.Set"
+
+    def isList(sym: String) =
+      sym == "scala.Iterable" || sym == "scala.Seq" || sym == "scala.List" || sym == "scala.collection.immutable.List"
+
+    def isBag(sym: String) =
+      sym == "raw.executor.RawScanner" || sym == "org.apache.spark.rdd.RDD"
+
+    def addToClassesMap(r: RecordType, name: String) = {
+      val canonicalForm = toCanonicalForm(r)
+      if (classesMap.contains(canonicalForm) && classesMap(canonicalForm) != name) {
+        val oldName = classesMap(canonicalForm)
+        bail(s"Non-unique name for a record type: processing record with name '$name' when the same record type is already defined with name '${classesMap(canonicalForm)}'. Consider using 'type $name = $oldName' instead?")
+      } else {
+        classesMap.put(canonicalForm, name)
+      }
+    }
+
     val rawType = t match {
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Int" => raw.IntType()
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Any" => raw.TypeVariable(raw.calculus.SymbolTable.next())
-      case TypeRef(_, sym, Nil) if sym.fullName == "scala.Predef.String" => raw.StringType()
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Predef.Set" => raw.CollectionType(SetMonoid(), inferType(t1).rawType)
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Seq" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO can we pattern match on something else
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.List" || sym.fullName == "scala.collection.immutable.List" => raw.CollectionType(ListMonoid(), inferType(t1).rawType)
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "scala.Iterable" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "raw.executor.RawScanner" => raw.CollectionType(ListMonoid(), inferType(t1).rawType) // TODO: Can an Iterable be represented by a raw.List type?
-      case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Tuple") =>
+      case TypeRef(_, sym, Nil) if isInt(sym.fullName) =>
+        raw.IntType()
+      case TypeRef(_, sym, Nil) if isAny(sym.fullName) =>
+        raw.TypeVariable()
+      case TypeRef(_, sym, Nil) if isString(sym.fullName) =>
+        raw.StringType()
+      case TypeRef(_, sym, t1 :: Nil) if isSet(sym.fullName) =>
+        raw.CollectionType(SetMonoid(), inferType(t1).rawType)
+      case TypeRef(_, sym, t1 :: Nil) if isList(sym.fullName) =>
+        raw.CollectionType(ListMonoid(), inferType(t1).rawType)
+      case TypeRef(_, sym, t1 :: Nil) if isBag(sym.fullName) =>
+        raw.CollectionType(BagMonoid(), inferType(t1).rawType)
+      case TypeRef(_, sym, ts) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(t1(i)).rawType) }))
+          case regex(n) =>
+            val r = raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(ts(i)).rawType) }))
+            addToClassesMap(r, sym.fullName)
+            r
         }
-      case TypeRef(_, sym, t1) if sym.fullName.startsWith("scala.Function") =>
+      case t @ TypeRef(_, sym, Nil) =>
+        val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
+        val r = raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }))
+        addToClassesMap(r, sym.fullName)
+        r
+      case TypeRef(_, sym, t1 :: t2 :: Nil) if sym.fullName.startsWith("scala.Function") =>
         val regex = """scala\.Function(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.FunType(inferType(t1(0)).rawType, inferType(t1(1)).rawType)
+          case regex(n) => raw.FunType(inferType(t1).rawType, inferType(t2).rawType)
         }
-
-      case t@TypeRef(_, sym, Nil) =>
-        val symName = sym.fullName
-        val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-        raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }))
-
-      case TypeRef(_, sym, List(t1)) if sym.fullName == "org.apache.spark.rdd.RDD" =>
-        raw.CollectionType(ListMonoid(), inferType(t1).rawType)
-
       case TypeRef(pre, sym, args) =>
         bail(s"Unsupported TypeRef($pre, $sym, $args)")
     }
@@ -165,37 +209,28 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     InferredType(rawType, isSpark)
   }
 
-  /** Map the cannonical form of a record type to a user case class name.
+  /** Return a unique representation for a record type, including its nullable information.
     */
-  var userCaseClassesMap: Map[String, String] = _
-
-  /** Hold this list of specific instances of user-defined types.
-    */
-  //  var userRecordTypes: Seq[RecordType] = _
-
-  //  def isUserType(r: RecordType) = userRecordTypes.collectFirst { case r1 if r eq r1 => true }.isDefined
-
-  /** Return a "cannonical" representation of a record type.
-    * This is a unique representation of a record, including its nullable information.
-    */
-  def toCannonicalForm(recordType: RecordType): String =
+  def toCanonicalForm(recordType: RecordType): String =
     PrettyPrinter(recordType)
 
-  def recordTypeSym(r: RecordType): String = userCaseClassesMap(toCannonicalForm(r))
+  def recordTypeSym(r: RecordType): String =
+    classesMap(toCanonicalForm(r))
 
   def buildScalaType(t: raw.Type, world: World): String = {
     val baseType = t match {
       case _: BoolType => "Boolean"
-      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
+      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
       case r @ RecordType(Attributes(atts)) =>
-        atts
-          .map(att => s"(${buildScalaType(att.tipe, world)})")
-          .mkString("(", ", ", ")")
-      //      case CollectionType(BagMonoid(), innerType) => s"com.google.common.collect.ImmutableMultiset[${buildScalaType(innerType, world)}]"
-      //      case CollectionType(BagMonoid(), innerType) => s"scala.collection.immutable.Bag[${buildScalaType(innerType, world)}]"
+        // Return the case class name if it exists; otherwise, it is a Tuple
+        classesMap.getOrElse(
+          toCanonicalForm(r),
+          atts
+            .map(att => s"(${buildScalaType(att.tipe, world)})")
+            .mkString("(", ", ", ")"))
       case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
       case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
       case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
@@ -223,9 +258,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val recordTypes = scala.collection.mutable.MutableList[RecordType]()
 
     val queryRecordTypes = everywhere(query[Calculus.Exp] {
-      case e => analyzer.tipe(e) match {
-        case r: RecordType => recordTypes += r
-        case _             =>
+      case e => logger.debug(s"handling ${CalculusPrettyPrinter(e)}"); analyzer.tipe(e) match {
+        case r: RecordType => recordTypes += r; logger.debug(s"added type ${PrettyPrinter(r)}")
+        case t             => logger.debug(s"ignored type ${PrettyPrinter(t)}")
       }
     })
 
@@ -238,38 +273,31 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     */
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
-    val records = collectRecordTypes(tree, world, analyzer)
-    logger.debug(s"buildCaseClasses $records")
+    val recordTypes = collectRecordTypes(tree, world, analyzer)
+    logger.debug(s"buildCaseClasses $recordTypes")
 
-    /** Create a map between the canonical form of anonymous record types, i.e. record types with explicit nullable
-      * information, and symbols to identify those user records.
-      */
-    this.userCaseClassesMap = {
-      var i = 0
-      records
-        .map(toCannonicalForm)
-        .toSet
-        .map((cannonicalType: String) => {
-        i = i + 1
-        logger.debug(s"Adding canonicalType $cannonicalType to UserRecord$i")
-        cannonicalType -> s"UserRecord$i"
-      })
-        .toMap
+    var i = 0
+
+    val code = scala.collection.mutable.Set[String]()
+    for (r <- recordTypes) {
+      val canonicalForm = toCanonicalForm(r)
+      if (!classesMap.contains(canonicalForm)) {
+        // Generate new case class name
+        i += 1
+        val name = s"UserRecord$i"
+
+        // Add it to the map
+        classesMap.put(canonicalForm, name)
+        logger.debug(s"Mapping type $canonicalForm to case class $name")
+
+        // Build the code
+        val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
+        logger.info(s"Build case class: $r.atts => $args")
+        code += s"case class $name($args)"
+      }
     }
 
-    /** Create corresponding case classes.
-      * This is turned into a set to remove repeated case class definitions.
-      */
-    val code: Set[String] =
-      records
-        .map{ case r =>
-          val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
-          logger.info(s"Build case class: $r.atts => $args")
-          val sym = recordTypeSym(r)
-          s"""case class $sym($args)"""}
-        .toSet
-
-    code.map(c.parse)
+    code.map(c.parse).to
   }
 
   /** Build code-generated query plan from logical algebra tree.
