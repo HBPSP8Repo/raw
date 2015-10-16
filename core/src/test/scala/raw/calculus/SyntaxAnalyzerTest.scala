@@ -580,4 +580,9 @@ class SyntaxAnalyzerTest extends FunTest {
 
   // TODO: Test case using "as" (keyword) as a function argument fails with a bad/weird error
 
+  test("""select s.age/10, (select x. from (s,p) in partition) from students s group by s.age/10""") {
+    // TODO: must FAIL but w/ a proper error, not a crash!
+    matches("""      select s.age/10, (select x. from (s,p) in partition) from students s group by s.age/10""")
+  }
+
 }

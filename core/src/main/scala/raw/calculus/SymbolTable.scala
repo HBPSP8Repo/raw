@@ -50,6 +50,6 @@ object SymbolTable extends Environments {
 
   /** Entity for a *.
     */
-  case class StarEntity(e: Exp, t: Type) extends Entity
+  case class StarEntity(s: Select, t: Type) extends Entity
 
 }

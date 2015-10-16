@@ -38,11 +38,11 @@ abstract class CalculusTest extends FunTest {
       assert(false)
     }
     val troot1 = FriendlierPrettyPrinter(analyzer1.tipe(t1.root))
+
+    logger.debug(s"Input root type: $troot")
     logger.debug(s"Output root type: $troot1")
 
-    if (!compare(troot, troot1)) {
-      logger.warn("Different root types found!")
-    }
+    assert(compare(troot, troot1), "Different root types found!")
 
     CalculusPrettyPrinter(t1.root, 200)
   }

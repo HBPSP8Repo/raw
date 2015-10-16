@@ -515,10 +515,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val env = enter(in(e))
       define(env, "*", StarEntity(s, TypeVariable()))
 
-    case tree.parent.pair(e: Exp, c: Comp) if e eq c.e =>
-      // TODO: In the case of a Comp make sure there is at least a Gen or this doesn't make sense!!!! Same on envOut.
-      val env = enter(in(e))
-      define(env, "*", StarEntity(c, TypeVariable()))
+//    case tree.parent.pair(e: Exp, c: Comp) if e eq c.e =>
+//      // TODO: In the case of a Comp make sure there is at least a Gen or this doesn't make sense!!!! Same on envOut.
+//      val env = enter(in(e))
+//      define(env, "*", StarEntity(c, TypeVariable()))
   }
 
   private def starEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
@@ -1009,6 +1009,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   private def unifyAttributes(a: RecordAttributes, b: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = {
     logger.debug(s"unifyAttributes a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
+    val na = aFind(a)
+    val nb = aFind(b)
     (aFind(a), aFind(b)) match {
       case (Attributes(atts1), Attributes(atts2))                             =>
         if (atts1.length == atts2.length && atts1.map(_.idn) == atts2.map(_.idn))
@@ -1018,32 +1020,35 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case (AttributesVariable(atts1, sym1), AttributesVariable(atts2, sym2)) =>
         val commonIdns = atts1.map(_.idn).intersect(atts2.map(_.idn))
         for (idn <- commonIdns) {
-          val att1 = a.getType(idn).head
-          val att2 = b.getType(idn).head
+          val att1 = na.getType(idn).head
+          val att2 = nb.getType(idn).head
           if (!unify(att1, att2, occursCheck)) {
             return false
           }
         }
         if (commonIdns.size == atts1.size && commonIdns.size == atts2.size) {
-          recAttsVarMap.union(a, b)
+          recAttsVarMap.union(na, nb)
           true
         } else {
           // TODO: We seem to create too many AttributesVariable...
-          val commonAttrs = commonIdns.map { case idn => AttrType(idn, a.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
-          val na = AttributesVariable(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs, SymbolTable.next())
-          recAttsVarMap.union(a, b).union(b, na)
+          val commonAttrs = commonIdns.map { case idn => AttrType(idn, na.getType(idn).head) } // Safe to take from the first attribute since they were already unified in the new map
+          val nc = AttributesVariable(atts1.filter { case att => !commonIdns.contains(att.idn) } ++ atts2.filter { case att => !commonIdns.contains(att.idn) } ++ commonAttrs, SymbolTable.next())
+          recAttsVarMap.union(na, nb).union(nb, nc)
           true
         }
       case (AttributesVariable(atts1, _), Attributes(atts2))                  =>
         if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
           false
         } else {
+          logger.debug(s"atts1 is $atts1")
+          logger.debug(s"atts2 is $atts2")
           for (att1 <- atts1) {
-            if (!unify(att1.tipe, b.getType(att1.idn).get, occursCheck)) {
+            logger.debug(s"processing att1 $att1")
+            if (!unify(att1.tipe, nb.getType(att1.idn).get, occursCheck)) {
               return false
             }
           }
-          recAttsVarMap.union(a, b)
+          recAttsVarMap.union(na, nb)
           true
         }
       case (_: Attributes, _: AttributesVariable)                             =>
@@ -1070,17 +1075,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val commonIdns = defCa.atts.map(_.idn).intersect(defCb.atts.map(_.idn))
         logger.debug("a7")
         for (idn <- commonIdns) {
-          val att1 = a.getType(idn).head
-          val att2 = b.getType(idn).head
+          val att1 = na.getType(idn).head
+          val att2 = nb.getType(idn).head
           if (!unify(att1, att2, occursCheck)) {
             return false
           }
         }
         logger.debug("a1")
         // all checks ok, so can unify
-        val c = ConcatAttributes()
-        freshConcat(c, defCa.atts ++ defCb.atts, defCa.slotsSet ++ defCb.slotsSet)
-        recAttsVarMap.union(a, b).union(b, c)
+        val nc = ConcatAttributes()
+        freshConcat(nc, defCa.atts ++ defCb.atts, defCa.slotsSet ++ defCb.slotsSet)
+        recAttsVarMap.union(na, nb).union(nb, nc)
         true
       case (ca: ConcatAttributes, Attributes(atts1))            =>
         val props = getConcatProperties(ca)
@@ -1100,13 +1105,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           false
         } else {
           for (att <- defCa.atts) {
-            if (!unify(att.tipe, b.getType(att.idn).get, occursCheck)) {
+            if (!unify(att.tipe, nb.getType(att.idn).get, occursCheck)) {
               return false
             }
           }
         }
         // all checks ok, so can unify
-        recAttsVarMap.union(ca, b)
+        recAttsVarMap.union(ca, nb)
         true
       case (_: Attributes, _: ConcatAttributes)                =>
         unifyAttributes(b, a, occursCheck)
@@ -1115,8 +1120,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // check if the overlapping names match
         val commonIdns = defCa.atts.map(_.idn).intersect(atts1.map(_.idn))
         for (idn <- commonIdns) {
-          val att1 = a.getType(idn).head
-          val att2 = b.getType(idn).head
+          val att1 = na.getType(idn).head
+          val att2 = nb.getType(idn).head
           if (!unify(att1, att2, occursCheck)) {
             return false
           }
@@ -1135,9 +1140,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
         }
         // all ok, so can union
-        val c = ConcatAttributes()
-        freshConcat(c, defCa.atts ++ atts1, defCa.slotsSet)
-        recAttsVarMap.union(a, b).union(b, c)
+        val nc = ConcatAttributes()
+        freshConcat(nc, defCa.atts ++ atts1, defCa.slotsSet)
+        recAttsVarMap.union(na, nb).union(nb, nc)
         true
       case (_: AttributesVariable, _: ConcatAttributes)        =>
         unifyAttributes(b, a, occursCheck)
@@ -2501,3 +2506,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 // TODO: Change code of transformers to rely on resolvedType/ResolvedType instead of world.tipes. Hide world.tipes visiblity from the SemanticAnalyzer (make it private, not public or protected)
 
 // TODO: The monoids stuff is doing impossible checks: e.g. if smtg has been unified before, it can't really narrow further, right?
+
+// TODO: Make sure Python inferrer is not putting in any record names since they are being ignored. Actually sort out the whole propagation of extent names to make sure it is ok(but it must be right?)
+// TODO: Schema.scala does some funky generation of user record names: I'm worried that it is not thread-safe. Make it depend on the extent name? Or is it a non-issue?
+
+// TODO: Add the HAVING

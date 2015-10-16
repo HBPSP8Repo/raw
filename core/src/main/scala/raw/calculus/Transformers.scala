@@ -40,7 +40,7 @@ trait Transformer extends LazyLogging {
     val collectIdnDefs = collect[Seq, Idn] {
       case IdnDef(idn) => idn
     }
-    val internalIdns = collectIdnDefs(n)
+    val idns = collectIdnDefs(n)
 
     val ids = scala.collection.mutable.Map[String, String]()
 
@@ -48,11 +48,32 @@ trait Transformer extends LazyLogging {
 
     rewrite(
       everywhere(rule[IdnNode] {
-        case IdnDef(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnDef(newIdn(idn))
-        case IdnUse(idn) if idn.startsWith("$") && internalIdns.contains(idn) => IdnUse(newIdn(idn))
+        case IdnDef(idn) if idn.startsWith("$") => IdnDef(newIdn(idn))
+        case IdnUse(idn) if idn.startsWith("$") && idns.contains(idn) => IdnUse(newIdn(idn))
       }))(n)
-
   }
+
+  /** Similar to above but rewrittes also user-defined identifiers.
+    */
+  protected def rewriteIdns[T <: RawNode](n: T): T = {
+    val collectIdnDefs = collect[Seq, Idn] {
+      case IdnDef(idn) => idn
+    }
+    val idns = collectIdnDefs(n)
+
+    val ids = scala.collection.mutable.Map[String, String]()
+
+    def newIdn(idn: Idn) = {
+      if (!ids.contains(idn)) ids.put(idn, SymbolTable.next().idn); ids(idn)
+    }
+
+    rewrite(
+      everywhere(rule[IdnNode] {
+        case IdnDef(idn) => IdnDef(newIdn(idn))
+        case IdnUse(idn) if idns.contains(idn) => IdnUse(newIdn(idn))
+      }))(n)
+  }
+
 }
 
 /** A transformer that requires the analyzer.
