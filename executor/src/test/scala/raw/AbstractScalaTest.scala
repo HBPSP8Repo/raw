@@ -24,12 +24,12 @@ object TestScanners extends StrictLogging {
   val studentsPath = RawUtils.toPath("data/students/students.csv")
   val studentsNoHeaderPath = RawUtils.toPath("data/students/students_no_header.csv")
 
-  lazy val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
-  lazy val authors: RawScanner[Author] = createScanner[Author](authorsPath)
-  lazy val authorsSmall: RawScanner[Author] = createScanner[Author](authorsSmallPath)
-  lazy val publicationsSmall: RawScanner[Publication] = createScanner[Publication](publicationsPath)
-  lazy val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication](publicationsSmallWithDupsPath)
-  lazy val patients: RawScanner[Patient] = createScanner[Patient](patientsPath)
+  val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
+  val authors: RawScanner[Author] = createScanner[Author](authorsPath)
+  val authorsSmall: RawScanner[Author] = createScanner[Author](authorsSmallPath)
+  val publicationsSmall: RawScanner[Publication] = createScanner[Publication](publicationsSmallPath)
+  val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication](publicationsSmallWithDupsPath)
+  val patients: RawScanner[Patient] = createScanner[Patient](patientsPath)
 
   private[this] def getSchemaName(p: Path): String = {
     val fileName = p.getFileName.toString

@@ -64,6 +64,18 @@ class SchemaProperties(schemaProperties: java.util.Map[String, Object]) extends 
 case class ParsedSchema(caseClasses: Map[String, String], typeDeclaration: String)
 
 object SchemaParser extends StrictLogging {
+  // map of unique record names
+  val recordNames = scala.collection.mutable.HashMap[RecordType, String]()
+  var c = 0
+  def recordName(r: RecordType) = {
+    if (!recordNames.contains(r)) {
+      recordNames.put(r, s"__record$c")
+      c += 1
+    }
+
+    recordNames(r)
+  }
+
   def apply(schema: RawSchema): ParsedSchema = {
     val asRawType: SchemaAsRawType = XmlToRawType(schema)
     logger.info("Parsed schema: " + asRawType.caseClasses)
@@ -80,8 +92,8 @@ object SchemaParser extends StrictLogging {
 
     private[this] def defineCaseClass(r: RecordType): String = {
       r match {
-        case RecordType(Attributes(atts), name) =>
-          val idn = name.get
+        case RecordType(Attributes(atts)) =>
+          val idn = recordNames(r)
           caseClassesSym.get(idn) match {
             case Some(src) =>
               logger.info(s"case class $idn already defined")
@@ -115,7 +127,7 @@ object SchemaParser extends StrictLogging {
 
     private[this] def defineCaseClasses(t: raw.Type): Unit = {
       t match {
-        case r@RecordType(atts, Some(idn)) => defineCaseClass(r)
+        case r@RecordType(atts) => defineCaseClass(r)
         case CollectionType(BagMonoid(), innerType) => defineCaseClasses(innerType)
         case CollectionType(ListMonoid(), innerType) => defineCaseClasses(innerType)
         case CollectionType(SetMonoid(), innerType) => defineCaseClasses(innerType)
@@ -129,7 +141,7 @@ object SchemaParser extends StrictLogging {
         case _: StringType => "String"
         case _: IntType => "Int"
         case _: FloatType => "Float"
-        case r@RecordType(atts, Some(idn)) => idn
+        case r: RecordType => recordNames(r)
         case CollectionType(BagMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
         case CollectionType(ListMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
         case CollectionType(SetMonoid(), innerType) => s"Set[${buildScalaDeclaration(innerType)}]"
@@ -182,7 +194,7 @@ object SchemaParser extends StrictLogging {
                 val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
                 logger.info("Attributes: " + attrs)
                 val orderedAttrs = orderFields(name, attrs)
-                val record = RecordType(Attributes(orderedAttrs), Some(name))
+                val record = RecordType(Attributes(orderedAttrs))
                 records.put(name, record)
                 record
             }

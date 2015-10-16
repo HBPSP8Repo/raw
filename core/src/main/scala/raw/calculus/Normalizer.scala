@@ -17,6 +17,26 @@ class Normalizer extends PipelinedTransformer {
       reduce(rule1),
       oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10))
 
+  // TODO: Move this into Monoids.scala (take it out from SemanticAnalyzer.scala as well)
+  private def commutative(m: Monoid): Option[Boolean] = m match {
+    case _: PrimitiveMonoid => Some(true)
+    case _: SetMonoid => Some(true)
+    case _: BagMonoid => Some(true)
+    case _: ListMonoid => Some(false)
+  }
+
+  private def idempotent(m: Monoid): Option[Boolean] = m match {
+    case _: MaxMonoid => Some(true)
+    case _: MinMonoid => Some(true)
+    case _: MultiplyMonoid => Some(false)
+    case _: SumMonoid => Some(false)
+    case _: AndMonoid => Some(true)
+    case _: OrMonoid => Some(true)
+    case _: SetMonoid => Some(true)
+    case _: BagMonoid => Some(false)
+    case _: ListMonoid => Some(false)
+  }
+
   /** Rule 1
     */
 
@@ -63,7 +83,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule4 = rule[Exp] {
-    case Comp(m, Rule4(q, Gen(p, IfThenElse(e1, e2, e3)), s), e) if m.commutative.head || q.isEmpty =>  // TODO: Assuming the monoid is already defined
+    case Comp(m, Rule4(q, Gen(p, IfThenElse(e1, e2, e3)), s), e) if commutative(m).head || q.isEmpty =>  // TODO: Assuming the monoid is already defined
       logger.debug(s"Applying normalizer rule 4")
       val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(p, e2)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(p), e3)) ++ s.map(deepclone), deepclone(e))
@@ -98,7 +118,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule6 = rule[Exp] {
-    case Comp(m, Rule6(q, Gen(p, ConsCollectionMonoid(_, e1)), s), e) =>
+    case Comp(m, Rule6(q, Gen(Some(p), ConsCollectionMonoid(_, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 6")
       Comp(m, q ++ Seq(Bind(p, e1)) ++ s, e)
   }
@@ -111,7 +131,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule7 = rule[Exp] {
-    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if m.commutative.head || q.isEmpty =>
+    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if commutative(m).head || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 7")
       val c1 = Comp(deepclone(m), q ++ Seq(Gen(p, e1)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(p), e2)) ++ s.map(deepclone), deepclone(e))
@@ -126,7 +146,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule8 = rule[Exp] {
-    case n @ Comp(m, Rule8(q, Gen(p, Comp(_, r, e1)), s), e) =>
+    case n @ Comp(m, Rule8(q, Gen(Some(p), Comp(_, r, e1)), s), e) =>
       logger.debug(s"Applying normalizer rule 8 to ${CalculusPrettyPrinter(n)}")
       val n1 = Comp(m, q ++ r ++ Seq(Bind(p, e1)) ++ s, e)
       logger.debug(s"Output is ${CalculusPrettyPrinter(n1)}")
@@ -141,7 +161,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   private lazy val rule9 = rule[Exp] {
-    case Comp(m, Rule9(q, Comp(_: OrMonoid, r, pred), s), e) if m.idempotent.head =>
+    case Comp(m, Rule9(q, Comp(_: OrMonoid, r, pred), s), e) if idempotent(m).head =>
       logger.debug(s"Applying normalizer rule 9")
       Comp(m, q ++ r ++ Seq(pred) ++ s, e)
   }

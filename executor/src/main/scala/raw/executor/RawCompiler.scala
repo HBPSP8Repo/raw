@@ -190,7 +190,7 @@ class $queryName($args) extends RawQuery {
         // compilation runs are not falsely reported in the subsequent runs
         compileReporter.reset()
         RawImpl.queryError.get() match {
-          case Some(queryError: QueryError) => throw new CompilationException(queryError)
+          case Some(queryError: QueryError) => throw new CompilationException(queryError.toString, queryError)
           case Some(t: Throwable) => throw new InternalException(t)
           case None => logger.warn("Compiler has warnings or errors but no query error object available.")
         }

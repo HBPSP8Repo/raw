@@ -143,7 +143,7 @@
     test("desugar and normalize PatternGen") {
       check(
         """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""",
-        """for ($0 <- set_of_tuples) yield set (_1: $0._1, _2: $0._4)""",
+        """for ($0 <- set_of_tuples) yield set (a: $0._1, d: $0._4)""",
         TestWorlds.set_of_tuples)
     }
 

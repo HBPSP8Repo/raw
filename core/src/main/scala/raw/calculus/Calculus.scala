@@ -117,7 +117,7 @@ object Calculus {
 
   /** Generator
     */
-  case class Gen(p: Pattern, e: Exp) extends Decl
+  case class Gen(p: Option[Pattern], e: Exp) extends Decl
 
   /** Bind
     */
@@ -158,6 +158,10 @@ object Calculus {
   /** Exists
     */
   case class Exists(e: Exp) extends Sugar
+
+  /** MultiCons
+    */
+  case class MultiCons(m: CollectionMonoid, es: Seq[Exp]) extends Sugar
 
   /** Patterns
     */
@@ -217,7 +221,7 @@ object Calculus {
 
   /** Select
     */
-  case class Select(from: Seq[Iterator],
+  case class Select(from: Seq[Gen],
                     distinct: Boolean,
                     group: Option[Exp],
                     proj: Exp,
@@ -225,12 +229,12 @@ object Calculus {
                     order: Option[Exp],
                     having: Option[Exp]) extends Exp
 
-  /** Iterator
-    */
-  case class Iterator(idn: Option[PatternIdn], e: Exp) extends Decl
-
   /** Partition
     */
   case class Partition() extends Exp
+
+  /** Star
+    */
+  case class Star() extends Exp
 
 }

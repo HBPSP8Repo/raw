@@ -21,7 +21,7 @@ class BlocksDesugarerTest extends CalculusTest {
   test("PatternGen") {
     check(
       """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""",
-      """for ($0 <- set_of_tuples; $1 := $0._1; $2 := $0._2; $3 := $0._3; $4 := $0._4) yield set (_1: $1, _2: $4)""",
+      """for ($0 <- set_of_tuples; $1 := $0._1; $2 := $0._2; $3 := $0._3; $4 := $0._4) yield set (a: $1, d: $4)""",
       TestWorlds.set_of_tuples)
   }
 

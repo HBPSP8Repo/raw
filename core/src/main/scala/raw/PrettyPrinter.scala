@@ -39,24 +39,41 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ListMonoid     => "append"
   }
 
-  def monoid(m: Monoid): Doc = m match {
-    case _: MaxMonoid      => "max"
-    case _: MinMonoid      => "min"
-    case _: MultiplyMonoid => "multiply"
-    case _: SumMonoid      => "sum"
-    case _: AndMonoid      => "and"
-    case _: OrMonoid       => "or"
-    case _: BagMonoid      => "bag"
-    case _: SetMonoid      => "set"
-    case _: ListMonoid     => "list"
-    case MonoidVariable(commutative, idempotent, sym) => sym.idn <> parens(group(lsep(List(
+  def shortMonoid(m: Monoid): Doc = m match {
+    case _: MaxMonoid           => "max"
+    case _: MinMonoid           => "min"
+    case _: MultiplyMonoid      => "multiply"
+    case _: SumMonoid           => "sum"
+    case _: AndMonoid           => "and"
+    case _: OrMonoid            => "or"
+    case _: BagMonoid           => "bag"
+    case _: SetMonoid           => "set"
+    case _: ListMonoid          => "list"
+    case mv: MonoidVariable => mv.sym.idn
+
+    case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
       text(if (commutative.isDefined) commutative.get.toString else "?"),
       text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
+  }
+
+  def monoid(m: Monoid): Doc = m match {
+//    case MonoidVariable(leqMonoids, geqMonoids, sym) =>
+//      val items = scala.collection.mutable.MutableList[Doc]()
+//      if (leqMonoids.nonEmpty) {
+//        items += parens(group(lsep(leqMonoids.map(shortMonoid).toList, comma)))
+//      }
+//      items += text(sym.idn)
+//      if (geqMonoids.nonEmpty) {
+//        items += parens(group(lsep(geqMonoids.map(shortMonoid).toList, comma)))
+//      }
+//      group(lsep(items.to, ":<"))
+    case _ => shortMonoid(m)
   }
 
   def atts(recAtts: RecordAttributes): Doc = recAtts match {
     case Attributes(atts) => group(nest(lsep(atts.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)), comma)))
     case AttributesVariable(atts, sym) => group(nest(text(sym.idn) <> ":" <> lsep(atts.toList.map((att: AttrType) => att.idn <> "=" <> tipe(att.tipe)) :+ text("..."), comma)))
+    case ConcatAttributes(sym) => group(nest(text(sym.idn) <> ":" <> text("...")))
   }
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
@@ -68,9 +85,9 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: StringType                        => "string"
     case _: IntType                           => "int"
     case _: FloatType                         => "float"
-    case RecordType(recAtts, Some(name))      => "record" <> parens(name) <> parens(atts(recAtts))
-    case RecordType(recAtts, None)            => "record" <> parens(atts(recAtts))
-    case CollectionType(m, innerType)         => monoid(m) <> parens(tipe(innerType))
+    case RecordType(recAtts)                  => "record" <> parens(atts(recAtts))
+    case PatternType(pAtts)                   => "pattern" <> parens(group(lsep(pAtts.map { case att => tipe(att.tipe) }, comma)))
+    case CollectionType(m, innerType)         => monoid(m) <> brackets(tipe(innerType))
     case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
     case _: AnyType                           => "any"
     case _: NothingType                       => "nothing"
@@ -91,6 +108,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case op: BinaryOperator => binaryOp(op)
     case m: Monoid          => monoid(m)
     case t: Type            => tipe(t)
+    case a: RecordAttributes => atts(a)
   }
 }
 

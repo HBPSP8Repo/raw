@@ -40,14 +40,14 @@ class BlocksDesugarer extends PipelinedTransformer {
     */
 
   private object RulePatternGen {
-    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_: PatternProd, _) => g })
+    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(Some(_: PatternProd), _) => g })
   }
 
   private lazy val rulePatternGen = rule[Comp] {
-    case Comp(m, RulePatternGen(r, Gen(p, u), s), e) =>
+    case Comp(m, RulePatternGen(r, Gen(Some(p), u), s), e) =>
       logger.debug("Applying desugar rulePatternGen")
       val idn = SymbolTable.next().idn
-      Comp(m, r ++ Seq(Gen(PatternIdn(IdnDef(idn)), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
+      Comp(m, r ++ Seq(Gen(Some(PatternIdn(IdnDef(idn))), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
   }
 
   /** De-sugar pattern binds inside expression blocks.

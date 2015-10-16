@@ -53,8 +53,8 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
       }
 
       patDecl(pat) match {
-        case Some(Bind(p, e))   => findType(p, tipe(e)).get
-        case Some(Gen(p, e))    => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
+        case Some(Bind(p, e))      => findType(p, tipe(e)).get
+        case Some(Gen(Some(p), e)) => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
       }
   }
 
@@ -72,8 +72,8 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
       }
 
       decl(idn) match {
-        case Some(Bind(p, e))   => findType(p, tipe(e)).get
-        case Some(Gen(p, e))    => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
+        case Some(Bind(p, e))      => findType(p, tipe(e)).get
+        case Some(Gen(Some(p), e)) => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
       }
   }
 

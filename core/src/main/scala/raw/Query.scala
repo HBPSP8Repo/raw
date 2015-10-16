@@ -3,9 +3,8 @@ package raw
 import calculus._
 import com.typesafe.scalalogging.LazyLogging
 import raw.calculus.Calculus.{IdnNode, Exp}
+import scala.collection.immutable.{Seq, List}
 
-
-import scala.reflect.internal.util.NoPosition
 import scala.util.parsing.input.{OffsetPosition, Position}
 
 /* Json-friendly version of the Position class. This allows us to control the format of the JSON response sent to the 
@@ -23,7 +22,7 @@ case class ParserError(position:RawPosition, message:String, prettyMessage:Strin
   def err = s"Invalid Query Input: ${prettyMessage}"
 }
 
-case class SemanticErrors(errors: Seq[SemanticError]) extends QueryError {
+case class SemanticErrors(errors: List[SemanticError]) extends QueryError {
   def err = s"Error(s) found:\n${errors.mkString("\n")}"
 }
 
@@ -84,8 +83,8 @@ object Query extends LazyLogging {
       Right(analyzer.tipe(tree.root))
     } else {
       val semanticErrors = analyzer.errors.map((e: Error) => SemanticError(e.getClass.getSimpleName, RawPositionExtractor(e), e.toString, ErrorsPrettyPrinter(e)))
-      val sortedSemanticErros = semanticErrors.sortBy(se => (se.position.line, se.position.column))
-      Left(SemanticErrors(sortedSemanticErros))
+      val sortedSemanticErrors = semanticErrors.sortBy(se => (se.position.line, se.position.column))
+      Left(SemanticErrors(sortedSemanticErrors.to))
     }
   }
 

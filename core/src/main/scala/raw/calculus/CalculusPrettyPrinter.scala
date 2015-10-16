@@ -43,15 +43,15 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case FunApp(f, e)                   => apply(f) <> parens(apply(e))
         case ZeroCollectionMonoid(m)        => collection(m, empty)
         case ConsCollectionMonoid(m, e)     => collection(m, apply(e))
+        case MultiCons(m, es)               => collection(m, group(lsep(es.map(apply), ",")))
         case MergeMonoid(m, e1, e2)         => apply(e1) <+> merge(m) <+> apply(e2)
         case Comp(m, qs, e)                 => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
         case UnaryExp(op: (Not), e)         => unaryOp(op) <+> apply(e)
         case UnaryExp(op: (Neg), e)         => unaryOp(op) <+> apply(e)
         case UnaryExp(op, e)                => unaryOp(op) <> parens(apply(e))
         case FunAbs(p, e)                   => "\\" <> apply(p) <+> "->" <+> apply(e)
-        case Gen(p, e)                      => apply(p) <+> "<-" <+> apply(e)
-        case Iterator(Some(p), e)           => apply(p) <+> "in" <+> apply(e)
-        case Iterator(None, e)              => apply(e)
+        case Gen(Some(p), e)                => apply(p)  <+> "<-" <+> apply(e)
+        case Gen(None, e)                   => "<-" <+> apply(e)
         case Bind(p, e)                     => apply(p) <+> ":=" <+> apply(e)
         case ExpBlock(bs, e)                => val ns: Seq[CalculusNode] = bs :+ e; "{" <+> group(nest(lsep(ns.map(apply), ";"))) <+> "}"
         case Sum(e)                         => "sum" <> parens(apply(e))
@@ -74,6 +74,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case Unnest(child, path, pred)      => "unnest" <> parens(nest(group(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
         case OuterUnnest(child, path, pred) => "outer_unnest" <> parens(group(nest(lsep(List(nest(apply(child)), apply(path), apply(pred)), comma))))
         case Partition()                    => "partition"
+        case Star()                         => "*"
         case Select(f, d, g, proj, w, o, h) =>
           (if (d) ("select distinct") else "select") <+> apply(proj) <+>
             lsep(List(

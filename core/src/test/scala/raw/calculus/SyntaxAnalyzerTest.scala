@@ -2,6 +2,7 @@ package raw
 package calculus
 
 class SyntaxAnalyzerTest extends FunTest {
+
   def matches(q: String, expected: String): Unit = {
     matches(q, Some(expected))
   }
@@ -180,7 +181,7 @@ class SyntaxAnalyzerTest extends FunTest {
   test("record projection #2") {
     matches(
       """((`Employee Name`: "Ben", Age: 35).`Employee Name`, "Foo")._1""",
-      """(_1: (`Employee Name`: "Ben", Age: 35).`Employee Name`, _2: "Foo")._1""")
+      """(`Employee Name`: (`Employee Name`: "Ben", Age: 35).`Employee Name`, _2: "Foo")._1""")
   }
 
   test("expression block #1") {
@@ -223,7 +224,7 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("patterns #5") {
     matches(
-      """for ((a, b) <- list(1, 2) ) yield set a + b""",
+      """for ((a, b) <- list((1, 2)) ) yield set a + b""",
       """for ((a, b) <- list((_1: 1, _2: 2))) yield set a + b""")
   }
 
@@ -268,7 +269,7 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("f(x,y)") {
-    sameAST("f(x,y)", "f( _1: x, _2: y)")
+    sameAST("f(x,y)", "f(x: x, y: y)")
   }
 
   test("parentheses - sum - none") {
@@ -501,15 +502,15 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("select name from students") {
-    matches("select name from students")
+    matches("select name from students", "select name from <- students")
   }
 
   test("select name from s in students") {
-    matches("select name from s in students")
+    matches("select name from students", "select name from <- students")
   }
 
   test("select s.name from s in students") {
-    matches("select s.name from s in students")
+    matches("select s.name from s in students", "select s.name from s <- students")
   }
 
   test("select s.name as n from s in students") {
@@ -537,17 +538,17 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("select s.dept, count(partition) from students s group by s.dept") {
-    sameAST("select s.dept, count(partition) from students s group by s.dept", "select _1: s.dept, _2: count(partition) from students s group by s.dept")
+    sameAST("select s.dept, count(partition) from students s group by s.dept", "select dept: s.dept, _2: count(partition) from students s group by s.dept")
   }
 
   test("select dpt, count(partition) as n from students s group by dpt: s.dept") {
-    sameAST("select dpt, count(partition) as n from students s group by dpt: s.dept", "select _1: dpt, n: count(partition) from students s group by dpt: s.dept")
+    sameAST("select dpt, count(partition) as n from students s group by dpt: s.dept", "select dpt: dpt, n: count(partition) from students s group by dpt: s.dept")
   }
 
   test("select - fun stuff #1") {
     sameAST(
       """select { dog_to_human_years := \x -> x*7; (name, dog_to_human_years(age)) } from dogs""",
-      """select { dog_to_human_years := (\x -> (x*7)); (_1: name, _2: (dog_to_human_years(age))) } from dogs""")
+      """select { dog_to_human_years := (\x -> (x*7)); (name: name, _2: (dog_to_human_years(age))) } from dogs""")
   }
 
   test("select - fun stuff #2") {
@@ -558,8 +559,25 @@ class SyntaxAnalyzerTest extends FunTest {
          }""",
       """{
            dog_to_human_years := (\x -> (x*7));
-           select (_1: name, human_age: (dog_to_human_years(age))) from dogs
+           select (name: name, human_age: (dog_to_human_years(age))) from dogs
          }""")
   }
+
+  test("star") {
+    matches(
+      "select * from students",
+      "select * from <- students")
+  }
+
+  test("list(1,2,3)") {
+    matches("list(1, 2, 3)")
+  }
+
+  test("""set(("dbname", "authors"), ("dbname", "publications"))""") {
+    sameAST("""set(("dbname", "authors"), ("dbname", "publications"))""",
+            """set((_1: "dbname", _2: "authors"), (_1: "dbname", _2: "publications"))""")
+  }
+
+  // TODO: Test case using "as" (keyword) as a function argument fails with a bad/weird error
 
 }
