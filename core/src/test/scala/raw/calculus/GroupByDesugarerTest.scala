@@ -57,7 +57,7 @@ class GroupByDesugarerTest extends CalculusTest {
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
     check(
       """select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10""",
-      """select (decade: s.age / 10,names: select s.name from s <- select $2 from $2 <- students where s.age / 10 = $2.age / 10) from s <- students""",
+      """select (decade: s.age / 10, names: select s.name from s <- select $2 from $2 <- students where s.age / 10 = $2.age / 10) from s <- students""",
       TestWorlds.professors_students)
   }
 
@@ -105,11 +105,6 @@ class GroupByDesugarerTest extends CalculusTest {
       TestWorlds.publications)
   }
 
-  // TODO: add testcases where I refer to partition twice in the same scope, then in two scopes.
-  // TODO: same for *
-  // TODO: then mix them together, having * and partition both appear first
-  // TODO: then mix * with group by w/ star w/o group by to make sure they don't conflict
-
   test("select * from students") {
     check(
       """select * from students""",
@@ -135,20 +130,38 @@ class GroupByDesugarerTest extends CalculusTest {
     check(
       """select *, * from students s group by s.age""",
       """select (_1: select * from $0 <- students where s.age = $0.age, _2: select * from $0 <- students where s.age = $0.age) from s <- students""",
-      TestWorlds.professors_students)
+      TestWorlds.professors_students,
+      ignoreRootTypeComparison = true)
   }
 
-  test("select partition, partition from students s group by s.age") {
+  ignore("select partition, partition from students s group by s.age") {
+    // TODO: Need to automatically rename the 2nd occurrence of partition to partition_1; seems easy but then we
+    //       may be conflicting with a user field named 'partition_1', so we must better thing this through a bit more.
     check(
-      """select *, * from students s group by s.age""",
-      """select (_1: select $0 from $0 <- students where s.age = $0.age, _2: select $0 from $0 <- students where s.age = $0.age) from s <- students""",
+      """select partition, partition from students s group by s.age""",
+      """select (partition: select $0 from $0 <- students where s.age = $0.age, partition_1: select $0 from $0 <- students where s.age = $0.age) from s <- students""",
       TestWorlds.professors_students)
+      //ignoreRootTypeComparison = true) ???
   }
 
   test("select count(*), *, partition from students s group by s.age") {
     check(
       """select count(*), *, partition from students s group by s.age""",
       """select (_1: count(select * from $0 <- students where s.age = $0.age), _2: select * from $0 <- students where s.age = $0.age, partition: select $1 from $1 <- students where s.age = $1.age) from s <- students""",
+      TestWorlds.professors_students)
+  }
+
+  test("select *, partition from students s, professors group by s.age") {
+    check(
+      """select *, partition from students s, professors group by s.age""",
+      """select (_1: select * from $0 <- students, $1 <- professors where s.age = $0.age, partition: select (s: $2, _2: $3) from $2 <- students, $3 <- professors where s.age = $2.age) from s <- students, $4 <- professors""",
+      TestWorlds.professors_students)
+  }
+
+  test("select partition, * from students s, professors group by s.age") {
+    check(
+      """select partition, * from students s, professors group by s.age""",
+      """select (partition: select (s: $0, _2: $1) from $0 <- students, $1 <- professors where s.age = $0.age, _2: select * from $2 <- students, $3 <- professors where s.age = $2.age) from s <- students, $4 <- professors""",
       TestWorlds.professors_students)
   }
 

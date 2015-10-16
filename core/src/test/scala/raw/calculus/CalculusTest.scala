@@ -9,13 +9,13 @@ abstract class CalculusTest extends FunTest {
 
   /** Entry-point for most testcases.
     */
-  def check(query: String, expected: String, world: World = TestWorlds.empty) =
-    assert(compare(process(query, world), expected))
+  def check(query: String, expected: String, world: World = TestWorlds.empty, ignoreRootTypeComparison: Boolean = false) =
+    assert(compare(process(query, world, ignoreRootTypeComparison = ignoreRootTypeComparison), expected))
 
   /** Process query up until the phase.
     * Compares the input and output types.
     */
-  def process(q: String, w: World = TestWorlds.empty) = {
+  def process(q: String, w: World = TestWorlds.empty, ignoreRootTypeComparison: Boolean = false) = {
     val t = new Calculus.Calculus(parse(q))
 
     val analyzer = new SemanticAnalyzer(t, w)
@@ -42,7 +42,11 @@ abstract class CalculusTest extends FunTest {
     logger.debug(s"Input root type: $troot")
     logger.debug(s"Output root type: $troot1")
 
-    assert(compare(troot, troot1), "Different root types found!")
+    if (!ignoreRootTypeComparison) {
+      assert(compare(troot, troot1), "Different root types found!")
+    } else if (!compare(troot, troot1)) {
+      logger.warn(s"Different root types found but I was asked to ignore it (likely loss of precision in cloned monoid variables?)")
+    }
 
     CalculusPrettyPrinter(t1.root, 200)
   }

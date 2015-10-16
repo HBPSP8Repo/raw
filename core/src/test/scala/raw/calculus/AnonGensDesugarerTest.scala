@@ -29,7 +29,7 @@ class AnonGensDesugarerTest extends CalculusTest {
     )
   }
 
-  test("for ( <- students) yield set *") {
+  ignore("for ( <- students) yield set *") {
     check(
       """for ( <- students) yield set *""",
       """for ($0 <- students) yield set *""",

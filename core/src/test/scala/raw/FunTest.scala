@@ -40,7 +40,7 @@ class FunTest extends FunSuite with LazyLogging {
     }
 
     def fix(q: String) = {
-      q.trim().replaceAll("\n", " ").replaceAll("\\s+", " ").replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")").replaceAll(",\\s+", ",")
+      q.trim().replaceAll("\n+", " ").replaceAll("\\s+", " ").replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")").replaceAll("\\s+,\\s+", ", ")
     }
 
     val parsedA = actual   // CalculusPrettyPrinter(parse(actual))
