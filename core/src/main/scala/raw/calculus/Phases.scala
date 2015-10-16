@@ -11,9 +11,9 @@ object Phases extends LazyLogging {
 
   private val phases = Seq(
     Seq(  "AnonGensDesugarer"         -> classOf[AnonGensDesugarer]),
+    Seq(  "Uniquifier1"               -> classOf[Uniquifier]),
     Seq(  "GroupByDesugarer"          -> classOf[GroupByDesugarer]),
     Seq(  "StarDesugarer"             -> classOf[StarDesugarer]),
-    Seq(  "Uniquifier1"               -> classOf[Uniquifier]),
     Seq(  "SelectDesugarer"           -> classOf[SelectDesugarer]),
     Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
           "BlocksDesugarer"           -> classOf[BlocksDesugarer]),
@@ -42,6 +42,8 @@ object Phases extends LazyLogging {
 
   def apply(tree: Calculus.Calculus, world: World, lastTransform: Option[String] = None): Calculus.Calculus = {
     assert(lastTransform.isEmpty || transformExists(lastTransform))
+
+    SymbolTable.reset()
 
     var input = tree
     logger.debug(s"Input: ${CalculusPrettyPrinter(input.root)}")

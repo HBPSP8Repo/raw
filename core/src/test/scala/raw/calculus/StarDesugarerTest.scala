@@ -23,7 +23,7 @@ class StarDesugarerTest extends CalculusTest {
   test("select * from list(1,2,3) l") {
     check(
       """select * from list(1,2,3) l""",
-      """select l from l <- list(1, 2, 3)""",
+      """select l$0 from l$0 <- list(1, 2, 3)""",
       TestWorlds.professors_students)
   }
 
@@ -37,28 +37,28 @@ class StarDesugarerTest extends CalculusTest {
   test("select * from students s, professors") {
     check(
       """select * from students s, professors""",
-      """select (name: s.name, age: s.age, name_1: $0.name, age_1: $0.age) from s <- students, $0 <- professors""",
+      """select (name: s$0.name, age: s$0.age, name_1: $0.name, age_1: $0.age) from s$0 <- students, $0 <- professors""",
       TestWorlds.professors_students)
   }
 
   test("select * from students, professors p") {
     check(
       """select * from students, professors p""",
-      """select (name: $0.name, age: $0.age, name_1: p.name, age_1: p.age) from $0 <- students, p <- professors""",
+      """select (name: $0.name, age: $0.age, name_1: p$0.name, age_1: p$0.age) from $0 <- students, p$0 <- professors""",
       TestWorlds.professors_students)
   }
 
   test("select * from students s, professors p") {
     check(
       """select * from students s, professors p""",
-      """select (name: s.name, age: s.age, name_1: p.name, age_1: p.age) from s <- students, p <- professors""",
+      """select (name: s$0.name, age: s$0.age, name_1: p$0.name, age_1: p$0.age) from s$0 <- students, p$0 <- professors""",
       TestWorlds.professors_students)
   }
 
   test("select s.age/10, * from students s group by s.age/10") {
     check(
       """select s.age/10, * from students s group by s.age/10""",
-      """select (_1: s.age / 10, _2: select (name: $0.name, age: $0.age) from $0 <- students where s.age / 10 = $0.age / 10) from s <- students""",
+      """select (_1: s$0.age / 10, _2: select (name: $0.name, age: $0.age) from $0 <- students where s$0.age / 10 = $0.age / 10) from s$0 <- students""",
       TestWorlds.professors_students,
       ignoreRootTypeComparison = true)
   }
@@ -66,7 +66,7 @@ class StarDesugarerTest extends CalculusTest {
   test("select *, * from students s group by s.age") {
     check(
       """select *, * from students s group by s.age""",
-      """select (_1: select (name: $0.name, age: $0.age) from $0 <- students where s.age = $0.age, _2: select (name: $0.name, age: $0.age) from $0 <- students where s.age = $0.age) from s <- students""",
+      """select (_1: select (name: $0.name, age: $0.age) from $0 <- students where s$0.age = $0.age, _2: select (name: $0.name, age: $0.age) from $0 <- students where s$0.age = $0.age) from s$0 <- students""",
       TestWorlds.professors_students,
       ignoreRootTypeComparison = true)
   }

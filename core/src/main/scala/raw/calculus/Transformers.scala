@@ -39,7 +39,9 @@ trait Transformer extends LazyLogging {
     */
   protected def rewriteInternalIdns[T <: RawNode](n: T): T = {
     val collectIdnDefs = collect[Seq, Idn] {
-      case IdnDef(idn) => idn
+      case IdnDef(idn) =>
+        assert(idn.contains("$"))
+        idn
     }
     val idns = collectIdnDefs(n)
 
@@ -49,8 +51,12 @@ trait Transformer extends LazyLogging {
 
     rewrite(
       everywhere(rule[IdnNode] {
-        case IdnDef(idn) if idn.startsWith("$") => IdnDef(newIdn(idn))
-        case IdnUse(idn) if idn.startsWith("$") && idns.contains(idn) => IdnUse(newIdn(idn))
+        case IdnDef(idn) if idns.contains(idn) =>
+          logger.debug(s"1here with $idn and ${newIdn(idn)}")
+          IdnDef(newIdn(idn))
+        case IdnUse(idn) if idns.contains(idn) =>
+          logger.debug(s"2here with $idn and ${newIdn(idn)}")
+          IdnUse(newIdn(idn))
       }))(n)
   }
 }
@@ -58,32 +64,7 @@ trait Transformer extends LazyLogging {
 /** A transformer that requires the analyzer.
   */
 trait SemanticTransformer extends Transformer {
-
-  import org.kiama.rewriting.Rewriter._
-  import Calculus._
-  import SymbolTable._
-
   def analyzer: SemanticAnalyzer
-
-  /** Similar to above but rewrittes also user-defined identifiers.
-    * Since we rewrite user-defined identifiers, we must rely on entity for those.
-    * But since we want to mix this with other rewrites, we rewrite the internally generated identifiers w/o entity.
-    */
-  protected def rewriteIdns[T <: RawNode](n: T): T = {
-    def rawEntity(n: IdnNode): RawEntity = analyzer.entity(n) match {
-      case e: RawEntity => e
-    }
-
-    rewrite(
-      everywhere(rule[IdnNode] {
-        case n: IdnDef => IdnDef(rawEntity(n).id.idn)
-        case n @ IdnUse(idn) => rawEntity(n) match {
-          case _: DataSourceEntity => IdnUse(idn)      // For data sources, keep the original identifier use.
-          case e                   => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
-        }
-      }))(n)
-  }
-
 }
 
 /** A transformer that can be pipelined with other transformers.

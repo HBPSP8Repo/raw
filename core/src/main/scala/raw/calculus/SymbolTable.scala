@@ -1,11 +1,12 @@
 package raw
 package calculus
 
+import com.typesafe.scalalogging.LazyLogging
 import org.kiama.util.Environments
 
 case class Symbol(idn: String) extends RawNode
 
-object SymbolTable extends Environments {
+object SymbolTable extends Environments with LazyLogging {
 
   import org.kiama.util.{Counter, Entity}
   import Calculus._
@@ -20,10 +21,22 @@ object SymbolTable extends Environments {
     Symbol(s"$$$n")
   }
 
+  val counterByIdn = scala.collection.mutable.HashMap[Idn, Int]()
+
+  def nextByIdn(idn: Idn): Symbol = {
+    val lookupIdn = if (idn.startsWith("$")) "" else idn
+    if (!counterByIdn.contains(lookupIdn))
+      counterByIdn.put(lookupIdn, 0)
+    val n = counterByIdn(lookupIdn)
+    counterByIdn.put(lookupIdn, n + 1)
+    Symbol(s"$lookupIdn$$$n")
+  }
+
   /** Reset the symbol table.
    */
   def reset() {
     counter.reset()
+    counterByIdn.clear()
   }
 
   sealed abstract class RawEntity extends Entity {
@@ -34,7 +47,9 @@ object SymbolTable extends Environments {
 
   /** Entity for a variable (aka. identifier).
     */
-  case class VariableEntity(idn: IdnDef, t: Type) extends RawEntity
+  case class VariableEntity(idn: IdnDef, t: Type) extends RawEntity {
+    override val id = nextByIdn(idn.idn)
+  }
 
   /** Entity for a data source.
     */

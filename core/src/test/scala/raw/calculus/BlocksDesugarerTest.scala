@@ -8,7 +8,7 @@ class BlocksDesugarerTest extends CalculusTest {
   test("ExpBlock") {
     check(
       """for (d <- Departments) yield set { name := d.name; (deptName: name) }""",
-      """for ($0 <- Departments) yield set (deptName: $0.name)""",
+      """for (d$0 <- Departments) yield set (deptName: d$0.name)""",
       TestWorlds.departments)
   }
 
@@ -21,7 +21,7 @@ class BlocksDesugarerTest extends CalculusTest {
   test("PatternGen") {
     check(
       """for ((a, b, c, d) <- set_of_tuples) yield set (a, d)""",
-      """for ($0 <- set_of_tuples; $1 := $0._1; $2 := $0._2; $3 := $0._3; $4 := $0._4) yield set (a: $1, d: $4)""",
+      """for ($0 <- set_of_tuples; a$1 := $0._1; b$2 := $0._2; c$3 := $0._3; d$4 := $0._4) yield set (a: a$1, d: d$4)""",
       TestWorlds.set_of_tuples)
   }
 

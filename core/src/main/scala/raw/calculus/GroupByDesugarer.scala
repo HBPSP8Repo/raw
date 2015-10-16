@@ -38,7 +38,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
 
   private lazy val partitionSelect: Select => Select = attr {
     s =>
-      val ns = rewriteIdns(s)
+      val ns = rewriteInternalIdns(s)
 
       val nproj =
         if (ns.from.length == 1)
@@ -46,9 +46,11 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
         else
           RecordCons(
             ns.from.zip(s.from).zipWithIndex map {
+              // The generator had a user-generated identifier (that's why it doesn't start with $; it can be e.g. 's$0')
               case ((Gen(Some(PatternIdn(IdnDef(idn))), _), Gen(Some(PatternIdn(IdnDef(origIdn))), _)), _) if !origIdn.startsWith("$") =>
-                AttrCons(origIdn, IdnExp(IdnUse(idn)))
-              case ((Gen(Some(PatternIdn(IdnDef(idn))), _), Gen(Some(PatternIdn(IdnDef(origIdn))), _)), idx) =>
+                // We strip all characters until $ so that from 's$0' we get back 's', which was the original user identifier
+                AttrCons(origIdn.takeWhile(_ != '$'), IdnExp(IdnUse(idn)))
+              case ((Gen(Some(PatternIdn(IdnDef(idn))), _), _), idx) =>
                 AttrCons(s"_${idx + 1}", IdnExp(IdnUse(idn)))})
 
       if (ns.where.isDefined)
@@ -59,7 +61,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
 
   private lazy val starSelect: Select => Select = attr {
     s =>
-      val ns = rewriteIdns(s)
+      val ns = rewriteInternalIdns(s)
 
       if (ns.where.isDefined)
         Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
@@ -72,21 +74,17 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
 
   private lazy val selectGroupBy = rule[Exp] {
     case select @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
-      logger.debug(s"Inside select $select")
-
       // Desugar * and partition from the projection side.
       val starReplacement = starSelect(select)
       val partitionReplacement = partitionSelect(select)
 
       val starInRest = rule[Exp] {
         case s: Star =>
-          logger.debug(s"ping ping")
           deepclone(starReplacement)
       }
 
       val partitionInRest = rule[Exp] {
         case p: Partition =>
-          logger.debug(s"ping pong")
           deepclone(partitionReplacement)
       }
 
@@ -95,8 +93,3 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
       Select(from, distinct, None, nproj, where, None, None)
   }
 }
-
-// stop using $0 and start using s$0 ?
-// humm...
-// then at least i have both the name and the unique thing to replace at will, using rewrieInternalIdns
-// i also have to change ALL testcases :)

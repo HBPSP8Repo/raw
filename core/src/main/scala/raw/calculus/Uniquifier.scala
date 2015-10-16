@@ -1,15 +1,15 @@
 package raw
 package calculus
 
-import org.kiama.rewriting.Rewriter._
-import raw.calculus.Calculus.{IdnUse, IdnDef, IdnNode}
-import raw.calculus.SymbolTable.{DataSourceEntity, RawEntity}
-
 case class UniquifierError(err: String) extends RawException(err)
 
 /** Uniquify names
   */
 class Uniquifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
+
+  import org.kiama.rewriting.Rewriter._
+  import Calculus._
+  import SymbolTable._
 
   def strategy = uniquify
 
@@ -19,10 +19,12 @@ class Uniquifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   private lazy val uniquify = everywhere(rule[IdnNode] {
-    case n @ IdnDef(idn) => IdnDef(rawEntity(n).id.idn)
+    case n @ IdnDef(idn) => rawEntity(n) match {
+      case v: VariableEntity => IdnDef(v.id.idn)
+    }
     case n @ IdnUse(idn) => rawEntity(n) match {
-      case _: DataSourceEntity => IdnUse(idn)      // For data sources, keep the original identifier use.
-      case e                   => IdnUse(e.id.idn) // Otherwise, replace by the internal, globally unique identifier.
+      case _: DataSourceEntity => IdnUse(idn)       // For data sources, keep the original identifier use.
+      case v: VariableEntity   => IdnUse(v.id.idn)  // Otherwise, replace by the newly-generated unique identifier.
     }
   })
 }
