@@ -69,10 +69,9 @@ object SchemaParser extends StrictLogging {
   var c = 0
   def recordName(r: RecordType) = {
     if (!recordNames.contains(r)) {
-      recordNames.put(r, s"__record$c")
+      recordNames.put(r, s"__UserRecord$c")
       c += 1
     }
-
     recordNames(r)
   }
 
@@ -93,7 +92,7 @@ object SchemaParser extends StrictLogging {
     private[this] def defineCaseClass(r: RecordType): String = {
       r match {
         case RecordType(Attributes(atts)) =>
-          val idn = recordNames(r)
+          val idn = recordName(r)
           caseClassesSym.get(idn) match {
             case Some(src) =>
               logger.info(s"case class $idn already defined")
@@ -141,7 +140,7 @@ object SchemaParser extends StrictLogging {
         case _: StringType => "String"
         case _: IntType => "Int"
         case _: FloatType => "Float"
-        case r: RecordType => recordNames(r)
+        case r: RecordType => recordName(r)
         case CollectionType(BagMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
         case CollectionType(ListMonoid(), innerType) => s"Seq[${buildScalaDeclaration(innerType)}]"
         case CollectionType(SetMonoid(), innerType) => s"Set[${buildScalaDeclaration(innerType)}]"
