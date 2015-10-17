@@ -15,7 +15,7 @@ class SimplifierTest extends CalculusTest {
   test("join") {
     check(
       """for (speed_limit <- speed_limits; observation <- radar; speed_limit.location = observation.location; observation.speed < speed_limit.min_speed or observation.speed > speed_limit.max_speed) yield list (name: observation.person, location: observation.location)""",
-      """for ($0 <- speed_limits; $1 <- radar; $0.location = $1.location; $1.speed < $0.min_speed or $1.speed > $0.max_speed) yield list (name: $1.person, location: $1.location)""",
+      """for (speed_limit$0 <- speed_limits; observation$1 <- radar; speed_limit$0.location = observation$1.location; observation$1.speed < speed_limit$0.min_speed or observation$1.speed > speed_limit$0.max_speed) yield list (name: observation$1.person, location: observation$1.location)""",
       TestWorlds.fines)
   }
 

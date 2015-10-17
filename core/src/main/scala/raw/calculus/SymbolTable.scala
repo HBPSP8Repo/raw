@@ -24,7 +24,7 @@ object SymbolTable extends Environments with LazyLogging {
   val counterByIdn = scala.collection.mutable.HashMap[Idn, Int]()
 
   def nextByIdn(idn: Idn): Symbol = {
-    val lookupIdn = if (idn.startsWith("$")) "" else idn
+    val lookupIdn = idn.takeWhile(_ != '$')
     if (!counterByIdn.contains(lookupIdn))
       counterByIdn.put(lookupIdn, 0)
     val n = counterByIdn(lookupIdn)
