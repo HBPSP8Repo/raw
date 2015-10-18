@@ -15,7 +15,7 @@ class OptimizerTest extends CalculusTest {
   test("to_set found") {
     check(
       "select A.title from A in (select distinct A from A in authors)",
-      """reduce(set, $313 <- authors, $313.title)""",
+      """reduce(set, A$0 <- authors, A$0.title)""",
       TestWorlds.publications)
   }
 

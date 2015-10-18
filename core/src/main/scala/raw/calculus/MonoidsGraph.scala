@@ -72,8 +72,6 @@ trait MonoidsGraph extends LazyLogging {
   }
 
   def unifyMonoids(a: Monoid, b: Monoid): Boolean = {
-    logger.debug(s"unifyMonoids a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
-
     addMonoidProperties(a)
     addMonoidProperties(b)
 

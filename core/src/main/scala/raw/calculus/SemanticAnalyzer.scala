@@ -92,7 +92,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   // TODO: Should we use u.sym or also copy the symbol to a new one: e.g. Symbol(u.sym.idn) ?
   private def makeNullable(source: Type, models: Seq[Type], nulls: Seq[Type], nullable: Option[Boolean] = None): Type = {
-    logger.debug(s"t is **** ${PrettyPrinter(source)} and models ${models.map(PrettyPrinter(_)).mkString(",")}")
     val t = (source, models) match {
       case (col @ CollectionType(m, i), colls: Seq[CollectionType]) =>
         val inners = colls.map(_.innerType)
@@ -191,7 +190,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
 
       val te = baseType(e) // regular type (no option except from sources)
-      logger.debug(s"*** ${CalculusPrettyPrinter(e)} => ${PrettyPrinter(te)}")
 
       val nt = e match {
         case RecordProj(e1, idn)                 => tipe(e1) match {
@@ -213,7 +211,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
         case FunApp(f, v)                        => tipe(f) match {
           case ft @ FunType(t1, t2) =>
-            logger.debug(s"my te is ${PrettyPrinter(te)}")
             makeNullable(te, Seq(t2), Seq(ft, t2, tipe(v)))
         }
         case MergeMonoid(_, e1, e2)              => (tipe(e1), tipe(e2)) match {
@@ -469,7 +466,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       val t = expType(e)
       val nt = find(t)
-      logger.debug(s"nt is ${PrettyPrinter(nt)}")
       nt match {
         case CollectionType(_, ResolvedType(RecordType(Attributes(atts)))) =>
           var nenv: Environment = out(g)
@@ -545,7 +541,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   lazy val starEntity: Star => Entity = attr {
     e => {
-      logger.debug(s"we get here from ${CalculusPrettyPrinter(e)}");
       lookup(starEnv.in(e), "*", UnknownEntity())
     }
   }
@@ -770,9 +765,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       decl(idn) match {
         case Some(b: Bind) => tipeBind(b) match {
           case Some(FreeSymbols(typeSyms, monoidSyms, attSyms)) =>
-            val ts = TypeScheme(t, typeSyms, monoidSyms, attSyms)
-            //              logger.debug(s"TypeScheme is ${PrettyPrinter(ts)} for ${CalculusPrettyPrinter(b)}")
-            ts
+            TypeScheme(t, typeSyms, monoidSyms, attSyms)
           case None => NothingType()
         }
         case _             => t
@@ -790,8 +783,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     * object is used to allow unification to proceed unaffected.
     */
   private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) = {
-    logger.debug(s"instantiateTypeScheme called with ${PrettyPrinter(t)} typeSyms $typeSyms monoidSyms $monoidSyms attSyms $attSyms")
-
     val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getNewSym(sym: Symbol): Symbol = {
@@ -959,14 +950,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
 
       val resolvedAtts = scala.collection.mutable.ListBuffer[AttrType]()
-      logger.debug(s"slots are $slots")
       for (s <- slots) {
-        logger.debug(s"s.t ${PrettyPrinter(s.t)} find(s.t) ${PrettyPrinter(find(s.t))}")
         find(s.t) match {
           case ResolvedType(RecordType(recAtts)) =>
             aFind(recAtts) match {
               case Attributes(atts)      =>
-                logger.debug(s".. $atts")
                 for (att <- atts) {
                   resolvedAtts += AttrType(uniqueIdn(att.idn), att.tipe)
                 }
@@ -996,19 +984,17 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     for (slots <- concatDefinition(c).slotsSet) {
       val props = resolve(slots)
       if (props.isComplete) {
-        logger.debug(s"getConcatProperties complete $props")
         return props
       }
       if (mostPrecise == null || props.atts.length > mostPrecise.atts.length) {
         mostPrecise = props
       }
     }
-    logger.debug(s"getConcatProperties mostPrecise $mostPrecise")
     mostPrecise
   }
 
   private def unifyAttributes(a: RecordAttributes, b: RecordAttributes, occursCheck: Set[(Type, Type)]): Boolean = {
-    logger.debug(s"unifyAttributes a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
+    //logger.debug(s"unifyAttributes a ${PrettyPrinter(a)} b ${PrettyPrinter(b)}")
     val na = aFind(a)
     val nb = aFind(b)
     (aFind(a), aFind(b)) match {
@@ -1040,10 +1026,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         if (!atts1.map(_.idn).subsetOf(atts2.map(_.idn).toSet)) {
           false
         } else {
-          logger.debug(s"atts1 is $atts1")
-          logger.debug(s"atts2 is $atts2")
           for (att1 <- atts1) {
-            logger.debug(s"processing att1 $att1")
             if (!unify(att1.tipe, nb.getType(att1.idn).get, occursCheck)) {
               return false
             }
@@ -1057,23 +1040,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       //        true
       case (ca: ConcatAttributes, cb: ConcatAttributes)          =>
         // check if their beginnings are incompatible
-        logger.debug("a1")
         val propsA = getConcatProperties(ca)
-        logger.debug("a2")
         val propsB = getConcatProperties(cb)
-        logger.debug("a3")
-        logger.debug(s"propsA.atts ${propsA.atts} propsB.atts ${propsB.atts}")
         if (!propsA.atts.zip(propsB.atts).map { case (att1, att2) => unify(att1.tipe, att2.tipe, occursCheck) }.forall(identity)) {
           return false
         }
         // check if their common attribute variables are incompatible
-        logger.debug("a4")
         val defCa = concatDefinition(ca)
-        logger.debug("a5")
         val defCb = concatDefinition(cb)
-        logger.debug("a6")
         val commonIdns = defCa.atts.map(_.idn).intersect(defCb.atts.map(_.idn))
-        logger.debug("a7")
         for (idn <- commonIdns) {
           val att1 = na.getType(idn).head
           val att2 = nb.getType(idn).head
@@ -1081,7 +1056,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             return false
           }
         }
-        logger.debug("a1")
         // all checks ok, so can unify
         val nc = ConcatAttributes()
         freshConcat(nc, defCa.atts ++ defCb.atts, defCa.slotsSet ++ defCb.slotsSet)
@@ -1203,7 +1177,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         true
 
       case (CollectionType(m1, inner1), CollectionType(m2, inner2)) =>
-        logger.debug(s"unifyMonoids of ${PrettyPrinter(m1)} and ${PrettyPrinter(m2)}")
         unifyMonoids(m1, m2) && unify(inner1, inner2, occursCheck + ((t1, t2)))
 
       case (FunType(p1, e1), FunType(p2, e2)) =>
@@ -1376,7 +1349,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val t = expType(e)
             find(t) match {
               case t1: CollectionType => t1
-              case _ => logger.debug("selectStarType found Nothing"); return NothingType()
+              case _ => return NothingType()
             }
         }
 
@@ -1414,11 +1387,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
           }
           freshConcat(c, slotsSet = Set(slots))
-          logger.debug(s"selectStarType slots $slots")
           val inner = RecordType(c)
           if (s.group.isDefined) {
             //   SELECT age, * FROM students, professors GROUP BY age
-            logger.debug(s"in collection type")
             CollectionType(maxMonoid(fromTypes), inner)
           } else {
             //   SELECT * FROM students, professors
@@ -1445,20 +1416,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         r
       case HasType(e, expected, desc) =>
         val t = expType(e)
-        logger.debug(s"HasType(${CalculusPrettyPrinter(e)}, ${PrettyPrinter(expected)})")
         val r = unify(t, expected)
-//        logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
-        logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
         if (!r) {
           tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
         }
         r
 
       case MaxOfMonoids(n, gs) =>
-        logger.debug(s"In MaxOfMonoids")
-        logger.debug(s"n ${CalculusPrettyPrinter(n)}")
-        logger.debug(s"gs ${gs.map(CalculusPrettyPrinter(_)).mkString("  ")}")
-
         val fromTypes = gs.map {
           case Gen(_, e) =>
             val te = expType(e)
@@ -1478,18 +1442,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               case _: NothingType => return true
             }
         }
-        logger.debug(s"m is ${PrettyPrinter(m)}")
 
         for (minType <- fromTypes) {
           val minM = minType.m
-          logger.debug(s"minM is ${PrettyPrinter(minM)}")
           val nv = MonoidVariable()
           addMonoidOrder(nv, m)
           val r = unifyMonoids(minM, nv)
-//          logger.debug("monoidsVarMap after unify:\n" + monoidsVarMap.toString)
-          logger.debug("typesVarMap after unify:\n" + typesVarMap.toString)
           if (!r) {
-            logger.debug("Hey we failed here")
             // TODO: Fix error message: should have m and nm?
             tipeErrors += IncompatibleMonoids(m, walk(minType), Some(n.pos))
             return false
@@ -1608,7 +1567,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case FunAppType(funApp @ FunApp(f, e)) =>
         val t = expType(f)
-        logger.debug(s"== ${PrettyPrinter(walk(expType(f)))}, ${PrettyPrinter(walk(expType(e)))}")
         find(t) match {
           case FunType(expected, output) =>
             val t1 = expType(e)
@@ -1621,26 +1579,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               recurse(t)
             }
 
-            logger.debug(s"--expected ${PrettyPrinter(walk(expected))}")
-            logger.debug(s"--output ${PrettyPrinter(walk(output))}")
             val r = unify(makeUpPattern(t1), expected)
             if (!r) {
               tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(e.pos), Some(f.pos))
               return false
             }
 
-            logger.debug(s"++expected ${PrettyPrinter(walk(expected))}")
-            logger.debug(s"++output ${PrettyPrinter(walk(output))}")
-
             val tf = expType(funApp)
             val r1 = unify(output, tf)
-
-            logger.debug(s"makeUpPattern ${PrettyPrinter(walk(makeUpPattern(t1)))}")
-            logger.debug("AT funApp with")
-            logger.debug(s"e ${PrettyPrinter(walk(t1))} r1 $r1")
-            logger.debug(s"tf ${PrettyPrinter(walk(tf))} r1 $r1")
-            logger.debug(s"output ${PrettyPrinter(walk(output))}")
-            logger.debug(s"expected ${PrettyPrinter(walk(expected))}")
 
             if (!r1) {
               tipeErrors += IncompatibleTypes(walk(output), walk(tf), Some(e.pos), Some(f.pos))
@@ -1653,7 +1599,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
     cs match {
       case c :: rest =>
-        //        logger.debug(s"  solving $c")
         if (solver(c))
           solve(rest)
         else
@@ -1720,151 +1665,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           Attributes(props.atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck)) })
         else
           c
-//        val usedIdns = scala.collection.mutable.Set[Idn]()
-//
-//        def uniqueIdn(i: Idn, j: Int = 0): Idn = {
-//          val ni = if (j == 0) i else s"${i}_$j"
-//          if (usedIdns.contains(ni))
-//            uniqueIdn(i, j+1)
-//          else {
-//            usedIdns += ni
-//            ni
-//          }
-//        }
-//
-//        val props = getConcatProperties(c)
-//        logger.debug(s"here with props $props")
-//        if (props.isComplete)
-//          Attributes(props.atts.flatMap {
-//            case AttrType(idn1, t1: RecordType) =>
-//              reconstructType(t1, occursCheck) match {
-//                case t2: RecordType => t2.recAtts.atts.map { case AttrType(idn2, t2) => AttrType(uniqueIdn(s"${idn1}_$idn2"), reconstructType(t2, occursCheck)) }
-//              }
-//            case AttrType(idn1, t1) => Seq(AttrType(uniqueIdn(idn1), reconstructType(t1, occursCheck)))
-//          })
-//        else
-//          c
     }
-//      case c @ ConcatAttributes(_, sym) =>
-//        val links = concatGraph(c)
-//        for (gs <- links.froms) {
-//
-//          // Return full sequence of fully-resolved attribute types, if possible
-//          def getInners(gs: Seq[Gen]): Option[Seq[AttrType]] = {
-//
-//            // Collect sequence of (pattern, inner type) for generators with known collection types.
-//            // Fail early if some generator type is not yet known.
-//            val inners = scala.collection.mutable.MutableList[(Option[Pattern], Type)]()
-//            for (g <- gs) {
-//              g match {
-//                case Gen(p, e) =>
-//                  val t = expType(e)
-//                  reconstructType(t, occursCheck) match {
-//                    case ResolvedType(CollectionType(_, inner1)) => inners += ((p, inner1))
-//                    case _ => return None
-//                  }
-//              }
-//            }
-//
-//            val usedIdns = scala.collection.mutable.Set[Idn]()
-//
-//            def uniqueIdn(i: Idn, j: Int = 0): Idn = {
-//              val ni = if (j == 0) i else s"${i}_$j"
-//              if (usedIdns.contains(ni))
-//                uniqueIdn(i, j+1)
-//              else {
-//                usedIdns += ni
-//                ni
-//              }
-//            }
-//
-//            // Collect sequence of records for fully-typed inner fields
-//            val atts = scala.collection.mutable.MutableList[AttrType]()
-//            for (inner <- inners) {
-//              inner match {
-//                case (_, ResolvedType(RecordType(Attributes(atts1)))) =>
-//                  for (att <- atts1) {
-//                    atts += AttrType(uniqueIdn(att.idn), att.tipe)
-//                  }
-//                case (_, ResolvedType(_: RecordType)) =>
-//                  // Not fully defined record, so cannot narrow
-//                  return None
-//                case (Some(PatternIdn(IdnDef(idn))), inner1) =>
-//                  atts += AttrType(uniqueIdn(idn), inner1)
-//                case (None, inner1) =>
-//                  // TODO: This _1_2 convention (in case of uniqueIdn) isn't...great
-//                  atts += AttrType(uniqueIdn(s"_${atts.length + 1}"), inner1)
-//              }
-//            }
-//
-//            logger.debug(s"atts is $atts")
-//            assert(atts.map(_.idn).toSet.size == atts.map(_.idn).length) // TODO: Ensure that there are no overlapping idn names
-//
-//            Some(atts.to)
-//          }
-//
-//          getInners(gs) match {
-//            case Some(atts2) =>
-//              logger.debug(s"got here@!!!! $atts2")
-//              // We found a fully formed attribute, so let's return early
-//              return Attributes(atts2)
-//            case None =>
-//              // Try the next sequence of generators
-//          }
-//
-//        }
-//        // Nothing fully-formed was found, so return a ConcatAttributes again
-//        // TODO: reconstructType of inner types ? no.. there's no inner types: it's just the froms? hum... to check w/ Ben whether we replicate stuff or not
-//        ConcatAttributes(???, sym)
-//    }
-
-//
-//    def reconstructAttributes(atts: RecordAttributes, occursCheck: Set[Type]): RecordAttributes = atts match {
-//      case concat: ConcatAttributes => {
-//        val links = concatGraph.get(concat).head
-//        val possibleRecordAttributes = links.froms.map {
-//          // for each from list, build its type.
-//          case f =>
-//            val items: Seq[(Option[Idn], Type)] = f.map {
-//              // walk the gens and build their type, we keep the gen name if we should use it later
-//              //              case Gen(Some(PatternIdn(idn)), e) => (Some(idn.idn), reconstructType(expType(e), occursCheck).asInstanceOf[CollectionType].innerType)
-//              //              case Gen(None, e) => (None, find(expType(e)).asInstanceOf[CollectionType].innerType)
-//              case Gen(p, e) =>
-//                val inner = reconstructType(expType(e), occursCheck) match {
-//                  case UserType(m) => world.tipes(m) match {
-//                    case CollectionType(_, inner) => inner
-//                  }
-//                  case CollectionType(_, inner) => inner
-//                }
-//                p match {
-//                  case Some(PatternIdn(idn)) => (Some(idn.idn), inner)
-//                  case None => (None, inner)
-//                }
-//            }
-////            // because we wouldn't have a concat attributes with just one from
-//            assert(items.length != 1)
-////            // length is > 1, we make a concatenation of records
-//            val flatItems: Seq[(Option[Idn], Type)] = items.flatMap {
-//              case item => item._2 match {
-//                case r: RecordType => r.recAtts.atts.map{case a => (Some(a.idn), a.tipe)} // we can have a concat here
-//                case _ => Seq((item._1, item._2)) // can be considered as a record of one field since we concatenate
-//              }
-//            }
-////            // this is where we generate names and all, here I just replace None by the index, since it's flattened it is good
-//            val newAttrs = flatItems.zipWithIndex.map{case (item, idx) =>
-//              AttrType(if (item._1.isEmpty) s"_${idx+1}" else item._1.get, reconstructType(item._2, occursCheck))
-//            }
-//            ConcatAttributes(newAttrs, concat.sym)
-//        }
-//        assert(possibleRecordAttributes.size == 1) // TODO to merge all
-//        possibleRecordAttributes.head
-//      }
-//      case Attributes(atts)              =>
-//        Attributes(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) })
-//      case AttributesVariable(atts, sym) =>
-//        AttributesVariable(atts.map { case AttrType(idn1, t1) => AttrType(idn1, reconstructType(t1, occursCheck + t)) }, sym)
-//    }
-
 
     def reconstructType(t: Type, occursCheck: Set[Type]): Type = {
       val r = if (occursCheck.contains(t)) {
