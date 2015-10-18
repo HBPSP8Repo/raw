@@ -9,7 +9,7 @@ class UnnesterTest extends CalculusTest {
     check(
       "for (d <- Departments) yield set d",
       """
-      reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0)
+      reduce(set, d$0 <- filter(d$0 <- filter(d$0 <- Departments, true), true), d$0)
       """,
       TestWorlds.departments)
   }
@@ -18,7 +18,7 @@ class UnnesterTest extends CalculusTest {
     check(
       "for (d <- Departments) yield set d.name",
       """
-      reduce(set, $0 <- filter($0 <- filter($0 <- Departments, true), true), $0.name)
+      reduce(set, d$0 <- filter(d$0 <- filter(d$0 <- Departments, true), true), d$0.name)
       """,
       TestWorlds.departments)
   }
@@ -29,13 +29,13 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $1) <- filter(
-          ($0, $1) <- join(
-            $0 <- filter($0 <- Departments, true),
-            $1 <- filter($1 <- Departments, true),
-            $0.dno = $1.dno),
+        (a$0, b$0) <- filter(
+          (a$0, b$0) <- join(
+            a$0 <- filter(a$0 <- Departments, true),
+            b$0 <- filter(b$0 <- Departments, true),
+            a$0.dno = b$0.dno),
           true),
-        (a1: $0, b1: $1))
+        (a1: a$0, b1: b$0))
       """,
       TestWorlds.departments)
   }
@@ -46,13 +46,13 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         list,
-        ($0, $1) <- filter(
-          ($0, $1) <- join(
-            $0 <- filter($0 <- speed_limits, true),
-            $1 <- filter($1 <- radar, true),
-            $0.location = $1.location and $1.speed > $0.max_speed),
+        (speed_limit$0, observation$0) <- filter(
+          (speed_limit$0, observation$0) <- join(
+            speed_limit$0 <- filter(speed_limit$0 <- speed_limits, true),
+            observation$0 <- filter(observation$0 <- radar, true),
+            speed_limit$0.location = observation$0.location and observation$0.speed > speed_limit$0.max_speed),
           true),
-        (name: $1.person, location: $1.location))
+        (name: observation$0.person, location: observation$0.location))
       """,
       TestWorlds.fines)
   }
@@ -63,13 +63,13 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         list,
-        ($0, $1) <- filter(
-          ($0, $1) <- join(
-            $0 <- filter($0 <- speed_limits, true),
-            $1 <- filter($1 <- radar, true),
-            $0.location = $1.location and $1.speed < $0.min_speed or $1.speed > $0.max_speed),
+        (speed_limit$0, observation$0) <- filter(
+          (speed_limit$0, observation$0) <- join(
+            speed_limit$0 <- filter(speed_limit$0 <- speed_limits, true),
+            observation$0 <- filter(observation$0 <- radar, true),
+            speed_limit$0.location = observation$0.location and observation$0.speed < speed_limit$0.min_speed or observation$0.speed > speed_limit$0.max_speed),
           true),
-        (name: $1.person, location: $1.location))
+        (name: observation$0.person, location: observation$0.location))
       """,
       TestWorlds.fines)
   }
@@ -80,16 +80,16 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         list,
-        (($0, $1), $2) <- filter(
-          (($0, $1), $2) <- join(
-            ($0, $1) <- join(
-              $0 <- filter($0 <- students, true),
-              $1 <- filter($1 <- profs, true),
-              $0.office = $1.office),
-            $2 <-  filter($2 <- departments, true),
-            $1.name = $2.prof),
+        ((s$0, p$0), d$0) <- filter(
+          ((s$0, p$0), d$0) <- join(
+            (s$0, p$0) <- join(
+              s$0 <- filter(s$0 <- students, true),
+              p$0 <- filter(p$0 <- profs, true),
+              s$0.office = p$0.office),
+            d$0 <-  filter(d$0 <- departments, true),
+            p$0.name = d$0.prof),
           true),
-        $0)
+        s$0)
       """,
       TestWorlds.school)
   }
@@ -100,16 +100,16 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         list,
-        (($0, $1), $2) <- filter(
-          (($0, $1), $2) <- join(
-            ($0, $1) <- join(
-              $0 <- filter($0 <- students, true),
-              $1 <- filter($1 <- profs, true),
-              $0.office = $1.office),
-            $2 <- filter($2 <- departments, true),
-            $1.name = $2.prof),
+        ((s$0, p$0), d$0) <- filter(
+          ((s$0, p$0), d$0) <- join(
+            (s$0, p$0) <- join(
+              s$0 <- filter(s$0 <- students, true),
+              p$0 <- filter(p$0 <- profs, true),
+              s$0.office = p$0.office),
+            d$0 <- filter(d$0 <- departments, true),
+            p$0.name = d$0.prof),
           true),
-        $0)
+        s$0)
       """,
       TestWorlds.school)
   }
@@ -120,18 +120,18 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $2) <- filter(
-          ($0, $2) <- nest(
+        (s$0, $1) <- filter(
+          (s$0, $1) <- nest(
             max,
-            ($0, $1) <- outer_join(
-              $0 <- filter($0 <- students, true),
-              $1 <- filter($1 <- professors, true),
+            (s$0, p$0) <- outer_join(
+              s$0 <- filter(s$0 <- students, true),
+              p$0 <- filter(p$0 <- professors, true),
               true),
-            $0,
+            s$0,
             true,
-            $1.age),
-          $0.age < $2),
-        $0.name)
+            p$0.age),
+          s$0.age < $1),
+        s$0.name)
       """,
       TestWorlds.professors_students)
   }
@@ -147,18 +147,18 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $2) <- filter(
-          ($0, $2) <- nest(
+        (s$0, $1) <- filter(
+          (s$0, $1) <- nest(
             sum,
-            ($0, $1) <- outer_join(
-              $0 <- filter($0 <- students, true),
-              $1 <- filter($1 <- professors, true),
-              $1.age = $0.age),
-            $0,
+            (s$0, p$0) <- outer_join(
+              s$0 <- filter(s$0 <- students, true),
+              p$0 <- filter(p$0 <- professors, true),
+              p$0.age = s$0.age),
+            s$0,
             true,
             1),
-          $0.age = $2),
-        $0.name)
+          s$0.age = $1),
+        s$0.name)
       """,
       TestWorlds.professors_students)
   }
