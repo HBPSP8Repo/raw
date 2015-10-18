@@ -5,10 +5,10 @@ import com.typesafe.scalalogging.LazyLogging
 
 import World.MonoidsVarMap
 
-trait MonoidsGraph extends LazyLogging {
+case class MonoidProperties(commutative: Option[Boolean],
+                            idempotent: Option[Boolean])
 
-  case class MonoidProperties(commutative: Option[Boolean],
-                              idempotent: Option[Boolean])
+trait MonoidsGraph extends LazyLogging {
 
   private case class MonoidOrder(min: Monoid, max: Monoid)
 

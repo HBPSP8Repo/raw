@@ -214,8 +214,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def toCanonicalForm(recordType: RecordType): String =
     PrettyPrinter(recordType)
 
-  def recordTypeSym(r: RecordType): String =
-    classesMap(toCanonicalForm(r))
+  /** Return a user record for the given record type with two attributes, otherwise use a Scala Tuple2.
+    */
+  def tuple2Sym(r: RecordType): String = {
+    assert(r.recAtts.atts.size == 2)
+    classesMap.getOrElse(toCanonicalForm(r), "Tuple2")
+  }
 
   def buildScalaType(t: raw.Type, world: World): String = {
     val baseType = t match {
@@ -231,10 +235,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           atts
             .map(att => s"(${buildScalaType(att.tipe, world)})")
             .mkString("(", ", ", ")"))
-      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
+      case CollectionType(_: CollectionMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+//      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+//      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+//      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
+//      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
       case UserType(idn) => buildScalaType(world.tipes(idn), world)
       case _: AnyType => "Any"
       case _: NothingType => "Nothing"
@@ -343,10 +348,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"${build(e1)}.$id"
       case RecordCons(atts) =>
         val t = analyzer.tipe(e).asInstanceOf[RecordType]
+        val className = classesMap.getOrElse(toCanonicalForm(t), "")
         val vals = atts
           .map(att => build(att.e))
           .mkString(",")
-        c.parse( s"""($vals)""")
+        c.parse( s"""$className($vals)""")
       case IfThenElse(e1, e2, e3) =>
         q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
@@ -521,7 +527,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       // TODO: Improve generation of identifier names to never conflict with user-defined names
       val idn = idnNode.idn
       if (idn.startsWith("$"))
-        s"___arg${idn.drop(1)}"
+        s"___anon${idn.drop(1)}"
+      else if (idn.contains("$"))
+        s"___${idn.replace("$", "___")}"
       else
         idn
     }
@@ -578,7 +586,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Unnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         ${build(child)}
@@ -603,7 +611,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ OuterUnnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         ${build(child)}
@@ -634,7 +642,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Join(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         val rightCode = ${build(childRight)}.toSeq
@@ -660,7 +668,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ OuterJoin(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         val rightCode = ${build(childRight)}.toSeq
@@ -689,7 +697,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Reduce
         */
-      case Reduce(m, Gen(Some(pat), child), e) =>
+      case n @ Reduce(m, Gen(Some(pat), child), e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val projected = q"""
         ${build(child)}.map($childArg => {
@@ -700,9 +708,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           case _: MaxMonoid => q"""$projected.max"""
           case _: MinMonoid => q"""$projected.min"""
           case m1: PrimitiveMonoid => q"""$projected.foldLeft(${zero(m1)})(${fold(m1)})""" // TODO: fold vs foldLeft?
+          case _: SetMonoid => q"""$projected.toSet.toIterable"""
           case _: BagMonoid => q"""$projected.toList.toIterable"""
           case _: ListMonoid => q"""$projected.toList.toIterable"""
-          case _: SetMonoid => q"""$projected.toSet.toIterable"""
         }
         q"""
         val start = "************ Reduce (Scala) ************"
@@ -716,7 +724,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -747,7 +755,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -779,7 +787,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
-        val rt = q"${Ident(TermName(recordTypeSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
