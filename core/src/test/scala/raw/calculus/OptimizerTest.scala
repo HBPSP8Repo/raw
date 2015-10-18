@@ -23,7 +23,8 @@ class OptimizerTest extends CalculusTest {
     check(
       "select A from A in authors",
       """authors""",
-      TestWorlds.publications)
+      TestWorlds.publications,
+      ignoreRootTypeComparison = true)
   }
 
   test("publications: select A from A in authors where A.year = 1990") {

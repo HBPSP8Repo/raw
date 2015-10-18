@@ -2316,4 +2316,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 // TODO: For all testcases, change the compare suite to actually parse the 2nd expression and compare trees, after rewriting all IDNs to a common set.
 //       This requires a debug toggle on the parser, where $ can be parsed!
 
-// TODO: rewriteInternalIdns doesn't seem to be respecting the prefix of the varname?
+// TODO: Review all TODOs
+
+// TODO: FunTest compare function is rewritten always the $<number> part when it could start from $0 for each prefix

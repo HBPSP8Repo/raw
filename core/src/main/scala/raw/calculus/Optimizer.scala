@@ -42,11 +42,13 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     r
   }
 
-  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) =
+  private def isCollectionMonoid(e: Exp, m: CollectionMonoid) = {
+    val t = analyzer.tipe(e)
     analyzer.tipe(e) match {
-      case CollectionType(`m`, _) => true
+      case CollectionType(m1, _) if analyzer.monoidsCompatible(m, m1) => true
       case _ => false
     }
+  }
 
   lazy val removeUselessReduce = rule[Exp] {
     case r @ Reduce(m: CollectionMonoid, Gen(Some(p), e), e1) if sameExp(p, e1) && isCollectionMonoid(e, m) => e

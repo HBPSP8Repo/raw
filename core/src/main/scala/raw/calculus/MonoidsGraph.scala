@@ -29,6 +29,23 @@ trait MonoidsGraph extends LazyLogging {
 
   def monoidRoots() = monoidProperties.keySet.to[scala.collection.immutable.Set]   // or monoidsVarMap.getRoots ?
 
+  // TODO: Reuse this method below
+  def monoidsCompatible(a: Monoid, b: Monoid): Boolean = {
+    addMonoidProperties(a)
+    addMonoidProperties(b)
+
+    val aProps = monoidProperties(a)
+    val bProps = monoidProperties(b)
+
+    if (aProps.commutative.isDefined && bProps.commutative.isDefined && aProps.commutative != bProps.commutative) {
+      return false
+    }
+    if (aProps.idempotent.isDefined && bProps.idempotent.isDefined && aProps.idempotent != bProps.idempotent) {
+      return false
+    }
+    true
+  }
+
   def mFind(t: Monoid): Monoid =
     if (monoidsVarMap.contains(t)) monoidsVarMap(t).root else t
 
