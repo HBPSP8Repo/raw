@@ -174,34 +174,34 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        (($0, $4), $5) <- filter(
-          (($0, $4), $5) <- nest(
+        ((s$0, $4), $5) <- filter(
+          ((s$0, $4), $5) <- nest(
             max,
-            ((($0, $4), $6), $2) <- outer_join(
-              (($0, $4), $6) <- nest(
+            (((s$0, $4), $6), s$1) <- outer_join(
+              ((s$0, $4), $6) <- nest(
                 sum,
-                (($0, $4), $3) <- outer_join(
-                  ($0, $4) <- nest(
+                ((s$0, $4), p$1) <- outer_join(
+                  (s$0, $4) <- nest(
                     max,
-                    ($0, $1) <- outer_join(
-                      $0 <- filter($0 <- students, true),
-                      $1 <- filter($1 <- professors, true),
+                    (s$0, p$0) <- outer_join(
+                      s$0 <- filter(s$0 <- students, true),
+                      p$0 <- filter(p$0 <- professors, true),
                       true),
-                    $0,
+                    s$0,
                     true,
-                    $1.age),
-                  $3 <- filter($3 <- professors, true),
+                    p$0.age),
+                  p$1 <- filter(p$1 <- professors, true),
                   true),
-                (_1: $0, _2: $4),
+                (_1: s$0, _2: $4),
                 true,
                 1),
-              $2 <- filter($2 <- students, true),
-              $2.age = $6),
-            (_1: $0, _2: $4),
+              s$1 <- filter(s$1 <- students, true),
+              s$1.age = $6),
+            (_1: s$0, _2: $4),
             true,
-            $2.age),
-          $0.age < $4 and $0.age = $5),
-        $0.name)
+            s$1.age),
+          s$0.age < $4 and s$0.age = $5),
+        s$0.name)
       """,
       TestWorlds.professors_students)
   }
@@ -214,18 +214,18 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $2) <- filter(
-          ($0, $2) <- nest(
+        (d$0, $2) <- filter(
+          (d$0, $2) <- nest(
             set,
-            ($0, $1) <- outer_join(
-              $0 <- filter($0 <- Departments, true),
-              $1 <- filter($1 <- Employees, true),
-              $1.dno = $0.dno),
-            $0,
+            (d$0, e$0) <- outer_join(
+              d$0 <- filter(d$0 <- Departments, true),
+              e$0 <- filter(e$0 <- Employees, true),
+              e$0.dno = d$0.dno),
+            d$0,
             true,
-            $1),
+            e$0),
           true),
-        (D: $0, E: $2))
+        (D: d$0, E: $2))
       """,
       TestWorlds.employees)
   }
@@ -236,18 +236,18 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $2) <- filter(
-          ($0, $2) <- nest(
+        (d$0, $2) <- filter(
+          (d$0, $2) <- nest(
             set,
-            ($0, $1) <- outer_join(
-              $0 <- filter($0 <- Departments, true),
-              $1 <- filter($1 <- Employees, true),
-              $1.dno = $0.dno),
-            $0,
+            (d$0, e$0) <- outer_join(
+              d$0 <- filter(d$0 <- Departments, true),
+              e$0 <- filter(e$0 <- Employees, true),
+              e$0.dno = d$0.dno),
+            d$0,
             true,
-            $1.dno),
+            e$0.dno),
           true),
-        (D: $0, E: $2))
+        (D: d$0, E: $2))
       """,
       TestWorlds.employees)
   }
@@ -258,14 +258,14 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         and,
-        ($0, $2) <- filter(
-          ($0, $2) <- nest(
+        (a$0, $2) <- filter(
+          (a$0, $2) <- nest(
             or,
-            ($0, $1) <- outer_join(
-              $0 <- filter($0 <- A, true),
-              $1 <- filter($1 <- B, true),
-              $0 = $1),
-            $0,
+            (a$0, b$0) <- outer_join(
+              a$0 <- filter(a$0 <- A, true),
+              b$0 <- filter(b$0 <- B, true),
+              a$0 = b$0),
+            a$0,
             true,
             true),
           true),
@@ -280,26 +280,26 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $3) <- filter(
-          ($0, $3) <- nest(
+        (e$0, $3) <- filter(
+          (e$0, $3) <- nest(
             sum,
-            (($0, $1), $4) <- nest(
+            ((e$0, c$0), $4) <- nest(
               and,
-              (($0, $1), $2) <- outer_unnest(
-                ($0, $1) <- outer_unnest(
-                  $0 <- filter($0 <- Employees, true),
-                  $1 <- $0.children,
+              ((e$0, c$0), d$0) <- outer_unnest(
+                (e$0, c$0) <- outer_unnest(
+                  e$0 <- filter(e$0 <- Employees, true),
+                  c$0 <- e$0.children,
                   true),
-                $2 <- $0.manager.children,
+                d$0 <- e$0.manager.children,
                 true),
-              (_1: $0, _2: $1),
+              (_1: e$0, _2: c$0),
               true,
-              $1.age > $2.age),
-            $0,
+              c$0.age > d$0.age),
+            e$0,
             $4,
             1),
           true),
-        (E: $0, M: $3))
+        (E: e$0, M: $3))
       """,
       TestWorlds.employees)
   }
@@ -312,26 +312,26 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(
         set,
-        ($0, $3) <- filter(
-          ($0, $3) <- nest(
+        (s$0, $3) <- filter(
+          (s$0, $3) <- nest(
             and,
-            (($0, $1), $4) <- nest(
+            ((s$0, c$0), $4) <- nest(
               or,
-              (($0, $1), $2) <- outer_join(
-                ($0, $1) <- outer_join(
-                  $0 <- filter($0 <- Students, true),
-                  $1 <- filter($1 <- Courses, $1.title = "DB"),
+              ((s$0, c$0), t$0) <- outer_join(
+                (s$0, c$0) <- outer_join(
+                  s$0 <- filter(s$0 <- Students, true),
+                  c$0 <- filter(c$0 <- Courses, c$0.title = "DB"),
                   true),
-                $2 <- filter($2 <- Transcripts, true),
-                $2.id = $0.id and $2.cno = $1.cno),
-              (_1: $0, _2: $1),
+                t$0 <- filter(t$0 <- Transcripts, true),
+                t$0.id = s$0.id and t$0.cno = c$0.cno),
+              (_1: s$0, _2: c$0),
               true,
               true),
-            $0,
+            s$0,
             true,
             $4),
           $3),
-        $0)
+        s$0)
       """,
       TestWorlds.transcripts)
   }
@@ -340,7 +340,7 @@ class UnnesterTest extends CalculusTest {
     check(
       "for (x <- things union things) yield set x",
       """
-      reduce(set, $0 <- filter($0 <- filter($0 <- things, true), true), $0)
+      reduce(set, x$0 <- filter(x$0 <- filter(x$0 <- things, true), true), x$0)
         union
       reduce(set, $1 <- filter($1 <- filter($1 <- things, true), true), $1)""",
       TestWorlds.things)
