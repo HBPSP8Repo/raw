@@ -37,7 +37,7 @@
     test("rule1 #5") {
       check(
         "for (x := for (e <- Events) yield set e; y <- x) yield set y",
-        "for ($0 <- Events) yield set $0",
+        "for (e$0 <- Events) yield set e$0",
         TestWorlds.cern)
     }
 
@@ -65,7 +65,7 @@
     test("rule2 #4") {
       check(
          """for (y <- ((\x -> x bag_union x)(for (a <- authors) yield bag a))) yield bag y""",
-         """for ($0 <- authors) yield bag $0 bag_union for ($1 <- authors) yield bag $1""",
+         """for (a$0 <- authors) yield bag a$0 bag_union for (a$1 <- authors) yield bag a$1""",
         TestWorlds.authors_publications)
     }
 
@@ -79,7 +79,7 @@
     test("rule4") {
       check(
         """for (t <- things; thing <- if t.a > t.b then t.set_a else t.set_b; thing > 10.0) yield set thing""",
-        """for (t$0 <- things; t$0.a > t$0.b; thing$1 <- t$0.set_a; thing$1 > 10.0) yield set thing$1 union for ($2 <- things; not $2.a > $2.b; $3 <- $2.set_b; $3 > 10.0) yield set $3""",
+        """for (t$0 <- things; t$0.a > t$0.b; thing$1 <- t$0.set_a; thing$1 > 10.0) yield set thing$1 union for (t$2 <- things; not t$2.a > t$2.b; thing$3 <- t$2.set_b; thing$3 > 10.0) yield set thing$3""",
         TestWorlds.things)
     }
 
@@ -101,7 +101,7 @@
     test("rule7") {
       check(
         """for (t <- things; t1 <- t.set_a union t.set_b; t1 > 10.0) yield set t1""",
-        """for (t$0 <- things; t1$1 <- t$0.set_a; t1$1 > 10.0) yield set t1$1 union for ($2 <- things; $3 <- $2.set_b; $3 > 10.0) yield set $3""",
+        """for (t$0 <- things; t1$1 <- t$0.set_a; t1$1 > 10.0) yield set t1$1 union for (t$2 <- things; t1$3 <- t$2.set_b; t1$3 > 10.0) yield set t1$3""",
         TestWorlds.things)
     }
 

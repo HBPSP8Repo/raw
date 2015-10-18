@@ -36,37 +36,35 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
     *   FROM $0 <- students, $1 <- professors WHERE $0.student_age = $1.professor_age GROUP BY $0.student_age
     */
 
-  private lazy val partitionSelect: Select => Select = attr {
-    s =>
-      val ns = rewriteInternalIdns(s)
+  private def partitionSelect(s: Select): Select = {
+    val ns = rewriteInternalIdns(s)
 
-      val nproj =
-        if (ns.from.length == 1)
-          IdnExp(IdnUse(ns.from.head.p.get.asInstanceOf[PatternIdn].idn.idn))
-        else
-          RecordCons(
-            ns.from.zip(s.from).zipWithIndex map {
-              // The generator had a user-generated identifier (that's why it doesn't start with $; it can be e.g. 's$0')
-              case ((Gen(Some(PatternIdn(IdnDef(idn))), _), Gen(Some(PatternIdn(IdnDef(origIdn))), _)), _) if !origIdn.startsWith("$") =>
-                // We strip all characters until $ so that from 's$0' we get back 's', which was the original user identifier
-                AttrCons(origIdn.takeWhile(_ != '$'), IdnExp(IdnUse(idn)))
-              case ((Gen(Some(PatternIdn(IdnDef(idn))), _), _), idx) =>
-                AttrCons(s"_${idx + 1}", IdnExp(IdnUse(idn)))})
-
-      if (ns.where.isDefined)
-        Select(ns.from, ns.distinct, None, nproj, Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+    val nproj =
+      if (ns.from.length == 1)
+        IdnExp(IdnUse(ns.from.head.p.get.asInstanceOf[PatternIdn].idn.idn))
       else
-        Select(ns.from, ns.distinct, None, nproj, Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
+        RecordCons(
+          ns.from.zip(s.from).zipWithIndex map {
+            // The generator had a user-generated identifier (that's why it doesn't start with $; it can be e.g. 's$0')
+            case ((Gen(Some(PatternIdn(IdnDef(idn))), _), Gen(Some(PatternIdn(IdnDef(origIdn))), _)), _) if !origIdn.startsWith("$") =>
+              // We strip all characters until $ so that from 's$0' we get back 's', which was the original user identifier
+              AttrCons(origIdn.takeWhile(_ != '$'), IdnExp(IdnUse(idn)))
+            case ((Gen(Some(PatternIdn(IdnDef(idn))), _), _), idx) =>
+              AttrCons(s"_${idx + 1}", IdnExp(IdnUse(idn)))})
+
+    if (ns.where.isDefined)
+      Select(ns.from, ns.distinct, None, nproj, Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+    else
+      Select(ns.from, ns.distinct, None, nproj, Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
   }
 
-  private lazy val starSelect: Select => Select = attr {
-    s =>
-      val ns = rewriteInternalIdns(s)
+  private def starSelect(s: Select): Select = {
+    val ns = rewriteInternalIdns(s)
 
-      if (ns.where.isDefined)
-        Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
-      else
-        Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
+    if (ns.where.isDefined)
+      Select(ns.from, ns.distinct, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+    else
+      Select(ns.from, ns.distinct, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
   }
 
   /** De-sugar a SELECT with a GROUP BY
@@ -75,17 +73,15 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
   private lazy val selectGroupBy = rule[Exp] {
     case select @ Select(from, distinct, Some(groupby), proj, where, None, None) =>
       // Desugar * and partition from the projection side.
-      val starReplacement = starSelect(select)
-      val partitionReplacement = partitionSelect(select)
 
       val starInRest = rule[Exp] {
         case s: Star =>
-          deepclone(starReplacement)
+          deepclone(starSelect(select))
       }
 
       val partitionInRest = rule[Exp] {
         case p: Partition =>
-          deepclone(partitionReplacement)
+          deepclone(partitionSelect(select))
       }
 
       val nproj = rewrite(alltd(starInRest <+ partitionInRest))(proj)

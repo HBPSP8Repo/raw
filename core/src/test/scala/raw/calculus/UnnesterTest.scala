@@ -342,7 +342,7 @@ class UnnesterTest extends CalculusTest {
       """
       reduce(set, x$0 <- filter(x$0 <- filter(x$0 <- things, true), true), x$0)
         union
-      reduce(set, $1 <- filter($1 <- filter($1 <- things, true), true), $1)""",
+      reduce(set, x$1 <- filter(x$1 <- filter(x$1 <- things, true), true), x$1)""",
       TestWorlds.things)
   }
 
