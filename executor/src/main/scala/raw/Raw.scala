@@ -213,7 +213,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     * (Nullable info is excluded since the Scala Option[...] is "outside" the record.
     */
   def toCanonicalForm(recordType: RecordType): String =
-    recordType.toString
+    PrettyPrinter(recordType.recAtts)
 
   /** Return a user record for the given record type with two attributes, otherwise use a Scala Tuple2.
     */
@@ -265,7 +265,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def collectRecordTypes(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Seq[RecordType] = {
     import org.kiama.rewriting.Rewriter._
 
-    val recordTypes = scala.collection.mutable.MutableList[RecordType]()
+    val recordTypes = scala.collection.mutable.ListBuffer[RecordType]()
 
     val queryRecordTypes = everywhere(query[Calculus.Exp] {
       case e => analyzer.tipe(e) match {
@@ -283,8 +283,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     */
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
-    val recordTypes = collectRecordTypes(tree, world, analyzer)
+    val recordTypes: Seq[RecordType] = collectRecordTypes(tree, world, analyzer)
     logger.debug(s"buildCaseClasses $recordTypes")
+    logger.debug(s"buildCaseClasses1 ${recordTypes.map(toCanonicalForm(_)).mkString("\n")}")
 
     var i = 0
 
@@ -295,6 +296,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val toBuild = scala.collection.mutable.HashMap[String, RecordType]()
     for (r <- recordTypes) {
       val canonicalForm = toCanonicalForm(r)
+      logger.debug(s"Can form '$canonicalForm'")
       if (!classesMap.contains(canonicalForm)) {
         // Generate new case class name
         i += 1
@@ -435,7 +437,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     }
 
     def patternType(p: Pattern) =
-      buildScalaType(analyzer.patternType(p), world, analyzer)
+      buildScalaType(analyzer.patternType1(p), world, analyzer)
 
     /** Get the nullable identifiers from a pattern.
       * Used by the Nest to filter out Option[...]
@@ -451,7 +453,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           Seq(None)
       }
 
-      recurse(p, analyzer.patternType(p)).flatten
+      recurse(p, analyzer.patternType1(p)).flatten
     }
 
     /** Return the identifiers, optionally de-nullable.
@@ -478,7 +480,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
       }
 
-      recurse(p, analyzer.patternType(p), Seq())
+      recurse(p, analyzer.patternType1(p), Seq())
     }
 
     /** Zero of a primitive monoid.
@@ -761,6 +763,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res"""
 
       case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
+        logger.debug(s"Generating pat ${CalculusPrettyPrinter(child)} for pattern ${CalculusPrettyPrinter(pat)}")
+        logger.debug(s"Scala type is ${patternType(pat)}")
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"

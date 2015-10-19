@@ -43,7 +43,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
   /** Return the type of a pattern.
     * Finds the declaration of the identifier, then its body, then types the body and projects the pattern.
     */
-  lazy val patternType: Pattern => Type = attr {
+  lazy val patternType1: Pattern => Type = attr {
     pat =>
       def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
         case (_, t1) if pat eq p => Some(t1)
@@ -54,26 +54,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
 
       patDecl(pat) match {
         case Some(Bind(p, e))      => findType(p, tipe(e)).get
-        case Some(Gen(Some(p), e)) => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
-      }
-  }
-
-
-  /** Return the type of an identifier definition.
-    * Finds the declaration of the identifier, then its body, then types the body and projects the pattern.
-    */
-  lazy val idnDefType: IdnDef => Type = attr {
-    idn =>
-      def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
-        case (PatternIdn(idn1), t1) if idn == idn1 => Some(t1)
-        case (_: PatternIdn, _)                    => None
-        case (PatternProd(ps), t1: RecordType) =>
-          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
-      }
-
-      decl(idn) match {
-        case Some(Bind(p, e))      => findType(p, tipe(e)).get
-        case Some(Gen(Some(p), e)) => findType(p, tipe(e) match { case CollectionType(_, innerType) => innerType }).get
+        case Some(Gen(Some(p), e)) => logger.debug(s"patternType1 e ${CalculusPrettyPrinter(e)} => ${PrettyPrinter(tipe(e))}"); findType(p, tipe(e).asInstanceOf[CollectionType].innerType).get
       }
   }
 

@@ -180,10 +180,39 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     def unapply(t: Type): Option[Type] = Some(resolvedType(t))
   }
 
+  def cloneType(t: Type, finalNullable: Option[Boolean]): Type = {
+    val nt = t match {
+      case _: BoolType => BoolType()
+      case _: IntType => IntType()
+      case _: FloatType => FloatType()
+      case _: StringType => StringType()
+      case FunType(t1, t2) => FunType(cloneType(t1, finalNullable), cloneType(t2, finalNullable))
+      case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1, finalNullable))}))
+      // TODO: Other RecordTypes?
+      case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1, finalNullable))})
+      case CollectionType(m, inner) => CollectionType(m, cloneType(inner, finalNullable))
+      case NumberType(sym) => NumberType(sym)
+      case PrimitiveType(sym) => PrimitiveType(sym)
+      case TypeVariable(sym) => TypeVariable(sym)
+      case UserType(sym) => UserType(sym)
+      case TypeScheme(t1, typeSyms, monoidSyms, attSyms) => TypeScheme(cloneType(t1, finalNullable), typeSyms, monoidSyms, attSyms)
+      case _: AnyType => AnyType()
+      case _: NothingType => NothingType()
+    }
+    if (finalNullable.isDefined) {
+      nt.nullable = finalNullable.get
+    } else {
+      nt.nullable = t.nullable
+    }
+    nt
+  }
+
   /** Return the type of an expression, including the nullable flag.
     */
-  lazy val tipe: Exp => Type = attr {
-    e => {
+  def tipe(e: Exp): Type = {
+//
+//  lazy val tipe: Exp => Type = attr {
+//    e => {
 
       def innerTipe(t: Type): Type = resolvedType(t) match {
         case CollectionType(_, i) => i
@@ -219,6 +248,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case Comp(m: CollectionMonoid, qs, proj) =>
           val inner = tipe(proj)
           makeNullable(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e1) => tipe(e1) })
+
+        case Comp(_, qs, proj) =>
+          val output_type = cloneType(tipe(proj), None)
+          output_type.nullable = false
+          makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1) })
+
         case Select(froms, d, g, proj, w, o, h)  =>
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
@@ -235,7 +270,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case OuterJoin(g1, g2, p)                => {
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", cloneType(innerTipe(tipe(g2.e)), None))))))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
@@ -256,7 +291,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case OuterUnnest(g1, g2, p)              =>
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", cloneType(innerTipe(tipe(g2.e)), None))))))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
@@ -268,7 +303,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           x
         case Nest(m: CollectionMonoid, g, k, p, e1) => {
           te match {
-            case CollectionType(m2, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1)))))))), Seq(tipe(g.e)))
+            case CollectionType(m2, _) =>
+              val te1 = cloneType(tipe(e1), Some(false))
+              te1.nullable = false
+              makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, te1))))))), Seq(tipe(g.e)))
           }
         }
         case Nest(m: PrimitiveMonoid, g, k, p, e1) => {
@@ -277,29 +315,33 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
         }
 
-        //        case MultiNest(g, params) => makeNullable(te, Seq(), Seq(tipe(g.e)))
-        case Comp(_, qs, proj) =>
-          val output_type = tipe(proj) match {
-            case _: IntType   => IntType()
-            case _: FloatType => FloatType()
-            case _: BoolType  => BoolType()
-            case NumberType(v) => NumberType(v)
-          }
-          output_type.nullable = false
-          makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1) })
-
         case BinaryExp(_, e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case InExp(e1, e2)        => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
         case ExpBlock(_, e1)      =>
           val t1 = tipe(e1)
           makeNullable(te, Seq(t1), Seq(t1))
-        case _: IdnExp            => te
+        case idnExp @ IdnExp(idnUse)            =>
+          logger.debug(s"idnUse $idnUse")
+          entity(idnUse) match {
+            case VariableEntity(idnDef, _) => idnDefType(idnDef)
+            case _: DataSourceEntity => te
+            case _: UnknownEntity    =>
+              // It's an anonymous alias
+              lookupAttributeEntity(idnExp) match {
+                case AttributeEntity(_, g, idx) =>
+                  resolvedType(resolvedType(tipe(g.e)).asInstanceOf[CollectionType].innerType).asInstanceOf[RecordType].recAtts match {
+                    case Attributes(atts) => atts(idx).tipe
+                  }
+              }
+          }
         case _: IntConst          => te
         case _: FloatConst        => te
         case _: BoolConst         => te
         case _: StringConst       => te
-        case _: RecordCons        => te
+        case rc: RecordCons        => te match {
+          case RecordType(recAtts: Attributes) => RecordType(Attributes(rc.atts.map{case att => AttrType(att.idn, tipe(att.e))}))
+        }
         case _: ZeroCollectionMonoid => te
         case f: FunAbs    =>
           baseType(f) match {
@@ -321,6 +363,25 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       }
       nt
     }
+  //}
+
+  /** Return the type of an identifier definition.
+    * Finds the declaration of the identifier, then its body, then types the body and projects the pattern.
+    */
+  lazy val idnDefType: IdnDef => Type = attr {
+    idn =>
+      def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
+        case (PatternIdn(idn1), t1) if idn == idn1 => logger.debug(s"found $idn1 = ${PrettyPrinter(t1)}"); Some(t1)
+        case (_: PatternIdn, _)                    => None
+        case (PatternProd(ps), t1: RecordType) =>
+          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
+      }
+
+      decl(idn) match {
+        case Some(Bind(p, e))       => findType(p, tipe(e)).get
+        case Some(Gen(Some(p), e))  => logger.debug(s"looking for ${idn} in ${CalculusPrettyPrinter(e)}"); findType(p, resolvedType(tipe(e)).asInstanceOf[CollectionType].innerType).get
+        case Some(e @ FunAbs(p, _)) => findType(p, baseType(e).asInstanceOf[FunType].t1).get  // TODO: check: Parameters can never be nullable (?)
+      }
   }
 
   /** Type checker errors.
