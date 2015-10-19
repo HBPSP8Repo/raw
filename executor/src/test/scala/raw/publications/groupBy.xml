@@ -575,10 +575,4 @@ select distinct A.year as year, (select distinct A from partition A) as people f
       </qrawl>
   </query>
 
-  <query>
-      <qrawl>
-      select distinct year/100, * from authors group by year/100
-      </qrawl>
-  </query>
-
 </queries>

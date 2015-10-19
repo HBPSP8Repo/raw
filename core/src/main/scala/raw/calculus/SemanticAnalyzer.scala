@@ -180,50 +180,46 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     def unapply(t: Type): Option[Type] = Some(resolvedType(t))
   }
 
-  def cloneType(t: Type, finalNullable: Option[Boolean]): Type = {
+  def cloneType(t: Type): Type = {
     val nt = t match {
       case _: BoolType => BoolType()
       case _: IntType => IntType()
       case _: FloatType => FloatType()
       case _: StringType => StringType()
-      case FunType(t1, t2) => FunType(cloneType(t1, finalNullable), cloneType(t2, finalNullable))
-      case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1, finalNullable))}))
+      case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
+      case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}))
       // TODO: Other RecordTypes?
-      case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1, finalNullable))})
-      case CollectionType(m, inner) => CollectionType(m, cloneType(inner, finalNullable))
+      case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1))})
+      case CollectionType(m, inner) => CollectionType(m, cloneType(inner))
       case NumberType(sym) => NumberType(sym)
       case PrimitiveType(sym) => PrimitiveType(sym)
       case TypeVariable(sym) => TypeVariable(sym)
       case UserType(sym) => UserType(sym)
-      case TypeScheme(t1, typeSyms, monoidSyms, attSyms) => TypeScheme(cloneType(t1, finalNullable), typeSyms, monoidSyms, attSyms)
+      case TypeScheme(t1, typeSyms, monoidSyms, attSyms) => TypeScheme(cloneType(t1), typeSyms, monoidSyms, attSyms)
       case _: AnyType => AnyType()
       case _: NothingType => NothingType()
     }
-    if (finalNullable.isDefined) {
-      nt.nullable = finalNullable.get
-    } else {
-      nt.nullable = t.nullable
-    }
+    nt.nullable = t.nullable
     nt
   }
 
   /** Return the type of an expression, including the nullable flag.
     */
-  def tipe(e: Exp): Type = {
-//
-//  lazy val tipe: Exp => Type = attr {
-//    e => {
 
+  /** Return the type of an expression, including the nullable flag.
+    */
+  lazy val tipe: Exp => Type = attr {
+    e => {
       def innerTipe(t: Type): Type = resolvedType(t) match {
         case CollectionType(_, i) => i
       }
 
-      val te = baseType(e) // regular type (no option except from sources)
+      val te = cloneType(baseType(e)) // regular type (no option except from sources)
 
       val nt = e match {
         case RecordProj(e1, idn)                 => tipe(e1) match {
           case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
-          case ut: UserType =>
+          case ut: UserType   =>
             typesVarMap(ut).root match {
               case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
             }
@@ -249,28 +245,32 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val inner = tipe(proj)
           makeNullable(te, Seq(CollectionType(m, inner)), qs.collect { case Gen(_, e1) => tipe(e1) })
 
-        case Comp(_, qs, proj) =>
-          val output_type = cloneType(tipe(proj), None)
-          output_type.nullable = false
-          makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1) })
+        case Comp(m: PrimitiveMonoid, qs, proj) =>
+          // TODO: ??? no need for cloneType? How should we codegen? Filter out nullables first then get the zero monoid?
+          //val output_type = cloneType(tipe(proj), None)
+          //output_type.nullable = false
+          //makeNullable(te, Seq(output_type), qs.collect { case Gen(_, e1) => tipe(e1) })
+          resetNullable(proj)
+          makeNullable(te, Seq(tipe(proj)), qs.collect { case Gen(_, e1) => tipe(e1) })
 
-        case Select(froms, d, g, proj, w, o, h)  =>
+        case Select(froms, d, g, proj, w, o, h)     =>
           val inner = tipe(proj)
           // we don't care about the monoid here, sine we just walk the types to make them nullable or not, not the monoids
           makeNullable(te, Seq(CollectionType(SetMonoid(), inner)), froms.collect { case Gen(_, e1) => tipe(e1) })
-        case Reduce(m: PrimitiveMonoid, g, e1)   => makeNullable(te, Seq(tipe(e1)), Seq(tipe(g.e)))
-        case Reduce(m: CollectionMonoid, g, e1)  => makeNullable(te, Seq(CollectionType(m, tipe(e1))), Seq(tipe(g.e)))
-        case Filter(g, p)                        => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
-        case Join(g1, g2, p)                     => te match {
+        case Reduce(m: PrimitiveMonoid, g, e1)      => makeNullable(te, Seq(tipe(e1)), Seq(tipe(g.e)))
+        case Reduce(m: CollectionMonoid, g, e1)     => makeNullable(te, Seq(CollectionType(m, tipe(e1))), Seq(tipe(g.e)))
+        case Filter(g, p)                           => makeNullable(te, Seq(tipe(g.e)), Seq(tipe(g.e)))
+        case Join(g1, g2, p)                        => te match {
           case CollectionType(m, inner) => {
             val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
             makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
           }
         }
-        case OuterJoin(g1, g2, p)                => {
+        case OuterJoin(g1, g2, p)                   => {
+          resetNullable(p)
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", cloneType(innerTipe(tipe(g2.e)), None))))))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
@@ -281,17 +281,18 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           x
         }
-        case Unnest(g1, g2, p)                   =>
+        case Unnest(g1, g2, p)                      =>
           te match {
             case CollectionType(m, inner) => {
               val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
-        case OuterUnnest(g1, g2, p)              =>
+        case OuterUnnest(g1, g2, p)                 =>
+          resetNullable(p)
           val x = te match {
             case CollectionType(m, inner) => {
-              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", cloneType(innerTipe(tipe(g2.e)), None))))))
+              val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
               makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
             }
           }
@@ -302,68 +303,81 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
           x
         case Nest(m: CollectionMonoid, g, k, p, e1) => {
+          resetNullable(p)
+          resetNullable(e1)
           te match {
             case CollectionType(m2, _) =>
-              val te1 = cloneType(tipe(e1), Some(false))
-              te1.nullable = false
-              makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, te1))))))), Seq(tipe(g.e)))
+              makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", CollectionType(m2, tipe(e1)))))))), Seq(tipe(g.e)))
           }
         }
-        case Nest(m: PrimitiveMonoid, g, k, p, e1) => {
+        case Nest(m: PrimitiveMonoid, g, k, p, e1)  => {
+          resetNullable(p)
+          resetNullable(e1)
           te match {
+              // TODO: Is overriding 'm' here correct actually? Or is it the m from above???
             case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", tipe(k)), AttrType("_2", tipe(e1))))))), Seq(tipe(g.e)))
           }
         }
 
-        case BinaryExp(_, e1, e2) => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
-        case InExp(e1, e2)        => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
-        case UnaryExp(_, e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case ExpBlock(_, e1)      =>
+        case BinaryExp(_, e1, e2)    => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
+        case InExp(e1, e2)           => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
+        case UnaryExp(_, e1)         => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case ExpBlock(_, e1)         =>
           val t1 = tipe(e1)
           makeNullable(te, Seq(t1), Seq(t1))
-        case idnExp @ IdnExp(idnUse)            =>
+        case idnExp @ IdnExp(idnUse) =>
           logger.debug(s"idnUse $idnUse")
           entity(idnUse) match {
-            case VariableEntity(idnDef, _) => idnDefType(idnDef)
-            case _: DataSourceEntity => te
-            case _: UnknownEntity    =>
+            case VariableEntity(idnDef, _) => cloneType(idnDefType(idnDef))
+            case _: DataSourceEntity       => te
+            case _: UnknownEntity          =>
               // It's an anonymous alias
               lookupAttributeEntity(idnExp) match {
                 case AttributeEntity(_, g, idx) =>
                   resolvedType(resolvedType(tipe(g.e)).asInstanceOf[CollectionType].innerType).asInstanceOf[RecordType].recAtts match {
-                    case Attributes(atts) => atts(idx).tipe
+                    case Attributes(atts) => cloneType(atts(idx).tipe)
                   }
               }
           }
-        case _: IntConst          => te
-        case _: FloatConst        => te
-        case _: BoolConst         => te
-        case _: StringConst       => te
-        case rc: RecordCons        => te match {
-          case RecordType(recAtts: Attributes) => RecordType(Attributes(rc.atts.map{case att => AttrType(att.idn, tipe(att.e))}))
+        case _: IntConst             => te
+        case _: FloatConst           => te
+        case _: BoolConst            => te
+        case _: StringConst          => te
+        case rc: RecordCons          => te match {
+          case RecordType(recAtts: Attributes) => RecordType(Attributes(rc.atts.map { case att => AttrType(att.idn, tipe(att.e)) }))
         }
         case _: ZeroCollectionMonoid => te
-        case f: FunAbs    =>
+        case f: FunAbs               =>
           baseType(f) match {
             case FunType(t1, t2) => FunType(makeNullable(t1, Seq(), Seq(), Some(false)), tipe(f.e))
           }
-        case _: Partition =>
+        case _: Partition            =>
           // TODO: Ben: HELP!!!
           // Ben: I think it should inherit the nullables the related froms, something like that?
           te
-        case _: Star      =>
+        case _: Star                 =>
           // TODO: Ben: HELP!!!
           te
-        case Sum(e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case Max(e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case Min(e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case Avg(e1)      => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case Count(e1)    => makeNullable(te, Seq(), Seq(tipe(e1)))
-        case Exists(e1)   => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Sum(e1)                 => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Max(e1)                 => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Min(e1)                 => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Avg(e1)                 => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Count(e1)               => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Exists(e1)              => makeNullable(te, Seq(), Seq(tipe(e1)))
       }
       nt
     }
-  //}
+  }
+
+  def resetNullable(e: Exp) = {
+    val c = collect[List, Exp] {
+      case e: Exp => e
+    }
+    // TODO: Improve this :-)
+    c(e).map { case e =>
+      logger.debug(s"resetNullable e ${CalculusPrettyPrinter(e)}"); val t = tipe(e); t.nullable = false
+    }
+  }
 
   /** Return the type of an identifier definition.
     * Finds the declaration of the identifier, then its body, then types the body and projects the pattern.
@@ -2257,7 +2271,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 //        var found = false
 //        query[Exp] {
 //          case n if n eq p => found = true
-//        }(e)
+//        }(e)lazy
 //        found
 //      }
 //
