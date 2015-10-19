@@ -619,7 +619,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($childArg => {
             ..${idnVals("child", patChild, false)}
             if (!${nullableCond(pred, patChild)}) {
-              List( $rt(child, None) )
+              Iterable( $rt(child, None) )
             } else {
               ..${idnVals("child", patChild, true)}
               val matches =
@@ -631,7 +631,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("path", patPath, true)}
                   ${build(pred)} })
               if (matches.isEmpty)
-                List( $rt(child, None) )
+                Iterable( $rt(child, None) )
               else
                 matches.map(path => $rt(child, Some(path))) }})
         """
@@ -650,7 +650,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
-        val rightCode = ${build(childRight)}.toSeq
+        val rightCode = ${build(childRight)}.toList.toIterable
         ${build(childLeft)}
           .flatMap($leftArg => {
             ..${idnVals("left", patLeft, false)}
@@ -676,12 +676,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
-        val rightCode = ${build(childRight)}.toSeq
+        val rightCode = ${build(childRight)}.toList.toIterable
         ${build(childLeft)}
           .flatMap($leftArg => {
             ..${idnVals("left", patLeft, false)}
             if (!${nullableCond(p, patLeft)}) {
-              List( $rt(left, None) )
+              Iterable( $rt(left, None) )
             } else {
               ..${idnVals("left", patLeft, true)}
               val matches =
@@ -693,7 +693,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                     ..${idnVals("right", patRight, true)}
                     ${build(p)} })
               if (matches.isEmpty)
-                List( $rt(left, None) )
+                Iterable( $rt(left, None) )
               else
                 matches.map(right => $rt(left, Some(right))) }})
         """
@@ -753,7 +753,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
                 .fold(${zero(m)})(${fold(m)}) ))
-          .toIterable
         """
         q"""
         val start = "************ Nest Primitive Monoid (Scala) ************"
@@ -783,9 +782,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .toSet
-                .toIterable ))
-          .toIterable
+                .toSet.toIterable ))
         """
         q"""
         val start = "************ Nest Set Monoid (Scala) ************"
@@ -815,8 +812,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .toIterable ))
-          .toIterable
+                .toList.toIterable))
         """
         q"""
         val start = "************ Nest Bag/List Monoid (Scala) ************"
