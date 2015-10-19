@@ -1,14 +1,5 @@
 <queries dataset="publications">
     <query>
-        <oql>
-            count(authors)
-        </oql>
-        <qrawl>
-            count(authors)
-        </qrawl>
-        <qrawl>
-            count(authors)
-        </qrawl>
         <qrawl>
             count(authors)
         </qrawl>
@@ -18,9 +9,6 @@
     </query>
 
     <query>
-        <oql>
-            count(publications)
-        </oql>
         <qrawl>
             count(publications)
         </qrawl>

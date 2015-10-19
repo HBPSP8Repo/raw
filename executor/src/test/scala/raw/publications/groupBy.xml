@@ -1,10 +1,5 @@
 <queries dataset="publications">
     <query>
-        <oql>
-            <![CDATA[
-select distinct title, count(partition) as n from authors A group by title: A.title
-]]>
-        </oql>
         <qrawl>
             <![CDATA[
 select distinct A.title AS title, count(partition) as n from authors A group by A.title
@@ -30,11 +25,6 @@ select distinct A.title AS title, count(partition) as n from authors A group by 
     </query>
 
     <query>
-        <oql>
-            <![CDATA[
-select distinct title, (select distinct year from partition) as years from authors A group by title: A.title
-]]>
-        </oql>
         <qrawl>
             <![CDATA[
 select distinct A.title AS title, (select distinct a.year from a in partition) as years from authors A group by A.title
@@ -60,11 +50,6 @@ select distinct A.title AS title, (select distinct a.year from a in partition) a
     </query>
 
     <query>
-        <oql>
-            <![CDATA[
-select distinct year, (select distinct A from partition) as people from authors A group by title: A.year
-]]>
-        </oql>
         <qrawl>
             <![CDATA[
 select distinct A.year as year, (select distinct A from partition A) as people from authors A group by A.year
@@ -368,6 +353,12 @@ select distinct A.year as year, (select distinct A from partition A) as people f
 } ]
             ]]>
         </result>
+    </query>
+
+    <query>
+        <qrawl>
+            select distinct year/100, * from authors group by year/100
+        </qrawl>
     </query>
 
 </queries>

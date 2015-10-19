@@ -222,26 +222,30 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     classesMap.getOrElse(toCanonicalForm(r), "Tuple2")
   }
 
-  def buildScalaType(t: raw.Type, world: World): String = {
+  def buildScalaType(t: raw.Type, world: World, analyzer: SemanticAnalyzer): String = {
     val baseType = t match {
       case _: BoolType => "Boolean"
       case _: StringType => "String"
       case _: IntType => "Int"
       case _: FloatType => "Float"
-      case FunType(t1, t2) => s"${buildScalaType(t1, world)} => ${buildScalaType(t2, world)}"
+      case FunType(t1, t2) => s"${buildScalaType(t1, world, analyzer)} => ${buildScalaType(t2, world, analyzer)}"
       case r @ RecordType(Attributes(atts)) =>
         // Return the case class name if it exists; otherwise, it is a Tuple
         classesMap.getOrElse(
           toCanonicalForm(r),
           atts
-            .map(att => s"(${buildScalaType(att.tipe, world)})")
+            .map(att => s"(${buildScalaType(att.tipe, world, analyzer)})")
             .mkString("(", ", ", ")"))
-      case CollectionType(_: CollectionMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-//      case CollectionType(_: BagMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-//      case CollectionType(_: ListMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-//      case CollectionType(_: SetMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world)}]"
-//      case CollectionType(_: MonoidVariable, _) => throw new UnsupportedOperationException(s"monoid variables not supported")
-      case UserType(idn) => buildScalaType(world.tipes(idn), world)
+      case CollectionType(_: CollectionMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world, analyzer)}]"
+//      case CollectionType(_: BagMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
+//      case CollectionType(_: ListMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
+//      case CollectionType(_: SetMonoid, innerType) => s"Set[${buildScalaType(innerType, world, analyzer)}]"
+//      case CollectionType(m: MonoidVariable, innerType) =>
+//        analyzer.looksLikeMonoid(m) match {
+//          case _: SetMonoid => s"Set[${buildScalaType(innerType, world, analyzer)}]"
+//          case _ => s"List[${buildScalaType(innerType, world, analyzer)}]"
+//        }
+      case UserType(idn) => buildScalaType(world.tipes(idn), world, analyzer)
       case _: AnyType => "Any"
       case _: NothingType => "Nothing"
       case _: VariableType => throw new UnsupportedOperationException(s"type variables not supported")
@@ -275,7 +279,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     recordTypes.to
   }
 
-  /** Build case classes for the anonymous record types used to hold the results of Reduce nodes
+  /** Build case classes for the anonymous record types used to hold the results of Reduce nodes.
     */
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
@@ -284,7 +288,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     var i = 0
 
-    val code = scala.collection.mutable.Set[String]()
+    // First, add all classes to the classesMap.
+    // (We only build the code later since some classes may use other classes, and those dependencies need to be in the
+    // map already so we know their generated names.)
+
+    val toBuild = scala.collection.mutable.HashMap[String, RecordType]()
     for (r <- recordTypes) {
       val canonicalForm = toCanonicalForm(r)
       if (!classesMap.contains(canonicalForm)) {
@@ -296,11 +304,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         classesMap.put(canonicalForm, name)
         logger.debug(s"Mapping type $canonicalForm to case class $name")
 
-        // Build the code
-        val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world)}").mkString(", ")
-        logger.info(s"Build case class: $r.atts => $args")
-        code += s"case class $name($args)"
+        toBuild.put(name, r)
       }
+    }
+
+    // Generate code.
+
+    val code = scala.collection.mutable.Set[String]()
+    for ((name, r) <- toBuild) {
+      val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world, analyzer)}").mkString(", ")
+      logger.info(s"Build case class: $r.atts => $args")
+      code += s"case class $name($args)"
     }
 
     code.map(c.parse).to
@@ -313,7 +327,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     def rawToScalaType(t: raw.Type): c.universe.Tree = {
       logger.info(s"rawToScalaType: $t")
-      val typeName: String = buildScalaType(t, world)
+      val typeName: String = buildScalaType(t, world, analyzer)
       logger.info(s"typeName: $typeName")
       val parsed: c.Tree = c.parse(typeName)
       logger.info(s"Parsed: $parsed, ${showRaw(parsed)}")
@@ -375,7 +389,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: ListMonoid => q"List().toIterable"
       }
       case ConsCollectionMonoid(m, e1) => m match {
-        case _: SetMonoid => q"Set(${build(e1)})"
+        case _: SetMonoid => q"Set(${build(e1)}).toIterable"
         case _: BagMonoid => q"List(${build(e1)}).toIterable"
         case _: ListMonoid => q"List(${build(e1)}).toIterable"
       }
@@ -420,17 +434,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
     }
 
-    def patternIdents(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps) => ps.flatMap(patternTerms)
-      case PatternIdn(idn: IdnDef) => Seq(q"${Ident(TermName(idnName(idn)))}")
-    }
-
     def patternType(p: Pattern) =
-      buildScalaType(analyzer.patternType(p), world)
-    //      p match {
-    //      case PatternIdn(idn) => buildScalaType(analyzer.idnDefType(idn), world)
-    //      case p: PatternProd => buildScalaType(analyzer.patternType(p), world)
-    //    }
+      buildScalaType(analyzer.patternType(p), world, analyzer)
 
     /** Get the nullable identifiers from a pattern.
       * Used by the Nest to filter out Option[...]
@@ -476,31 +481,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       recurse(p, analyzer.patternType(p), Seq())
     }
 
-    /** Generate lambda with a single argument.
-      */
-    def lambda1(p: Pattern, e: Exp): Tree = {
-      p match {
-        // Handle case of single pattren idn separately to generate more readable code
-        case PatternIdn(idn) =>
-          val arg = c.parse(s"${idnName(idn)}: ${patternType(p)}")
-          q"($arg => ${build(e)})"
-        case p: PatternProd =>
-          val arg = c.parse(s"__arg: ${patternType(p)}")
-          val pcase = pq"(..${patternTerms(p)})" // pq"(..${patternTerms(p)})"
-          q"($arg => __arg match { case $pcase => ${build(e)} })"
-      }
-    }
-
-    /** Generate lambda with a two arguments.
-      */
-    def lambda2(p1: Pattern, p2: Pattern, e: Exp): Tree = {
-      val arg = c.parse(s"__arg: (${patternType(p1)}, ${patternType(p2)})")
-      val pcase1 = pq"(..${patternTerms(p1)})"
-      val pcase2 = pq"(..${patternTerms(p2)})"
-      val pcase = pq"($pcase1, $pcase2)"
-      q"($arg => (__arg._1, __arg._2) match { case $pcase => ${build(e)} })"
-    }
-
     /** Zero of a primitive monoid.
       */
     def zero(m: PrimitiveMonoid): Tree = m match {
@@ -535,7 +515,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         idn
     }
 
-    /** Get nullable filter.
+    /** Build nullable filter.
       */
     def nullableFilter(p: Pattern): Tree = {
       val nullables = patternNullable(p)
@@ -545,6 +525,24 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"${nullables.head}.isDefined"
       else
         nullables.tail.fold(nullables.head)((a, b) => q"$a.isDefined && $b.isDefined")
+    }
+
+    /** Build nullable condition.
+      */
+    def nullableCond(e: Exp, p: Pattern): Tree = {
+      def collectNullableIdns(p: Pattern): Seq[Tree] = p match {
+        case PatternIdn(idnDef) if analyzer.idnDefType(idnDef).nullable => Seq(q"${Ident(TermName(idnName(idnDef)))}")
+        case PatternProd(ps) => ps.flatMap(collectNullableIdns)
+        case _               => Seq()
+      }
+
+      val idns = collectNullableIdns(p)
+      if (idns.isEmpty)
+        q"true"
+      else if (idns.size == 1)
+        q"${idns.head}.isDefined"
+      else
+        idns.tail.fold(idns.head)((a, b) => q"$a.isDefined && $b.isDefined")
     }
 
     /** Build code for scanner nodes
@@ -561,6 +559,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         Ident(TermName(idn))
 
     }
+
+
 
     /** Build code for Scala algebra nodes
       */
@@ -617,19 +617,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           q"""
         ${build(child)}
           .flatMap($childArg => {
-            ..${idnVals("child", patChild, true)}
-            val matches =
-              ${build(path)}
-              .filter($pathArg => {
-                ..${idnVals("path", patPath, false)}
-                ${nullableFilter(patPath)} })
-              .filter($pathArg => {
-                ..${idnVals("path", patPath, true)}
-                ${build(pred)} })
-            if (matches.isEmpty)
+            ..${idnVals("child", patChild, false)}
+            if (!${nullableCond(pred, patChild)}) {
               List( $rt(child, None) )
-            else
-              matches.map(path => $rt(child, Some(path))) })
+            } else {
+              ..${idnVals("child", patChild, true)}
+              val matches =
+                ${build(path)}
+                .filter($pathArg => {
+                  ..${idnVals("path", patPath, false)}
+                  ${nullableFilter(patPath)} })
+                .filter($pathArg => {
+                  ..${idnVals("path", patPath, true)}
+                  ${build(pred)} })
+              if (matches.isEmpty)
+                List( $rt(child, None) )
+              else
+                matches.map(path => $rt(child, Some(path))) }})
         """
         q"""
         val start = "************ OuterUnnest (Scala) ************"
@@ -675,19 +679,23 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightCode = ${build(childRight)}.toSeq
         ${build(childLeft)}
           .flatMap($leftArg => {
-            ..${idnVals("left", patLeft, true)}
-            val matches =
-              rightCode
-                .filter($rightArg => {
-                  ..${idnVals("right", patRight, false)}
-                  ${nullableFilter(patRight)} })
-                .filter($rightArg => {
-                  ..${idnVals("right", patRight, true)}
-                  ${build(p)} })
-            if (matches.isEmpty)
+            ..${idnVals("left", patLeft, false)}
+            if (!${nullableCond(p, patLeft)}) {
               List( $rt(left, None) )
-            else
-              matches.map(right => $rt(left, Some(right))) })
+            } else {
+              ..${idnVals("left", patLeft, true)}
+              val matches =
+                rightCode
+                  .filter($rightArg => {
+                    ..${idnVals("right", patRight, false)}
+                    ${nullableFilter(patRight)} })
+                  .filter($rightArg => {
+                    ..${idnVals("right", patRight, true)}
+                    ${build(p)} })
+              if (matches.isEmpty)
+                List( $rt(left, None) )
+              else
+                matches.map(right => $rt(left, Some(right))) }})
         """
         q"""
         val start = "************ OuterJoin (Scala) ************"
@@ -724,12 +732,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         */
       case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
-        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, true)}
+            ..${idnVals("child", pat, false)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(
@@ -755,12 +763,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
-        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, true)}
+            ..${idnVals("child", pat, false)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(
@@ -787,12 +795,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
         val childArg = c.parse(s"child: ${patternType(pat)}")
-        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world)}, ${buildScalaType(analyzer.tipe(child), world)})")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, true)}
+            ..${idnVals("child", pat, false)}
             ${build(k)} })
           .map($groupedArg =>
             $rt(

@@ -1,26 +1,17 @@
 <queries disabled="https://github.com/raw-db/ldb/issues/26" dataset="publicationsSmall">
     <query>
-        <oql>
-            select A.name from authors A order by A.name
-        </oql>
         <qrawl>
             select A.name from authors A order by A.name
         </qrawl>
     </query>
 
     <query>
-        <oql>
-            select A.name from authors A order by A.name ASC
-        </oql>
         <qrawl>
             select A.name from authors A order by A.name ASC
         </qrawl>
     </query>
 
     <query>
-        <oql>
-            select A.name from authors A order by A.name DESC
-        </oql>
         <qrawl>
             select A.name from authors A order by A.name DESC
         </qrawl>

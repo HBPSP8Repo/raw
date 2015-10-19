@@ -370,6 +370,13 @@ class UnnesterTest extends CalculusTest {
       TestWorlds.publications)
   }
 
+  test("group by w/ expression") {
+    check(
+      """select distinct year/100, * from authors group by year/100""",
+      """""",
+      TestWorlds.publications)
+  }
+
 
   //  ignore("edge bundling chuv diagnossis") {
 //        val query = """

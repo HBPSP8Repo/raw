@@ -2319,3 +2319,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 // TODO: Review all TODOs
 
 // TODO: FunTest compare function is rewritten always the $<number> part when it could start from $0 for each prefix
+
+// TODO: Remove 'oql' from test framework
+// TODO: And if we ever add more languages to test framework, don't generate test file it empty
+// TODO: More output types on test framework: e.g. XML. Also on web service!
+// TODO: Refactor all executor test cases: why are there all those JSON/CSV files there, if not part of any test? Old leftovers? Do they contribute anything?
+// TODO: Should have the option to generate Scala or Spark test separately as well
+// TODO: Executor test framework should allow us to write multiple test which must have the same outcome: if the outcome is NOT specified, then all 2 or 3 outcomes must match exactly.
+// TODO: XML output on test framework super important going forward, if we don't loose info on semantics of data ordering et al.
+
+// TODO: Remove TestWorls and have it inferred from actual data? dunno..

@@ -1,8 +1,5 @@
 <queries dataset="patients">
     <query>
-        <oql>
-            count(patients)
-        </oql>
         <qrawl>
             count(patients)
         </qrawl>
@@ -12,10 +9,6 @@
     </query>
 
     <query>
-        <oql><![CDATA[
-select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
-  ]]>
-        </oql>
         <qrawl><![CDATA[
 select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
   ]]>
@@ -30,10 +23,6 @@ select P from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
     </query>
 
     <query>
-        <oql><![CDATA[
-select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
-  ]]>
-        </oql>
         <qrawl><![CDATA[
 select P.patient_id, P.diagnosis from patients P where count(P.diagnosis) > 3 and year_of_birth > 1994
   ]]>

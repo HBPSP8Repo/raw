@@ -1,8 +1,5 @@
 <queries dataset="publications">
     <query>
-        <oql>
-            min(select year from authors)
-        </oql>
         <qrawl>
             min(select a.year from a in authors)
         </qrawl>
@@ -12,9 +9,6 @@
     </query>
 
     <query>
-        <oql>
-            max(select year from authors)
-        </oql>
         <qrawl>
             max(select a.year from a in authors)
         </qrawl>
@@ -24,9 +18,6 @@
     </query>
 
     <query>
-        <oql>
-            sum(select year from authors)
-        </oql>
         <qrawl>
             sum(select a.year from a in authors)
         </qrawl>
@@ -36,9 +27,6 @@
     </query>
 
     <query disabled="https://github.com/raw-db/ldb/issues/25">
-        <oql>
-            avg(select year from authors)
-        </oql>
         <qrawl>
             avg(select a.year from a in authors)
         </qrawl>
@@ -48,9 +36,6 @@
     </query>
 
     <query>
-        <oql>
-            count(select year from authors)
-        </oql>
         <qrawl>
             count(select a.year from a in authors)
         </qrawl>
@@ -60,9 +45,6 @@
     </query>
 
     <query disabled="https://github.com/raw-db/ldb/issues/25">
-        <oql>
-            unique(select year from authors)
-        </oql>
         <qrawl>
             unique(select year from authors)
         </qrawl>
@@ -72,9 +54,6 @@
     </query>
 
     <query>
-        <oql>
-            EXISTS (select year from authors)
-        </oql>
         <qrawl>
             EXISTS (select a.year from authors a where a.year > 1950)
         </qrawl>

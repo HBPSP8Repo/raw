@@ -21,9 +21,7 @@ class MonoidVariablesDesugarer(val analyzer: SemanticAnalyzer) extends SemanticT
   }
 
   private lazy val desugarVars = rule[RawNode] {
-    case m: MonoidVariable if looksLikeSet(m) => SetMonoid()
-    case m: MonoidVariable if looksLikeList(m) => ListMonoid()
-    case m: MonoidVariable => BagMonoid()
+    case m: MonoidVariable => analyzer.looksLikeMonoid(m)
   }
 
 }

@@ -17,6 +17,7 @@ object Phases extends LazyLogging {
     Seq(  "SelectDesugarer"           -> classOf[SelectDesugarer]),
     Seq(  "ExpressionsDesugarer"      -> classOf[ExpressionsDesugarer],
           "BlocksDesugarer"           -> classOf[BlocksDesugarer]),
+    Seq(  "MonoidVariablesDesugarer"  -> classOf[MonoidVariablesDesugarer]),
     Seq(  "Uniquifier2"               -> classOf[Uniquifier]),
     Seq(  "Simplifier1"               -> classOf[Simplifier],
           "Normalizer"                -> classOf[Normalizer]),
@@ -24,8 +25,7 @@ object Phases extends LazyLogging {
           "Canonizer"                 -> classOf[Canonizer],
           "Unnester"                  -> classOf[Unnester]),
     Seq(  "Simplifier3"               -> classOf[Simplifier]),
-    Seq(  "Optimizer"                 -> classOf[Optimizer]),
-    Seq(  "MonoidVariablesDesugarer"  -> classOf[MonoidVariablesDesugarer])
+    Seq(  "Optimizer"                 -> classOf[Optimizer])
   )
 
   private def transformExists(name: Option[String]): Boolean =
