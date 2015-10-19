@@ -209,10 +209,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     InferredType(rawType, isSpark)
   }
 
-  /** Return a unique representation for a record type, including its nullable information.
+  /** Return a unique representation for a record type, excluding its nullable information.
+    * (Nullable info is excluded since the Scala Option[...] is "outside" the record.
     */
   def toCanonicalForm(recordType: RecordType): String =
-    PrettyPrinter(recordType)
+    recordType.toString
 
   /** Return a user record for the given record type with two attributes, otherwise use a Scala Tuple2.
     */
@@ -263,9 +264,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val recordTypes = scala.collection.mutable.MutableList[RecordType]()
 
     val queryRecordTypes = everywhere(query[Calculus.Exp] {
-      case e => logger.debug(s"handling ${CalculusPrettyPrinter(e)}"); analyzer.tipe(e) match {
-        case r: RecordType => recordTypes += r; logger.debug(s"added type ${PrettyPrinter(r)}")
-        case t             => logger.debug(s"ignored type ${PrettyPrinter(t)}")
+      case e => analyzer.tipe(e) match {
+        case r: RecordType => recordTypes += r
+        case t             =>
       }
     })
 
