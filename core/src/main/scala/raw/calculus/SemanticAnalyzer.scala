@@ -293,7 +293,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val x = te match {
             case CollectionType(m, inner) => {
               val expectedType = CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g1.e))), AttrType("_2", innerTipe(tipe(g2.e)))))))
-              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e), tipe(g2.e)))
+              makeNullable(te, Seq(expectedType), Seq(tipe(g1.e)))
             }
           }
           x match {

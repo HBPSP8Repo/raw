@@ -284,8 +284,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def buildCaseClasses(tree: Calculus.Exp, world: World, analyzer: SemanticAnalyzer): Set[Tree] = {
 
     val recordTypes: Seq[RecordType] = collectRecordTypes(tree, world, analyzer)
-    logger.debug(s"buildCaseClasses $recordTypes")
-    logger.debug(s"buildCaseClasses1 ${recordTypes.map(toCanonicalForm(_)).mkString("\n")}")
 
     var i = 0
 
@@ -296,7 +294,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     val toBuild = scala.collection.mutable.HashMap[String, RecordType]()
     for (r <- recordTypes) {
       val canonicalForm = toCanonicalForm(r)
-      logger.debug(s"Can form '$canonicalForm'")
       if (!classesMap.contains(canonicalForm)) {
         // Generate new case class name
         i += 1
@@ -570,7 +567,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
       /** Scala Filter
         */
-      case Filter(Gen(Some(pat), child), pred) =>
+      case n @ Filter(Gen(Some(pat), child), pred) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val code = q"""
         ${build(child)}.filter($childArg => {
@@ -581,12 +579,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Filter (Scala) ************"
         val res = $code
         val end = "************ Filter (Scala) ************"
+        val endType = $endType
         res
         """
 
       /** Scala Unnest
         */
       case n @ Unnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -606,12 +606,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Unnest (Scala) ************"
         val res = $code
         val end = "************ Unnest (Scala) ************"
+        val endType = $endType
         res
         """
 
       /** Scala OuterUnnest
         */
       case n @ OuterUnnest(Gen(Some(patChild), child), Gen(Some(patPath), path), pred) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -635,18 +637,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               if (matches.isEmpty)
                 Iterable( $rt(child, None) )
               else
-                matches.map(path => $rt(child, Some(path))) }})
+                matches.map(pathElement => $rt(child, Some(pathElement))) }})
         """
         q"""
         val start = "************ OuterUnnest (Scala) ************"
         val res = $code
         val end = "************ OuterUnnest (Scala) ************"
+        val endType = $endType
         res
         """
 
       /** Scala Join
         */
       case n @ Join(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -667,12 +671,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Join (Scala) ************"
         val res = $code
         val end = "************ Join (Scala)************"
+        val endType = $endType
         res
         """
 
       /** Scala OuterJoin
         */
       case n @ OuterJoin(Gen(Some(patLeft), childLeft), Gen(Some(patRight), childRight), p) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -703,12 +709,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ OuterJoin (Scala) ************"
         val res = $code
         val end = "************ OuterJoin (Scala)************"
+        val endType = $endType
         res
         """
 
       /** Scala Reduce
         */
       case n @ Reduce(m, Gen(Some(pat), child), e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val projected = q"""
         ${build(child)}.map($childArg => {
@@ -727,12 +735,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Reduce (Scala) ************"
         val res = $code
         val end = "************ Reduce (Scala) ************"
+        val endType = $endType
         res
         """
 
       /** Scala Nest
         */
       case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -760,11 +770,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Nest Primitive Monoid (Scala) ************"
         val res = $code
         val end = "************ Nest Primitive Monoid (Scala) ************"
+        val endType = $endType
         res"""
 
       case n @ Nest(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
-        logger.debug(s"Generating pat ${CalculusPrettyPrinter(child)} for pattern ${CalculusPrettyPrinter(pat)}")
-        logger.debug(s"Scala type is ${patternType(pat)}")
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -792,11 +802,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Nest Set Monoid (Scala) ************"
         val res = $code
         val end = "************ Nest Set Monoid (Scala) ************"
+        val endType = $endType
         res"""
 
       case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
-        logger.debug(s"Generating Nest bag/list pat ${CalculusPrettyPrinter(child)} for pattern ${CalculusPrettyPrinter(pat)}")
-        logger.debug(s"Scala type is ${patternType(pat)}")
+        val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
@@ -824,6 +834,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Nest Bag/List Monoid (Scala) ************"
         val res = $code
         val end = "************ Nest Bag/List Monoid (Scala) ************"
+        val endType = $endType
         res"""
     }
 

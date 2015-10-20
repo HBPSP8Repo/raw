@@ -54,7 +54,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Bo
 
       patDecl(pat) match {
         case Some(Bind(p, e))      => findType(p, tipe(e)).get
-        case Some(Gen(Some(p), e)) => logger.debug(s"patternType1 e ${CalculusPrettyPrinter(e)} => ${PrettyPrinter(tipe(e))}"); findType(p, tipe(e).asInstanceOf[CollectionType].innerType).get
+        case Some(Gen(Some(p), e)) => findType(p, tipe(e).asInstanceOf[CollectionType].innerType).get
       }
   }
 
