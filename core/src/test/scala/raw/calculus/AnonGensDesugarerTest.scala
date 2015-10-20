@@ -66,4 +66,17 @@ class AnonGensDesugarerTest extends CalculusTest {
       TestWorlds.professors_students)
   }
 
+  test("lookup attributes") {
+    check(
+      """select year from (select * from authors)""",
+      """select $0.year from $0 <- select * from $1 <- authors""",
+      TestWorlds.publications)
+  }
+
+  test("lookup attributes #2") {
+    check(
+      """select year, title from (select * from authors)""",
+      """select (year: $0.year, title: $0.title) from $0 <- select * from $1 <- authors""",
+      TestWorlds.publications)
+  }
 }

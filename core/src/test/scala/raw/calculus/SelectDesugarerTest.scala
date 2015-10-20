@@ -108,7 +108,7 @@ class SelectDesugarerTest extends CalculusTest {
              group by A.title) G
       """,
       """for (G$0 <- for (A$1 <- authors) yield $2 (title: A$1.title, people: for (A$3 <- authors; A$1.title = A$3.title) yield $4 A$3))
-         yield $5 (title: G$0.title, stats: for (v$6 <- G$0.people) yield set (year: v$6.year, N: count(for (v$7 <- G$0.people; v$6.year = v$7.year) yield set v$7)))
+         yield $5 (title: G$0.title, stats: for (v$6 <- G$0.people) yield set (year: v$6.year, N: count(for (v$7 <- G$0.people; v$6.year = v$7.year) yield $8 v$7)))
       """,
       TestWorlds.publications)
   }
@@ -118,7 +118,7 @@ class SelectDesugarerTest extends CalculusTest {
       """select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title """,
       """
          for (A$0 <- authors) yield set
-           (title: A$0.title, stats: for (A$1 <- for (A$2 <- authors; A$0.title = A$2.title) yield set A$2) yield $3 (year: A$1.year, N: count(for (A$4 <- for (A$5 <- authors; A$0.title = A$5.title) yield set A$5; A$1.year = A$4.year) yield $5 A$4)))
+           (title: A$0.title, stats: for (A$1 <- for (A$2 <- authors; A$0.title = A$2.title) yield $3 A$2) yield $4 (year: A$1.year, N: count(for (A$4 <- for (A$5 <- authors; A$0.title = A$5.title) yield $7 A$5; A$1.year = A$4.year) yield $5 A$4)))
       """,
       TestWorlds.publications)
   }

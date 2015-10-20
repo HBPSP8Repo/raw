@@ -188,7 +188,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case _: StringType => StringType()
       case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
       case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}))
-      // TODO: Other RecordTypes?
+      case RecordType(AttributesVariable(atts, sym)) => RecordType(AttributesVariable(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}, sym))
+      case RecordType(ConcatAttributes(sym)) => RecordType(ConcatAttributes(sym))
       case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1))})
       case CollectionType(m, inner) => CollectionType(m, cloneType(inner))
       case NumberType(sym) => NumberType(sym)
@@ -387,13 +388,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
         case (PatternIdn(idn1), t1) if idn == idn1 => logger.debug(s"found $idn1 = ${PrettyPrinter(t1)}"); Some(t1)
         case (_: PatternIdn, _)                    => None
-        case (PatternProd(ps), t1: RecordType) =>
+        case (PatternProd(ps), ResolvedType(t1: RecordType)) =>
           ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
+        case (PatternProd(ps), ResolvedType(t1: PatternType)) =>
+          ps.zip(t1.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
       }
 
       decl(idn) match {
         case Some(Bind(p, e))       => findType(p, tipe(e)).get
-        case Some(Gen(Some(p), e))  => logger.debug(s"looking for ${idn} in ${CalculusPrettyPrinter(e)}"); findType(p, resolvedType(tipe(e)).asInstanceOf[CollectionType].innerType).get
+        case Some(Gen(Some(p), e))  => findType(p, resolvedType(tipe(e)).asInstanceOf[CollectionType].innerType).get
         case Some(e @ FunAbs(p, _)) => findType(p, baseType(e).asInstanceOf[FunType].t1).get  // TODO: check: Parameters can never be nullable (?)
       }
   }
@@ -542,12 +545,27 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val t = expType(e)
       val nt = find(t)
       nt match {
-        case CollectionType(_, ResolvedType(RecordType(Attributes(atts)))) =>
-          var nenv: Environment = out(g)
-          for ((att, idx) <- atts.zipWithIndex) {
-            nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+        case CollectionType(_, inner) =>
+          val ninner = find(inner)
+          logger.debug(s"INNER is $ninner")
+          ninner match {
+            case ResolvedType(RecordType(Attributes(atts))) =>
+              var nenv: Environment = out(g)
+              for ((att, idx) <- atts.zipWithIndex) {
+                nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+              }
+              nenv
+            case ResolvedType(RecordType(c: ConcatAttributes)) =>
+              var nenv: Environment = out(g)
+              val props = getConcatProperties(c)
+              logger.debug(s"cdef is $props")
+              for ((att, idx) <- props.atts.zipWithIndex) {
+                nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+              }
+              nenv
+            case _ =>
+              aliasEnv.in(g)
           }
-          nenv
         case _ =>
           aliasEnv.in(g)
       }

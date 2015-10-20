@@ -373,8 +373,21 @@ class UnnesterTest extends CalculusTest {
   test("group by w/ expression") {
     check(
       """select distinct year/100, * from authors group by year/100""",
-      """""",
-      TestWorlds.publications)
+      """
+      reduce(
+        set,
+        ($0, $2) <- filter(
+          ($0, $2) <- nest(
+            bag,
+            ($0, $1) <- outer_join($0 <- filter($0 <- authors, true), $1 <- filter($1 <- authors, true), $0.year / 100 = $1.year / 100),
+            $0,
+            true,
+            (name: $1.name, title: $1.title, year: $1.year)),
+          true),
+        (_1: $0.year / 100, _2: $2))
+      """.stripMargin,
+      TestWorlds.publications,
+      ignoreRootTypeComparison = true)
   }
 
 

@@ -18,7 +18,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   def strategy = desugar
 
   private lazy val desugar =
-    attempt(manybu(anonRecords)) <* reduce(anonGens)
+    attempt(manybu(anonRecords)) <* manytd(anonGens)
 
   // Generate unique IDs for Gens w/o pattern
   private lazy val anonGenSymbol: Gen => Symbol = attr {
@@ -26,7 +26,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   }
 
   private lazy val anonRecords = rule[Exp] {
-    // Replace all IdnExp that refer to "anonymous generators" to have be a record projection
+    // Replace all IdnExp that refer to "anonymous generators" to be a record projection
     case idnExp: IdnExp if analyzer.lookupAttributeEntity(idnExp) != UnknownEntity() =>
       analyzer.lookupAttributeEntity(idnExp) match {
         case AttributeEntity(att, g, idx) => RecordProj(IdnExp(IdnUse(anonGenSymbol(g).idn)), att.idn)

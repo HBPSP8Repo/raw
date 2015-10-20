@@ -1335,8 +1335,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "{ a:= select * from students, p in professors; select name from a }",
       TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
-    )
+      CollectionType(MonoidVariable(), StringType()))
   }
 
 
@@ -1904,6 +1903,20 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """.stripMargin,
       TestWorlds.professors_students,
       IntType())
+  }
+
+  test("lookup attributes") {
+    success(
+      """select year from (select * from authors)""",
+      TestWorlds.publications,
+      CollectionType(MonoidVariable(), IntType()))
+  }
+
+  test("lookup attributes #2") {
+    success(
+      """select year, title from (select * from authors)""",
+      TestWorlds.publications,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("year", IntType()), AttrType("title", StringType()))))))
   }
 
 }
