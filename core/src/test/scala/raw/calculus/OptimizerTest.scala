@@ -257,4 +257,16 @@ class OptimizerTest extends CalculusTest {
       TestWorlds.publications)
   }
 
+  test("polymorphic select w/ group by") {
+    check(
+      """
+      {
+        group_by_year := \table -> select t.year, * from table t group by t.year;
+        group_by_year(authors)
+      }
+      """,
+      """""",
+      TestWorlds.publications)
+  }
+
 }
