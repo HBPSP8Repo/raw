@@ -219,7 +219,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       val nt = e match {
         case RecordProj(e1, idn)                 => tipe(e1) match {
-          case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
+          case rt: RecordType =>
+            makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
           case ut: UserType   =>
             typesVarMap(ut).root match {
               case rt: RecordType => makeNullable(te, Seq(rt.getType(idn).get), Seq(rt, rt.getType(idn).get))
@@ -327,7 +328,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val t1 = tipe(e1)
           makeNullable(te, Seq(t1), Seq(t1))
         case idnExp @ IdnExp(idnUse) =>
-          logger.debug(s"idnUse $idnUse")
           entity(idnUse) match {
             case VariableEntity(idnDef, _) => cloneType(idnDefType(idnDef))
             case _: DataSourceEntity       => te
@@ -376,7 +376,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
     // TODO: Improve this :-)
     c(e).map { case e =>
-      logger.debug(s"resetNullable e ${CalculusPrettyPrinter(e)}"); val t = tipe(e); t.nullable = false
+      val t = tipe(e); t.nullable = false
     }
   }
 
@@ -386,7 +386,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   lazy val idnDefType: IdnDef => Type = attr {
     idn =>
       def findType(p: Pattern, t: Type): Option[Type] = (p, t) match {
-        case (PatternIdn(idn1), t1) if idn == idn1 => logger.debug(s"found $idn1 = ${PrettyPrinter(t1)}"); Some(t1)
+        case (PatternIdn(idn1), t1) if idn == idn1 => Some(t1)
         case (_: PatternIdn, _)                    => None
         case (PatternProd(ps), ResolvedType(t1: RecordType)) =>
           ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => findType(p1, att.tipe) }.headOption
@@ -547,7 +547,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       nt match {
         case CollectionType(_, inner) =>
           val ninner = find(inner)
-          logger.debug(s"INNER is $ninner")
           ninner match {
             case ResolvedType(RecordType(Attributes(atts))) =>
               var nenv: Environment = out(g)
@@ -558,7 +557,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             case ResolvedType(RecordType(c: ConcatAttributes)) =>
               var nenv: Environment = out(g)
               val props = getConcatProperties(c)
-              logger.debug(s"cdef is $props")
               for ((att, idx) <- props.atts.zipWithIndex) {
                 nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
               }
@@ -1390,7 +1388,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             fromTypes.head.innerType
           } else {
             val idns = s.from.zipWithIndex.map {
-              case (Gen(Some(PatternIdn(IdnDef(idn))), _), _) => idn
+              case (Gen(Some(PatternIdn(IdnDef(idn))), _), _) => idn.takeWhile(_ != '$')
               case (Gen(None, _), i)                          => s"_${i + 1}"
             }
             assert(idns.toSet.size == idns.length) // TODO: Making sure that user PatternIdns do not match _1, _2 by accident!
