@@ -749,17 +749,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
-                                                      val part1 =
-
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
-                    val part2 = part1.keys.toList.sortBy(x => x.toString)
-        val part3 = part2.map { case k => (k, part1(k)) }
-        part3
-
-
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -788,16 +781,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
-                               val part1 =
-
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
-        val part2 = part1.keys.toList.sortBy(x => x.toString)
-        val part3 = part2.map { case k => (k, part1(k)) }
-        part3
-
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -826,15 +813,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
-                               val part1 =
-
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
-        val part2 = part1.keys.toList.sortBy(x => x.toString)
-        val part3 = part2.map { case k => (k, part1(k)) }
-        part3
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -858,19 +840,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res"""
 
       case n @ Nest(_: BagMonoid, Gen(Some(pat), child), k, p, e) =>
+        // TODO: This is doing sortBy w/ a toString (!!!!). Super-slow.
+        // TODO: Instead, implement a real Bag type in Scala and use it.
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
-        val part1 =
-          ${build(child)}
-            .groupBy($childArg => {
-              ..${idnVals("child", pat, false)}
-              ${build(k)} })
-        val part2 = part1.keys.toList.sortBy(x => x.toString)
-        val part3 = part2.map { case k => (k, part1(k)) }
-        part3
+        ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -883,7 +863,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ${build(p)} })
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
-                  ${build(e)} }) ))
+                  ${build(e)} })
+                .toList.sortBy(x => x.toString).toIterable ))
         """
         q"""
         val start = "************ Nest Bag Monoid (Scala) ************"
