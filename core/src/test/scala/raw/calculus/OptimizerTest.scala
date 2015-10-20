@@ -58,6 +58,10 @@ class OptimizerTest extends CalculusTest {
       TestWorlds.publications)
   }
 
+  test("for (a <- authors) yield bag a") {
+    check("for (a <- authors) yield bag a", "", TestWorlds.publications)
+  }
+
   test("publications: should do an efficient group by #3") {
     // here the project of $38.title is rewritten into $38 since we nest on that now
     // TODO could get rid of the reduce! See test below

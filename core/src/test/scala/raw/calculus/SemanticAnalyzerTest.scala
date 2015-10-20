@@ -70,6 +70,15 @@ class SemanticAnalyzerTest extends FunTest {
                 assert(as2.getType(a1.idn).isDefined)
                 checkStructure(a1.tipe, as2.getType(a1.idn).get, map)
             }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
+          case (as1: ConcatAttributes, as2: ConcatAttributes) =>
+            if (map.tMap.contains(r1)) {
+              assert(map.tMap(r1) == r2)
+              Mappings()
+            } else {
+              Mappings(Map(), Map(r1 -> r2))
+            }
+
+
         }
       case (c1: CollectionType, c2: CollectionType) =>
         ((c1.m, c2.m) match {
@@ -558,7 +567,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""home-made count applied to wrong type""") {
-    val m =
+    val mv = MonoidVariable()
     failure(
       """
         {
@@ -567,8 +576,7 @@ class SemanticAnalyzerTest extends FunTest {
         }
 
       """, TestWorlds.empty,
-      UnexpectedType(FunType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable()), IntType()), FunType(IntType(), TypeVariable()))
-    )
+      IncompatibleTypes(CollectionType(mv, TypeVariable()), IntType()))
   }
 
   test("""let-polymorphism #1""") {
@@ -947,16 +955,19 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("select s.age, partition from students s group by s.age") {
     success("select s.age, partition from students s group by s.age", TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", UserType(Symbol("students"))))))))
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(
+                                                  AttrType("age", IntType()),
+                                                  AttrType("partition", CollectionType(MonoidVariable(), UserType(Symbol("student")))))))))
   }
 
   test("select partition from students s group by s.age") {
-    success("select partition from students s group by s.age", TestWorlds.professors_students, CollectionType(MonoidVariable(), UserType(Symbol("students"))))
+    success("select partition from students s group by s.age", TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), CollectionType(MonoidVariable(), UserType(Symbol("student")))))
   }
 
   test("select s.age, (select p.name from partition p) from students s group by s.age") {
     success("select s.age, (select p.name from partition p) as names from students s group by s.age", TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(ListMonoid(), StringType())))))))
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("names", CollectionType(MonoidVariable(), StringType())))))))
   }
 
   test("select s.dept, count(partition) as n from students s group by s.dept") {
@@ -970,11 +981,14 @@ class SemanticAnalyzerTest extends FunTest {
 
   test("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10") {
     success("select s.age/10 as decade, (select s.name from partition s) as names from students s group by s.age/10", TestWorlds.professors_students,
-      CollectionType(MonoidVariable(),RecordType(Attributes(List(AttrType("decade",IntType()), AttrType("names",CollectionType(ListMonoid(),StringType())))))))
+      CollectionType(MonoidVariable(),RecordType(Attributes(List(AttrType("decade",IntType()), AttrType("names",CollectionType(MonoidVariable(),StringType())))))))
   }
 
   test("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age") {
-    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age", TestWorlds.professors_students, CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("age",IntType()), AttrType("names",CollectionType(ListMonoid(),RecordType(Attributes(List(AttrType("name",StringType()), AttrType("partition",UserType(Symbol("students")))))))))))))
+    success("select s.age, (select s.name, partition from partition s group by s.name) as names from students s group by s.age",
+      TestWorlds.professors_students, CollectionType(MonoidVariable(),RecordType(Attributes(List(AttrType("age",IntType()),
+            AttrType("names",CollectionType(MonoidVariable(),RecordType(Attributes(List(AttrType("name",StringType()), AttrType("partition",
+              CollectionType(MonoidVariable(), UserType(Symbol("student"))))))))))))))
   }
 
   test("sum(list(1))") {
@@ -1077,12 +1091,8 @@ class SemanticAnalyzerTest extends FunTest {
         |  a := \xs -> select x.age from x in xs;
         |  (a(students), a(professors))
         |}
-      """.stripMargin, TestWorlds.professors_students, IntType())
-  }
-
-  test("poloymorphic select #2") {
-    //TODO: Triple check that this parses well!
-    success("""\x,y -> for (a <- x; b <- y) yield a > max(x) and b > count(y)""", TestWorlds.empty, AnyType())
+      """.stripMargin, TestWorlds.professors_students, RecordType(Attributes(List(AttrType("_1", CollectionType(MonoidVariable(), IntType())),
+        AttrType("_2", CollectionType(MonoidVariable(), IntType()))))))
   }
 
   test("polymorphic partition") {
@@ -1092,7 +1102,10 @@ class SemanticAnalyzerTest extends FunTest {
         |  a := \xs -> select x.age, count(partition) from x in xs where x.age > 15 group by x.age;
         |  (a(students), a(professors))
         |}
-      """.stripMargin, TestWorlds.professors_students, IntType())
+      """.stripMargin, TestWorlds.professors_students,
+      RecordType(Attributes(List(AttrType("_1", CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType())))))),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", IntType()))))))
+      ))))
   }
 
   test("polymorphic partition #2") {
@@ -1102,7 +1115,11 @@ class SemanticAnalyzerTest extends FunTest {
         |  a := \xs -> select x.age, partition from x in xs where x.age > 15 group by x.age;
         |  (a(students), a(professors))
         |}
-      """.stripMargin, TestWorlds.professors_students, IntType())
+      """.stripMargin, TestWorlds.professors_students,
+        RecordType(Attributes(List(
+          AttrType("_1", CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", CollectionType(MonoidVariable(), UserType(Symbol("student"))))))))),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("partition", CollectionType(MonoidVariable(), UserType(Symbol("professor")))))))))
+      ))))
   }
 
   test("polymorphic partition #3") {
@@ -1113,6 +1130,14 @@ class SemanticAnalyzerTest extends FunTest {
         |  (a, a(things), \xs -> select x.a, partition from x in xs where x.a > 15 group by x.a)
         |}
       """.stripMargin, TestWorlds.things, IntType())
+//        RecordType(Attributes(List(AttrType("a",FunType(CollectionType(MonoidVariable(),
+//            RecordType(AttributesVariable(Set(AttrType("a",IntType()))))),CollectionType(MonoidVariable(Symbol($2543)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2544)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2571))))))))))), AttrType(_2,CollectionType(MonoidVariable(Symbol($2548)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2549)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(b,IntType()), AttrType(set_a,CollectionType(SetMonoid(),FloatType())), AttrType(set_b,CollectionType(SetMonoid(),FloatType())))))))))))), AttrType(_3,FunType(CollectionType(MonoidVariable(Symbol($2503)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2572)))),CollectionType(MonoidVariable(Symbol($2512)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2560)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2573)))))))))))))))
+  }
+
+  test("blablabla") {
+    val input: Iterable[(Int, String)] = for (x <- Iterable(1,2,3,4); y <- Iterable("1","2","3","4")) yield (x,y)
+    val g = input.groupBy{case i => i._1}.map{case (k, vs) => (k, vs.map(_._2))}
+    logger.debug(g.toString)
   }
 
   test("polymorphic partial record w/ polymorphic select") {
@@ -1800,6 +1825,13 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(MonoidVariable(), StringType()))
   }
 
+  test("""groupby""") {
+    success(
+      """select x.name_1 from x in ((\xs, ys -> select * from x in xs, ys)(students, professors))""",
+      TestWorlds.professors_students,
+      CollectionType(MonoidVariable(), StringType()))
+  }
+
   /*
 
 group_by_age(xs) := select x.age, * from x in xs group by x.age
@@ -1818,6 +1850,8 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
    */
 
   test("polymorphic select w/ concat attributes") {
+    val ageType = TypeVariable()
+    val starType = RecordType(Attributes(Vector(AttrType("name",StringType()), AttrType("age",IntType()), AttrType("name_1",StringType()), AttrType("age_1",IntType()))))
     success(
       """
         |{
@@ -1826,7 +1860,25 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(
+        AttrType("group_by_age",
+          FunType(
+            PatternType(List(PatternAttrType(CollectionType(MonoidVariable(),RecordType(AttributesVariable(Set(AttrType("age",ageType)))))),
+                             PatternAttrType(CollectionType(MonoidVariable(),TypeVariable())))),
+            CollectionType(MonoidVariable(),
+              RecordType(Attributes(List(
+                AttrType("age",ageType),
+                AttrType("_2", CollectionType(MonoidVariable(),RecordType(ConcatAttributes()))))))))),
+        AttrType("_2",
+          CollectionType(MonoidVariable(),
+            RecordType(Attributes(List(
+              AttrType("age", IntType()),
+              AttrType("_2", CollectionType(MonoidVariable(), starType))))))),
+        AttrType("_3",
+          CollectionType(MonoidVariable(),
+            RecordType(Attributes(List(
+              AttrType("age", IntType()),
+              AttrType("_2", CollectionType(MonoidVariable(), starType)))))))))))
   }
 
   test("polymorphic select w/ concat attributes #2") {

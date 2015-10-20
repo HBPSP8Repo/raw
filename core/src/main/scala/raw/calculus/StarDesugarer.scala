@@ -7,7 +7,7 @@ class StarDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer 
   import Calculus._
   import SymbolTable._
 
-  def strategy = reduce(desugar)
+  def transform = reduce(desugar)
 
   private lazy val desugar = rule[Exp] {
     case s: Star =>

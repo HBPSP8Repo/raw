@@ -9,7 +9,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
   import Calculus._
   import SymbolTable._
 
-  def strategy = desugar
+  def transform = desugar
 
   private lazy val desugar =
     innermost(selectGroupBy)

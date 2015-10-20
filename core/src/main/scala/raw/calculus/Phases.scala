@@ -65,7 +65,7 @@ object Phases extends LazyLogging {
           } else {
             transform.newInstance()
           }
-        strategy = attempt(strategy) <* t.strategy
+        strategy = attempt(strategy) <* t.transform
         logger.debug(s"Adding rewrite strategy $name")
         if (lastTransform.isDefined && name == lastTransform.get) {
           logger.debug(s"Begin rewriting tree...")

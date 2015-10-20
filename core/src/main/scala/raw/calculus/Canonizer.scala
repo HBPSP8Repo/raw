@@ -7,7 +7,7 @@ class Canonizer extends PipelinedTransformer {
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  def strategy = canonize
+  def transform = canonize
 
   lazy val canonize = reduce(ruleFlattenPreds)
 
