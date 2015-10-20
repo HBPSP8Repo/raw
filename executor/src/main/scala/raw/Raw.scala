@@ -596,6 +596,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($childArg => {
             ..${idnVals("child", patChild, false)}
               ${build(path)}
+                .toIterable
                 .filter($pathArg => {
                   ..${idnVals("path", patPath, false)}
                   ${build(pred)} })
@@ -628,12 +629,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               ..${idnVals("child", patChild, true)}
               val matches =
                 ${build(path)}
-                .filter($pathArg => {
-                  ..${idnVals("path", patPath, false)}
-                  ${nullableFilter(patPath)} })
-                .filter($pathArg => {
-                  ..${idnVals("path", patPath, true)}
-                  ${build(pred)} })
+                  .toIterable
+                  .filter($pathArg => {
+                    ..${idnVals("path", patPath, false)}
+                    ${nullableFilter(patPath)} })
+                  .filter($pathArg => {
+                    ..${idnVals("path", patPath, true)}
+                    ${build(pred)} })
               if (matches.isEmpty)
                 Iterable( $rt(child, None) )
               else
@@ -747,10 +749,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
+                                                      val part1 =
+
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
+                    val part2 = part1.keys.toList.sortBy(x => x.toString)
+        val part3 = part2.map { case k => (k, part1(k)) }
+        part3
+
+
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -779,10 +788,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
+                               val part1 =
+
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
+        val part2 = part1.keys.toList.sortBy(x => x.toString)
+        val part3 = part2.map { case k => (k, part1(k)) }
+        part3
+
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -805,16 +820,21 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = $endType
         res"""
 
-      case n @ Nest((_: BagMonoid | _: ListMonoid), Gen(Some(pat), child), k, p, e) =>
+      case n @ Nest(_: ListMonoid, Gen(Some(pat), child), k, p, e) =>
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
+                               val part1 =
+
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
+        val part2 = part1.keys.toList.sortBy(x => x.toString)
+        val part3 = part2.map { case k => (k, part1(k)) }
+        part3
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -828,15 +848,53 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .toList.toIterable))
+                .toList.toIterable ))
         """
         q"""
-        val start = "************ Nest Bag/List Monoid (Scala) ************"
+        val start = "************ Nest List Monoid (Scala) ************"
         val res = $code
-        val end = "************ Nest Bag/List Monoid (Scala) ************"
+        val end = "************ Nest List Monoid (Scala) ************"
         val endType = $endType
         res"""
+
+      case n @ Nest(_: BagMonoid, Gen(Some(pat), child), k, p, e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val code = q"""
+        val part1 =
+          ${build(child)}
+            .groupBy($childArg => {
+              ..${idnVals("child", pat, false)}
+              ${build(k)} })
+        val part2 = part1.keys.toList.sortBy(x => x.toString)
+        val part3 = part2.map { case k => (k, part1(k)) }
+        part3
+          .map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} }) ))
+        """
+        q"""
+        val start = "************ Nest Bag Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest Bag Monoid (Scala) ************"
+        val endType = $endType
+        res"""
+
+
     }
+
 
     /** Build code for Spark algebra nodes
       */
