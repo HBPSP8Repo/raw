@@ -9,7 +9,7 @@ class SelectDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransforme
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  def strategy = translate
+  def transform = translate
 
   private def translate = manytd(selectToComp)
 

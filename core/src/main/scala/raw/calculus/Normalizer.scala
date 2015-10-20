@@ -10,7 +10,7 @@ class Normalizer extends PipelinedTransformer {
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  def strategy = normalize
+  def transform = normalize
 
   private lazy val normalize =
     doloop(

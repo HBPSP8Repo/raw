@@ -11,7 +11,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   import org.kiama.rewriting.Cloner._
   import Calculus._
 
-  def strategy = desugar
+  def transform = desugar
 
   private lazy val desugar =
     reduce(

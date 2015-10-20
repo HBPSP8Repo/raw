@@ -13,7 +13,7 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends Attribution with Semant
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  def strategy = simplify
+  def transform = simplify
 
   // TODO: Fold constants
 

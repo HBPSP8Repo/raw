@@ -14,7 +14,7 @@ trait Transformer extends LazyLogging {
   import org.kiama.rewriting.Rewriter._
   import Calculus._
 
-  def strategy: Strategy
+  def transform: Strategy
 
   /** Splits a list using a partial function.
     */

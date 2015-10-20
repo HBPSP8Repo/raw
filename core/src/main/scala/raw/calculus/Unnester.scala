@@ -22,7 +22,7 @@ class Unnester extends Attribution with PipelinedTransformer {
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Cloner._
 
-  def strategy = assertUniqueIdentifiers <+ unnester
+  def transform = assertUniqueIdentifiers <+ unnester
 
   /** Training wheels
     * ===============

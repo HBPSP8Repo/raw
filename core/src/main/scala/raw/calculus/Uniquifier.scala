@@ -11,7 +11,7 @@ class Uniquifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   import Calculus._
   import SymbolTable._
 
-  def strategy = uniquify
+  def transform = uniquify
 
   private def rawEntity(n: IdnNode): RawEntity = analyzer.entity(n) match {
     case e: RawEntity => e

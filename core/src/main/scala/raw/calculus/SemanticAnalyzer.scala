@@ -100,11 +100,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val otherP = funs.map(_.t1)
         val otherE = funs.map(_.t2)
         FunType(makeNullable(p, otherP, otherP, nullable), makeNullable(e, otherE, otherE, nullable))
-      case (r @ RecordType(recAtts), recs: Seq[RecordType])         =>
-        recAtts match {
-          case Attributes(atts) =>
+      case (r @ RecordType(recAtts: Attributes), _)         =>
+        val recs = models.collect{case r @ RecordType(_: Attributes) => r}
             RecordType(Attributes(
-              for ((att, idx) <- atts.zipWithIndex) yield {
+              for ((att, idx) <- recAtts.atts.zipWithIndex) yield {
                 val others = for (rec <- recs) yield {
                   rec.recAtts match {
                     case Attributes(atts1) => atts1(idx)
@@ -113,18 +112,21 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 AttrType(att.idn, makeNullable(att.tipe, others.map(_.tipe), others.map(_.tipe), nullable))
               }))
 
-          case AttributesVariable(atts, sym) =>
+      case (r @ RecordType(recAtts: AttributesVariable), _)         =>
+        val recs = models.collect{case r @ RecordType(_: AttributesVariable) => r}
             RecordType(AttributesVariable(
-              for ((att, idx) <- atts.zipWithIndex) yield {
-                val others = for (rec <- recs) yield {
-                  rec.getType(att.idn).get
-                }
+              recAtts.atts.map { case att =>
+                val others = (recs.map{ rec =>
+                  rec.recAtts match {
+                    case atts1: AttributesVariable => atts1.getType(att.idn).orElse(None)
+                  }
+                }).collect{case o if o.isDefined => o.get}
                 AttrType(att.idn, makeNullable(att.tipe, others, others, nullable))
-              }, sym))
-          case ConcatAttributes(sym) =>
-            // TODO: BEN!!!!
-            RecordType(ConcatAttributes(sym))
-        }
+              }))
+
+      case (r @ RecordType(recAtts: ConcatAttributes), _)         =>
+        val recs = models.collect{case r @ RecordType(_: ConcatAttributes) => r}
+        RecordType(recAtts)
       //            atts.zip(recs.map {
       //              _.recAtts
       //            }).map { case (a1, as) => AttrType(a1.idn, makeNullable(a1.tipe, as.atts.map(_.tipe).to, as.atts.map(_.tipe).to, nullable)) }
@@ -462,9 +464,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case j: Join      => enter(in(j))
     case o: OuterJoin => enter(in(o))
     case o: OuterUnnest => enter(in(o))
-    case n: Nest   => enter(in(n))
-    case n: Nest2  => enter(in(n))
-    case n: Nest3  => enter(in(n))
+    case n: Nest => enter(in(n))
+    case n: Nest2 => enter(in(n))
     case s: Select => enter(in(s))
 
     // If we are in a function abstraction, we must open a new scope for the variable argument. But if the parent is a
@@ -493,7 +494,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case o: OuterUnnest => leave(out(o))
     case n: Nest  => leave(out(n))
     case n: Nest2 => leave(out(n))
-    case n: Nest3 => leave(out(n))
+    case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
     case f: FunAbs => leave(out(f))
@@ -2052,76 +2053,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           HasType(p, BoolType()),
           HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", bt)))))))
 
-      case n@Nest3(rm: CollectionMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val inner1 = TypeVariable()
-        val inner2 = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2)))))),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", CollectionType(rm, expType(e)))))))))
-
-      case n@Nest3(rm: NumberMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val nt = NumberType()
-        val inner1 = TypeVariable()
-        val inner2 = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2)))))),
-          HasType(e, nt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", nt)))))))
-
-      case n@Nest3(rm: BoolMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val bt = BoolType()
-        val inner1 = TypeVariable()
-        val inner2 = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", inner2)))))),
-          HasType(e, bt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner1), AttrType("_2", bt)))))))
-
-//      case n@MultiNest(g, params) =>
-//        val m = MonoidVariable()
-//        val inner = TypeVariable() // g is over a collection of inner
-//
-//        def mkConstraints(params: Seq[NestParams]): Seq[Constraint] = {
-//          params match {
-//            case param :: tail => {
-//              param.m match {
-//                case rm: CollectionMonoid =>
-//                  HasType(param.p, BoolType()) +: mkConstraints(tail)
-//                case rm: NumberMonoid =>
-//                  val nt = NumberType()
-//                  Seq(
-//                    HasType(g.e, CollectionType(m, TypeVariable())),
-//                    HasType(param.e, nt),
-//                    HasType(param.p, BoolType())) ++ mkConstraints(tail)
-//                case rm: BoolMonoid =>
-//                  val bt = BoolType()
-//                  Seq(
-//                    HasType(param.e, bt),
-//                    HasType(param.p, BoolType())) ++ mkConstraints(tail)
-//              }
-//            }
-//            case Nil => Seq(HasType(g.e, CollectionType(m, inner)))
-//          }
-//        }
-//
-//        def mkParamType(param: NestParams): Type = param.m match {
-//          case m: CollectionMonoid => CollectionType(m, expType(param.e))
-//          case m: NumberMonoid => expType(param.e)
-//          case m: BoolMonoid => BoolType()
-//        }
-//
-//        def mkOuterType(params: Seq[NestParams]): Type = params match {
-//          case param :: Nil => mkParamType(param)
-//          case param :: tail => RecordType(Seq(AttrType("_1", mkParamType(param)), AttrType("_2", mkOuterType(tail))), None)
-//        }
-//
-//        mkConstraints(params) :+ HasType(n, CollectionType(m, RecordType(Seq(AttrType("_1", inner), AttrType("_2", mkOuterType(params))), None)))
 
       case n @ Join(g1, g2, p) =>
         val t1 = TypeVariable()
@@ -2243,8 +2174,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
     case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
     case n @ Nest2(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
-    case n @ Nest3(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
-//    case n @ MultiNest(g, params) => constraints(g.e) ++ constraint(g) ++ params.flatMap{param => constraints(param.k) ++ constraints(param.e) ++ constraints(param.p)} ++ constraint(n)
     case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
     case n @ Unnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
@@ -2412,13 +2341,3 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 // TODO: Review all TODOs
 
 // TODO: FunTest compare function is rewritten always the $<number> part when it could start from $0 for each prefix
-
-// TODO: Remove 'oql' from test framework
-// TODO: And if we ever add more languages to test framework, don't generate test file it empty
-// TODO: More output types on test framework: e.g. XML. Also on web service!
-// TODO: Refactor all executor test cases: why are there all those JSON/CSV files there, if not part of any test? Old leftovers? Do they contribute anything?
-// TODO: Should have the option to generate Scala or Spark test separately as well
-// TODO: Executor test framework should allow us to write multiple test which must have the same outcome: if the outcome is NOT specified, then all 2 or 3 outcomes must match exactly.
-// TODO: XML output on test framework super important going forward, if we don't loose info on semantics of data ordering et al.
-
-// TODO: Remove TestWorls and have it inferred from actual data? dunno..

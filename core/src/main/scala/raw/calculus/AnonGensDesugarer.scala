@@ -15,7 +15,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   import Calculus._
   import SymbolTable.AttributeEntity
 
-  def strategy = desugar
+  def transform = desugar
 
   private lazy val desugar =
     attempt(manybu(anonRecords)) <* manytd(anonGens)

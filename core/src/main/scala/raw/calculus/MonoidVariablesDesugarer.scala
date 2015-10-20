@@ -5,7 +5,7 @@ class MonoidVariablesDesugarer(val analyzer: SemanticAnalyzer) extends SemanticT
 
   import org.kiama.rewriting.Rewriter._
 
-  def strategy = desugar
+  def transform = desugar
 
   private lazy val desugar =
     reduce(desugarVars)
