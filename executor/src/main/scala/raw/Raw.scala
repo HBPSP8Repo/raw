@@ -766,7 +766,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .fold(${zero(m)})(${fold(m)}) ))
+                .fold(${zero(m)})(${fold(m)}) )).toIterable
         """
         q"""
         val start = "************ Nest Primitive Monoid (Scala) ************"
