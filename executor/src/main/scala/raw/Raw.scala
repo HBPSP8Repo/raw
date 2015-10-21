@@ -395,6 +395,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case MergeMonoid(m, e1, e2) => m match {
         case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
         case _: MaxMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
+        case _: MinMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 < e2) e1 else e2"
         case _: MultiplyMonoid => q"${build(e1)} * ${build(e2)}"
         case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
         case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
@@ -487,7 +488,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => q"false"
       case _: SumMonoid => q"0"
       case _: MultiplyMonoid => q"1"
-      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
+      case _: MaxMonoid => q"-2147483648"
+      case _: MinMonoid => q"2147483647" // TODO
+//      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
     /** Merge/Fold of two primitive monoids.
@@ -497,8 +500,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: OrMonoid => q"((a, b) => a || b)"
       case _: SumMonoid => q"((a, b) => a + b)"
       case _: MultiplyMonoid => q"((a, b) => a * b)"
-      //      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
-      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
+      case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
+      case _: MinMonoid => q"((a, b) => if (a < b) a else b)"
+//      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
     /** Get identifier name
