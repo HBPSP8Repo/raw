@@ -1671,7 +1671,21 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               recurse(t)
             }
 
-            val r = unify(makeUpPattern(t1), expected)
+            // what do we unify the input parameter type with?
+            // if expected is identified as a pattern and e is a record, then try to unify against the pattern version of e
+            //                                        and e is not a record, then leave it as is and try. I guess it will fail.
+            // if expected is a typevariable, we don't know what it is. If e is a record, then expected should be a pattern with the same
+            // shape, therefore we unify against that record. If e is not a record, then we'll unify against whatever it is, it will just
+            // work.
+            val eType = expected match {
+              case _: PatternType => makeUpPattern(t1) // if f takes a pattern, turn the input parameter type into a pattern
+              case _: TypeVariable => makeUpPattern(t1)
+              case _ => find(t1)
+            }
+//
+//            val eType = makeUpPattern(t1)
+            logger.debug("trying1")
+            val r = unify(eType, expected)
             if (!r) {
               tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(e.pos), Some(f.pos))
               return false
