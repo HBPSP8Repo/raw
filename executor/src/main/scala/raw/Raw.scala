@@ -522,8 +522,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"true"
       else if (nullables.size == 1)
         q"${nullables.head}.isDefined"
-      else
-        nullables.tail.fold(nullables.head)((a, b) => q"$a.isDefined && $b.isDefined")
+      else {
+        // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
+        val optOuts = nullables.map { n => q"$n.isDefined" }
+        optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
+      }
     }
 
     /** Build nullable condition.
@@ -540,8 +543,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"true"
       else if (idns.size == 1)
         q"${idns.head}.isDefined"
-      else
-        idns.tail.fold(idns.head)((a, b) => q"$a.isDefined && $b.isDefined")
+      else {
+        // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
+        val optOuts = idns.map { n => q"$n.isDefined" }
+        optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
+      }
     }
 
     /** Build code for scanner nodes
@@ -752,7 +758,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
-            ${build(k)} })
+            ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -766,7 +772,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .fold(${zero(m)})(${fold(m)}) )).toIterable
+                .fold(${zero(m)})(${fold(m)}) ))
         """
         q"""
         val start = "************ Nest Primitive Monoid (Scala) ************"
@@ -784,7 +790,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
-            ${build(k)} })
+            ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -816,7 +822,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
-            ${build(k)} })
+            ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
@@ -850,7 +856,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
-            ${build(k)} })
+            ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
