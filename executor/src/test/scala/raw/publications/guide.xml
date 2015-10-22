@@ -1,0 +1,115 @@
+<queries dataset="publications">
+   <query>
+      <qrawl>
+<![CDATA[
+select * from authors
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+count(publications)
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select * from authors where title = "professor"]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, count(*) from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, count(*) from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, * from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, (select year from *) from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, (select year from *) from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[select distinct title, (select year from partition) from authors group by title]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+select distinct title, (select distinct year, count(partition) from partition group by year) 
+from authors
+group by title
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+select distinct title, (select distinct year, partition from partition group by year) 
+from authors
+group by title
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+{
+    M := max(select year from authors);
+    select * from authors where year = M
+}
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+{
+    M := max(select year from authors);
+    m := min(select year from authors);
+    juniors := select * from authors where year = M; // max
+    seniors := select * from authors where year = m; // min
+    (juniors, seniors)
+}
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+{
+    category := \x -> if x.title = "PhD" then "short-term" else "staff";
+    select x.name, category(x) as cat from x in authors
+}
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[{
+    M := max(select year from authors);
+    m := min(select year from authors);
+    (juniors: select * from authors where year = m, seniors: select * from authors where year = M)
+}
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[{
+    category := \a -> if a.title = "PhD" then "short-term" else "staff"
+    select category(a), * from a in authors group by category(a)
+}
+]]>      </qrawl>
+   </query>
+   <query>
+      <qrawl>
+<![CDATA[
+{
+    Y := list(1983, 1978, 1990);
+    select * from authors where year in Y
+}
+]]>      </qrawl>
+   </query>
+</queries>
+

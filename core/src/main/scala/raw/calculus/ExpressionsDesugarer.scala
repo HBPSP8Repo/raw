@@ -17,6 +17,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
     reduce(
       ruleSum +
       ruleMax +
+      ruleMin +
       ruleCount +
       ruleIn +
       ruleExists +
@@ -42,6 +43,15 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
       FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MaxMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+  }
+
+  /** De-sugar min
+    */
+  private lazy val ruleMin = rule[Exp] {
+    case Min(e) =>
+      val xs = SymbolTable.next().idn
+      val x = SymbolTable.next().idn
+      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MinMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
   }
 
   /** De-sugar count

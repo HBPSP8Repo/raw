@@ -1825,11 +1825,30 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(MonoidVariable(), StringType()))
   }
 
-  test("""groupby""") {
+  test("""applying func to a field""") {
+    // would fail because of wrong resolving of constraint at fun app time
+    // this is a bug Ben found while Miguel was in Bern
     success(
-      """select x.name_1 from x in ((\xs, ys -> select * from x in xs, ys)(students, professors))""",
+      """{
+        f := \x -> x.age > 73;
+        select f(x) from x in students
+      }
+      """,
       TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), StringType()))
+      CollectionType(MonoidVariable(), BoolType()))
+  }
+
+  test("""resolve a record type from a function pattern""") {
+    // f2 below takes three parameters.
+    success(
+      """{
+        f := \xyz -> { f2 := \(n,t,y) -> y > 10; select f2(x) from x in xyz }
+        f
+      }
+      """,
+      TestWorlds.professors_students,
+      FunType(CollectionType(MonoidVariable(), RecordType(Attributes(List(/* todo */)))), CollectionType(MonoidVariable(), BoolType()))
+      )
   }
 
   /*
