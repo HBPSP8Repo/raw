@@ -43,8 +43,6 @@ case class ListMonoid() extends CollectionMonoid
   * lesserMonoids are the ones that are "smaller" than the monoid represented by the monoid variable.
   * Therefore, the monoid variable represents a monoid that is greater or equal to all the lesserMonoids.
   */
-// TODO: Rename to CollectionMonoidVariable
-// TODO: Remove leq and geq notions
 case class MonoidVariable(sym: Symbol = SymbolTable.next()) extends CollectionMonoid
 
 case class GenericMonoid(commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None) extends CollectionMonoid

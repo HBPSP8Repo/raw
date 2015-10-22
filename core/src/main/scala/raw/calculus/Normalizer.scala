@@ -17,7 +17,6 @@ class Normalizer extends PipelinedTransformer {
       reduce(rule1),
       oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10))
 
-  // TODO: Move this into Monoids.scala (take it out from SemanticAnalyzer.scala as well)
   private def commutative(m: Monoid): Option[Boolean] = m match {
     case _: PrimitiveMonoid => Some(true)
     case _: SetMonoid => Some(true)

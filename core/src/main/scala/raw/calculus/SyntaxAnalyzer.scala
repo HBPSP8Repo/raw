@@ -4,10 +4,6 @@ package calculus
 import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
 import scala.util.parsing.input.Positional
 
-// TODO: Add support for max, min, count, (avg?)
-// TODO: Can't it be a stdlib that is always prefixed to a query?
-// TODO: I don't think so. Is it a UnaryFun?
-
 /** Parser for monoid comprehensions.
   */
 object SyntaxAnalyzer extends RegexParsers with PackratParsers {
@@ -20,7 +16,6 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   /** Reserved words
     */
-  // TODO: Make reserved words case-insensitive
   val kwOr = "(?i)or\\b".r
   val kwAnd = "(?i)and\\b".r
   val kwNot = "(?i)not\\b".r
@@ -75,9 +70,6 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwType = "(?i)type\\b".r
   val kwAlias = "(?i)alias\\b".r
   val kwStar = "*"
-
-  // TODO: Alphabetic order
-  // TODO: Add more general support for built-in functions(?)
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |

@@ -269,6 +269,29 @@ class OptimizerTest extends CalculusTest {
         group_by_year(authors)
       }
       """,
+      """
+      reduce(
+        bag,
+        (t$0, $2) <- nest(
+          bag,
+          (t$0, t$1) <- outer_join(t$0 <- authors, t$1 <- authors, t$0.year = t$1.year),
+          t$0,
+          true,
+          t$1),
+        (year: t$0.year, _2: $2))
+      """,
+      TestWorlds.publications,
+      ignoreRootTypeComparison = true)
+  }
+
+  test("select w/ list") {
+    check(
+      """
+      {
+        data := list(1972, 1979);
+        select * from authors where year in data
+      }
+      """,
       """""",
       TestWorlds.publications)
   }

@@ -15,8 +15,6 @@ class Simplifier(val analyzer: SemanticAnalyzer) extends Attribution with Semant
 
   def transform = simplify
 
-  // TODO: Fold constants
-
   lazy val simplify =
     attempt(reduce(removeUselessTos)) <*
     reduce(
