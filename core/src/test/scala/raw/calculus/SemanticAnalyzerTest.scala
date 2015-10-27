@@ -1994,4 +1994,12 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("year", IntType()), AttrType("title", StringType()))))))
   }
 
+  test("field does not exist - issue #4") {
+    // TODO: This is a bug: should return UnknownDecl...
+    success(
+      """select a.missing_field from authors a""",
+      TestWorlds.publications,
+      IntType())
+  }
+
 }
