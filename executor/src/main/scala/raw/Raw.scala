@@ -1352,7 +1352,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
         val isSpark: Map[String, Boolean] = accessPaths.map(ap => (ap.name, ap.isSpark)).toMap
 
-        val physicalAnalyzer = new PhysicalAnalyzer(tree, world, isSpark)
+        val physicalAnalyzer = new PhysicalAnalyzer(tree, world, query, isSpark)
         physicalAnalyzer.tipe(tree.root) // Type the root of the tree to force all nodes to be typed
 
         val caseClasses: Set[Tree] = buildCaseClasses(treeExp, world, physicalAnalyzer)

@@ -11,7 +11,7 @@ class SemanticAnalyzerTest extends FunTest {
     logger.debug(s"AST: ${t.root}")
     logger.debug(s"Parsed tree: ${CalculusPrettyPrinter(t.root)}")
 
-    val analyzer = new SemanticAnalyzer(t, world, Some(query))
+    val analyzer = new SemanticAnalyzer(t, world, query)
     analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     analyzer
   }
@@ -148,7 +148,11 @@ class SemanticAnalyzerTest extends FunTest {
       // Ignore text description and position
       case UnexpectedType(t, expected, _, _) =>
         assert(analyzer.errors.exists {
-          case UnexpectedType(t1, expected1, _, _) if typesEq(t, t1) && typesEq(expected, expected1) => true
+          case x@UnexpectedType(t1, expected1, _, _) if typesEq(t, t1) && typesEq(expected, expected1) =>
+
+            logger.debug(s"begin at ${x.pos.get.begin}; end at ${x.pos.get.end}; string is $query")
+
+            true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 

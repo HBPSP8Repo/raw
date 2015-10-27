@@ -9,6 +9,8 @@ import scala.util.parsing.input.Position
 
 case class SemanticAnalyzerException(err: String) extends RawException(err)
 
+// TODO: Rename SemanticAnalyzer to BaseAnalyzer
+
 /** Analyzes the semantics of an AST.
   * This includes the type checker, type inference and semantic checks (e.g. whether monoids compose correctly).
   *
@@ -19,7 +21,7 @@ case class SemanticAnalyzerException(err: String) extends RawException(err)
   *
   * The original user query is passed optionally for debugging purposes.
   */
-class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: Option[String] = None) extends Attribution with MonoidsGraph with LazyLogging {
+class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: String) extends Attribution with Analyzer with MonoidsGraph with NodePosition with LazyLogging {
 
   // TODO: Add a check to the semantic analyzer that the monoids are no longer monoid variables; they have been sorted out
 
@@ -416,11 +418,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     collect[List, Error] {
       // Identifier declared more than once in the same scope
       case i: IdnDef if entity(i) == MultipleEntity() =>
-        MultipleDecl(i)
-
-      //      // Identifier used without being declared
-      //      case i: IdnUse if entity(i) == UnknownEntity() =>
-      //        UnknownDecl(i)
+        MultipleDecl(i, Some(parserPosition(i)))
     }
 
   private lazy val badEntities = collectBadEntities(tree.root)
@@ -669,7 +667,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val t = expType(e)
         val expected = patternType(p)
         if (!unify(t, expected)) {
-          tipeErrors += PatternMismatch(p, walk(t), Some(p.pos))
+          tipeErrors += PatternMismatch(p, walk(t), Some(parserPosition(p)))
           return None
         }
 
@@ -1457,7 +1455,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
         if (s.proj != Star() && s.group.isEmpty) {
           // SELECT age, * FROM students
-          tipeErrors += IllegalStar(s)
+          tipeErrors += IllegalStar(s, Some(parserPosition(s)))
           return NothingType()
         }
 
@@ -1503,14 +1501,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         val t2 = expType(e2)
         val r = unify(t1, t2)
         if (!r) {
-          tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(e1.pos), Some(e2.pos))
+          tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(parserPosition(e1)), Some(parserPosition(e2)))
         }
         r
       case HasType(e, expected, desc) =>
         val t = expType(e)
         val r = unify(t, expected)
         if (!r) {
-          tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(e.pos))
+          tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(parserPosition(e)))
         }
         r
 
@@ -1542,7 +1540,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val r = unifyMonoids(minM, nv)
           if (!r) {
             // TODO: Fix error message: should have m and nm?
-            tipeErrors += IncompatibleMonoids(m, walk(minType), Some(n.pos))
+            tipeErrors += IncompatibleMonoids(m, walk(minType), Some(parserPosition(n)))
             return false
           }
         }
@@ -1554,12 +1552,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val t1 = selectPartitionType(s)
             val r = unify(t, t1)
             if (!r) {
-              tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"))
+              tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"), Some(parserPosition(p)))
               false
             }
             r
           case _ =>
-            tipeErrors += UnknownPartition(p)
+            tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
             false
         }
 
@@ -1571,15 +1569,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 val t1 = find(selectStarType(s1))
                 val r = unify(t, t1)
                 if (!r) {
-                  tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"))
+                  tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"), Some(parserPosition(s)))
                   false
                 }
                 r
               case c: Comp =>
+                // TODO: ...
                 ???
             }
           case _                =>
-            tipeErrors += UnknownStar(s)
+            tipeErrors += UnknownStar(s, Some(parserPosition(s)))
             false
         }
 
@@ -1605,7 +1604,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           if (!r) {
             // The same decl has been used with two different types.
             // TODO: Can we have a more precise error messages? Set the None to a better message!
-            tipeErrors += UnexpectedType(walk(t), walk(t1), None, Some(t.pos))
+            tipeErrors += UnexpectedType(walk(t), walk(t1), Some("same declaration used with two different types"), Some(parserPosition(idnExp)))
           }
           r
         }
@@ -1620,11 +1619,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 getType(att.tipe)
               case _: UnknownEntity  =>
                 // We didn't found the attribute identifier
-                tipeErrors += UnknownDecl(idn)
+                tipeErrors += UnknownDecl(idn, Some(parserPosition(idn)))
                 false
               case _: MultipleEntity =>
                 // We found the attribute identifier more than once
-                tipeErrors += AmbiguousIdn(idn)
+                tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
                 false
             }
           case _: MultipleEntity =>
@@ -1639,7 +1638,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
                 getType(idnType(idn))
               case (_: AttributeEntity | _: MultipleEntity) =>
                 // We found the same identifier used by the user and being anonymous as well!
-                tipeErrors += AmbiguousIdn(idn)
+                tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
                 false
             }
         }
@@ -1651,7 +1650,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val expected = patternType(g.p.get)
             val r = unify(innerType, expected)
             if (!r) {
-              tipeErrors += PatternMismatch(g.p.get, walk(innerType), Some(g.p.get.pos))
+              tipeErrors += PatternMismatch(g.p.get, walk(innerType), Some(parserPosition(g.p.get)))
               return false
             }
             r
@@ -1687,7 +1686,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             logger.debug("trying1")
             val r = unify(eType, expected)
             if (!r) {
-              tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(e.pos), Some(f.pos))
+              tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(parserPosition(e)), Some(parserPosition(f)))
               return false
             }
 
@@ -1695,7 +1694,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val r1 = unify(output, tf)
 
             if (!r1) {
-              tipeErrors += IncompatibleTypes(walk(output), walk(tf), Some(e.pos), Some(f.pos))
+              tipeErrors += IncompatibleTypes(walk(output), walk(tf), Some(parserPosition(e)), Some(parserPosition(f)))
               return false
             }
             r1
@@ -2264,15 +2263,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   def printTypedTree(): Unit = {
 
-    if (queryString.isEmpty) {
-      return
-    }
-    val q = queryString.head
-
     def printMap(pos: Set[Position], t: Type) = {
       val posPerLine = pos.groupBy(_.line)
       var output = s"Type: ${FriendlierPrettyPrinter(t)}\n"
-      for ((line, lineno) <- q.split("\n").zipWithIndex) {
+      for ((line, lineno) <- queryString.split("\n").zipWithIndex) {
         output += line + "\n"
         if (posPerLine.contains(lineno + 1)) {
           val cols = posPerLine(lineno + 1).map(_.column).toList.sortWith(_ < _)

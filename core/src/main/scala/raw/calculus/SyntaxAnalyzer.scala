@@ -2,7 +2,7 @@ package raw
 package calculus
 
 import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
-import scala.util.parsing.input.Positional
+import scala.util.parsing.input.{CharSequenceReader, Position, Positional}
 
 /** Parser for monoid comprehensions.
   */
@@ -81,8 +81,17 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     */
   def apply(query: String): Either[SyntaxAnalyzer.NoSuccess, Exp] = parseAll(exp, query) match {
     case Success(ast, _) => Right(ast)
-    case error : NoSuccess => Left(error)
+    case error: NoSuccess => Left(error)
   }
+
+  /** Work-around for parser combinator bug.
+    */
+  def parseSubstring[T](parser: Parser[T], input: String): ParseResult[T] = {
+    parse(parser, new PackratReader(new CharSequenceReader(input)))
+  }
+
+  /** Parser combinators.
+    */
 
   lazy val exp: PackratParser[Exp] =
     recordCons |
@@ -352,13 +361,30 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToSet ^^^ ToSet())
 
   lazy val sugarFun: PackratParser[Sugar] =
-    positioned(
-      kwSum ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Sum(e) } |
-      kwMax ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Max(e) } |
-      kwMin ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Min(e) } |
-      kwAvg ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Avg(e) } |
-      kwCount ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Count(e) } |
-      kwExists ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Exists(e) })
+    sumExp |
+    maxExp |
+    minExp |
+    avgExp |
+    countExp |
+    existsExp
+
+  lazy val sumExp: PackratParser[Sum] =
+    positioned(kwSum ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Sum(e) })
+
+  lazy val maxExp: PackratParser[Max] =
+    positioned(kwMax ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Max(e) })
+
+  lazy val minExp: PackratParser[Min] =
+    positioned(kwMin ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Min(e) })
+
+  lazy val avgExp: PackratParser[Avg] =
+    positioned(kwAvg ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Avg(e) })
+
+  lazy val countExp: PackratParser[Count] =
+    positioned(kwCount ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Count(e) })
+
+  lazy val existsExp: PackratParser[Exists] =
+    positioned(kwExists ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Exists(e) })
 
   lazy val funAbs: PackratParser[FunAbs] =
     positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })

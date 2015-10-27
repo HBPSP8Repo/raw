@@ -5,7 +5,7 @@ import Calculus._
 
 /** Enhances the logical tree with physical level attributes (e.g. whether the scan origin is Scala or Spark).
   */
-class PhysicalAnalyzer(tree: Calculus, world: World, val isSpark: Map[String, Boolean]) extends SemanticAnalyzer(tree, world) {
+class PhysicalAnalyzer(tree: Calculus, world: World, queryString: String, val isSpark: Map[String, Boolean]) extends SemanticAnalyzer(tree, world, queryString) {
 
   import SymbolTable._
 

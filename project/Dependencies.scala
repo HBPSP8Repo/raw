@@ -30,7 +30,7 @@ object Dependencies {
 
   val guava = "com.google.guava" % "guava" % "18.0"
 
-  val parserCombinators = "org.scala-lang" % "scala-parser-combinators" % "2.11.0-M4"
+  val parserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
   val jackson = "com.fasterxml.jackson.core" % "jackson-core" % "2.6.1"
   val jacksonScala = "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.6.1"
   val jacksonCsv = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv" % "2.5.3"

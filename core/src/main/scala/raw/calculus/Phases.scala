@@ -41,7 +41,7 @@ object Phases extends LazyLogging {
       false
     }
 
-  def apply(tree: Calculus.Calculus, world: World, lastTransform: Option[String] = None): Calculus.Calculus = {
+  def apply(tree: Calculus.Calculus, world: World, queryString: String, lastTransform: Option[String] = None): Calculus.Calculus = {
     assert(lastTransform.isEmpty || transformExists(lastTransform))
 
     SymbolTable.reset()
@@ -51,7 +51,7 @@ object Phases extends LazyLogging {
     for (transformers <- phases) {
       var strategy = id
       logger.debug(s"***** BEGIN PHASE *****")
-      val semanticAnalyzer = new SemanticAnalyzer(input, world)
+      val semanticAnalyzer = new SemanticAnalyzer(input, world, queryString)
       semanticAnalyzer.tipe(input.root)   // Typing the root is *required*, since some of the rules will be asking
                                           // the types of inner nodes, and those are only fully typed if the whole
                                           // program has been typed.

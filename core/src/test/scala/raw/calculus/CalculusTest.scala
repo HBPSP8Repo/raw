@@ -18,7 +18,7 @@ abstract class CalculusTest extends FunTest {
   def process(q: String, w: World = TestWorlds.empty, ignoreRootTypeComparison: Boolean = false) = {
     val t = new Calculus.Calculus(parse(q))
 
-    val analyzer = new SemanticAnalyzer(t, w)
+    val analyzer = new SemanticAnalyzer(t, w, q)
     logger.debug(s"Input tree:\n${CalculusPrettyPrinter(t.root, 200)}")
     if (analyzer.errors.nonEmpty) {
       logger.error("Errors found!")
@@ -28,9 +28,9 @@ abstract class CalculusTest extends FunTest {
     val troot = FriendlierPrettyPrinter(analyzer.tipe(t.root))
     logger.debug(s"Input root type: $troot")
 
-    val t1 = Phases(t, w, lastTransform = Some(phase))
+    val t1 = Phases(t, w, q, lastTransform = Some(phase))
 
-    val analyzer1 = new SemanticAnalyzer(t1, w)
+    val analyzer1 = new SemanticAnalyzer(t1, w, "")
     logger.debug(s"Output tree:\n${CalculusPrettyPrinter(t1.root, 200)}")
     if (analyzer1.errors.nonEmpty) {
       logger.error("Errors found!")

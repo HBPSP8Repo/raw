@@ -1,35 +1,29 @@
 package raw
 package calculus
 
-import scala.util.parsing.input.Position
-
 /** Errors
   */
 sealed abstract class Error
 
-case class MultipleDecl(i: Calculus.IdnNode) extends Error
+case class MultipleDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
 
-case class UnknownDecl(i: Calculus.IdnNode) extends Error
+case class UnknownDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
 
-case class AmbiguousIdn(idn: Calculus.IdnNode) extends Error
+case class AmbiguousIdn(idn: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
 
-case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[Position] = None) extends Error
+case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[RawParserPosition] = None) extends Error
 
-case class FunAppMismatch(f: Calculus.Exp, e: Calculus.Exp) extends Error
+case class UnknownPartition(p: Calculus.Partition, pos: Option[RawParserPosition] = None) extends Error
 
-case class UnknownPartition(p: Calculus.Partition) extends Error
+case class UnknownStar(s: Calculus.Star, pos: Option[RawParserPosition] = None) extends Error
 
-case class UnknownStar(s: Calculus.Star) extends Error
+case class IncompatibleMonoids(m: Monoid, t: Type, pos: Option[RawParserPosition] = None) extends Error
 
-case class CollectionRequired(t: Type, p: Option[Position] = None) extends Error
+case class IncompatibleTypes(t1: Type, t2: Type, pos1: Option[RawParserPosition] = None, pos2: Option[RawParserPosition] = None) extends Error
 
-case class IncompatibleMonoids(m: Monoid, t: Type, p: Option[Position] = None) extends Error
+case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, pos: Option[RawParserPosition] = None) extends Error
 
-case class IncompatibleTypes(t1: Type, t2: Type, p1: Option[Position] = None, p2: Option[Position] = None) extends Error
-
-case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, p: Option[Position] = None) extends Error
-
-case class IllegalStar(s: Calculus.Select) extends Error
+case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None) extends Error
 
 /** ErrorPrettyPrinter
   */
@@ -39,25 +33,17 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     super.pretty(show(e)).layout
 
   def show(e: Error): Doc = e match {
-    case MultipleDecl(i) => s"${i.idn} is declared more than once (${i.pos})"
-    case UnknownDecl(i) => s"${i.idn} is not declared (${i.pos})"
-    case AmbiguousIdn(i) => s"${i.idn} is ambiguous (${i.pos})"
-    case PatternMismatch(pat, t, pos) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}} (${pos.getOrElse("no position")})"
-    case FunAppMismatch(f, e) => s"arguments mismatch in function call f $f (${f.pos}) $e (${e.pos})"
-    case UnknownPartition(p) => s"partition is not declared as there is no SELECT with GROUP BY (${p.pos})"
-    case UnknownStar(s) => s"* is not declared as there is no SELECT or Comprehension (${s.pos})"
-    case CollectionRequired(t, p) => s"expected collection but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
-    case IncompatibleMonoids(m, t, p) => s"incompatible monoids: ${PrettyPrinter(m)} (${m.pos}) with ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
-    case IncompatibleTypes(t1, t2, p1, p2) =>
-      if (p1.isDefined && p2.isDefined && (p2.get.line < p1.get.line || (p1.get.line == p2.get.line && p2.get.column < p1.get.column)))
-        show(IncompatibleTypes(t2, t1, p2, p1))
-      else s"incompatible types: ${FriendlierPrettyPrinter(t1)} (${p1.getOrElse("no position")}) and ${FriendlierPrettyPrinter(t2)} (${p2.getOrElse("no position")})"
-    case UnexpectedType(t, _, Some(desc), p) =>
-      s"$desc but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
-    case UnexpectedType(t, expected, None, p) =>
-      s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)} (${p.getOrElse("no position")})"
-    case IllegalStar(s) =>
-      s"cannot use * together with other attributes in a projection without GROUP BY"
+    case MultipleDecl(i, _) => s"${i.idn} is declared more than once"
+    case UnknownDecl(i, _) => s"${i.idn} is not declared"
+    case AmbiguousIdn(i, _) => s"${i.idn} is ambiguous"
+    case PatternMismatch(pat, t, _) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}}"
+    case UnknownPartition(p, _) => s"partition is not declared as there is no SELECT with GROUP BY"
+    case UnknownStar(s, _) => s"* is not declared as there is no SELECT or FOR"
+    case IncompatibleMonoids(m, t, _) => s"${PrettyPrinter(m)} cannot be used with ${FriendlierPrettyPrinter(t)}"
+    case IncompatibleTypes(t1, t2, _, _) => s"incompatible types: ${FriendlierPrettyPrinter(t1)} and ${FriendlierPrettyPrinter(t2)}"
+    case UnexpectedType(t, _, Some(desc), _) => s"$desc but got ${FriendlierPrettyPrinter(t)}"
+    case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
+    case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
   }
 }
 
