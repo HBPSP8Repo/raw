@@ -9,8 +9,6 @@ import scala.util.parsing.input.Position
 
 case class BaseAnalyzerException(err: String) extends RawException(err)
 
-// TODO: Rename SemanticAnalyzer to BaseAnalyzer
-
 /** Analyzes the semantics of an AST.
   * This includes the type checker, type inference and semantic checks (e.g. whether monoids compose correctly).
   *
@@ -29,9 +27,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   import org.kiama.==>
   import org.kiama.attribution.Decorators
   import org.kiama.util.{Entity, MultipleEntity, UnknownEntity}
-
-  //  import org.kiama.util.Messaging.{check, collectmessages, Messages, message, noMessages}
-
   import org.kiama.rewriting.Rewriter._
   import Calculus._
   import SymbolTable._
@@ -73,20 +68,14 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     scala.collection.mutable.MutableList[Error]()
 
   /** Type the root of the program.
-    * If the constraints could not be solved, the program cannot be typed.
     */
-  lazy val tipeEverything = {
-    val r = solve(constraints(tree.root))
-    //    if (!r) {
-    //      throw SemanticAnalyzerException("Requesting the type of an un-typable root")
-    //    }
-  }
+  lazy val solution = solve(constraints(tree.root))
 
   /** Return the base type of an expression, i.e. without the nullable flag.
     */
   lazy val baseType: Exp => Type = attr {
     e => {
-      tipeEverything
+      solution
       walk(expType(e))
     }
   }
@@ -136,7 +125,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[Error] = {
-    tipeEverything // Must type the entire program before checking for errors
+    solution // Must type the entire program before checking for errors
     badEntities ++ tipeErrors
   }
 
@@ -1922,67 +1911,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case n @ Count(e) => constraints(e) ++ constraint(n)
     case n @ Exists(e) => constraints(e) ++ constraint(n)
   }
-
-  //  /** Create a type variable for the FROMs part of a SELECT.
-  //    * Used for unification in the PartitionHasType() constraint.
-  //    */
-  //  private lazy val selectFromsTypeVar: Select => Type = attr {
-  //    _ => TypeVariable()
-  //  }
-  //
-  //  /** Walk up tree until we find a Select, if it exists.
-  //    */
-  //  private def findSelect(n: RawNode): Option[Select] = n match {
-  //    case s: Select                   => Some(s)
-  //    case n1 if tree.isRoot(n1)       => None
-  //    case tree.parent.pair(_, parent) => findSelect(parent)
-  //  }
-  //
-  //  /** Parent Select of the current Select, if it exists.
-  //    */
-  //  private lazy val selectParent: Select => Option[Select] = attr {
-  //    case n if tree.isRoot(n)         => None
-  //    case tree.parent.pair(_, parent) => findSelect(parent)
-  //  }
-  //
-  //  /** Finds the Select that this partition refers to.
-  //   */
-  //  lazy val partitionSelect: Partition => Option[Select] = attr {
-  //    case p =>
-  //
-  //      // Returns true if `p` used in `e`
-  //      def inExp(e: Exp) = {
-  //        var found = false
-  //        query[Exp] {
-  //          case n if n eq p => found = true
-  //        }(e)lazy
-  //        found
-  //      }
-  //
-  //      // Returns true if `p`p used in the from
-  //      def inFrom(from: Seq[Gen]): Boolean = {
-  //        for (f <- from) {
-  //          f match {
-  //            case Gen(_, e) => if (inExp(e)) return true
-  //          }
-  //        }
-  //        false
-  //      }
-  //
-  //      findSelect(p) match {
-  //        case Some(s) =>
-  //          // The partition node is:
-  //          // - used in the FROM;
-  //          // - or in the GROUP BY;
-  //          // - or there is no GROUP BY (which means it cannot possibly refer to our own Select node)
-  //          if (inFrom(s.from) || (s.group.isDefined && inExp(s.group.get)) || s.group.isEmpty) {
-  //            selectParent(s)
-  //          } else {
-  //            Some(s)
-  //          }
-  //        case None => None
-  //      }
-  //  }
 
   /** For debugging.
     * Prints all the type groups.
