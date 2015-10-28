@@ -81,6 +81,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
               group((if (g.isDefined) "group by" <+> apply(g.get) else "")),
               group((if (o.isDefined) "order" <+> apply(o.get) else "")),
               group((if (h.isDefined) "having" <+> apply(h.get) else ""))), space)
+        case Into(e1, e2)                   => apply(e1) <+> "into" <+> apply(e2)
       }
       )
 

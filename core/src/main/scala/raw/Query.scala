@@ -61,6 +61,7 @@ object Query extends LazyLogging {
         """.stripMargin)
         Right(new Calculus.Calculus(ast))
       case Left(error: SyntaxAnalyzer.NoSuccess) =>
+        // TODO: Sync w/ Cesar but could change ParserError signature to take RawPosition instead of RawParserPosition since there's no notion of end anyway
         val pos = RawPosition(error.next.pos.line, error.next.pos.column)
         Left(ParserError(RawParserPosition(pos, pos), error.toString))
     }

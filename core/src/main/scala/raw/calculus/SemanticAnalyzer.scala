@@ -214,8 +214,12 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
             case _: UnknownEntity          =>
               // It's an anonymous alias
               lookupAttributeEntity(idnExp) match {
-                case AttributeEntity(_, g, idx) =>
+                case GenAttributeEntity(_, g, idx) =>
                   resolvedType(resolvedType(tipe(g.e)).asInstanceOf[CollectionType].innerType).asInstanceOf[RecordType].recAtts match {
+                    case Attributes(atts) => cloneType(atts(idx).tipe)
+                  }
+                case IntoAttributeEntity(_, i, idx) =>
+                  resolvedType(baseType(i.e2)).asInstanceOf[RecordType].recAtts match {
                     case Attributes(atts) => cloneType(atts(idx).tipe)
                   }
               }
@@ -224,6 +228,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
         case _: FloatConst           => te
         case _: BoolConst            => te
         case _: StringConst          => te
+        case _: RegexConst          => te
         case rc: RecordCons          => te match {
           case RecordType(recAtts: Attributes) => RecordType(Attributes(rc.atts.map { case att => AttrType(att.idn, tipe(att.e)) }))
         }
@@ -245,6 +250,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
         case Avg(e1)                 => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Count(e1)               => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Exists(e1)              => makeNullable(te, Seq(), Seq(tipe(e1)))
+        case Into(e1, e2)            => makeNullable(te, Seq(tipe(e2)), Seq(tipe(e1), tipe(e2)))
       }
       nt
     }

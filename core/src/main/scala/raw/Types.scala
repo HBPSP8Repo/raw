@@ -116,6 +116,10 @@ case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
   */
 case class FunType(t1: Type, t2: Type) extends Type
 
+/** Regex Type.
+  */
+case class RegexType() extends Type
+
 /** Any Type
   * The top type.
   */
@@ -146,5 +150,3 @@ case class TypeVariable(sym: Symbol = SymbolTable.next()) extends VariableType
   * TODO: Describe.
   */
 case class TypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) extends Type
-
-

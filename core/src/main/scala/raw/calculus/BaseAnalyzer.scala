@@ -240,6 +240,38 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case s: Select           => enter(in(s))
     case f: FunAbs           => enter(in(f))
     case a: LogicalAlgebraNode => enter(in(a))
+
+    // Into node puts all attributes of the lhs (which should be a record) into the scope of the rhs
+    case tree.parent.pair(e: Exp, i @ Into(e1, e2)) if e eq e2 =>
+      logger.debug(s"we are here going in")
+      var nenv = enter(in(e))
+
+      def attEntity(env: Environment, att: AttrType, idx: Int) = {
+        if (isDefinedInScope(env, att.idn))
+          MultipleEntity()
+        else
+          IntoAttributeEntity(att, i, idx)
+      }
+
+      val t = expType(e1)
+      val nt = find(t)
+      nt match {
+        case ResolvedType(RecordType(Attributes(atts))) =>
+          logger.debug("bang1")
+          for ((att, idx) <- atts.zipWithIndex) {
+            logger.debug(s"added idn ${att.idn}")
+            nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+          }
+        case ResolvedType(RecordType(c: ConcatAttributes)) =>
+          logger.debug("bang2")
+          val props = getConcatProperties(c)
+          for ((att, idx) <- props.atts.zipWithIndex) {
+            nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
+          }
+        case _ =>
+      }
+      nenv
+
   }
 
   private def aliasEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
@@ -248,12 +280,15 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case s: Select   => leave(out(s))
     case f: FunAbs   => leave(out(f))
     case a: LogicalAlgebraNode => leave(out(a))
+    case tree.parent.pair(e: Exp, Into(_, e2)) if e eq e2 =>
+      logger.debug(s"we are here going out")
+      leave(out(e))
     case g @ Gen(None, e) =>
       def attEntity(env: Environment, att: AttrType, idx: Int) = {
         if (isDefinedInScope(env, att.idn))
           MultipleEntity()
         else
-          AttributeEntity(att, g, idx)
+          GenAttributeEntity(att, g, idx)
       }
 
       val t = expType(e)
@@ -684,6 +719,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case _: IntConst   => IntType()
     case _: FloatConst => FloatType()
     case _: StringConst => StringType()
+    case _: RegexConst => RegexType()
 
     // Rule 5
     case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))))
@@ -714,6 +750,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     // Sugar expressions
     case _: Count => IntType()
     case _: Exists => BoolType()
+
+    case Into(_, e2) => expType(e2)
 
     case n => TypeVariable()
   }
@@ -1329,8 +1367,11 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
             // Identifier is unknown
 
             lookupAttributeEntity(idnExp) match {
-              case AttributeEntity(att, _, _) =>
+              case GenAttributeEntity(att, _, _) =>
                 // We found the attribute identifier in a generator
+                getType(att.tipe)
+              case IntoAttributeEntity(att, _, _) =>
+                // We found the attribute identifier in a Into
                 getType(att.tipe)
               case _: UnknownEntity  =>
                 // We didn't found the attribute identifier
@@ -1351,7 +1392,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
               case _: UnknownEntity =>
                 // All good
                 getType(idnType(idn))
-              case (_: AttributeEntity | _: MultipleEntity) =>
+              case (_: GenAttributeEntity | _: IntoAttributeEntity | _: MultipleEntity) =>
                 // We found the same identifier used by the user and being anonymous as well!
                 tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
                 false
@@ -1910,6 +1951,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case n @ Avg(e) => constraints(e) ++ constraint(n)
     case n @ Count(e) => constraints(e) ++ constraint(n)
     case n @ Exists(e) => constraints(e) ++ constraint(n)
+    case n @ Into(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
   }
 
   /** For debugging.

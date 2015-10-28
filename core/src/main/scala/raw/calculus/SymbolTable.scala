@@ -55,9 +55,13 @@ object SymbolTable extends Environments with LazyLogging {
     */
   case class DataSourceEntity(sym: Symbol) extends RawEntity
 
-  /** Entity for auto-detected record attribute.
+  /** Entity for auto-detected record attribute over a generator.
     */
-  case class AttributeEntity(att: AttrType, g: Gen, idx: Int) extends Entity
+  case class GenAttributeEntity(att: AttrType, g: Gen, idx: Int) extends Entity
+
+  /** Entity for auto-detected record attribute over a into.
+    */
+  case class IntoAttributeEntity(att: AttrType, i: Into, idx: Int) extends Entity
 
   /** Entity for a partition.
     */

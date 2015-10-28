@@ -13,7 +13,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   import org.kiama.util.UnknownEntity
   import org.kiama.rewriting.Cloner._
   import Calculus._
-  import SymbolTable.AttributeEntity
+  import SymbolTable.GenAttributeEntity
 
   def transform = desugar
 
@@ -29,7 +29,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
     // Replace all IdnExp that refer to "anonymous generators" to be a record projection
     case idnExp: IdnExp if analyzer.lookupAttributeEntity(idnExp) != UnknownEntity() =>
       analyzer.lookupAttributeEntity(idnExp) match {
-        case AttributeEntity(att, g, idx) => RecordProj(IdnExp(IdnUse(anonGenSymbol(g).idn)), att.idn)
+        case GenAttributeEntity(att, g, idx) => RecordProj(IdnExp(IdnUse(anonGenSymbol(g).idn)), att.idn)
       }
   }
 

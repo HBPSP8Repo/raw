@@ -518,7 +518,7 @@ class SyntaxAnalyzerTest extends FunTest {
   }
 
   test("select s.name as n, age, s.size from s in students") {
-    equals("select s.name as n, age, s.size from s in students")
+    matches("select s.name as n, age, s.size from s in students")
   }
 
   test("select 2015 - birthyear as age from s in students") {
@@ -587,6 +587,10 @@ class SyntaxAnalyzerTest extends FunTest {
 
   test("recordCons") {
     matches("(age1: 15)")
+  }
+
+  test("(1,2) into (column1: _1, column2: _2)") {
+    matches("(1,2) into (column1: _1, column2: _2)", "(_1: 1, _2: 2) into (column1: _1, column2: _2)")
   }
 
 }

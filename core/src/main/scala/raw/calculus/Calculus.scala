@@ -47,6 +47,8 @@ object Calculus {
 
   case class FloatConst(value: String) extends NumberConst
 
+  case class RegexConst(regex: String) extends Const
+
   /** Identifier reference
     */
   sealed abstract class IdnNode extends CalculusNode {
@@ -235,5 +237,9 @@ object Calculus {
   /** Star
     */
   case class Star() extends Exp
+
+  /** Into
+    */
+  case class Into(e1: Exp, e2: Exp) extends Exp
 
 }

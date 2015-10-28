@@ -2179,4 +2179,19 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       TestWorlds.publications,
       UnknownDecl(IdnUse("missing_field")))
   }
+
+  test("(1, 2) into (column1: _1, column2: _2)") {
+    success(
+      """(1, 2) into (column1: _1, column2: _2)""",
+      TestWorlds.empty,
+      RecordType(Attributes(List(AttrType("column1", IntType()), AttrType("column2", IntType())))))
+  }
+
+  test("(number: 1, 2) into (column1: number, column2: _2)") {
+    success(
+      """(number: 1, 2) into (column1: number, column2: _2)""",
+      TestWorlds.empty,
+      RecordType(Attributes(List(AttrType("column1", IntType()), AttrType("column2", IntType())))))
+  }
+
 }

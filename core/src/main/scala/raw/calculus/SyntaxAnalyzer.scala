@@ -70,12 +70,13 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwType = "(?i)type\\b".r
   val kwAlias = "(?i)alias\\b".r
   val kwStar = "*"
+  val kwInto = "(?i)into\\b".r
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
     kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
-    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar
+    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar | kwInto
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -169,7 +170,10 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       ">" ^^^ Gt())
 
   lazy val inExp: PackratParser[Exp] =
-    positioned(plusMinusExp * ("in" ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
+    positioned(intoExp * ("in" ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
+
+  lazy val intoExp: PackratParser[Exp] =
+    positioned(plusMinusExp * ("into" ^^^ { (e1: Exp, e2: Exp) => Into(e1, e2) }))
 
   lazy val plusMinusExp: PackratParser[Exp] =
     positioned(minus ~ plusMinusExp ^^ { case op ~ e => UnaryExp(op, e)}) |
@@ -249,7 +253,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     nullConst |
     boolConst |
     stringConst |
-    numberConst
+    numberConst |
+    regexConst
 
   lazy val nullConst: PackratParser[Null] =
     positioned("null" ^^^ Null())
@@ -274,6 +279,12 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val numericLit =
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
+
+  lazy val regexConst: PackratParser[RegexConst] =
+    positioned(regexLit ^^ { case s => RegexConst(s.drop(2).dropRight(1)) })
+
+  lazy val regexLit =
+    ("r\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned(kwIf ~> exp ~ (kwThen ~> exp) ~ (kwElse ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
