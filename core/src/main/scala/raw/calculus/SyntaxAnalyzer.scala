@@ -285,7 +285,11 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
   lazy val regexConst: PackratParser[RegexConst] =
-    positioned(regexLit ^^ { case s => RegexConst(s.drop(2).dropRight(1)) })
+    positioned(regexLit into (s =>
+      RegexSyntaxAnalyzer(s.drop(2).dropRight(1)) match {
+        case Right(regexAst) => success(RegexConst(regexAst))
+        case Left(err) => failure(err.msg)   // TODO: Modify to handle positions properly...
+      }))
 
   lazy val regexLit =
     ("r\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
