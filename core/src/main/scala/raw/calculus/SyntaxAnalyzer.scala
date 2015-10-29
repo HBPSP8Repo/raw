@@ -98,19 +98,20 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     mergeExp
 
   lazy val recordCons: PackratParser[RecordCons] =
-    (attrCons <~ ",") ~ rep1sep(attrCons, ",") ^^ {
-      case head ~ tail => RecordCons((Seq(head) ++ tail).zipWithIndex.map {
-        case (att, idx) =>
-          val natt = att.idn match {
-            case Some(idn) => AttrCons(idn, att.e)
-            case None      => AttrCons(s"_${idx + 1}", att.e)
-          }
-          natt.pos = att.pos
-          natt
-      })
-    } |
-    namedAttrCons ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))}
-
+    positioned(
+      (attrCons <~ ",") ~ rep1sep(attrCons, ",") ^^ {
+        case head ~ tail => RecordCons((Seq(head) ++ tail).zipWithIndex.map {
+          case (att, idx) =>
+            val natt = att.idn match {
+              case Some(idn) => AttrCons(idn, att.e)
+              case None      => AttrCons(s"_${idx + 1}", att.e)
+            }
+            natt.pos = att.pos
+            natt
+        })
+      } |
+        namedAttrCons ^^ { case att => val natt = AttrCons(att.idn.head, att.e); natt.pos = att.pos; RecordCons(Seq(natt))}
+    )
   case class ParserAttrCons(e: Exp, idn: Option[Idn]) extends Positional
 
   lazy val attrCons: PackratParser[ParserAttrCons] =

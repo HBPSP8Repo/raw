@@ -1,6 +1,8 @@
 package raw
 package calculus
 
+import raw.AttrType
+
 class SemanticAnalyzerTest extends FunTest {
 
   import raw.calculus.Calculus._
@@ -1151,15 +1153,16 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("polymorphic partition #3") {
+    val xs = RecordType(AttributesVariable(Set(AttrType("a", IntType()))))
     success(
       """
         |{
         |  a := \xs -> select x.a, partition from x in xs where x.a > 15 group by x.a;
-        |  (a, a(things), \xs -> select x.a, partition from x in xs where x.a > 15 group by x.a)
+        |  a
         |}
-      """.stripMargin, TestWorlds.things, IntType())
-//        RecordType(Attributes(List(AttrType("a",FunType(CollectionType(MonoidVariable(),
-//            RecordType(AttributesVariable(Set(AttrType("a",IntType()))))),CollectionType(MonoidVariable(Symbol($2543)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2544)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2571))))))))))), AttrType(_2,CollectionType(MonoidVariable(Symbol($2548)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2549)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(b,IntType()), AttrType(set_a,CollectionType(SetMonoid(),FloatType())), AttrType(set_b,CollectionType(SetMonoid(),FloatType())))))))))))), AttrType(_3,FunType(CollectionType(MonoidVariable(Symbol($2503)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2572)))),CollectionType(MonoidVariable(Symbol($2512)),RecordType(Attributes(List(AttrType(a,IntType()), AttrType(partition,CollectionType(MonoidVariable(Symbol($2560)),RecordType(AttributesVariable(Set(AttrType(a,IntType())),Symbol($2573)))))))))))))))
+      """.stripMargin, TestWorlds.things,
+      FunType(CollectionType(MonoidVariable(), xs),
+              CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("a", IntType()), AttrType("partition", CollectionType(MonoidVariable(), xs))))))))
   }
 
   test("blablabla") {
@@ -1715,12 +1718,14 @@ class SemanticAnalyzerTest extends FunTest {
         |
       """.stripMargin,
       TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("A", CollectionType(MonoidVariable(), IntType())), AttrType("x", CollectionType(SetMonoid(), IntType())))))
+      FunType(CollectionType(SetMonoid(), IntType()),
+          RecordType(Attributes(List(AttrType("A", CollectionType(MonoidVariable(), IntType())), AttrType("x", CollectionType(SetMonoid(), IntType()))))))
     )
   }
 
 
   test("......#3") {
+    val y = TypeVariable()
     success(
       """
         |
@@ -1729,14 +1734,8 @@ class SemanticAnalyzerTest extends FunTest {
         |     A}
         |
       """.stripMargin,
-      //    """
-      //      |{
-      //      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
-      //      | a
-      //      |}
-      //    """.stripMargin,
       TestWorlds.empty,
-      IntType()
+      FunType(CollectionType(MonoidVariable(), y), CollectionType(MonoidVariable(), y))
     )
   }
 
@@ -1751,62 +1750,97 @@ class SemanticAnalyzerTest extends FunTest {
       |     }
       |
     """.stripMargin,
-//    """
-//      |{
-//      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
-//      | a
-//      |}
-//    """.stripMargin,
     TestWorlds.empty,
-    IntType()
+    FunType(CollectionType(SetMonoid(), IntType()), RecordType(Attributes(List(
+      AttrType("_1", CollectionType(SetMonoid(), IntType())),
+      AttrType("A", CollectionType(MonoidVariable(), IntType())),
+      AttrType("B", IntType())
+    ))))
     )
   }
 
   test("free variables #1. Check that only the xs inner and monoid are free") {
+    val n1 = NumberType()
+    val n2 = NumberType()
     success(
       """
         |{
         |  a := \xs -> sum(select x from x in xs);
-        |  (a, a, a(list(1)))
+        |  (a1: a, a2: a, a(list(1)))
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.empty,
+      RecordType(Attributes(List(
+        AttrType("a1", FunType(CollectionType(MonoidVariable(), n1), n1)),
+        AttrType("a2", FunType(CollectionType(MonoidVariable(), n2), n2)),
+        AttrType("_3", IntType())
+      ))))
   }
 
   test("free variables #2. What should be the output type of a?") {
-    val a1 = NumberType()
-    val a2 = NumberType()
-    val a3 = NumberType()
+    val n1 = NumberType()
+    val n2 = NumberType()
+    val n3 = NumberType()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
+    val m3 = MonoidVariable()
     success(
       """
         |{
         |  a := \xs -> { b := \ys -> sum(select x from x in ys); b };
         |  (a(true),a(1.2),a("tralala"))
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.empty,
+        RecordType(Attributes(List(
+          AttrType("_1", FunType(CollectionType(m1, n1), n1)),
+          AttrType("_2", FunType(CollectionType(m2, n2), n2)),
+          AttrType("_3", FunType(CollectionType(m3, n3), n3))
+        ))), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false)), MProp(m3, None, Some(false))))
   }
 
   test("free variables #3. What should be the output type of a?") {
+    val n1 = NumberType()
+    val n2 = NumberType()
+    val n3 = NumberType()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
+    val m3 = MonoidVariable()
     success(
       """
         |{
         |  a := \xs -> (\ys -> sum(select x from x in ys));
-        |  (a,a,a)
+        |  (a1: a, a2: a, a3: a)
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.empty,
+        RecordType(Attributes(List(
+          AttrType("a1", FunType(TypeVariable(), FunType(CollectionType(m1, n1), n1))),
+          AttrType("a2", FunType(TypeVariable(), FunType(CollectionType(m2, n2), n2))),
+          AttrType("a3", FunType(TypeVariable(), FunType(CollectionType(m3, n3), n3)))
+        ))))
   }
 
   test("free variables #4") {
+    val n1 = NumberType()
+    val n2 = NumberType()
+    val n3 = NumberType()
     success(
       """
         |{
         |  a := list((\x -> x+x), (\x -> x+x+x));
-        |  (a,a,a)
+        |  (a1: a, a2: a, a3: a)
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.empty,
+      RecordType(Attributes(List(
+        AttrType("a1", CollectionType(ListMonoid(), FunType(n1, n1))),
+        AttrType("a2", CollectionType(ListMonoid(), FunType(n2, n2))),
+        AttrType("a3", CollectionType(ListMonoid(), FunType(n3, n3)))
+      ))))
   }
 
 
-  test("free variables #5") {
+  test("free variables #5 (not too sure of the type)") {
+    val n1 = NumberType()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
     success(
       """
         |{
@@ -1816,7 +1850,13 @@ class SemanticAnalyzerTest extends FunTest {
         |  };
         |  (a, a(list(1.2, 1.3)), a(list(1,2,3)))
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.empty,
+      RecordType(Attributes(List(
+        AttrType("a1", FunType(CollectionType(m1, n1), FunType(CollectionType(m2, n1), n1))),
+        AttrType("a2", FunType(CollectionType(MonoidVariable(), FloatType()), FloatType())),
+        AttrType("a3", FunType(CollectionType(MonoidVariable(), IntType()), IntType())))
+      )))
+
   }
 
   test("""\xs -> { a := max(xs); v1: a, v2: a }""") {
@@ -1853,14 +1893,29 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       """(\xs, ys -> select x.age, * from x in xs, ys group by x.age)(students, professors)""",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(
+        AttrType("age", IntType()),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("name", StringType()),
+          AttrType("age", IntType()),
+          AttrType("name_1", StringType()),
+          AttrType("age_1", IntType())
+          ))))))))))
   }
 
   test("""(\xs, ys -> select x.age, count(*) as c, * from x in xs, ys group by x.age)(students, professors)""") {
     success(
       """(\xs, ys -> select x.age, count(*) as c, * from x in xs, ys group by x.age)(students, professors)""",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(
+        AttrType("age", IntType()),
+        AttrType("c", IntType()),
+        AttrType("_3", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("name", StringType()),
+          AttrType("age", IntType()),
+          AttrType("name_1", StringType()),
+          AttrType("age_1", IntType())
+        ))))))))))
   }
 
   test("""select x.name_1 from x in ((\xs, ys -> select * from x in xs, ys)(students, professors))""") {
@@ -1954,7 +2009,24 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(
+        AttrType("_1", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("_3", IntType()))
+          ))))))))),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("name_1", StringType()),
+            AttrType("age_1", IntType())
+          )))))
+        )))
+      ))))))
   }
 
   test("polymorphic select w/ concat attributes #3") {
@@ -1966,7 +2038,24 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(
+        AttrType("_1", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("foo", IntType()))
+          ))))))))),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("name_1", StringType()),
+            AttrType("age_1", IntType())
+          )))))
+        )))
+        ))))))
   }
 
   test("polymorphic select w/ concat attributes #4") {
@@ -1978,7 +2067,24 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      RecordType(Attributes(List(
+        AttrType("_1", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("age_1", IntType()))
+          ))))))))),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("age", IntType()),
+          AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("name_1", StringType()),
+            AttrType("age_1", IntType())
+          )))))
+        )))
+        ))))))
   }
 
 
@@ -1991,7 +2097,15 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(ListMonoid(), RecordType(Attributes(List(
+        AttrType("age", IntType()),
+        AttrType("_2", CollectionType(MonoidVariable(),
+        RecordType(Attributes(List(
+            AttrType("name", StringType()),
+            AttrType("age", IntType()),
+            AttrType("name_1", StringType()),
+            AttrType("age_1", IntType())
+          ))))))))))
   }
 
   test("........") {
@@ -2003,7 +2117,14 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(
+        AttrType("x", IntType()),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("x", IntType()),
+          AttrType("name", StringType()),
+          AttrType("age", IntType())
+        )))))
+      )))))
   }
 
 
@@ -2018,7 +2139,13 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
         |}
       """.stripMargin,
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(
+        AttrType("x", IntType()),
+        AttrType("_2", CollectionType(MonoidVariable(), RecordType(Attributes(List(
+          AttrType("x", IntType()),
+          AttrType("name", StringType()),
+          AttrType("age", IntType())
+      ))))))))))
   }
 
   test("lookup attributes") {
@@ -2037,10 +2164,17 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
 
   test("field does not exist - issue #4") {
     // TODO: This is a bug: should return UnknownDecl...
-    success(
+    failure(
       """select a.missing_field from authors a""",
       TestWorlds.publications,
-      IntType())
+      UnexpectedType(UserType(Symbol("Author")), RecordType(AttributesVariable(Set(AttrType("missing_field", TypeVariable()))))))
   }
 
+  test("field does not exist - issue #4 2") {
+    // TODO: This is a bug: should return UnknownDecl...
+    failure(
+      """select missing_field from authors""",
+      TestWorlds.publications,
+      UnknownDecl(IdnUse("missing_field")))
+  }
 }

@@ -585,4 +585,8 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("""      select s.age/10, (select x. from (s,p) in partition) from students s group by s.age/10""")
   }
 
+  test("recordCons") {
+    matches("(age1: 15)")
+  }
+
 }
