@@ -26,4 +26,5 @@ class SimplifierTest extends CalculusTest {
   test("if false") {
     check("if (true and false) then 1 else 2", "2")
   }
+
 }
