@@ -1172,6 +1172,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("polymorphic partial record w/ polymorphic select") {
+    // this is going to fail, what is the intention
     success(
       """
         |{
@@ -1202,11 +1203,11 @@ class SemanticAnalyzerTest extends FunTest {
     success("for ( <- students ) yield set (name, age)", TestWorlds.professors_students, CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))
   }
 
-  test("(a: 1, a: 2)") {
+  test("#87 (a: 1, a: 2)") {
     failure("(a: 1, a: 2)", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
   }
 
-  test("{ a := 1; (a, a) }") {
+  test("#87 { a := 1; (a, a) }") {
     failure("{ a := 1; (a, a) }", TestWorlds.empty, AmbiguousIdn(IdnUse("a")))
   }
 
@@ -1452,6 +1453,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select age, count(*) from students") {
+    // should it fail with illegal star
     success(
       "select age, count(*) from students",
       TestWorlds.professors_students,
@@ -1480,7 +1482,7 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("_2", IntType()))))))
   }
 
-  test("for ( <- students) yield list *") {
+  test("#58 for ( <- students) yield list *") {
     success(
       "for ( <- students) yield list *",
       TestWorlds.professors_students,
@@ -1706,7 +1708,7 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(MonoidVariable(), UserType(Symbol("Author"))))
   }
 
-  test("......#2") {
+  test("#106 inferrence through bind") {
     success(
       """
         |
@@ -1739,7 +1741,7 @@ class SemanticAnalyzerTest extends FunTest {
     )
   }
 
-  test("......") {
+  test("#106 inferrence through bind #2") {
     success(
     """
       |
@@ -1837,7 +1839,7 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
 
-  test("free variables #5 (not too sure of the type)") {
+  test("#107 free variables #5 (not too sure of the type)") {
     val n1 = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
@@ -1852,9 +1854,9 @@ class SemanticAnalyzerTest extends FunTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a1", FunType(CollectionType(m1, n1), FunType(CollectionType(m2, n1), n1))),
-        AttrType("a2", FunType(CollectionType(MonoidVariable(), FloatType()), FloatType())),
-        AttrType("a3", FunType(CollectionType(MonoidVariable(), IntType()), IntType())))
+        AttrType("a", FunType(CollectionType(m1, n1), FunType(CollectionType(m2, n1), n1))),
+        AttrType("_2", FunType(CollectionType(MonoidVariable(), FloatType()), FloatType())),
+        AttrType("_3", FunType(CollectionType(MonoidVariable(), IntType()), IntType())))
       )))
 
   }
@@ -1938,7 +1940,7 @@ class SemanticAnalyzerTest extends FunTest {
       CollectionType(MonoidVariable(), BoolType()))
   }
 
-  test("""resolve a record type from a function pattern""") {
+  test("""#108 resolve a record type from a function pattern""") {
     // f2 below takes three parameters.
     success(
       """{
@@ -2000,7 +2002,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
               AttrType("_2", CollectionType(MonoidVariable(), starType)))))))))))
   }
 
-  test("polymorphic select w/ concat attributes #2") {
+  test("#109 polymorphic select w/ concat attributes #2") {
     success(
       """
         |{
@@ -2088,7 +2090,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
   }
 
 
-  test("polymorphic select w/ concat attributes #5") {
+  test("#110 polymorphic select w/ concat attributes #5") {
     success(
       """
         |{
