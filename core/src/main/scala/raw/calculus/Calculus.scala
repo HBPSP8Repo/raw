@@ -53,7 +53,7 @@ object Calculus {
 
   case class TimeConst(value: String) extends Const
 
-  case class RegexConst(regex: String) extends Const
+  case class RegexConst(regex: RawRegex) extends Const
 
   /** Identifier reference
     */
