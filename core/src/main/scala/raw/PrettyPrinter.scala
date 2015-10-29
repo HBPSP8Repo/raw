@@ -15,8 +15,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ToList     => "to_list"
     case _: ToSet      => "to_set"
     case _: ToDateTime => "to_date_time"
-    case _: ToDate     => "to_date"
-    case _: ToTime     => "to_time"
   }
 
   def binaryOp(op: BinaryOperator): Doc = op match {

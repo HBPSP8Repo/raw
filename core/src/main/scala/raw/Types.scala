@@ -22,9 +22,9 @@ case class FloatType() extends Type
 
 case class DateTimeType() extends Type
 
-case class DateType() extends Type
+case class IntervalType() extends Type
 
-case class TimeType() extends Type
+case class RegexType() extends Type
 
 case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
 
@@ -121,10 +121,6 @@ case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
 /** Function Type `t2` -> `t1`
   */
 case class FunType(t1: Type, t2: Type) extends Type
-
-/** Regex Type.
-  */
-case class RegexType() extends Type
 
 /** Any Type
   * The top type.

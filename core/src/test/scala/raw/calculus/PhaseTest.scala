@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-abstract class CalculusTest extends FunTest {
+abstract class PhaseTest extends CoreTest {
 
   /** The phase to test.
     */

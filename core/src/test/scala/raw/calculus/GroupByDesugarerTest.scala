@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-class GroupByDesugarerTest extends CalculusTest {
+class GroupByDesugarerTest extends PhaseTest {
 
   val phase = "GroupByDesugarer"
 

@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-class UniquifierTest extends CalculusTest {
+class UniquifierTest extends PhaseTest {
 
   val phase = "Uniquifier1"
 

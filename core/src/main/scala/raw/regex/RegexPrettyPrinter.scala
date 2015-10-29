@@ -1,8 +1,9 @@
-package raw
+package raw.regex
 
 import org.kiama.output.PrettyPrinterTypes.Width
+import raw.PrettyPrinter
 
-object RawRegexPrettyPrinter extends PrettyPrinter {
+object RegexPrettyPrinter extends PrettyPrinter {
 
   def apply(n: RawRegex, w: Width = 120): String =
     super.pretty(show(n), w=w).layout
@@ -15,13 +16,14 @@ object RawRegexPrettyPrinter extends PrettyPrinter {
     case RegexDigit() => "\\d"
     case RegexWildcard() => "."
     case RegexChar(c) => c
+    case RegexEscapedChar(c) => "\\" <> c
     case RegexPlus(r) => show(r) <> "+"
     case RegexQuestion(r) => show(r) <> "?"
     case RegexStar(r) => show(r) <> "*"
     case RegexRepeat(r, n1) => show(r) <> "{" <> n1.toString <> "}"
     case RegexBeginLine() => "^"
     case RegexEndLine() => "$"
-    case RegexOr(ors, false) => "[" <> ssep(ors.map{
+    case RegexOr(ors, not) => (if (not) "[^" else "[") <> ssep(ors.map{
       case RegexOrInterval(a, b) => text(s"$a-$b")
       case RegexOrPrimitive(p) => show(p)
       }.to, "") <> "]"

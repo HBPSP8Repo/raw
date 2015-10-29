@@ -1,4 +1,6 @@
-package raw
+package raw.regex
+
+import raw.RawNode
 
 sealed abstract class RawRegex extends RawNode
 
@@ -23,6 +25,7 @@ case class RegexWildcard() extends RawPrimitiveRegex
 
 /** char */
 case class RegexChar(c: Char) extends RawPrimitiveRegex
+case class RegexEscapedChar(c: Char) extends RawPrimitiveRegex
 
 /** + */
 case class RegexPlus(r: RawRegex) extends RawRegex

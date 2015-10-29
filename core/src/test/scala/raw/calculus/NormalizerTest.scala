@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-class NormalizerTest extends CalculusTest {
+class NormalizerTest extends PhaseTest {
 
   val phase = "Normalizer"
 

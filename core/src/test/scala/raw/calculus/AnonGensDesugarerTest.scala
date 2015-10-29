@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-class AnonGensDesugarerTest extends CalculusTest {
+class AnonGensDesugarerTest extends PhaseTest {
 
   val phase = "AnonGensDesugarer"
 

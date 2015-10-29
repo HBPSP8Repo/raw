@@ -2,7 +2,7 @@ package raw
 package calculus
 
 import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
-import scala.util.parsing.input.{CharSequenceReader, Position, Positional}
+import scala.util.parsing.input.{CharSequenceReader, Positional}
 
 /** Parser for monoid comprehensions.
   */
@@ -174,10 +174,10 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       ">" ^^^ Gt())
 
   lazy val inExp: PackratParser[Exp] =
-    positioned(intoExp * ("in" ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
+    positioned(intoExp * (kwIn ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
 
   lazy val intoExp: PackratParser[Exp] =
-    positioned(plusMinusExp * ("into" ^^^ { (e1: Exp, e2: Exp) => Into(e1, e2) }))
+    positioned(plusMinusExp * (kwInto ^^^ { (e1: Exp, e2: Exp) => Into(e1, e2) }))
 
   lazy val plusMinusExp: PackratParser[Exp] =
     positioned(minus ~ plusMinusExp ^^ { case op ~ e => UnaryExp(op, e)}) |
@@ -214,14 +214,14 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     recordProjExp
 
   lazy val recordProjExp: PackratParser[Exp] =
-    positioned(baseExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
+    positioned(asExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
       def fold(e: Exp, idns: Seq[Idn]): Exp = idns match {
         case head :: Nil => RecordProj(e, idns.head)
         case head :: tail => fold(RecordProj(e, idns.head), idns.tail)
       }
       fold(e, idns)
       }) |
-    baseExp
+    asExp
 
   lazy val attrName: PackratParser[String] =
     escapedIdent |
@@ -232,6 +232,10 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val ident: PackratParser[String] =
      not(reserved) ~> """[_a-zA-Z]\w*""".r
+
+  lazy val asExp: PackratParser[Exp] =
+    positioned((baseExp <~ kwAs) ~ regexConst ^^ { case e ~ r => As(e, r)}) |
+    baseExp
 
   lazy val baseExp: PackratParser[Exp] =
     expBlock |
@@ -285,11 +289,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
   lazy val regexConst: PackratParser[RegexConst] =
-    positioned(regexLit into (s =>
-      RegexSyntaxAnalyzer(s.drop(2).dropRight(1)) match {
-        case Right(regexAst) => success(RegexConst(regexAst))
-        case Left(err) => failure(err.msg)   // TODO: Modify to handle positions properly...
-      }))
+    positioned(regexLit ^^ { case r => RegexConst(r.drop(2).dropRight(1)) })
 
   lazy val regexLit =
     ("r\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
@@ -378,9 +378,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToString ^^^ ToString() |
       kwToBag ^^^ ToBag() |
       kwToList ^^^ ToList() |
-      kwToDateTime ^^^ ToDateTime() |
-      kwToDate ^^^ ToDate() |
-      kwToTime ^^^ ToTime())
+      kwToDateTime ^^^ ToDateTime())
 
   lazy val sugarFun: PackratParser[Sugar] =
     sumExp |

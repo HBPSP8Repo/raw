@@ -7,14 +7,7 @@ import raw.calculus.{CalculusPrettyPrinter, Calculus, SyntaxAnalyzer}
 import scala.collection.mutable
 import scala.util.matching.Regex.Match
 
-class FunTest extends FunSuite with LazyLogging {
-
-  def parse(q: String): Calculus.Exp = {
-    SyntaxAnalyzer(q) match {
-      case Right(ast) => ast
-      case Left(err) => fail(s"Parser error: $err")
-    }
-  }
+class RawTest extends FunSuite with LazyLogging {
 
   /** Compare results of actual comprehension result with expected result, but first normalizes variable names.
     * Since variable names are auto-generated, the function normalizes all uses of $N to a uniform integer.

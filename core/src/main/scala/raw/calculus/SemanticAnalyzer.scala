@@ -228,7 +228,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
         case _: FloatConst           => te
         case _: BoolConst            => te
         case _: StringConst          => te
-        case _: RegexConst          => te
         case rc: RecordCons          => te match {
           case RecordType(recAtts: Attributes) => RecordType(Attributes(rc.atts.map { case att => AttrType(att.idn, tipe(att.e)) }))
         }

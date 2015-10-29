@@ -1,6 +1,8 @@
 package raw
 package calculus
 
+import raw.regex.RawRegex
+
 /** Calculus
   */
 object Calculus {
@@ -49,11 +51,9 @@ object Calculus {
 
   case class DateTimeConst(value: String) extends Const
 
-  case class DateConst(value: String) extends Const
+  case class IntervalConst(value: String) extends Const
 
-  case class TimeConst(value: String) extends Const
-
-  case class RegexConst(regex: RawRegex) extends Const
+  case class RegexConst(value: String) extends NumberConst
 
   /** Identifier reference
     */
@@ -247,5 +247,9 @@ object Calculus {
   /** Into
     */
   case class Into(e1: Exp, e2: Exp) extends Exp
+
+  /** As
+    */
+  case class As(e: Exp, r: RegexConst) extends Exp
 
 }

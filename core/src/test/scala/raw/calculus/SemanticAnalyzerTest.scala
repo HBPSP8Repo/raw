@@ -1,9 +1,7 @@
 package raw
 package calculus
 
-import raw.AttrType
-
-class SemanticAnalyzerTest extends FunTest {
+class SemanticAnalyzerTest extends CoreTest {
 
   import raw.calculus.Calculus._
 

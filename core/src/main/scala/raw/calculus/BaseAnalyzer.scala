@@ -207,7 +207,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case o: OuterUnnest => leave(out(o))
     case n: Nest  => leave(out(n))
     case n: Nest2 => leave(out(n))
-    case b: ExpBlock => leave(out(b))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
     case f: FunAbs => leave(out(f))
@@ -719,7 +718,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case _: IntConst   => IntType()
     case _: FloatConst => FloatType()
     case _: StringConst => StringType()
-    case _: RegexConst => RegexType()
 
     // Rule 5
     case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))))

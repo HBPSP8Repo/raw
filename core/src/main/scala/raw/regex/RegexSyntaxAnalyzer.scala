@@ -1,10 +1,8 @@
-package raw
-package calculus
+package raw.regex
 
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.util.parsing.combinator.{RegexParsers, PackratParsers}
-import scala.util.parsing.input.CharSequenceReader
+import scala.util.parsing.combinator.RegexParsers
 
 object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
 
@@ -69,22 +67,22 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
   lazy val wildcard: Parser[RegexWildcard] =
     positioned("." ^^^ RegexWildcard())
 
-  lazy val char: Parser[RegexChar] =
+  lazy val char =
     positioned(
-      "\\\\" ^^^ RegexChar('\\') |
-      "\\[" ^^^ RegexChar('[') |
-      "\\]" ^^^ RegexChar(']') |
-      "\\(" ^^^ RegexChar('(') |
-      "\\)" ^^^ RegexChar(')') |
-      "\\{" ^^^ RegexChar('{') |
-      "\\}" ^^^ RegexChar('}') |
-      "\\*" ^^^ RegexChar('*') |
-      "\\." ^^^ RegexChar('.') |
-      "\\+" ^^^ RegexChar('+') |
-      "\\?" ^^^ RegexChar('?') |
-      "\\^" ^^^ RegexChar('^') |
-      "\\$" ^^^ RegexChar('$') |
-      """[^\\\[\](){}*.+?^$]""".r ^^ { case c => logger.debug("char"); RegexChar(c.toCharArray.head) })
+      "\\\\" ^^^ RegexEscapedChar('\\') |
+      "\\[" ^^^ RegexEscapedChar('[') |
+      "\\]" ^^^ RegexEscapedChar(']') |
+      "\\(" ^^^ RegexEscapedChar('(') |
+      "\\)" ^^^ RegexEscapedChar(')') |
+      "\\{" ^^^ RegexEscapedChar('{') |
+      "\\}" ^^^ RegexEscapedChar('}') |
+      "\\*" ^^^ RegexEscapedChar('*') |
+      "\\." ^^^ RegexEscapedChar('.') |
+      "\\+" ^^^ RegexEscapedChar('+') |
+      "\\?" ^^^ RegexEscapedChar('?') |
+      "\\^" ^^^ RegexEscapedChar('^') |
+      "\\$" ^^^ RegexEscapedChar('$') |
+      """[^\\\[\](){}*\.+?^$]""".r ^^ { case c => logger.debug("char"); RegexChar(c.toCharArray.head) })
 
   lazy val plus: Parser[RegexPlus] =
     positioned(term4 <~ "+" ^^ { case r => RegexPlus(r) })
@@ -126,12 +124,13 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
     wildcard |
     primitiveChar
 
-  lazy val primitiveChar: Parser[RegexChar] =
+  lazy val primitiveChar =
     positioned(
-      "\\\\" ^^^ RegexChar('[') |
-      "\\[" ^^^ RegexChar('[') |
-      "\\]" ^^^ RegexChar(']') |
-      """[^\\\[\]]""".r ^^ { case c => RegexChar(c.toCharArray.head) })
+      "\\\\" ^^^ RegexEscapedChar('\\') |
+      "\\[" ^^^ RegexEscapedChar('[') |
+      "\\]" ^^^ RegexEscapedChar(']') |
+      "\\." ^^^ RegexEscapedChar('.') |
+      """[^\\\[\]\.]""".r ^^ { case c => RegexChar(c.toCharArray.head) })
 
   lazy val attrName: Parser[String] =
     escapedIdent |
@@ -143,37 +142,4 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
   // TODO: Block reserved words. Inherit from common parsing trait. All idents and reservedWords should go to the common trait, incl attrName
   lazy val ident =
     """[_a-zA-Z]\w*""".r
-}
-
-
-object Foo extends App {
-  println("Foo1")
-
-  val reg = """(\w[-\w\.]*)\s+-\s+-\s+\[(\d{2}/\w+/\d{4}:\d{2}:\d{2}:\d{2}\s[-+]\d{4})\]\s+"(\w+)\s+([^ ]+)\s(\w+)/(\d+.\d+)"\s+(\d+)\s+(\d+)""".r
-  val data1 = """slppp6.intermind.net - - [01/Aug/1995:00:00:12 -0400] "GET /images/ksclogosmall.gif HTTP/1.0" 200 3635"""
-  val data2 = """ix-esc-ca2-07.ix.netcom.com - - [01/Aug/1995:00:00:12 -0400] "GET /history/apollo/images/apollo-logo1.gif HTTP/1.0" 200 1173"""
-  val data3 = """133.43.96.45 - - [01/Aug/1995:00:00:23 -0400] "GET /shuttle/missions/sts-69/sts-69-patch-small.gif HTTP/1.0" 200 8083"""
-
-  data1 match {
-    case reg(host, date, method, path, protocol, version, status, size) =>
-      println(host, date, method, path, protocol, version, status, size)
-  }
-  data2 match {
-    case reg(host, date, method, path, protocol, version, status, size) =>
-      println(host, date, method, path, protocol, version, status, size)
-  }
-  data3 match {
-    case reg(host, date, method, path, protocol, version, status, size) =>
-      println(host, date, method, path, protocol, version, status, size)
-  }
-
-  println("go")
-
-  //RegexSyntaxAnalyzer("""(\w[-\w\.]*)""") match {
-//  RegexSyntaxAnalyzer("""(\w[\w\.]*)""") match {
-  RegexSyntaxAnalyzer("""(\w+)\w+""") match {
-    case Right(ast) => println(s"SUCCESS\n${RawRegexPrettyPrinter(ast)}")
-    case Left(err) => println(s"ERROR\n$err")
-  }
-
 }
