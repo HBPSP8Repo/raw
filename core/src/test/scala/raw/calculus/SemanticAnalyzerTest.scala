@@ -120,7 +120,7 @@ class SemanticAnalyzerTest extends CoreTest {
   private def typesEq(t1: Type, t2: Type): Boolean =
     compare(PrettyPrinter(t1), PrettyPrinter(t2))
   
-  def failure(query: String, world: World, error: Error) = {
+  def failure(query: String, world: World, error: CalculusError) = {
     val analyzer = go(query, world)
     assert(analyzer.errors.nonEmpty)
     analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
@@ -211,15 +211,15 @@ class SemanticAnalyzerTest extends CoreTest {
   }
 
   test("for (i <- Items) yield set i") {
-    success("for (i <- Items) yield set i", TestWorlds.linkedList, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
+    success("for (i <- Items) yield set i", TestWorlds.linked_list, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
   }
 
   test("for (i <- Items) yield set i.next") {
-    success("for (i <- Items) yield set i.next", TestWorlds.linkedList, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
+    success("for (i <- Items) yield set i.next", TestWorlds.linked_list, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
   }
 
   test("for (i <- Items; x := i; x.value = 10; x.next != x) yield set x") {
-    success("for (i <- Items; x := i; x.value = 10; x.next != x) yield set x", TestWorlds.linkedList, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
+    success("for (i <- Items; x := i; x.value = 10; x.next != x) yield set x", TestWorlds.linked_list, CollectionType(SetMonoid(),UserType(Symbol("Item"))))
   }
 
   test("departments - from Fegaras's paper") {
@@ -2190,6 +2190,13 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """(number: 1, 2) into (column1: number, column2: _2)""",
       TestWorlds.empty,
       RecordType(Attributes(List(AttrType("column1", IntType()), AttrType("column2", IntType())))))
+  }
+
+  test("""select row as r"(\w+)\s(\d+)" into (word: _1, n: to_int(_2)) from file row""") {
+    success(
+      """select row as r"(\w+)\s(\d+)" into (word: _1, n: to_int(_2)) from file row""",
+      TestWorlds.text_file,
+      IntType())
   }
 
 }

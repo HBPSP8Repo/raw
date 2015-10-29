@@ -92,6 +92,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
     case _: AnyType                           => "any"
     case _: NothingType                       => "nothing"
+    case _: RegexType                         => "regex"
     case UserType(sym)                        => sym.idn
     case TypeScheme(t1, typeSyms, monoidSyms, attSyms) =>
       "type_scheme" <>

@@ -1,7 +1,9 @@
 package raw
 package calculus
 
-trait Analyzer {
+import org.kiama.attribution.Attribution
+
+trait Analyzer extends Attribution {
 
   def tree: Calculus.Calculus
 

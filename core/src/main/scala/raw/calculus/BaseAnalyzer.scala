@@ -19,7 +19,7 @@ case class BaseAnalyzerException(err: String) extends RawException(err)
   *
   * The original user query is passed optionally for debugging purposes.
   */
-class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: String) extends Attribution with Analyzer with MonoidsGraph with NodePosition with LazyLogging {
+class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: String) extends Attribution with Analyzer with MonoidsGraph with NodePosition with RegexAnalyzer with LazyLogging {
 
   // TODO: Add a check to the semantic analyzer that the monoids are no longer monoid variables; they have been sorted out
 
@@ -65,7 +65,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     * Updated during unification.
     */
   private val tipeErrors =
-    scala.collection.mutable.MutableList[Error]()
+    scala.collection.mutable.MutableList[CalculusError]()
 
   /** Type the root of the program.
     */
@@ -124,13 +124,13 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     */
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
-  lazy val errors: Seq[Error] = {
+  lazy val errors: Seq[RawError] = {
     solution // Must type the entire program before checking for errors
-    badEntities ++ tipeErrors
+    regexErrors ++ badEntities ++ tipeErrors
   }
 
   private lazy val collectBadEntities =
-    collect[List, Error] {
+    collect[List, CalculusError] {
       // Identifier declared more than once in the same scope
       case i: IdnDef if entity(i) == MultipleEntity() =>
         MultipleDecl(i, Some(parserPosition(i)))
@@ -718,6 +718,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case _: IntConst   => IntType()
     case _: FloatConst => FloatType()
     case _: StringConst => StringType()
+    case _: RegexConst => RegexType()
 
     // Rule 5
     case RecordCons(atts) => RecordType(Attributes(atts.map(att => AttrType(att.idn, expType(att.e)))))
@@ -750,6 +751,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case _: Exists => BoolType()
 
     case Into(_, e2) => expType(e2)
+
+    case As(_, r) => regexType(r)
 
     case n => TypeVariable()
   }
@@ -1950,6 +1953,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case n @ Count(e) => constraints(e) ++ constraint(n)
     case n @ Exists(e) => constraints(e) ++ constraint(n)
     case n @ Into(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
+    case n @ As(e, r) => constraints(e) ++ constraints(r) ++ constraint(n)
   }
 
   /** For debugging.

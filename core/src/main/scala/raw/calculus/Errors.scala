@@ -1,38 +1,40 @@
 package raw
 package calculus
 
-/** Errors
+/** CalculusError
   */
-sealed abstract class Error
+sealed abstract class CalculusError extends RawError
 
-case class MultipleDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
+case class MultipleDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class UnknownDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
+case class UnknownDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class AmbiguousIdn(idn: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends Error
+case class AmbiguousIdn(idn: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[RawParserPosition] = None) extends Error
+case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class UnknownPartition(p: Calculus.Partition, pos: Option[RawParserPosition] = None) extends Error
+case class UnknownPartition(p: Calculus.Partition, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class UnknownStar(s: Calculus.Star, pos: Option[RawParserPosition] = None) extends Error
+case class UnknownStar(s: Calculus.Star, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class IncompatibleMonoids(m: Monoid, t: Type, pos: Option[RawParserPosition] = None) extends Error
+case class IncompatibleMonoids(m: Monoid, t: Type, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class IncompatibleTypes(t1: Type, t2: Type, pos1: Option[RawParserPosition] = None, pos2: Option[RawParserPosition] = None) extends Error
+case class IncompatibleTypes(t1: Type, t2: Type, pos1: Option[RawParserPosition] = None, pos2: Option[RawParserPosition] = None) extends CalculusError
 
-case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, pos: Option[RawParserPosition] = None) extends Error
+case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None) extends Error
+case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None) extends CalculusError
+
+case class InvalidRegexSyntax(detail: String) extends CalculusError
 
 /** ErrorPrettyPrinter
   */
 object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
 
-  def apply(e: Error): String =
+  def apply(e: RawError): String =
     super.pretty(show(e)).layout
 
-  def show(e: Error): Doc = e match {
+  def show(e: RawError): Doc = e match {
     case MultipleDecl(i, _) => s"${i.idn} is declared more than once"
     case UnknownDecl(i, _) => s"${i.idn} is not declared"
     case AmbiguousIdn(i, _) => s"${i.idn} is ambiguous"

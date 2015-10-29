@@ -1,8 +1,6 @@
 package raw
 package calculus
 
-import raw.regex.RawRegex
-
 /** Calculus
   */
 object Calculus {

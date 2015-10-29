@@ -4,7 +4,7 @@ import raw.calculus.Symbol
 
 object TestWorlds {
 
-  def linkedList = {
+  def linked_list = {
     val tipes = Map(
       Symbol {
         "Item"
@@ -355,4 +355,13 @@ object TestWorlds {
 
     new World(sources, tipes)
   }
+
+  def text_file = {
+    val sources = Map(
+      "file" -> CollectionType(BagMonoid(), StringType())
+    )
+
+    new World(sources)
+  }
+
 }

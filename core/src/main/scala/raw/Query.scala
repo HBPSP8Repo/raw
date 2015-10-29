@@ -25,7 +25,7 @@ case class InternalError(desc: String) extends QueryError {
 }
 
 object RawPositionExtractor {
-  def apply(e: Error): List[RawParserPosition] = e match {
+  def apply(e: RawError): List[RawParserPosition] = e match {
     case MultipleDecl(_, pos) => List(RawPositionExtractor(pos))
     case UnknownDecl(_, pos) => List(RawPositionExtractor(pos))
     case AmbiguousIdn(_, pos) => List(RawPositionExtractor(pos))
@@ -72,7 +72,7 @@ object Query extends LazyLogging {
     if (analyzer.errors.isEmpty) {
       Right(analyzer.tipe(tree.root))
     } else {
-      val semanticErrors = analyzer.errors.map((e: Error) => SemanticError(e.getClass.getSimpleName, RawPositionExtractor(e), ErrorsPrettyPrinter(e)))
+      val semanticErrors = analyzer.errors.map((e: RawError) => SemanticError(e.getClass.getSimpleName, RawPositionExtractor(e), ErrorsPrettyPrinter(e)))
       Left(SemanticErrors(semanticErrors.to))
     }
   }

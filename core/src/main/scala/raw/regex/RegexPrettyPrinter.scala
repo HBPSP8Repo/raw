@@ -5,10 +5,12 @@ import raw.PrettyPrinter
 
 object RegexPrettyPrinter extends PrettyPrinter {
 
-  def apply(n: RawRegex, w: Width = 120): String =
+  import Regex._
+
+  def apply(n: RegexNode, w: Width = 120): String =
     super.pretty(show(n), w=w).layout
 
-  def show(n: RawRegex): Doc = group(n match {
+  def show(n: RegexNode): Doc = group(n match {
     case RegexSeq(rs) => ssep(rs.map(show).to, "")
     case RegexPipe(rs) => ssep(rs.map(show).to, "|")
     case RegexWord() => "\\w"

@@ -250,6 +250,9 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
         case Count(e1)               => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Exists(e1)              => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Into(e1, e2)            => makeNullable(te, Seq(tipe(e2)), Seq(tipe(e1), tipe(e2)))
+        case As(e, r)                 =>
+          // TODO: Ben: HELP!!!
+          te
       }
       nt
     }

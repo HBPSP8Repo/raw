@@ -3,7 +3,7 @@ package regex
 
 class RegexSyntaxAnalyzerTest extends RawTest {
 
-  private def parse(q: String): RawRegex = {
+  private def parse(q: String): Regex.RegexNode = {
     RegexSyntaxAnalyzer(q) match {
       case Right(ast) => ast
       case Left(err) => fail(s"Parser error: $err")
