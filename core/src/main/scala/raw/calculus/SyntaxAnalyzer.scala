@@ -43,6 +43,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwToBag = "((?i)to_bag|(?i)toBag)\\b".r
   val kwToList = "((?i)to_list|(?i)toList)\\b".r
   val kwToSet = "((?i)to_set|(?i)toSet)\\b".r
+  val kwToDateTime = "((?i)to_date_time|(?i)toDateTime)\\b".r
+  val kwToDate = "((?i)to_date|(?i)toDate)\\b".r
+  val kwToTime = "((?i)to_time|(?i)toTime)\\b".r
   val kwAvg = "(?i)avg\\b".r
   val kwCount = "(?i)count\\b".r
   val kwMin = "(?i)min\\b".r
@@ -74,7 +77,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
-    kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
+    kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwToDateTime | kwToDate | kwToTime |
+    kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
     kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
     kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar | kwInto
 
@@ -370,7 +374,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToString ^^^ ToString() |
       kwToBag ^^^ ToBag() |
       kwToList ^^^ ToList() |
-      kwToSet ^^^ ToSet())
+      kwToDateTime ^^^ ToDateTime() |
+      kwToDate ^^^ ToDate() |
+      kwToTime ^^^ ToTime())
 
   lazy val sugarFun: PackratParser[Sugar] =
     sumExp |

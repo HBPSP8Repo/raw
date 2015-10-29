@@ -44,3 +44,15 @@ case class ToList() extends UnaryOperator
 /** Convert to set
   */
 case class ToSet() extends UnaryOperator
+
+/** Convert to date/time
+  */
+case class ToDateTime() extends UnaryOperator
+
+/** Convert to date
+  */
+case class ToDate() extends UnaryOperator
+
+/** Convert to time
+  */
+case class ToTime() extends UnaryOperator

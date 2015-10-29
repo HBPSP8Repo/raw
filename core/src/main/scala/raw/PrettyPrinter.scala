@@ -5,15 +5,18 @@ package raw
 abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
 
   def unaryOp(op: UnaryOperator) = op match {
-    case _: Not      => "not"
-    case _: Neg      => "-"
-    case _: ToBool   => "to_bool"
-    case _: ToInt    => "to_int"
-    case _: ToFloat  => "to_float"
-    case _: ToString => "to_string"
-    case _: ToBag    => "to_bag"
-    case _: ToList   => "to_list"
-    case _: ToSet    => "to_set"
+    case _: Not        => "not"
+    case _: Neg        => "-"
+    case _: ToBool     => "to_bool"
+    case _: ToInt      => "to_int"
+    case _: ToFloat    => "to_float"
+    case _: ToString   => "to_string"
+    case _: ToBag      => "to_bag"
+    case _: ToList     => "to_list"
+    case _: ToSet      => "to_set"
+    case _: ToDateTime => "to_date_time"
+    case _: ToDate     => "to_date"
+    case _: ToTime     => "to_time"
   }
 
   def binaryOp(op: BinaryOperator): Doc = op match {

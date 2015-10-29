@@ -593,4 +593,8 @@ class SyntaxAnalyzerTest extends FunTest {
     matches("(1,2) into (column1: _1, column2: _2)", "(_1: 1, _2: 2) into (column1: _1, column2: _2)")
   }
 
+  test("(number: 1, 2) into (column1: _1, column2: _2)") {
+    matches("(number: 1, 2) into (column1: _1, column2: _2)", "(number: 1, _2: 2) into (column1: _1, column2: _2)")
+  }
+
 }

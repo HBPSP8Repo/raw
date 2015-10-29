@@ -20,6 +20,12 @@ case class IntType() extends Type
 
 case class FloatType() extends Type
 
+case class DateTimeType() extends Type
+
+case class DateType() extends Type
+
+case class TimeType() extends Type
+
 case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType

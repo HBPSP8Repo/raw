@@ -48,6 +48,7 @@ trait NodePosition extends Attribution with Analyzer with LazyLogging {
     case _: Partition => SyntaxAnalyzer.partition
     case _: Star => SyntaxAnalyzer.starExp
     case _: Select => SyntaxAnalyzer.select
+    case _: Into => SyntaxAnalyzer.intoExp
   }
 
   def endPosition(n: CalculusNode): RawPosition = n match {

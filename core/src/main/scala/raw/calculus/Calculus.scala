@@ -47,6 +47,12 @@ object Calculus {
 
   case class FloatConst(value: String) extends NumberConst
 
+  case class DateTimeConst(value: String) extends Const
+
+  case class DateConst(value: String) extends Const
+
+  case class TimeConst(value: String) extends Const
+
   case class RegexConst(regex: String) extends Const
 
   /** Identifier reference
