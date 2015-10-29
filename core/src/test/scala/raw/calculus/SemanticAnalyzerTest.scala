@@ -2196,7 +2196,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
     success(
       """select row as r"(\w+)\s(\d+)" into (word: _1, n: to_int(_2)) from file row""",
       TestWorlds.text_file,
-      IntType())
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("word", StringType()), AttrType("n", IntType()))))))
   }
 
 }

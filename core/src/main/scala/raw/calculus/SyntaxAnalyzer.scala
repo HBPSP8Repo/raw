@@ -292,7 +292,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(regexLit ^^ { case r => RegexConst(r.drop(2).dropRight(1)) })
 
   lazy val regexLit =
-    ("r\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
+    """r"[^\"]*"""".r
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned(kwIf ~> exp ~ (kwThen ~> exp) ~ (kwElse ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })
