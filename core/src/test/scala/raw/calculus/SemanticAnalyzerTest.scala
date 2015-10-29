@@ -161,7 +161,31 @@ class SemanticAnalyzerTest extends FunTest {
           case IncompatibleMonoids(`m`, `t`, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
-
+      case UnknownDecl(IdnUse(x), _) =>
+        assert(analyzer.errors.exists {
+          case UnknownDecl(IdnUse(`x`), _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case MultipleDecl(IdnDef(x), _) =>
+        assert(analyzer.errors.exists {
+          case MultipleDecl(IdnDef(`x`), _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case _: UnknownPartition =>
+        assert(analyzer.errors.exists {
+          case _: UnknownPartition => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case AmbiguousIdn(IdnUse(x), _) =>
+        assert(analyzer.errors.exists {
+          case AmbiguousIdn(IdnUse(`x`), _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case _: IllegalStar =>
+        assert(analyzer.errors.exists {
+          case _: IllegalStar => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
       case _ =>
         assert(analyzer.errors.exists {
           case `error` => true
@@ -1149,14 +1173,14 @@ class SemanticAnalyzerTest extends FunTest {
       """
         |{
         |  global_func := \xs -> select x.age from x in xs;
-        |  a := \x -> x.age1 > x.age2 && x.func == global_func;
+        |  a := \x -> x.age1 > x.age2 and x.func = global_func;
         |  (
         |    a,
-        |    a((age1: 10, age2: 20, func(students)),
-        |    a((age1: 15, age2: 25, func(professors))
+        |    a((age1: 10, age2: 20, global_func(students))),
+        |    a((age1: 15, age2: 25, global_func(professors)))
         |  )
         |}
-      """.stripMargin, TestWorlds.empty, IntType())
+      """.stripMargin, TestWorlds.professors_students, IntType())
   }
 
   test("for ( <- students ) yield set name") {
@@ -1281,9 +1305,9 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
 
       TestWorlds.professors_students,
-      CollectionType(ListMonoid(),
+      CollectionType(MonoidVariable(),
         RecordType(Attributes(List(AttrType("age", IntType()),
-          AttrType("partition", CollectionType(ListMonoid(),
+          AttrType("partition", CollectionType(MonoidVariable(),
             RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))
 
   }
@@ -1317,12 +1341,12 @@ class SemanticAnalyzerTest extends FunTest {
 
       TestWorlds.professors_students,
       RecordType(Attributes(List(AttrType("_1",
-        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-          AttrType("partition", CollectionType(ListMonoid(),
+        CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("partition", CollectionType(MonoidVariable(),
             RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()))))))))))),
                                  AttrType("_2",
-        CollectionType(ListMonoid(), RecordType(Attributes(List(AttrType("age", IntType()),
-          AttrType("partition", CollectionType(ListMonoid(),
+        CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()),
+          AttrType("partition", CollectionType(MonoidVariable(),
             RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType())))))))))))))))
   }
 
@@ -1347,7 +1371,8 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "select * from students, p in professors",
       TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", IntType()),
+        AttrType("name_1", StringType()), AttrType("age_1", IntType())))))
     )
   }
 
@@ -1355,7 +1380,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       "select a.name from a in (select * from students, p in professors)",
       TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", UserType(Symbol("student"))), AttrType("p", UserType(Symbol("professor")))))))
+      CollectionType(MonoidVariable(), StringType())
     )
   }
 
@@ -1409,17 +1434,18 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("select age, * from students") {
+    val s = Select(List(), false, None, IntConst("1"), None, None, None)
     failure(
       "select age, * from students",
       TestWorlds.professors_students,
-      ???) // Illegal star takes a "Select" as parameter
+      IllegalStar(s))
   }
 
   test("select age, * from students group by age") {
     success(
       "select age, * from students group by age",
       TestWorlds.professors_students,
-      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", UserType(Symbol("students"))))))))
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(MonoidVariable(), UserType(Symbol("student")))))))))
   }
 
   test("select age, count(*) from students") {
@@ -1441,7 +1467,7 @@ class SemanticAnalyzerTest extends FunTest {
       "select age, (select name from partition), count(*), max(select age from partition) from students group by age",
       TestWorlds.professors_students,
       CollectionType(MonoidVariable(),
-        RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(ListMonoid(), StringType())), AttrType("_3", IntType()), AttrType("_4", IntType()))))))
+        RecordType(Attributes(List(AttrType("age", IntType()), AttrType("_2", CollectionType(MonoidVariable(), StringType())), AttrType("_3", IntType()), AttrType("_4", IntType()))))))
   }
 
   test("select name, count(*) from students group by age") {
@@ -1466,7 +1492,7 @@ class SemanticAnalyzerTest extends FunTest {
     success(
       """set(("dbname", "authors"), ("dbname", "publications"))""",
       TestWorlds.empty,
-      IntType())
+      CollectionType(SetMonoid(), RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("_2", StringType()))))))
   }
 
   test("list over comprehension") {
@@ -1499,6 +1525,8 @@ class SemanticAnalyzerTest extends FunTest {
   test("2x list over polymorphic comprehension") {
     val t1 = TypeVariable()
     val t2 = TypeVariable()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
     success(
       """
         |{
@@ -1509,15 +1537,16 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       RecordType(Attributes(List(
         AttrType("field1", FunType(
-          CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t1),
+          CollectionType(m1, t1),
           CollectionType(ListMonoid(), t1))),
         AttrType("field2", FunType(
-          CollectionType(GenericMonoid(commutative=Some(false), idempotent=Some(false)), t2),
-          CollectionType(ListMonoid(), t2)))))))
+          CollectionType(m2, t2),
+          CollectionType(ListMonoid(), t2)))))), Set(MProp(m1, Some(false), Some(false)), MProp(m2, Some(false), Some(false))))
   }
 
   test("sum over polymorphic comprehension #1") {
     val n = NumberType()
+    val m = MonoidVariable()
     success(
       """
         |{
@@ -1526,11 +1555,13 @@ class SemanticAnalyzerTest extends FunTest {
         |}
       """.stripMargin,
     TestWorlds.empty,
-    FunType(CollectionType(GenericMonoid(idempotent=Some(false)), n), n))
+    FunType(CollectionType(m, n), n), Set(MProp(m, None, Some(false))))
   }
 
   test("sum over polymorphic comprehension #2") {
     val n = NumberType()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
     success(
       """
         |{
@@ -1541,13 +1572,15 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       FunType(
         PatternType(List(
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
-        n))
+          PatternAttrType(CollectionType(m1, n)),
+          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
   test("bag over polymorphic comprehension") {
     val t = TypeVariable()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
     success(
       """
         |{
@@ -1558,15 +1591,16 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       FunType(
         PatternType(List(
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), t)),
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
-        CollectionType(BagMonoid(), t))
-    )
+          PatternAttrType(CollectionType(m1, t)),
+          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        CollectionType(BagMonoid(), t)), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
 
   test("sum over polymorphic select") {
     val n = NumberType()
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
     success(
       """
         |{
@@ -1577,13 +1611,14 @@ class SemanticAnalyzerTest extends FunTest {
       TestWorlds.empty,
       FunType(
         PatternType(List(
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
-        n))
+          PatternAttrType(CollectionType(m1, n)),
+          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
   test("sum over polymorphic select #1") {
     val n = NumberType()
+    val m = MonoidVariable()
     success(
       """
         |{
@@ -1593,24 +1628,23 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        PatternType(List(
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), n)),
-          PatternAttrType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable())))),
-        n))
+        CollectionType(m, n),
+        n), Set(MProp(m, None, Some(false))))
   }
 
   test("select x from x in students, y in professors") {
     success(
       """select x from x in students, y in professors""",
       TestWorlds.professors_students,
-      IntType())
+      CollectionType(MonoidVariable(), UserType(Symbol("student"))))
   }
 
   test("""xs -> sum(select x.age from x in students, y in xs)""") {
+    val m = MonoidVariable()
     success(
       """\xs -> sum(select x.age from x in students, y in xs)""",
       TestWorlds.professors_students,
-      FunType(CollectionType(GenericMonoid(idempotent=Some(false)), TypeVariable()), IntType()))
+      FunType(CollectionType(m, TypeVariable()), IntType()), Set(MProp(m, None, Some(false))))
   }
 
   test("build 2d array and scan it") {
@@ -1650,17 +1684,23 @@ class SemanticAnalyzerTest extends FunTest {
   }
 
   test("""\xs,ys -> sum(xs), ys union ys""") {
+    val m = MonoidVariable()
+    val n = NumberType()
+    val v = TypeVariable()
+    val xs = CollectionType(m, n)
+    val ys = CollectionType(SetMonoid(), v)
     success(
       """\xs,ys -> sum(xs), ys union ys""",
       TestWorlds.empty,
-      IntType())
+      FunType(PatternType(List(PatternAttrType(xs), PatternAttrType(ys))), RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", ys))))),
+      Set(MProp(m, None, Some(false))))
   }
 
   test("select A from authors A") {
     success(
       "select A from authors A",
       TestWorlds.publications,
-      IntType())
+      CollectionType(MonoidVariable(), UserType(Symbol("Author"))))
   }
 
   test("......#2") {
@@ -1674,14 +1714,8 @@ class SemanticAnalyzerTest extends FunTest {
         |     }
         |
       """.stripMargin,
-      //    """
-      //      |{
-      //      | a := \xs -> { www := select x from x in xs; b := xs union set(1,2,3); sum(www) }
-      //      | a
-      //      |}
-      //    """.stripMargin,
       TestWorlds.empty,
-      IntType()
+      RecordType(Attributes(List(AttrType("A", CollectionType(MonoidVariable(), IntType())), AttrType("x", CollectionType(SetMonoid(), IntType())))))
     )
   }
 
@@ -1785,26 +1819,33 @@ class SemanticAnalyzerTest extends FunTest {
       """.stripMargin, TestWorlds.empty, IntType())
   }
 
-  test("""\xs -> { a := max(xs); a,a }""") {
+  test("""\xs -> { a := max(xs); v1: a, v2: a }""") {
+    val n = NumberType()
     success(
-      """\xs -> { a := max(xs); a,a }""",
+      """\xs -> { a := max(xs); v1: a, v2: a }""",
       TestWorlds.empty,
-      IntType())
+      FunType(CollectionType(MonoidVariable(), n), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
   }
 
 
-  test("""{ b := \xs -> { a := max(xs); a,a }; b }""") {
+  test("""{ b := \xs -> { a := max(xs); v1: a, v2: a }; b }""") {
+    val n = NumberType()
     success(
-      """{ b := \xs -> { a := max(xs); a,a }; b }""",
+      """{ b := \xs -> { a := max(xs); v1: a, v2: a }; b }""",
       TestWorlds.empty,
-      IntType())
+      FunType(CollectionType(MonoidVariable(), n), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
   }
 
   test("""\xs, ys -> select x.age, * from x in xs, ys group by x.age""") {
+    val age = TypeVariable()
+    val xs = CollectionType(MonoidVariable(), RecordType(AttributesVariable(Set(AttrType("age", age)))))
+    val ys = CollectionType(MonoidVariable(), TypeVariable())
+    val star = CollectionType(MonoidVariable(), RecordType(ConcatAttributes()))
     success(
       """\xs, ys -> select x.age, * from x in xs, ys group by x.age""",
       TestWorlds.empty,
-      IntType())
+      FunType(PatternType(List(PatternAttrType(xs), PatternAttrType(ys))),
+              CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", age), AttrType("_2", star)))))))
   }
 
 
