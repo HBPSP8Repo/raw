@@ -429,9 +429,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         """
       case a @ As(e1, r) =>
         val regex = analyzer.scalaRegex(r).get
-        val begin = analyzer.beginPosition(r)
-        val end = analyzer.endPosition(r)
-        val hack = s"regex:${begin.line.toString}:${begin.column.toString}:${end.line.toString}:${end.column.toString}"
+        val hack = s"regex||||${r.value}||||"
         analyzer.regexType(r) match {
           case t @ RecordType(Attributes(atts)) =>
             val rt = q"${Ident(TermName(tupleSym(t)))}"
@@ -443,7 +441,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               val input = ${build(e1)}
               input match {
                 case regex(..$pnames) => $rt(..$names)
-                case _ => throw new RuntimeException($hack + " incompatible input: " + input)
+                case _ => throw new RuntimeException($hack + "incompatible input: " + input)
               }
             }
             """
@@ -454,7 +452,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               val input = ${build(e1)}
               input match {
                 case regex(m) => m
-                case _ => throw new RuntimeException($hack + " incompatible input: " + input)
+                case _ => throw new RuntimeException($hack + "incompatible input: " + input)
               }
             }
             """
