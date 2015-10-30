@@ -1,7 +1,7 @@
 package raw
 package calculus
 
-trait RegexAnalyzer extends Analyzer {
+trait RegexAnalyzer extends Analyzer with NodePosition {
 
   import scala.collection.immutable.Seq
   import org.kiama.rewriting.Rewriter._
@@ -33,13 +33,13 @@ trait RegexAnalyzer extends Analyzer {
     collect[List, Seq[RawError]] {
       case r: RegexConst =>
         if (regexAst(r).isLeft)
-          Seq(InvalidRegexSyntax(regexAst(r).left.get.toString))
+          Seq(InvalidRegexSyntax(regexAst(r).left.get.toString, Some(parserPosition(r))))
         else {
           val re = regex(r).get
           if (re.regexErrors.nonEmpty)
             regex(r).get.regexErrors
           else if (re.regexGroups.isEmpty)
-            Seq(InvalidRegexSyntax("nothing to match"))
+            Seq(InvalidRegexSyntax("nothing to match", Some(parserPosition(r))))
           else
             Seq()
         }

@@ -36,6 +36,7 @@ object RawPositionExtractor {
     case IncompatibleTypes(_, _, pos1, pos2) => List(RawPositionExtractor(pos1), RawPositionExtractor(pos2))
     case UnexpectedType(_, _, _, pos) => List(RawPositionExtractor(pos))
     case IllegalStar(_, pos) => List(RawPositionExtractor(pos))
+    case InvalidRegexSyntax(_, pos) => List(RawPositionExtractor(pos))
   }
 
   def apply(pos: Option[RawParserPosition]): RawParserPosition = pos match {

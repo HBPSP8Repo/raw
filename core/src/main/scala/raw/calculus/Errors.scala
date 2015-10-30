@@ -25,7 +25,7 @@ case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, 
 
 case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class InvalidRegexSyntax(detail: String) extends CalculusError
+case class InvalidRegexSyntax(detail: String, pos: Option[RawParserPosition] = None) extends CalculusError
 
 /** ErrorPrettyPrinter
   */
@@ -46,7 +46,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case UnexpectedType(t, _, Some(desc), _) => s"$desc but got ${FriendlierPrettyPrinter(t)}"
     case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
     case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
-    case InvalidRegexSyntax(desc) => s"invalid regular expression: $desc"
+    case InvalidRegexSyntax(detail, _) => s"invalid regular expression: $detail"
   }
 }
 
