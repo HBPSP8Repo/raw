@@ -186,6 +186,11 @@ class SemanticAnalyzerTest extends CoreTest {
           case _: IllegalStar => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case _: InvalidRegexSyntax =>
+        assert(analyzer.errors.exists {
+          case _: InvalidRegexSyntax => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
       case _ =>
         assert(analyzer.errors.exists {
           case `error` => true
@@ -2192,11 +2197,32 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       RecordType(Attributes(List(AttrType("column1", IntType()), AttrType("column2", IntType())))))
   }
 
-  test("""select row as r"(\w+)\s(\d+)" into (word: _1, n: to_int(_2)) from file row""") {
+  test("""select row as r"(\\w+)\\s+" from file row""") {
     success(
-      """select row as r"(\w+)\s(\d+)" into (word: _1, n: to_int(_2)) from file row""",
+      """select row as r"(\\w+)\\s+" from file row""",
+      TestWorlds.text_file,
+      CollectionType(MonoidVariable(), StringType()))
+  }
+
+  test("""select row as r"(name:\\w+)\\s+" from file row""") {
+    success(
+      """select row as r"(name:\\w+)\\s+" from file row""",
+      TestWorlds.text_file,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("name", StringType()))))))
+  }
+
+  test("""select row as r"(\\w+)\\s+(\\d+)" into (word: _1, n: to_int(_2)) from file row""") {
+    success(
+      """select row as r"(\\w+)\\s(\\d+)" into (word: _1, n: to_int(_2)) from file row""",
       TestWorlds.text_file,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("word", StringType()), AttrType("n", IntType()))))))
+  }
+
+  test("invalid regex expression") {
+    failure(
+      """select row as r"(\\w+" from file row""",
+      TestWorlds.text_file,
+      InvalidRegexSyntax("`)' expected but end of source found"))
   }
 
 }

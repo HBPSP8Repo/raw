@@ -22,7 +22,7 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
     */
 
   lazy val regex =
-    positioned(rep(term0) ^^ { case rs => logger.debug("regex"); RegexSeq(rs) })
+    positioned(rep(term0) ^^ { case rs => RegexSeq(rs) })
 
   lazy val term0: Parser[RegexNode] =
     positioned(
@@ -39,7 +39,7 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
     "" ^^^ RegexSeq(Seq())
 
   lazy val term25 =
-    positioned(rep1(term3) ^^ { case rs => logger.debug("cabum"); RegexSeq(rs) })
+    positioned(rep1(term3) ^^ { case rs => RegexSeq(rs) })
 
   lazy val term3 =
     plus |
@@ -85,7 +85,7 @@ object RegexSyntaxAnalyzer extends RegexParsers with LazyLogging {
       "\\?" ^^^ RegexEscapedChar('?') |
       "\\^" ^^^ RegexEscapedChar('^') |
       "\\$" ^^^ RegexEscapedChar('$') |
-      """[^\\\[\](){}*\.+?^$]""".r ^^ { case c => logger.debug("char"); RegexChar(c.toCharArray.head) })
+      """[^\\\[\](){}*\.+?^$]""".r ^^ { case c => RegexChar(c.toCharArray.head) })
 
   lazy val plus =
     positioned(term4 <~ "+" ^^ { case r => RegexPlus(r) })

@@ -50,4 +50,8 @@ class RegexAnalyzer(val tree: Regex.Regex) extends Attribution with LazyLogging 
 
   lazy val regexGroups = groups(tree.root)
 
+  lazy val regexPrettyPrint: String = RegexPrettyPrinter(tree.root)
+
+  lazy val scalaRegex: String = RegexPrettyPrinter(tree.root, scala=true)
+
 }

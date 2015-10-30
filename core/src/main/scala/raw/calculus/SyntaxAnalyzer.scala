@@ -210,18 +210,22 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned("/" ^^^ Div())
 
   lazy val funAppExp: PackratParser[Exp] =
-    positioned((recordProjExp <~ "(") ~ (exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
+    positioned((asExp <~ "(") ~ (exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
+    asExp
+
+  lazy val asExp: PackratParser[Exp] =
+    positioned((recordProjExp <~ kwAs) ~ regexConst ^^ { case e ~ r => As(e, r)}) |
     recordProjExp
 
   lazy val recordProjExp: PackratParser[Exp] =
-    positioned(asExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
+    positioned(baseExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
       def fold(e: Exp, idns: Seq[Idn]): Exp = idns match {
         case head :: Nil => RecordProj(e, idns.head)
         case head :: tail => fold(RecordProj(e, idns.head), idns.tail)
       }
       fold(e, idns)
       }) |
-    asExp
+    baseExp
 
   lazy val attrName: PackratParser[String] =
     escapedIdent |
@@ -232,10 +236,6 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val ident: PackratParser[String] =
      not(reserved) ~> """[_a-zA-Z]\w*""".r
-
-  lazy val asExp: PackratParser[Exp] =
-    positioned((baseExp <~ kwAs) ~ regexConst ^^ { case e ~ r => As(e, r)}) |
-    baseExp
 
   lazy val baseExp: PackratParser[Exp] =
     expBlock |
@@ -272,11 +272,38 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwTrue ^^^ BoolConst(true) |
       kwFalse ^^^ BoolConst(false))
 
+  private def escapeStr(s: String) = {
+    var escapedStr = ""
+    var escape = false
+    for (c <- s) {
+      if (!escape) {
+        if (c == '\\') {
+          escape = true
+        } else {
+          escapedStr += c
+        }
+      } else {
+        escapedStr += (c match {
+          case '\\' => '\\'
+          case ''' => '''
+          case '"' => '"'
+          case 'b' => '\b'
+          case 'f' => '\f'
+          case 'n' => '\n'
+          case 'r' => '\r'
+          case 't' => '\t'
+        })
+        escape = false
+      }
+    }
+    escapedStr
+  }
+
   lazy val stringConst: PackratParser[StringConst] =
-    positioned(stringLit ^^ { case s => StringConst(s.drop(1).dropRight(1)) })
+    positioned(stringLit ^^ { case s => StringConst(escapeStr(s).drop(1).dropRight(1)) })
 
   lazy val stringLit =
-    ("\"" + """([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*""" + "\"").r
+    """"([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*"""".r
 
   lazy val numberConst: PackratParser[Const] =
     positioned(
@@ -289,10 +316,15 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     """-?(\d+(\.\d*)?|\d*\.\d+)([eE][+-]?\d+)?[fFdD]?""".r
 
   lazy val regexConst: PackratParser[RegexConst] =
-    positioned(regexLit ^^ { case r => RegexConst(r.drop(2).dropRight(1)) })
+    positioned(regexLitTriple ^^ { case r => RegexConst(r.drop(4).dropRight(3)) }) |
+    positioned(regexLit ^^ { case r => RegexConst(escapeStr(r).drop(2).dropRight(1)) }) |
+    """r"""".r ~> err("invalid regular expression")
 
   lazy val regexLit =
-    """r"[^\"]*"""".r
+    """r"([^"\p{Cntrl}\\]|\\[\\'"bfnrt]|\\u[a-fA-F0-9]{4})*"""".r
+
+  lazy val regexLitTriple =
+    "r\"\"\".*\"\"\"".r
 
   lazy val ifThenElse: PackratParser[IfThenElse] =
     positioned(kwIf ~> exp ~ (kwThen ~> exp) ~ (kwElse ~> exp) ^^ { case e1 ~ e2 ~ e3 => IfThenElse(e1, e2, e3) })

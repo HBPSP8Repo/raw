@@ -127,6 +127,24 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
 
 
   def compile(queryLanguage: QueryLanguage, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
+    def descapeStr(s: String) = {
+      var descapedStr = ""
+      for (c <- s) {
+        descapedStr += (c match {
+          case '\\' => "\\\\"
+          case '\'' => "\\'"
+          case '\"' => "\\\""
+          case '\b' => "\\b"
+          case '\f' => "\\f"
+          case '\n' => "\\n"
+          case '\r' => "\\r"
+          case '\t' => "\\t"
+          case _ => c
+        })
+      }
+      descapedStr
+    }
+
     logger.info("Scanners: " + scanners)
     val queryName = RawCompiler.newClassName()
     val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)
@@ -168,7 +186,7 @@ $imports
 @rawQueryAnnotation
 class $queryName($args) extends RawQuery {
   val ${queryLanguage.name} =
-  \"\"\"$query\"\"\"
+  \"${descapeStr(query)}\"
 }
 """
 

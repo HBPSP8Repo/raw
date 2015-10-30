@@ -215,11 +215,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
   def toCanonicalForm(recordType: RecordType): String =
     PrettyPrinter(recordType.recAtts)
 
-  /** Return a user record for the given record type with two attributes, otherwise use a Scala Tuple2.
+  /** Return a user record for the given record type, otherwise use a Scala Tuple.
     */
-  def tuple2Sym(r: RecordType): String = {
-    assert(r.recAtts.atts.size == 2)
-    classesMap.getOrElse(toCanonicalForm(r), "Tuple2")
+  def tupleSym(r: RecordType): String = {
+    val n = r.recAtts.atts.size
+    classesMap.getOrElse(toCanonicalForm(r), s"Tuple$n")
   }
 
   def buildScalaType(t: raw.Type, world: World, analyzer: SemanticAnalyzer): String = {
@@ -427,11 +427,32 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           ${build(e1)}
         }
         """
-    }
+      case a @ As(e1, r) =>
+        val regex = analyzer.scalaRegex(r).get
+        analyzer.regexType(r) match {
+          case t @ RecordType(Attributes(atts)) =>
+            val rt = q"${Ident(TermName(tupleSym(t)))}"
+            val pnames = atts.zipWithIndex.map { case (att, idx) => pq"${TermName(s"arg$idx")}"}
+            val names = atts.zipWithIndex.map { case (att, idx) => q"${Ident(TermName(s"arg$idx"))}"}
+            q"""
+            {
+              val regex = $regex.r
+              ${build(e1)} match {
+                case regex(..$pnames) => $rt(..$names)
+              }
+            }
+            """
+          case _ =>
+            q"""
+            {
+              val regex = $regex.r
+              ${build(e1)} match {
+                case regex(m) => m
+              }
+            }
+            """
+        }
 
-    def patternTerms(p: Pattern): Seq[Tree] = p match {
-      case PatternProd(ps) => ps.flatMap(patternTerms)
-      case PatternIdn(idn: IdnDef) => Seq(pq"${TermName(idnName(idn))}")
     }
 
     def patternType(p: Pattern) =
@@ -599,7 +620,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         ${build(child)}
@@ -627,7 +648,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(patChild)}")
         val pathArg = c.parse(s"path: ${patternType(patPath)}")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         ${build(child)}
@@ -665,7 +686,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         val rightCode = ${build(childRight)}.toList.toIterable
@@ -693,7 +714,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val leftArg = c.parse(s"left: ${patternType(patLeft)}")
         val rightArg = c.parse(s"right: ${patternType(patRight)}")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code =
           q"""
         val rightCode = ${build(childRight)}.toList.toIterable
@@ -757,7 +778,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -789,7 +810,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -821,7 +842,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
@@ -855,7 +876,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
-        val rt = q"${Ident(TermName(tuple2Sym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {

@@ -107,6 +107,7 @@ class TestGenerator:
         for node in testDef:
             if node.tag.startswith(queryLanguage):
                 query = node.text.strip()
+                query = query.replace("\"\"\"", "\"\"\" + \"\\\"\\\"\\\"\" + \"\"\"")
 
                 # Generate test method
                 resultElem = testDef.find("result")
@@ -236,3 +237,4 @@ if __name__ == '__main__':
     print "Searching for query files in: " + baseDir
     generator.processAllFiles("scala/raw/patients")
     generator.processAllFiles("scala/raw/publications")
+    generator.processAllFiles("scala/raw/httplogs")

@@ -46,6 +46,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case UnexpectedType(t, _, Some(desc), _) => s"$desc but got ${FriendlierPrettyPrinter(t)}"
     case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
     case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
+    case InvalidRegexSyntax(desc) => s"invalid regular expression: $desc"
   }
 }
 

@@ -18,9 +18,12 @@ case class RawSchema(name: String, schemaFile: RawResource, properties: SchemaPr
     val filename = dataFile.fileName.toString
     val i = filename.lastIndexOf('.')
     if (i < 0) {
-      throw new Exception("Invalid data file, could not determine file type: " + dataFile)
+      "text"
+      // TODO: Hack!!!
+      //throw new Exception("Invalid data file, could not determine file type: " + dataFile)
+    } else {
+      filename.substring(i + 1).toLowerCase
     }
-    filename.substring(i + 1).toLowerCase
   }
 }
 

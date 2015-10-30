@@ -58,3 +58,9 @@ case class Medication(orderDate: String,
 case class Publication(title: String, authors: Seq[String], affiliations: Seq[String], controlledterms: Seq[String])
 
 case class Author(name: String, title: String, year: Int)
+
+//
+// HTTP logs dataset
+//
+
+case class HttpLogs(log: String)

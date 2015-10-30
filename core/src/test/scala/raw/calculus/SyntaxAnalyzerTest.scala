@@ -597,4 +597,24 @@ class SyntaxAnalyzerTest extends CoreTest {
     matches("(number: 1, 2) into (column1: _1, column2: _2)", "(number: 1, _2: 2) into (column1: _1, column2: _2)")
   }
 
+  test("regexConst #1") {
+    sameAST("""r"1"""", "r\"\"\"" + "1" + "\"\"\"")
+  }
+
+  test("regexConst #2") {
+    sameAST("""r"(\\w+)"""", "r\"\"\"" + """(\w+)""" + "\"\"\"")
+  }
+
+  test("stringConst #1") {
+    matches("\"\\\"\"")
+  }
+
+  test("stringConst #2") {
+    matches("\"\\t\"")
+  }
+
+  test("invalid regex syntax") {
+    parseError("""select row as r"(\w+)\s+" from file row""", "invalid regular expression")
+  }
+
 }

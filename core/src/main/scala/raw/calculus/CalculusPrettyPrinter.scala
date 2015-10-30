@@ -19,6 +19,24 @@ object CalculusPrettyPrinter extends PrettyPrinter {
   def ident(idn: Idn): String =
     if (isEscaped(idn)) s"`$idn`" else idn
 
+  private def descapeStr(s: String) = {
+    var descapedStr = ""
+    for (c <- s) {
+      descapedStr += (c match {
+        case '\\' => "\\\\"
+        case '\'' => "\\'"
+        case '\"' => "\\\""
+        case '\b' => "\\b"
+        case '\f' => "\\f"
+        case '\n' => "\\n"
+        case '\r' => "\\r"
+        case '\t' => "\\t"
+        case _ => c
+      })
+    }
+    descapedStr
+  }
+
   def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
     def apply(n: CalculusNode): Doc =
       (debug match {
@@ -30,7 +48,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case BoolConst(v)                   => v.toString
         case IntConst(v)                    => v
         case FloatConst(v)                  => v
-        case StringConst(v)                 => s""""$v""""
+        case StringConst(v)                 => s""""${descapeStr(v)}""""
+        case RegexConst(v)                  => s"""r"${descapeStr(v)}""""
         case IdnDef(idn)                    => idn
         case IdnUse(idn)                    => ident(idn)
         case IdnExp(idn)                    => apply(idn)
@@ -82,7 +101,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
               group((if (o.isDefined) "order" <+> apply(o.get) else "")),
               group((if (h.isDefined) "having" <+> apply(h.get) else ""))), space)
         case Into(e1, e2)                   => apply(e1) <+> "into" <+> apply(e2)
-        case As(e, r)                       => show(e, debug) <+> "as" <+> r.value
+        case As(e, r)                       => show(e, debug) <+> "as" <+> "r" <> dquote <> r.value <> dquote
       }
       )
 

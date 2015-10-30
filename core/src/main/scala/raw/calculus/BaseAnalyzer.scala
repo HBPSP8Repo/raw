@@ -102,6 +102,9 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       case _: IntType => IntType()
       case _: FloatType => FloatType()
       case _: StringType => StringType()
+      case _: DateTimeType => DateTimeType()
+      case _: IntervalType => IntervalType()
+      case _: RegexType => RegexType()
       case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
       case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}))
       case RecordType(AttributesVariable(atts, sym)) => RecordType(AttributesVariable(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}, sym))
@@ -125,7 +128,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[RawError] = {
-    solution // Must type the entire program before checking for errors
+    solution // Must attempt to type the entire program to collect all errors
     regexErrors ++ badEntities ++ tipeErrors
   }
 
@@ -1540,6 +1543,9 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
           case _: BoolType                     => t
           case _: FloatType                    => t
           case _: StringType                   => t
+          case _: DateTimeType                 => t
+          case _: IntervalType                 => t
+          case _: RegexType                    => t
           case _: UserType                     => t
           case _: PrimitiveType                => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
@@ -1732,6 +1738,16 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         Seq(
           SameType(n, e))
 
+      // Into
+      case Into(e1, _) =>
+        Seq(
+          HasType(e1, RecordType(AttributesVariable(Set()))))
+
+      // As
+      case As(e, _) =>
+        Seq(
+          HasType(e, StringType()))
+
       // Declarations
 
       case Gen(None, e) =>
@@ -1901,6 +1917,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       case n @ MultiCons(m, head :: tail) if tail.nonEmpty =>
         val thead = expType(head)
         tail.map { case e => HasType(e, thead) } :+ HasType(n, CollectionType(m, thead))
+
       case _ =>
         Seq()
     }

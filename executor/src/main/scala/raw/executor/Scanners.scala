@@ -26,6 +26,8 @@ object RawScanner {
       new JsonRawScanner(schema)
     } else if (schema.fileType == "csv") {
       new CsvRawScanner(schema)
+    } else if (schema.fileType == "text") {
+      new CsvRawScanner(schema)
     } else {
       throw new IllegalArgumentException("Unsupported file type: " + schema.schemaFile)
     }
@@ -93,9 +95,13 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
 
   val tag = typeTag[T]
 
-  private[this] val csvSchema = CsvSchema.emptySchema()
-    .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
-    .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
+  private[this] val csvSchema =
+    if (schema.properties == null)
+      CsvSchema.emptySchema()
+    else
+      CsvSchema.emptySchema()
+      .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+      .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
   //  private[this] val csvSchema = {
   //  Name:String, year:Int, office:String, department:String
   //    CsvSchema.builder()
@@ -165,6 +171,22 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   }
 }
 
+//
+//class TextRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with Instrumented with StrictLogging {
+//
+//  val tag = typeTag[T]
+//
+//  override def iterator: AbstractClosableIterator[T] = {
+//    val p = schema.dataFile
+//    logger.info(s"Creating iterator for text resource: $p")
+//
+//    val is = scala.io.Source.fromFile(p.fileName)
+//    val iter = is.getLines()
+//
+//    new ClosableIterator(iter, is)
+//  }
+//}
+//
 
 object JsonRawScanner {
   private final val jsonFactory = new JsonFactory()
