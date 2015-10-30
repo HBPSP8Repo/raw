@@ -442,7 +442,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               }
             }
             """
-          case _ =>
+          case _: StringType =>
             q"""
             {
               val regex = $regex.r
