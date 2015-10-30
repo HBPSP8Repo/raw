@@ -2225,4 +2225,17 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       InvalidRegexSyntax("`)' expected but end of source found"))
   }
 
+  test("regex const in expblock") {
+    success(
+      """
+        |{
+        |  reg := r"(\\w+).*";
+        |  select a.name as reg from authors a
+        |}
+      """.stripMargin,
+      TestWorlds.authors_publications,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("reg", StringType())))))
+    )
+  }
+
 }
