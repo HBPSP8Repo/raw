@@ -2238,4 +2238,11 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
     )
   }
 
+  test("regex with nothing to match") {
+    failure(
+      """select a.name as r"\\w+" from authors a""",
+      TestWorlds.authors_publications,
+      InvalidRegexSyntax("nothing to match"))
+  }
+
 }

@@ -31,10 +31,18 @@ trait RegexAnalyzer extends Analyzer {
 
   private lazy val collectRegexErrors =
     collect[List, Seq[RawError]] {
-      case r: RegexConst if regexAst(r).isLeft =>
-        Seq(InvalidRegexSyntax(regexAst(r).left.get.toString))
-      case r: RegexConst if regex(r).isDefined && regex(r).get.regexErrors.nonEmpty =>
-        regex(r).get.regexErrors
+      case r: RegexConst =>
+        if (regexAst(r).isLeft)
+          Seq(InvalidRegexSyntax(regexAst(r).left.get.toString))
+        else {
+          val re = regex(r).get
+          if (re.regexErrors.nonEmpty)
+            regex(r).get.regexErrors
+          else if (re.regexGroups.isEmpty)
+            Seq(InvalidRegexSyntax("nothing to match"))
+          else
+            Seq()
+        }
     }
 
   lazy val regexErrors =
@@ -42,7 +50,7 @@ trait RegexAnalyzer extends Analyzer {
 
   lazy val regexType: RegexConst => Type = attr {
     r =>
-      if (regex(r).isEmpty)
+      if (regex(r).isEmpty || regex(r).get.regexGroups.isEmpty)
         NothingType()
       else {
         val groups = regex(r).get.regexGroups

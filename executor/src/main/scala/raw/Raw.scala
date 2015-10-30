@@ -437,8 +437,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             q"""
             {
               val regex = $regex.r
-              ${build(e1)} match {
+              val input = ${build(e1)}
+              input match {
                 case regex(..$pnames) => $rt(..$names)
+                case _ => throw new RuntimeException("incompatible input: " + input)
               }
             }
             """
@@ -446,8 +448,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
             q"""
             {
               val regex = $regex.r
-              ${build(e1)} match {
+              val input = ${build(e1)}
+              input match {
                 case regex(m) => m
+                case _ => throw new RuntimeException("incompatible input: " + input)
               }
             }
             """
