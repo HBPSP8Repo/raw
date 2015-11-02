@@ -3,6 +3,7 @@
 from csv_inferrer import CSVInferrer, csv_sample
 from json_inferrer import JSONInferrer, json_sample
 from .common import InferrerException
+from raw_types import *
 
 def check_types(rawType):
     """ Check if all types are defined """
@@ -25,6 +26,8 @@ def from_local(name, path, file_type, n_objs = 10):
         inferrer = JSONInferrer(name, json_sample(path, n_objs))
     elif file_type == 'csv':
         inferrer = CSVInferrer(name, csv_sample(path, n_objs))
+    elif file_type == 'text':
+        return (rawListType(rawStringType()), {})
     else:
         raise ValueError("Type not supported")
     return inferrer.infer_type()

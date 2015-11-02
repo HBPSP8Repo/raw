@@ -2,7 +2,6 @@ package raw.executor
 
 import java.io._
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
@@ -10,24 +9,27 @@ import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvParser, CsvSchema}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.io.{LineIterator, IOUtils}
 import org.apache.spark.SparkContext
-import raw.storage.RawResource
 import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
-import scala.collection.{IterableView, AbstractIterator, Iterator, JavaConversions}
+import scala.collection.{AbstractIterator, Iterator, JavaConversions}
+import scala.io.Source
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
 
-object RawScanner {
+object RawScanner extends StrictLogging {
   def apply[T: TypeTag : ClassTag : Manifest](schema: RawSchema): RawScanner[T] = {
     if (schema.fileType == "json") {
       new JsonRawScanner(schema)
     } else if (schema.fileType == "csv") {
       new CsvRawScanner(schema)
     } else if (schema.fileType == "text") {
-      new CsvRawScanner(schema)
+      // T must be string
+      logger.info(s"Type: ${typeTag[T]}")
+      new TextRawScanner(schema).asInstanceOf[RawScanner[T]]
     } else {
       throw new IllegalArgumentException("Unsupported file type: " + schema.schemaFile)
     }
@@ -70,6 +72,8 @@ case class ClosableIterator[A](underlying: Iterator[A], is: Closeable) extends A
   def next() = underlying.next()
 
   def close() = is.close()
+
+  override def toString = s"${underlying.getClass}"
 }
 
 
@@ -100,8 +104,8 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
       CsvSchema.emptySchema()
     else
       CsvSchema.emptySchema()
-      .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
-      .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
+        .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
+        .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
   //  private[this] val csvSchema = {
   //  Name:String, year:Int, office:String, department:String
   //    CsvSchema.builder()
@@ -171,23 +175,6 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   }
 }
 
-//
-//class TextRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with Instrumented with StrictLogging {
-//
-//  val tag = typeTag[T]
-//
-//  override def iterator: AbstractClosableIterator[T] = {
-//    val p = schema.dataFile
-//    logger.info(s"Creating iterator for text resource: $p")
-//
-//    val is = scala.io.Source.fromFile(p.fileName)
-//    val iter = is.getLines()
-//
-//    new ClosableIterator(iter, is)
-//  }
-//}
-//
-
 object JsonRawScanner {
   private final val jsonFactory = new JsonFactory()
   private final val mapper = new ObjectMapper() with ScalaObjectMapper
@@ -216,5 +203,18 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
     assert(nt == JsonToken.START_OBJECT || nt == JsonToken.START_ARRAY, "Found: " + nt)
     val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues[T](jp))
     new ClosableIterator[T](iter, is)
+  }
+}
+
+
+class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with StrictLogging with Iterable[String] {
+  override def iterator: AbstractClosableIterator[String] = {
+    val p = schema.dataFile
+    val properties = schema.properties
+    logger.info(s"Creating iterator for text resource: $p. Properties: ${properties}")
+    val is: InputStream = schema.dataFile.openInputStream()
+    // TODO: The encoding of the file is hardcoded. Detect encoding or assume UTF-8?
+    val source = Source.fromInputStream(is, "UTF_16").getLines()
+    new ClosableIterator(source, is)
   }
 }

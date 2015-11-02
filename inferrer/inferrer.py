@@ -31,7 +31,8 @@ if __name__ == '__main__':
             logging.info("Schema: %s; Properties: %s" % (schema, properties))
             serialized_schema = schema_serializer.serialize(schema)
             break
-        except schema_serializer.SerializerException :
+        except schema_serializer.SerializerException as e:
+            logging.warn("Exception: %s" % e)
             logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
             n_objs = 2*n_objs
 

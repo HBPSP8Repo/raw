@@ -78,8 +78,14 @@ class RawServiceClientProxy extends StrictLogging {
   def registerLocalFile(user: String, file: Path, schema:String): String = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
-    assert(i > 0, s"Cannot recognize type of input file: $file.")
-    val fileType = filename.substring(i + 1)
+    val fileType = if (i>0) {
+      val extension = filename.substring(i + 1)
+      logger.info(s"File type derived from extension: $extension.")
+      extension
+    } else {
+      logger.info(s"No extension detected in file $file. Assuming text file.")
+      "text"
+    }
     registerFile("file", file.toString, filename, schema, fileType, user)
   }
 
