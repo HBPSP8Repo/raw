@@ -778,6 +778,43 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         res
         """
 
+      /** Scala Nest2
+        */
+      case n @ Nest2(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val code = q"""{
+        val keys1 = ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} }).toIterable
+
+         val keys2 =
+          keys1.map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .fold(${zero(m)})(${fold(m)}) )).toMap
+        keys1.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        }"""
+        q"""
+        val start = "************ Nest2 Primitive Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest2 Primitive Monoid (Scala) ************"
+        val endType = $endType
+        res"""
+
       /** Scala Nest
         */
       case n @ Nest(m: PrimitiveMonoid, Gen(Some(pat), child), k, p, e) =>
@@ -809,6 +846,42 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Nest Primitive Monoid (Scala) ************"
         val res = $code
         val end = "************ Nest Primitive Monoid (Scala) ************"
+        val endType = $endType
+        res"""
+
+      case n @ Nest2(m: SetMonoid, Gen(Some(pat), child), k, p, e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val code = q"""{
+        val keys1 = ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
+
+         val keys2 =
+          keys1.map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toSet.toIterable ))
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        }
+        """
+        q"""
+        val start = "************ Nest2 Set Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest2 Set Monoid (Scala) ************"
         val endType = $endType
         res"""
 
@@ -844,6 +917,43 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = $endType
         res"""
 
+      case n @ Nest2(_: ListMonoid, Gen(Some(pat), child), k, p, e) =>
+        val endType = PrettyPrinter(analyzer.tipe(n))
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val code = q"""{
+        val keys1 = ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
+
+         val keys2 =
+          keys1.map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toList.toIterable ))
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        }
+        """
+        q"""
+        val start = "************ Nest2 List Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest2 List Monoid (Scala) ************"
+        val endType = $endType
+        res"""
+
+
       case n @ Nest(_: ListMonoid, Gen(Some(pat), child), k, p, e) =>
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
@@ -873,6 +983,44 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val start = "************ Nest List Monoid (Scala) ************"
         val res = $code
         val end = "************ Nest List Monoid (Scala) ************"
+        val endType = $endType
+        res"""
+
+      case n @ Nest2(_: BagMonoid, Gen(Some(pat), child), k, p, e) =>
+        // TODO: This is doing sortBy w/ a toString (!!!!). Super-slow.
+        // TODO: Instead, implement a real Bag type in Scala and use it.
+        val endType = PrettyPrinter(analyzer.tipe(n))
+        val childArg = c.parse(s"child: ${patternType(pat)}")
+        val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        val code = q"""{
+        val keys1 = ${build(child)}
+          .groupBy($childArg => {
+            ..${idnVals("child", pat, false)}
+            ${build(k)} })
+
+         val keys2 =
+          keys1.map($groupedArg =>
+            $rt(
+              arg._1,
+              arg._2
+                .filter($childArg => {
+                  ..${idnVals("child", pat, false)}
+                  ${nullableFilter(pat)} })
+                .filter($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(p)} })
+                .map($childArg => {
+                  ..${idnVals("child", pat, true)}
+                  ${build(e)} })
+                .toList.sortBy(x => x.toString).toIterable ))
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        }
+        """
+        q"""
+        val start = "************ Nest2 Bag Monoid (Scala) ************"
+        val res = $code
+        val end = "************ Nest2 Bag Monoid (Scala) ************"
         val endType = $endType
         res"""
 

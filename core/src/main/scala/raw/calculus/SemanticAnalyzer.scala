@@ -201,6 +201,23 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
           }
         }
 
+        case Nest2(m: CollectionMonoid, g, k, p, e1) => {
+          resetNullable(p)
+          resetNullable(e1)
+          te match {
+            case CollectionType(m2, _) =>
+              makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g.e))), AttrType("_2", CollectionType(m2, tipe(e1)))))))), Seq(tipe(g.e)))
+          }
+        }
+        case Nest2(m: PrimitiveMonoid, g, k, p, e1)  => {
+          resetNullable(p)
+          resetNullable(e1)
+          te match {
+            // TODO: Is overriding 'm' here correct actually? Or is it the m from above???
+            case CollectionType(m, _) => makeNullable(te, Seq(CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", innerTipe(tipe(g.e))), AttrType("_2", tipe(e1))))))), Seq(tipe(g.e)))
+          }
+        }
+
         case BinaryExp(_, e1, e2)    => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case InExp(e1, e2)           => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1)         => makeNullable(te, Seq(), Seq(tipe(e1)))
