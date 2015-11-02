@@ -9,8 +9,6 @@ import java.util.function.BiPredicate
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
-import raw.RawQuery
-import raw.executor.RawScanner
 
 import scala.collection.JavaConversions
 
@@ -34,7 +32,7 @@ object RawUtils extends StrictLogging {
     Paths.get(System.getProperty("java.io.tmpdir"), dirname)
   }
 
-  def convertToList(any: Any): Any = {
+  def convertIterablesToList(any: Any): Any = {
     try {
       val iterable = any.asInstanceOf[Iterable[_]]
       iterable.toList
