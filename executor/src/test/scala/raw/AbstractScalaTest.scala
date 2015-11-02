@@ -31,7 +31,7 @@ object TestScanners extends StrictLogging {
   val publicationsSmall: RawScanner[Publication] = createScanner[Publication](publicationsSmallPath)
   val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication](publicationsSmallWithDupsPath)
   val patients: RawScanner[Patient] = createScanner[Patient](patientsPath)
-  val httpLogs: RawScanner[HttpLogs] = createScanner[HttpLogs](httpLogsPath)
+  val httpLogs: RawScanner[String] = createScanner[String](httpLogsPath)
 
   private[this] def getSchemaName(p: Path): String = {
     val fileName = p.getFileName.toString

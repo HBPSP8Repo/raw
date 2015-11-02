@@ -1,0 +1,17 @@
+<queries dataset="httplogs">
+    <query>
+        <qrawl><![CDATA[
+{
+
+    data :=
+            select row parse as r"""(host:[\w\.\d-]+)\s+-\s+-\s+\[(date:.*)\]\s*"(method:\w+)\s+(path:[^\s]+) (protocol:\w+)/(version:[0-9.]+)\s*"\s+(returned:\d+)\s+(size:\d+).*"""
+            into (host:host, file_size: toInt(size), date: date, epoch: to_epoch(date, "dd/MMM/yyyy:HH:mm:ss Z") )
+            from NASA_access_log_Aug95_small row;
+
+    select * from data
+
+}
+]]>
+        </qrawl>
+    </query>
+</queries>

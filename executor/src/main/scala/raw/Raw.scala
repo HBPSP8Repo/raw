@@ -462,7 +462,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         q"""
         val strDate = ${build(e1)}
         val fmtDate = java.time.format.DateTimeFormatter.ofPattern($fmt).parse(strDate)
-        java.time.LocalDateTime.from(fmtDate).toEpochSecond(java.time.ZoneOffset.UTC)
+        java.time.LocalDateTime.from(fmtDate).toEpochSecond(java.time.ZoneOffset.UTC).toInt
         """
     }
 

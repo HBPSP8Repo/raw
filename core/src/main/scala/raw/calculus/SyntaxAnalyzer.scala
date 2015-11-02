@@ -434,7 +434,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToDateTime ^^^ ToDateTime())
 
   lazy val toEpochFun: PackratParser[ToEpoch] =
-    positioned(kwToEpoch ~ ("(" ~> mergeExp) ~ ("," ~> stringLit <~ ")") ^^ { case op ~ e ~ fmt => ToEpoch(e, fmt) })
+    positioned(kwToEpoch ~ ("(" ~> mergeExp) ~ ("," ~> stringLit <~ ")") ^^ { case op ~ e ~ fmt => ToEpoch(e, fmt.drop(1).dropRight(1)) })
 
   lazy val sugarFun: PackratParser[Sugar] =
     sumExp |
