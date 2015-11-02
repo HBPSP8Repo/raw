@@ -48,6 +48,3 @@ case class ToSet() extends UnaryOperator
 /** Convert to date/time
   */
 case class ToDateTime() extends UnaryOperator
-
-// TODO: Add here format: Option[String] for ToDateTime() and ToInterval()
-// TOOD: Make them nodes.. actually, remove UnaryOperator altogether

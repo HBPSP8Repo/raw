@@ -19,7 +19,7 @@ case class BaseAnalyzerException(err: String) extends RawException(err)
   *
   * The original user query is passed optionally for debugging purposes.
   */
-class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: String) extends Attribution with Analyzer with MonoidsGraph with NodePosition with RegexAnalyzer with LazyLogging {
+class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryString: String) extends Attribution with Analyzer with MonoidsGraph with NodePosition with RegexAnalyzer with DateTimeFormatAnalyzer with LazyLogging {
 
   // TODO: Add a check to the semantic analyzer that the monoids are no longer monoid variables; they have been sorted out
 
@@ -129,7 +129,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[RawError] = {
     solution // Must attempt to type the entire program to collect all errors
-    regexErrors ++ badEntities ++ tipeErrors
+    dateTimeFormatErrors ++ regexErrors ++ badEntities ++ tipeErrors
   }
 
   private lazy val collectBadEntities =
@@ -761,6 +761,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
       // TOOD: ParseAs
     case ParseAs(_, r, _) => regexType(r)
+    case _: ToEpoch => IntType()
 
     case n => TypeVariable()
   }
@@ -1748,8 +1749,13 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         Seq(
           HasType(e1, RecordType(AttributesVariable(Set()))))
 
-      // As
+      // ParseAs
       case ParseAs(e, _, _) =>
+        Seq(
+          HasType(e, StringType()))
+
+      // ToEpoch
+      case ToEpoch(e, _) =>
         Seq(
           HasType(e, StringType()))
 
@@ -1976,6 +1982,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case n @ Exists(e) => constraints(e) ++ constraint(n)
     case n @ Into(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
     case n @ ParseAs(e, r, _) => constraints(e) ++ constraints(r) ++ constraint(n)
+    case n @ ToEpoch(e, _) => constraints(e) ++ constraint(n)
   }
 
   /** For debugging.

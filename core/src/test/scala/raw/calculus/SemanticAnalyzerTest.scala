@@ -191,6 +191,11 @@ class SemanticAnalyzerTest extends CoreTest {
           case _: InvalidRegexSyntax => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case _: InvalidDateTimeFormatSyntax =>
+        assert(analyzer.errors.exists {
+          case _: InvalidDateTimeFormatSyntax => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
       case _ =>
         assert(analyzer.errors.exists {
           case `error` => true
@@ -2250,6 +2255,20 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       "select row parse as r\"\"\"(host:[\\w\\.\\d]+)\\s+-\\s+-\\s+\\[(date:.*)\\]\\s*\"(method:\\w+)\\s+(path:[^\\s]+) (protocol:\\w+)/(version:[0-9.]+)\\s*\"\\s+(returned:\\d+)\\s+(size:\\d+).*\"\"\"\ninto (host:host, file_size: toInt(size) ) from file row",
       TestWorlds.text_file,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("host", StringType()), AttrType("file_size", IntType()))))))
+  }
+
+  test("""to_epoch("2015/01/02", "yyyy/MM/dd")""") {
+    success(
+      """to_epoch("2015/01/02", "yyyy/MM/dd")""",
+      TestWorlds.empty,
+      IntType())
+  }
+
+  test("invalid datetime format string") {
+    failure(
+      """to_epoch("2015/01/02", "B")""",
+      TestWorlds.empty,
+      InvalidDateTimeFormatSyntax("Unknown pattern letter: B"))
   }
 
 }

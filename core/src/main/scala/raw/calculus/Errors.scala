@@ -27,6 +27,8 @@ case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None
 
 case class InvalidRegexSyntax(detail: String, pos: Option[RawParserPosition] = None) extends CalculusError
 
+case class InvalidDateTimeFormatSyntax(detail: String, pos: Option[RawParserPosition] = None) extends CalculusError
+
 /** ErrorPrettyPrinter
   */
 object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
@@ -47,6 +49,7 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
     case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
     case InvalidRegexSyntax(detail, _) => s"invalid regular expression: $detail"
+    case InvalidDateTimeFormatSyntax(detail, _) => s"invalid date/time format string: $detail"
   }
 }
 

@@ -617,4 +617,8 @@ class SyntaxAnalyzerTest extends CoreTest {
     parseError("""select row parse as r"(\w+)\s+" from file row""", "invalid regular expression")
   }
 
+  test("""to_epoch("2015/01/02", "yyyy/MM/dd")""") {
+    matches("""to_epoch("2015/01/02", "yyyy/MM/dd")""")
+  }
+
 }

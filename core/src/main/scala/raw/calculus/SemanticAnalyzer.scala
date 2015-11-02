@@ -272,6 +272,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
           // TODO: Fix later: NoneOnFail will have a different signature for the output than the other cases!!! Add issue!
         case ParseAs(e1, r, Some(_: NoneOnFail))               => ???
         case ParseAs(e1, r, _)               => makeNullable(te, Seq(), Seq(tipe(e1)))
+
+        case ToEpoch(e1, _) => makeNullable(te, Seq(), Seq(tipe(e1)))
       }
       nt
     }

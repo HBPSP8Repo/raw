@@ -46,6 +46,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwToDateTime = "((?i)to_date_time|(?i)toDateTime)\\b".r
   val kwToDate = "((?i)to_date|(?i)toDate)\\b".r
   val kwToTime = "((?i)to_time|(?i)toTime)\\b".r
+  val kwToEpoch = "((?i)to_epoch|(?i)toEpoch)\\b".r
   val kwAvg = "(?i)avg\\b".r
   val kwCount = "(?i)count\\b".r
   val kwMin = "(?i)min\\b".r
@@ -264,6 +265,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     select |
     multiCons |
     unaryFun |
+    toEpochFun |
     sugarFun |
     notExp |
     //namedFun |
@@ -430,6 +432,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToBag ^^^ ToBag() |
       kwToList ^^^ ToList() |
       kwToDateTime ^^^ ToDateTime())
+
+  lazy val toEpochFun: PackratParser[ToEpoch] =
+    positioned(kwToEpoch ~ ("(" ~> mergeExp) ~ ("," ~> stringLit <~ ")") ^^ { case op ~ e ~ fmt => ToEpoch(e, fmt) })
 
   lazy val sugarFun: PackratParser[Sugar] =
     sumExp |
