@@ -245,7 +245,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
     // Into node puts all attributes of the lhs (which should be a record) into the scope of the rhs
     case tree.parent.pair(e: Exp, i @ Into(e1, e2)) if e eq e2 =>
-      logger.debug(s"we are here going in")
       var nenv = enter(in(e))
 
       def attEntity(env: Environment, att: AttrType, idx: Int) = {
@@ -283,7 +282,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case f: FunAbs   => leave(out(f))
     case a: LogicalAlgebraNode => leave(out(a))
     case tree.parent.pair(e: Exp, Into(_, e2)) if e eq e2 =>
-      logger.debug(s"we are here going out")
       leave(out(e))
     case g @ Gen(None, e) =>
       def attEntity(env: Environment, att: AttrType, idx: Int) = {

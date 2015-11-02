@@ -2245,4 +2245,11 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       InvalidRegexSyntax("nothing to match"))
   }
 
+  test("parsing http logs") {
+    success(
+      "select row parse as r\"\"\"(host:[\\w\\.\\d]+)\\s+-\\s+-\\s+\\[(date:.*)\\]\\s*\"(method:\\w+)\\s+(path:[^\\s]+) (protocol:\\w+)/(version:[0-9.]+)\\s*\"\\s+(returned:\\d+)\\s+(size:\\d+).*\"\"\"\ninto (host:host, file_size: toInt(size) ) from file row",
+      TestWorlds.text_file,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("host", StringType()), AttrType("file_size", IntType()))))))
+  }
+
 }

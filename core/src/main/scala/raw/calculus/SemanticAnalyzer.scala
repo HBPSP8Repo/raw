@@ -218,8 +218,8 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
                   resolvedType(resolvedType(tipe(g.e)).asInstanceOf[CollectionType].innerType).asInstanceOf[RecordType].recAtts match {
                     case Attributes(atts) => cloneType(atts(idx).tipe)
                   }
-                case IntoAttributeEntity(_, i, idx) =>
-                  resolvedType(baseType(i.e2)).asInstanceOf[RecordType].recAtts match {
+                case ie @ IntoAttributeEntity(_, i, idx) =>
+                  resolvedType(tipe(i.e1)).asInstanceOf[RecordType].recAtts match {
                     case Attributes(atts) => cloneType(atts(idx).tipe)
                   }
               }
