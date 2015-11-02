@@ -27,8 +27,14 @@ class RestServerEmptyStorageTest extends FunSuite with RawRestServerContext with
   }
 
   test("text file") {
+    clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, TestScanners.httpLogsPathUTF8, "httplogs")
+    val resp = clientProxy.query( """select distinct h parse as r"([-.\\w]+).*" from httplogs h""", RestServerPreloadedTest.TestUserJoe)
+    assert(resp == """[ "133.43.96.45", "uplherc.upl.com", "in24.inetnebr.com", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov", "ix-esc-ca2-07.ix.netcom.com", "piweba4y.prodigy.com", "slppp6.intermind.net" ]""")
+  }
+
+  test("text file UTF16") {
     clientProxy.registerLocalFile(RestServerPreloadedTest.TestUserJoe, TestScanners.httpLogsPath, "httplogs")
-    val resp = clientProxy.query("""select distinct h parse as r"([-.\\w]+).*" from httplogs h""", RestServerPreloadedTest.TestUserJoe)
+    val resp = clientProxy.query( """select distinct h parse as r"([-.\\w]+).*" from httplogs h""", RestServerPreloadedTest.TestUserJoe)
     assert(resp == """[ "133.43.96.45", "uplherc.upl.com", "in24.inetnebr.com", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov", "ix-esc-ca2-07.ix.netcom.com", "piweba4y.prodigy.com", "slppp6.intermind.net" ]""")
   }
 

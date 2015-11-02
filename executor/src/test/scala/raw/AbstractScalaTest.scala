@@ -24,6 +24,7 @@ object TestScanners extends StrictLogging {
   val studentsPath = RawUtils.toPath("data/students/students.csv")
   val studentsNoHeaderPath = RawUtils.toPath("data/students/students_no_header.csv")
   val httpLogsPath = RawUtils.toPath("data/httplogs/NASA_access_log_Aug95_small")
+  val httpLogsPathUTF8 = RawUtils.toPath("data/httplogs/NASA_access_log_Aug95_small_utf8")
 
   val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
   val authors: RawScanner[Author] = createScanner[Author](authorsPath)
