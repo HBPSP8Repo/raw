@@ -614,7 +614,7 @@ class SyntaxAnalyzerTest extends CoreTest {
   }
 
   test("invalid regex syntax") {
-    parseError("""select row as r"(\w+)\s+" from file row""", "invalid regular expression")
+    parseError("""select row parse as r"(\w+)\s+" from file row""", "invalid regular expression")
   }
 
 }

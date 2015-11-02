@@ -251,9 +251,10 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
         case Count(e1)               => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Exists(e1)              => makeNullable(te, Seq(), Seq(tipe(e1)))
         case Into(e1, e2)            => makeNullable(te, Seq(tipe(e2)), Seq(tipe(e1), tipe(e2)))
-        case As(e, r)                 =>
-          // TODO: Ben: HELP!!!
-          te
+
+          // TODO: Fix later: NoneOnFail will have a different signature for the output than the other cases!!! Add issue!
+        case ParseAs(e1, r, Some(_: NoneOnFail))               => ???
+        case ParseAs(e1, r, _)               => makeNullable(te, Seq(), Seq(tipe(e1)))
       }
       nt
     }

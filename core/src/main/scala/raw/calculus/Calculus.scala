@@ -246,8 +246,12 @@ object Calculus {
     */
   case class Into(e1: Exp, e2: Exp) extends Exp
 
-  /** As
+  /** ParseAs
     */
-  case class As(e: Exp, r: RegexConst) extends Exp
+  sealed abstract class ParseProperties extends RawNode
+  case class SkipOnFail() extends ParseProperties
+  case class NoneOnFail() extends ParseProperties
+
+  case class ParseAs(e: Exp, r: RegexConst, p: Option[ParseProperties]) extends Exp
 
 }

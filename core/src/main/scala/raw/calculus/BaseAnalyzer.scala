@@ -761,7 +761,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
     case Into(_, e2) => expType(e2)
 
-    case As(_, r) => regexType(r)
+      // TOOD: ParseAs
+    case ParseAs(_, r, _) => regexType(r)
 
     case n => TypeVariable()
   }
@@ -1750,7 +1751,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
           HasType(e1, RecordType(AttributesVariable(Set()))))
 
       // As
-      case As(e, _) =>
+      case ParseAs(e, _, _) =>
         Seq(
           HasType(e, StringType()))
 
@@ -1976,7 +1977,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case n @ Count(e) => constraints(e) ++ constraint(n)
     case n @ Exists(e) => constraints(e) ++ constraint(n)
     case n @ Into(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
-    case n @ As(e, r) => constraints(e) ++ constraints(r) ++ constraint(n)
+    case n @ ParseAs(e, r, _) => constraints(e) ++ constraints(r) ++ constraint(n)
   }
 
   /** For debugging.

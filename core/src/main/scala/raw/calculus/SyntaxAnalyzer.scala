@@ -74,13 +74,20 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwAlias = "(?i)alias\\b".r
   val kwStar = "*"
   val kwInto = "(?i)into\\b".r
+  val kwParse = "(?i)parse\\b".r
+  val kwSkip = "(?i)skip\\b".r
+  val kwFail = "(?i)fail\\b".r
+  val kwOn = "(?i)on\\b".r
+  val kwSome = "(?i)some\\b".r
+  val kwNone = "(?i)none\\b".r
 
   val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
     kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
     kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwToDateTime | kwToDate | kwToTime |
     kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
     kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
-    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar | kwInto
+    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar | kwInto | kwParse | kwSkip | kwFail |
+    kwOn | kwSome | kwNone
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -210,12 +217,24 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned("/" ^^^ Div())
 
   lazy val funAppExp: PackratParser[Exp] =
-    positioned((asExp <~ "(") ~ (exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
-    asExp
+    positioned((parseAsExp <~ "(") ~ (exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
+    parseAsExp
 
-  lazy val asExp: PackratParser[Exp] =
-    positioned((recordProjExp <~ kwAs) ~ regexConst ^^ { case e ~ r => As(e, r)}) |
-    recordProjExp
+  lazy val parseAsExp: PackratParser[Exp] =
+    positioned(
+      (recordProjExp <~ kwParse <~ kwAs) ~ regexConst ~ parseProperties ^^ { case e ~ r ~ p => ParseAs(e, r, Some(p))} |
+      (recordProjExp <~ kwParse <~ kwAs) ~ regexConst ^^ { case e ~ r => ParseAs(e, r, None)} |
+      recordProjExp)
+
+  lazy val parseProperties: PackratParser[ParseProperties] =
+    skipOnFail |
+    noneOnFail
+
+  lazy val skipOnFail: PackratParser[SkipOnFail] =
+    kwSkip ~ kwOn ~ kwFail ^^^ SkipOnFail()
+
+  lazy val noneOnFail: PackratParser[NoneOnFail] =
+    kwNone ~ kwOn ~ kwFail ^^^ NoneOnFail()
 
   lazy val recordProjExp: PackratParser[Exp] =
     positioned(baseExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>

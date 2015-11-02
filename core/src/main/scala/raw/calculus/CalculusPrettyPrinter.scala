@@ -37,6 +37,12 @@ object CalculusPrettyPrinter extends PrettyPrinter {
     descapedStr
   }
 
+  private def parseProperties(p: ParseProperties) = p match {
+    case _: SkipOnFail => "skip" <+> "on" <+> "fail"
+    case _: NoneOnFail => "none" <+> "on" <+> "fail"
+  }
+
+  // TODO: Use same constants as in SyntaxAnalyzer (e.g. kwNull, kwIf, kwAs, etc)
   def show(n: CalculusNode, debug: Option[PartialFunction[CalculusNode, String]]): Doc = {
     def apply(n: CalculusNode): Doc =
       (debug match {
@@ -101,7 +107,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
               group((if (o.isDefined) "order" <+> apply(o.get) else "")),
               group((if (h.isDefined) "having" <+> apply(h.get) else ""))), space)
         case Into(e1, e2)                   => apply(e1) <+> "into" <+> apply(e2)
-        case As(e, r)                       => show(e, debug) <+> "as" <+> "r" <> dquote <> r.value <> dquote
+        case ParseAs(e, r, Some(p))                  => show(e, debug) <+> "parse" <+> "as" <+> "r" <> dquote <> r.value <> dquote <+> parseProperties(p)
+        case ParseAs(e, r, None)                  => show(e, debug) <+> "parse" <+> "as" <+> "r" <> dquote <> r.value <> dquote
       }
       )
 

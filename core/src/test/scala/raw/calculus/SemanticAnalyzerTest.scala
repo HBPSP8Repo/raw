@@ -2197,30 +2197,30 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       RecordType(Attributes(List(AttrType("column1", IntType()), AttrType("column2", IntType())))))
   }
 
-  test("""select row as r"(\\w+)\\s+" from file row""") {
+  test("""select row parse as r"(\\w+)\\s+" from file row""") {
     success(
-      """select row as r"(\\w+)\\s+" from file row""",
+      """select row parse as r"(\\w+)\\s+" from file row""",
       TestWorlds.text_file,
       CollectionType(MonoidVariable(), StringType()))
   }
 
-  test("""select row as r"(name:\\w+)\\s+" from file row""") {
+  test("""select row parse as r"(name:\\w+)\\s+" from file row""") {
     success(
-      """select row as r"(name:\\w+)\\s+" from file row""",
+      """select row parse as r"(name:\\w+)\\s+" from file row""",
       TestWorlds.text_file,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("name", StringType()))))))
   }
 
-  test("""select row as r"(\\w+)\\s+(\\d+)" into (word: _1, n: to_int(_2)) from file row""") {
+  test("""select row parse as r"(\\w+)\\s+(\\d+)" into (word: _1, n: to_int(_2)) from file row""") {
     success(
-      """select row as r"(\\w+)\\s(\\d+)" into (word: _1, n: to_int(_2)) from file row""",
+      """select row parse as r"(\\w+)\\s(\\d+)" into (word: _1, n: to_int(_2)) from file row""",
       TestWorlds.text_file,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("word", StringType()), AttrType("n", IntType()))))))
   }
 
   test("invalid regex expression") {
     failure(
-      """select row as r"(\\w+" from file row""",
+      """select row parse as r"(\\w+" from file row""",
       TestWorlds.text_file,
       InvalidRegexSyntax("`)' expected but end of source found"))
   }
@@ -2230,7 +2230,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """
         |{
         |  reg := r"(\\w+).*";
-        |  select a.name as reg from authors a
+        |  select a.name parse as reg from authors a
         |}
       """.stripMargin,
       TestWorlds.authors_publications,
@@ -2240,7 +2240,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
 
   test("regex with nothing to match") {
     failure(
-      """select a.name as r"\\w+" from authors a""",
+      """select a.name parse as r"\\w+" from authors a""",
       TestWorlds.authors_publications,
       InvalidRegexSyntax("nothing to match"))
   }
