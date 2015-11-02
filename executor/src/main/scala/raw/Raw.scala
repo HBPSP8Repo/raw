@@ -461,8 +461,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case ToEpoch(e1, fmt) =>
         q"""
         val strDate = ${build(e1)}
-        val fmtDate = java.time.format.DateTimeFormatter.ofPattern($fmt).parse(strDate)
-        java.time.LocalDateTime.from(fmtDate).toEpochSecond(java.time.ZoneOffset.UTC).toInt
+        val date = new java.text.SimpleDateFormat($fmt).parse(strDate)
+        date.toInstant.getEpochSecond.toInt
         """
     }
 
