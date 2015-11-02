@@ -1,13 +1,14 @@
 package raw.executor
 
 import java.io._
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{Charset, StandardCharsets}
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
 import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvParser, CsvSchema}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.google.common.base.Charsets
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.{LineIterator, IOUtils}
 import org.apache.spark.SparkContext
@@ -15,7 +16,7 @@ import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
 import scala.collection.{AbstractIterator, Iterator, JavaConversions}
-import scala.io.Source
+import scala.io.{Codec, Source}
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
@@ -207,14 +208,53 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
 }
 
 
+object TextRawScanner extends StrictLogging {
+
+  import org.mozilla.universalchardet.UniversalDetector
+
+  def detect(is: InputStream): String = {
+    val buf = new Array[Byte](4096)
+
+    val detector = new UniversalDetector(null)
+
+    var nread = 0
+    while (nread != -1 && !detector.isDone()) {
+      nread = is.read(buf)
+      if (nread != -1) {
+        detector.handleData(buf, 0, nread)
+      }
+    }
+    detector.dataEnd()
+
+    val encoding = detector.getDetectedCharset()
+    detector.reset()
+    if (encoding == null) {
+      logger.warn("No encoding detected. Trying UTF-8")
+      "UTF-8"
+    } else {
+      if (encoding.startsWith("UTF-16")) {
+        "UTF-16"
+      } else {
+        encoding
+      }
+    }
+  }
+}
+
 class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with StrictLogging with Iterable[String] {
   override def iterator: AbstractClosableIterator[String] = {
     val p = schema.dataFile
     val properties = schema.properties
     logger.info(s"Creating iterator for text resource: $p. Properties: ${properties}")
-    val is: InputStream = schema.dataFile.openInputStream()
-    // TODO: The encoding of the file is hardcoded. Detect encoding or assume UTF-8?
-    val source = Source.fromInputStream(is, "UTF_16").getLines()
+    val is: InputStream = new BufferedInputStream(schema.dataFile.openInputStream())
+    is.mark(8 * 1024)
+    val charset = TextRawScanner.detect(is)
+    is.reset()
+    val cs = Charset.forName(charset)
+    logger.info(s"Loading file using charset: $cs")
+    val source = Source.fromInputStream(is)(Codec(cs)).getLines()
     new ClosableIterator(source, is)
   }
 }
+
+

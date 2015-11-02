@@ -2,7 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.{ParserError, SemanticErrors, TestScanners}
+import raw.TestScanners
 
 
 /* Tests: The goal is to test the server layer, not the query engine.
