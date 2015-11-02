@@ -15,7 +15,7 @@ class Normalizer extends PipelinedTransformer {
   private lazy val normalize =
     doloop(
       reduce(rule1),
-      oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10))
+      oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10 + ruleEmptyQualifiers))
 
   private def commutative(m: Monoid): Option[Boolean] = m match {
     case _: PrimitiveMonoid => Some(true)
@@ -172,6 +172,17 @@ class Normalizer extends PipelinedTransformer {
     case Comp(m: PrimitiveMonoid, s, Comp(m1, r, e)) if m == m1 =>
       logger.debug(s"Applying normalizer rule 10")
       Comp(m, s ++ r, e)
+  }
+
+  /** Comprehension with empty qualifiers
+    *
+    * `for () yield bag 1`
+    *   becomes
+    * `bag(1)`
+    */
+
+  private lazy val ruleEmptyQualifiers = rule[Exp] {
+    case Comp(m: CollectionMonoid, Nil, e) => ConsCollectionMonoid(m, e)
   }
 
 }

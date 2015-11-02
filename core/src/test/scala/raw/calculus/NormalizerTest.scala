@@ -158,4 +158,19 @@ class NormalizerTest extends PhaseTest {
       """(x: ( (a: 1, b: 2) into (a: b, b: a) ), 3) into (column1: x, column2: _2)""",
       """(column1: (a: 2, b: 1), column2: 3)""")
   }
+
+  test("issue #114") {
+    check(
+      """
+        |{
+        |  a := list("foo x", "foo y");
+        |  b := list("bar x", "bar y");
+        |  full_table := a append b;
+        |  select row parse as r"(\\w+)\\s+(\\w+)" from row in full_table
+        |}
+      """.stripMargin,
+      """bag("foo x" parse as r"(\w+)\s+(\w+)") bag_union bag("foo y" parse as r"(\w+)\s+(\w+)") bag_union bag("bar x" parse as r"(\w+)\s+(\w+)") bag_union bag("bar y" parse as r"(\w+)\s+(\w+)")""",
+      ignoreRootTypeComparison = true)
+  }
+
 }

@@ -2271,4 +2271,18 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       InvalidDateTimeFormatSyntax("Unknown pattern letter: B"))
   }
 
+  test("issue #114") {
+    success(
+      """
+      |{
+      |  a := list("foo x", "foo y");
+      |  b := list("bar x", "bar y");
+      |  full_table := a append b;
+      |  select row parse as r"(\\w+)\\s+(\\w+)" from row in full_table
+      |}
+      """.stripMargin,
+      TestWorlds.empty,
+      CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("_2", StringType()))))))
+  }
+
 }
