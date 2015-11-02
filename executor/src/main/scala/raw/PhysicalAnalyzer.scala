@@ -18,6 +18,7 @@ class PhysicalAnalyzer(tree: Calculus, world: World, queryString: String, val is
     case OuterUnnest(child, _, _) => spark(child.e)
     case Reduce(_, child, _) => spark(child.e)
     case Nest(_, child, _, _, _) => spark(child.e)
+    case Nest2(_, child, _, _, _) => spark(child.e)
     case IdnExp(idnUse) =>
       entity(idnUse) match {
         case DataSourceEntity(Symbol(name)) => isSpark(name)

@@ -12,7 +12,7 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   def transform = optimize
 
-  lazy val optimize = reduce(removeFilters + removeUselessReduce) // <* repeat(dealWithNestOuterJoin)
+  lazy val optimize = reduce(removeFilters + removeUselessReduce) <* repeat(dealWithNestOuterJoin)
 
   /** Remove redundant filters
     */
@@ -58,8 +58,10 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
         case (x1: IntConst, x2: IntConst) => x1.value == x2.value
         case (x1: BoolConst, x2: BoolConst) => x1.value == x2.value
         case (x1: FloatConst, x2: FloatConst) => x1.value == x2.value
+        case (x1: RegexConst, x2: RegexConst) => x1.value == x2.value
         case (x1: StringConst, x2: StringConst) => x1.value == x2.value
         case (x1 @ IdnExp(IdnUse(i1)), x2 @ IdnExp(IdnUse(i2))) => if (remap.contains(x2) && remap(x2) == x1) true else { remap = remap + (x2 -> x1) ; true }
+        case (x1: ParseAs, x2: ParseAs) => x1.p == x2.p && recurse(x1.e, x2.e)
         case _ => false
       }
     }
@@ -129,6 +131,7 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
     case tree => {
       // we try all nests which don't have a predicate TODO (can we deal with that predicate?)
       val collectNests = collect[Seq, (Gen, Option[Gen])] {
+//        case g@Gen(_, n: Nest) if n.p == BoolConst(true) => (g, relatedOuterJoin(n.k, n))
         case g@Gen(_, n: Nest) if n.p == BoolConst(true) => (g, relatedOuterJoin(n.k, n))
       }
       val nests = collectNests(tree)
@@ -158,42 +161,53 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
         }
 
         // we don't deal with eqPreds which are too complicated (more than one IdnUse on each side)
-        val m = eqPred match {
+        val M = eqPred match {
           case BinaryExp(Eq(), e1, e2) =>
             val m = alphaEq(e1, e2)
-            m.get
+            if (m.isEmpty) {
+              logger.debug(s"could not find alphaEq(${CalculusPrettyPrinter(e1)}, ${e2})")
+            }
+            m
         }
 
-        if (m.keys.size == 1 && m.values.size == 1) {
+        if (M.isDefined) {
+          val m = M.get
+          if (m.keys.size == 1 && m.values.size == 1) {
 
-          val vDropped = m.keys.head
-          val vReplacing = m.values.head
+            val vDropped = m.keys.head
+            val vReplacing = m.values.head
 
-          val fixOJ = rule[RawNode] {
-            case oj: OuterJoin if oj eq ojG.e => jexp
-            case p: Pattern if p == ojG.p.get => jp1
-            case e: RecordCons if e == patternExp(ojG.p.get) => patternExp(jp1)
-            case e: Exp if e == vDropped => vReplacing
+            val fixOJ = rule[RawNode] {
+              case oj: OuterJoin if oj eq ojG.e => jexp
+              case p: Pattern if p == ojG.p.get => jp1
+              case e: RecordCons if e == patternExp(ojG.p.get) => patternExp(jp1)
+              case e: Exp if e == vDropped => vReplacing
+            }
+
+            val nest2 = rewrite(alltd(fixOJ))(Nest2(nest.m, nest.child, nest2Key, nest.p, nest.e))
+            logger.debug(s"will replace\n${CalculusPrettyPrinter(nestG)}\nby\n${CalculusPrettyPrinter(nest2)}")
+            logger.debug(s"will rewrite ${CalculusPrettyPrinter(nestLeftOutput)} by ${CalculusPrettyPrinter(nest.child.p.get)}")
+
+            val fixP =
+              rule[Pattern] {
+                case p: Pattern if p == nestLeftOutput => nest2.child.p.get
+              }
+
+            val fixN =
+              rule[Exp] {
+                case n: Nest if n eq nest => nest2
+              }
+
+            val newTree: Exp = rewrite(alltd(fixN <+ fixP))(tree)
+            logger.debug(s"returned\n${CalculusPrettyPrinter(newTree)}")
+            Some(newTree)
+          } else {
+            logger.debug(s"could not process m: (${m.toString})")
+            None
           }
-
-          val nest2 = rewrite(alltd(fixOJ))(Nest2(nest.m, nest.child, nest2Key, nest.p, nest.e))
-          logger.debug(s"will replace\n${CalculusPrettyPrinter(nestG)}\nby\n${CalculusPrettyPrinter(nest2)}")
-          logger.debug(s"will rewrite ${CalculusPrettyPrinter(nestLeftOutput)} by ${CalculusPrettyPrinter(nest.child.p.get)}")
-
-          val fixP =
-            rule[Pattern] {
-              case p: Pattern if p == nestLeftOutput => nest2.child.p.get
-            }
-
-          val fixN =
-            rule[Exp] {
-              case n: Nest if n eq nest => nest2
-            }
-
-          val newTree: Exp = rewrite(alltd(fixN <+ fixP))(tree)
-          logger.debug(s"returned\n${CalculusPrettyPrinter(newTree)}")
-          Some(newTree)
-        } else None
+        } else {
+          None
+        }
       }
     }
   }
