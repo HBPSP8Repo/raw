@@ -246,8 +246,8 @@ class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with 
     val p = schema.dataFile
     val properties = schema.properties
     logger.info(s"Creating iterator for text resource: $p. Properties: ${properties}")
-    val is: InputStream = new BufferedInputStream(schema.dataFile.openInputStream())
-    is.mark(8 * 1024)
+    val is: InputStream = new BufferedInputStream(schema.dataFile.openInputStream(), 32*1024)
+    is.mark(32 * 1024)
     val charset = TextRawScanner.detect(is)
     is.reset()
     val cs = Charset.forName(charset)
