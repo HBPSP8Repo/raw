@@ -790,15 +790,17 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
         val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
+        var keys1 = c.parse(s"keys1: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)}]")
+        var keys2 = c.parse(s"keys2: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(e), world, analyzer)}]")
         val code = q"""{
-        val keys1 = ${build(child)}
+        val $keys1 = ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
-            ${build(k)} }).toIterable
+            ${build(k)} })
 
-         val keys2 =
+         val $keys2 =
           keys1.map($groupedArg =>
-            $rt(
+            (
               arg._1,
               arg._2
                 .filter($childArg => {
@@ -810,8 +812,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                 .map($childArg => {
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
-                .fold(${zero(m)})(${fold(m)}) )).toMap
-        keys1.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+                .fold(${zero(m)})(${fold(m)}) ))
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
         }"""
         q"""
         val start = "************ Nest2 Primitive Monoid (Scala) ************"
