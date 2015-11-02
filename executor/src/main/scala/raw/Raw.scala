@@ -236,7 +236,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           atts
             .map(att => s"(${buildScalaType(att.tipe, world, analyzer)})")
             .mkString("(", ", ", ")"))
-      case CollectionType(_: CollectionMonoid, innerType) => s"Iterable[${buildScalaType(innerType, world, analyzer)}]"
+      case CollectionType(_: CollectionMonoid, innerType) => s"scala.collection.Iterable[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: BagMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: ListMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: SetMonoid, innerType) => s"Set[${buildScalaType(innerType, world, analyzer)}]"
@@ -661,7 +661,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($childArg => {
             ..${idnVals("child", patChild, false)}
             if (!${nullableCond(pred, patChild)}) {
-              Iterable( $rt(child, None) )
+              scala.collection.Iterable( $rt(child, None) )
             } else {
               ..${idnVals("child", patChild, true)}
               val matches =
@@ -674,7 +674,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                     ..${idnVals("path", patPath, true)}
                     ${build(pred)} })
               if (matches.isEmpty)
-                Iterable( $rt(child, None) )
+                scala.collection.Iterable( $rt(child, None) )
               else
                 matches.map(pathElement => $rt(child, Some(pathElement))) }})
         """
@@ -728,7 +728,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($leftArg => {
             ..${idnVals("left", patLeft, false)}
             if (!${nullableCond(p, patLeft)}) {
-              Iterable( $rt(left, None) )
+              scala.collection.Iterable( $rt(left, None) )
             } else {
               ..${idnVals("left", patLeft, true)}
               val matches =
@@ -740,7 +740,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                     ..${idnVals("right", patRight, true)}
                     ${build(p)} })
               if (matches.isEmpty)
-                Iterable( $rt(left, None) )
+                scala.collection.Iterable( $rt(left, None) )
               else
                 matches.map(right => $rt(left, Some(right))) }})
         """
