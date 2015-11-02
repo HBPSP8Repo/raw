@@ -1572,7 +1572,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     def computeResult = {
        try {
-          executeQuery(..$methodCallParameters).toList
+          val res = executeQuery(..$methodCallParameters)
+          raw.utils.RawUtils.convertToList(res)
        } finally {
          closeAllIterators()
        }
@@ -1597,6 +1598,16 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     if (annottees.size > 1) {
       bail(s"Expected a single annottated element. Found: ${annottees.size}\n" + annottees.map(expr => showCode(expr.tree)).mkString("\n"))
     }
+//    val res:Any = 21
+//    res match {
+//      case x : scala.collection.Iterable => x.toList
+//      case _ => res
+//    }
+//    if (res.isInstanceOf[scala.collection.Iterable[_]]) {
+//      res.asInstanceOf[Iterable[_]].toList
+//    } else {
+//      res
+//    }
     try {
       val annottee: Expr[Any] = annottees.head
       val annottation = c.prefix.tree

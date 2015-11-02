@@ -9,6 +9,8 @@ import java.util.function.BiPredicate
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
+import raw.RawQuery
+import raw.executor.RawScanner
 
 import scala.collection.JavaConversions
 
@@ -30,6 +32,15 @@ object RawUtils extends StrictLogging {
 
   def getTemporaryDirectory(dirname: String): Path = {
     Paths.get(System.getProperty("java.io.tmpdir"), dirname)
+  }
+
+  def convertToList(any: Any): Any = {
+    try {
+      val iterable = any.asInstanceOf[Iterable[_]]
+      iterable.toList
+    } catch {
+      case ex:ClassCastException => any
+    }
   }
 
   def createDirectory(p: Path) = {
@@ -79,3 +90,4 @@ object RawUtils extends StrictLogging {
     p
   }
 }
+
