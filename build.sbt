@@ -104,7 +104,8 @@ lazy val executor = (project in file("executor")).
           metrics,
           multisets,
           dropboxSDK,
-          awsSDK
+          awsSDK,
+          juniversalchardet
         )
         ++ sprayDeps,
 
