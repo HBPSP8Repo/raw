@@ -1578,7 +1578,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     def computeResult = {
        try {
           val res = executeQuery(..$methodCallParameters)
-          raw.utils.RawUtils.convertToList(res)
+          raw.utils.RawUtils.convertIterablesToList(res)
        } finally {
          closeAllIterators()
        }
