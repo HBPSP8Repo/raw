@@ -427,7 +427,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           ${build(e1)}
         }
         """
-      case a @ ParseAs(e1, r) =>
+        // TODO: Implement remaining ParseAs strategies
+      case a @ ParseAs(e1, r, _) =>
         val regex = analyzer.scalaRegex(r).get
         val hack = s"regex||||${r.value}||||"
         analyzer.regexType(r) match {
