@@ -224,10 +224,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
   def buildScalaType(t: raw.Type, world: World, analyzer: SemanticAnalyzer): String = {
     val baseType = t match {
-      case _: BoolType => "Boolean"
+      case _: BoolType => "scala.Boolean"
       case _: StringType => "String"
-      case _: IntType => "Int"
-      case _: FloatType => "Float"
+      case _: IntType => "scala.Int"
+      case _: FloatType => "scala.Float"
       case FunType(t1, t2) => s"${buildScalaType(t1, world, analyzer)} => ${buildScalaType(t2, world, analyzer)}"
       case r @ RecordType(Attributes(atts)) =>
         // Return the case class name if it exists; otherwise, it is a Tuple
