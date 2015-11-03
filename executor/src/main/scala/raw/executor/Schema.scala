@@ -3,6 +3,7 @@ package raw.executor
 import java.nio.file.{Path, Files}
 import java.util
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.StrictLogging
 import raw._
@@ -69,11 +70,10 @@ case class ParsedSchema(caseClasses: Map[String, String], typeDeclaration: Strin
 object SchemaParser extends StrictLogging {
   // map of unique record names
   val recordNames = scala.collection.mutable.HashMap[RecordType, String]()
-  var c = 0
+  val c = new AtomicInteger(0)
   def recordName(r: RecordType) = {
     if (!recordNames.contains(r)) {
-      recordNames.put(r, s"__UserRecord$c")
-      c += 1
+      recordNames.put(r, s"__UserRecord${c.getAndIncrement()}")
     }
     recordNames(r)
   }
