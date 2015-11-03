@@ -621,4 +621,15 @@ class SyntaxAnalyzerTest extends CoreTest {
     matches("""to_epoch("2015/01/02", "yyyy/MM/dd")""")
   }
 
+  test("issue #7") {
+    matches(
+      """
+        |select name: p.name,
+        |       surname: p.surname,
+        |       birthdate: p.birthDate ,
+        |       (select form: g.formType from p.patientBasedData.)
+        |       from patients p
+      """.stripMargin)
+  }
+
 }
