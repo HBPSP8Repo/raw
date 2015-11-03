@@ -860,6 +860,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        var keys1 = c.parse(s"keys1: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)}]")
+        var keys2 = c.parse(s"keys2: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(CollectionType(SetMonoid(), analyzer.tipe(e)), world, analyzer)}]")
         val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""{
         val keys1 = ${build(child)}
@@ -869,7 +871,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
          val keys2 =
           keys1.map($groupedArg =>
-            $rt(
+            (
               arg._1,
               arg._2
                 .filter($childArg => {
@@ -882,7 +884,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
                 .toSet.toIterable ))
-        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
         }
         """
         q"""
@@ -928,6 +930,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        var keys1 = c.parse(s"keys1: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)}]")
+        var keys2 = c.parse(s"keys2: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(CollectionType(ListMonoid(), analyzer.tipe(e)), world, analyzer)}]")
         val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""{
         val keys1 = ${build(child)}
@@ -937,7 +941,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
          val keys2 =
           keys1.map($groupedArg =>
-            $rt(
+            (
               arg._1,
               arg._2
                 .filter($childArg => {
@@ -950,7 +954,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
                 .toList.toIterable ))
-        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
         }
         """
         q"""
@@ -999,16 +1003,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = PrettyPrinter(analyzer.tipe(n))
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val groupedArg = c.parse(s"arg: (${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)})")
+        var keys1 = c.parse(s"keys1: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(analyzer.tipe(child), world, analyzer)}]")
+        var keys2 = c.parse(s"keys2: Map[${buildScalaType(analyzer.tipe(k), world, analyzer)}, ${buildScalaType(CollectionType(BagMonoid(), analyzer.tipe(e)), world, analyzer)}]")
         val rt = q"${Ident(TermName(tupleSym(analyzer.tipe(n).asInstanceOf[CollectionType].innerType.asInstanceOf[RecordType])))}"
         val code = q"""{
-        val keys1 = ${build(child)}
+        val $keys1 = ${build(child)}
           .groupBy($childArg => {
             ..${idnVals("child", pat, false)}
             ${build(k)} })
 
-         val keys2 =
+         val $keys2 =
           keys1.map($groupedArg =>
-            $rt(
+            (
               arg._1,
               arg._2
                 .filter($childArg => {
@@ -1021,7 +1027,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                   ..${idnVals("child", pat, true)}
                   ${build(e)} })
                 .toList.sortBy(x => x.toString).toIterable ))
-        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map(_ -> r)}
+        keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
         }
         """
         q"""
