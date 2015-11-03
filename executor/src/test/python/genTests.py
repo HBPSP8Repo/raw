@@ -96,11 +96,12 @@ class TestGenerator:
     def indent(self, lines, level):
         return [(" " * level) + line for line in lines]
 
+    # Return a string with the scala code of the tests or None if no tests were generated
     def processQuery(self, dataset, testName, testDef, queryLanguage, expectedResultsPath):
         disabledAttr = testDef.get('disabled')
         if disabledAttr != None:
             print "Test disabled:", testName, ". Reason:", disabledAttr
-            return ""
+            return None
 
         id = ord('A')
         testMethods = ""
@@ -129,7 +130,10 @@ class TestGenerator:
                                  {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query, "resultfilename": testName}
                 testMethods += testMethod
                 id += 1
-        return testMethods
+        if testMethods == "":
+            return None
+        else:
+            return testMethods
 
     def writeTestFile(self, directory, name, code):
         utils.createDirIfNotExists(directory)
@@ -218,8 +222,9 @@ class TestGenerator:
                     # if file.startswith("join"):
                     while True:
                         try:
+                            # There are no OQL tests anymore.
                             # Places scala files in generated.oql.[scala|spark]
-                            self.processFile(root, file, "oql", oqlClassTemplate)
+                            # self.processFile(root, file, "oql", oqlClassTemplate)
                             # Places scala files in generated.qrawl.[scala|spark]
                             self.processFile(root, file, "qrawl", qrawlClassTemplate)
                             break
