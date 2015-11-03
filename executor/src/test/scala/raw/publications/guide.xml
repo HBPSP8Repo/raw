@@ -76,7 +76,7 @@ group by title
 }
 ]]>      </qrawl>
    </query>
-   <query>
+   <query disabled="https://github.com/raw-labs/raw/issues/128">
       <qrawl>
 <![CDATA[
 {
@@ -85,7 +85,7 @@ group by title
 }
 ]]>      </qrawl>
    </query>
-   <query>
+   <query disabled="https://github.com/raw-labs/raw/issues/129">
       <qrawl>
 <![CDATA[{
     M := max(select year from authors);
@@ -94,7 +94,7 @@ group by title
 }
 ]]>      </qrawl>
    </query>
-   <query>
+   <query disabled="https://github.com/raw-labs/raw/issues/130">
       <qrawl>
 <![CDATA[{
     category := \a -> if a.title = "PhD" then "short-term" else "staff"
@@ -102,7 +102,7 @@ group by title
 }
 ]]>      </qrawl>
    </query>
-   <query>
+   <query disabled="https://github.com/raw-labs/raw/issues/127">
       <qrawl>
 <![CDATA[
 {
