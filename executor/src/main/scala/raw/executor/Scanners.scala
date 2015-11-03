@@ -212,19 +212,29 @@ object TextRawScanner extends StrictLogging {
 
   import org.mozilla.universalchardet.UniversalDetector
 
-  def detect(is: InputStream): String = {
+  // How much to read of the file in the attempt to detect the character encoding.
+  final val MAX_READAHEAD = 32 * 1024
+
+  // Tries to detect the character encoding by reading a section of the file. If no encoding is detect, assumes UTF-8
+  def detect(is: BufferedInputStream): String = {
     val buf = new Array[Byte](4096)
+    // If we read more than this value, the mark becomes invalid and we cannot reset the stream. So the loop below
+    // reads only up to MAX_READAHEAD
+    is.mark(MAX_READAHEAD)
 
     val detector = new UniversalDetector(null)
-
-    var nread = 0
-    while (nread != -1 && !detector.isDone()) {
-      nread = is.read(buf)
-      if (nread != -1) {
-        detector.handleData(buf, 0, nread)
+    var totalRead = 0 // How much we have read so far of the input stream
+    var bytesRead = 0 // How much was read in the current iteration.
+    do {
+      val maxNextRead = Math.min(buf.size, MAX_READAHEAD - totalRead)
+      bytesRead = is.read(buf, 0, maxNextRead)
+      if (bytesRead > 0) {
+        detector.handleData(buf, 0, bytesRead)
+        totalRead += bytesRead
       }
-    }
+    } while (bytesRead > 0 && !detector.isDone())
     detector.dataEnd()
+    is.reset()
 
     val encoding = detector.getDetectedCharset()
     detector.reset()
@@ -232,6 +242,10 @@ object TextRawScanner extends StrictLogging {
       logger.warn("No encoding detected. Trying UTF-8")
       "UTF-8"
     } else {
+      // The detector may return UTF-16LE or UTF-16BE, but in some input files using an encoding with explicit byte order
+      // will result in a failure. Instead, we use UTF-16 which is able to detect the BOM if present and uses big endian
+      // otherwise.
+      // http://docs.oracle.com/javase/7/docs/api/java/nio/charset/Charset.html
       if (encoding.startsWith("UTF-16")) {
         "UTF-16"
       } else {
@@ -246,10 +260,8 @@ class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with 
     val p = schema.dataFile
     val properties = schema.properties
     logger.info(s"Creating iterator for text resource: $p. Properties: ${properties}")
-    val is: InputStream = new BufferedInputStream(schema.dataFile.openInputStream(), 32*1024)
-    is.mark(32 * 1024)
+    val is = new BufferedInputStream(schema.dataFile.openInputStream(), 1024)
     val charset = TextRawScanner.detect(is)
-    is.reset()
     val cs = Charset.forName(charset)
     logger.info(s"Loading file using charset: $cs")
     val source = Source.fromInputStream(is)(Codec(cs)).getLines()

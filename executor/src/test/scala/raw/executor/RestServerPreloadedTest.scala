@@ -89,17 +89,17 @@ class RestServerPreloadedTest extends FunSuite with RawRestServerContext with St
   test("query: json array of maps - authors map title counts") {
     testQuery(TestUserJoe, "select distinct p.title as title, count(partition) as number from authors p group by p.title ",
       """[ {
-        |  "title" : "professor",
-        |  "number" : 18
-        |}, {
         |  "title" : "assistant professor",
         |  "number" : 11
         |}, {
-        |  "title" : "PhD",
-        |  "number" : 16
-        |}, {
         |  "title" : "engineer",
         |  "number" : 5
+        |}, {
+        |  "title" : "professor",
+        |  "number" : 18
+        |}, {
+        |  "title" : "PhD",
+        |  "number" : 16
         |} ]""".stripMargin)
   }
 
