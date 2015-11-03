@@ -55,6 +55,17 @@ templateTestMethodJsonCompareToFile = """
   }
 """
 
+
+templateTestMethodCompareMultiple = """
+  test("%(name)s") {
+    val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
+    val queries = List(
+        %(queryList)s
+    )
+    checkAllQueriesEqual(queryLanguage, queries, scanners)
+  }
+"""
+
 templateTestMethodPrintResult = """
   test("%(name)s") {
     val queryLanguage = QueryLanguages(\"%(queryLanguage)s\")
@@ -103,33 +114,46 @@ class TestGenerator:
             print "Test disabled:", testName, ". Reason:", disabledAttr
             return None
 
+        resultElem = testDef.find("result")
+        queries = [x for x in testDef.findall(queryLanguage) if x.tag.startswith(queryLanguage)]
+
+        # Multiple queries, no result. Compare the query results
+        if resultElem == None and len(queries) >1:
+            queryList = ""
+            sep = ""
+            for node in queries:
+                queryList += "%s\"\"\" %s \"\"\"" % (sep, node.text.strip())
+                sep = ",\n      "
+            testMethod = templateTestMethodCompareMultiple % \
+                         {"dataset": dataset, "name": testName, "queryLanguage": queryLanguage, "queryList": queryList}
+            return testMethod
+
+        # Multiple queries with an explicit result (compare with provided result) or single query with no result (print output)
         id = ord('A')
         testMethods = ""
-        for node in testDef:
-            if node.tag.startswith(queryLanguage):
-                query = node.text.strip()
-                query = query.replace("\"\"\"", "\"\"\" + \"\\\"\\\"\\\"\" + \"\"\"")
+        for node in queries:
+            query = node.text.strip()
+            query = query.replace("\"\"\"", "\"\"\" + \"\\\"\\\"\\\"\" + \"\"\"")
 
-                # Generate test method
-                resultElem = testDef.find("result")
-                testMethodName = testName + "_" + chr(id)
+            # Generate test method
+            testMethodName = testName + "_" + chr(id)
 
-                if resultElem == None:
-                    # There is no expected result to compare with, so print the results to the console and to a temp file
-                    testMethod = templateTestMethodPrintResult % \
-                                 {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query}
-                else:
-                    # Compare with the expected results. Save the result to a JSON file
-                    expectedResults = resultElem.text.strip()
-                    resultFile = os.path.join(expectedResultsPath, testName+".json")
-                    print "Saving result to file", resultFile
-                    outFile = open(resultFile, "w")
-                    outFile.write(expectedResults.encode("UTF-8"))
-                    outFile.close()
-                    testMethod = templateTestMethodJsonCompareToFile % \
-                                 {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query, "resultfilename": testName}
-                testMethods += testMethod
-                id += 1
+            if resultElem == None:
+                # There is no expected result to compare with, so print the results to the console and to a temp file
+                testMethod = templateTestMethodPrintResult % \
+                             {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query}
+            else:
+                # Compare with the expected results. Save the result to a JSON file
+                expectedResults = resultElem.text.strip()
+                resultFile = os.path.join(expectedResultsPath, testName+".json")
+                print "Saving result to file", resultFile
+                outFile = open(resultFile, "w")
+                outFile.write(expectedResults.encode("UTF-8"))
+                outFile.close()
+                testMethod = templateTestMethodJsonCompareToFile % \
+                             {"dataset": dataset, "name": testMethodName, "queryLanguage": queryLanguage, "query": query, "resultfilename": testName}
+            testMethods += testMethod
+            id += 1
         if testMethods == "":
             return None
         else:

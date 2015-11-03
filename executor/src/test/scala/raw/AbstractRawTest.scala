@@ -9,9 +9,10 @@ import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.executor.{RawClassLoader, RawCompiler, ResultConverter}
+import raw.QueryLanguages.QueryLanguage
+import raw.executor.{RawScanner, RawClassLoader, RawCompiler, ResultConverter}
 
-import scala.collection.JavaConversions
+import scala.collection.{mutable, JavaConversions}
 
 abstract class AbstractRawTest
   extends FunSuite
@@ -83,7 +84,7 @@ abstract class AbstractRawTest
     Paths.get(System.getProperty("java.io.tmpdir"), filename)
   }
 
-  def assertJsonEqualsFile(dataset: String, testName: String, testMethodName:String, queryResult: Any) = {
+  def assertJsonEqualsFile(dataset: String, testName: String, testMethodName: String, queryResult: Any) = {
     val expected: JsonNode = loadTestResult(dataset, testName)
     val expectedOrdered: String = toStringOrdered(expected)
     val actual: JsonNode = convertToJsonNode(queryResult)
@@ -103,7 +104,7 @@ abstract class AbstractRawTest
     }
   }
 
-  def logTestFailure(testName:String, testMethodName: String, actualOrdered: String, expectedOrdered: String) = {
+  def logTestFailure(testName: String, testMethodName: String, actualOrdered: String, expectedOrdered: String) = {
     val actualPath = getTempFile(testMethodName + "_actual.json")
     val expectedPath = getTempFile(testName + "_expected.json")
     val actualOrderedPretty = prettyPrintTree(actualOrdered)
@@ -112,6 +113,26 @@ abstract class AbstractRawTest
     Files.write(expectedPath, expectedOrderedPretty.getBytes(StandardCharsets.UTF_8))
     logger.warn(s"Test fail. Expected in file: ${expectedPath}. Actual in: $actualPath")
     fail(s"Results differ. Expected:\n$expectedOrderedPretty\n\nActual:\n$actualOrderedPretty")
+  }
+
+
+  def checkAllQueriesEqual(queryLanguage: QueryLanguage, queries: List[String], scanners: Seq[RawScanner[_]]) = {
+    val results = new mutable.HashMap[String, String]()
+    queries.foreach(query => {
+      val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+      val jsonNode: JsonNode = convertToJsonNode(result)
+      val resultOrdered: String = toStringOrdered(jsonNode)
+      results.put(query, resultOrdered)
+    })
+
+    // All results should be the same
+    val uniqueResults = results.values.toSet
+    if (uniqueResults.size != 1) {
+      fail("Results of queries differ. Expected all to be similar.\n" +
+        results
+          .map({ case (query, result) => s"Query: ${query.trim}\nResult: $result" })
+          .mkString("\n"))
+    }
   }
 
   def writeResult(testName: String, queryResult: Any) = {

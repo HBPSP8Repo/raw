@@ -1,0 +1,10 @@
+<queries dataset="publications">
+    <query>
+        <qrawl>
+            40+2
+        </qrawl>
+        <qrawl>
+            7*6
+        </qrawl>
+    </query>
+</queries>
