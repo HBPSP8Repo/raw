@@ -17,6 +17,7 @@ abstract class AbstractSparkTest extends AbstractRawTest with SharedSparkContext
   var publicationsSmall: SparkRawScanner[Publication] = _
   var publicationsSmallWithDups: SparkRawScanner[Publication] = _
   var patients: SparkRawScanner[Patient] = _
+  var httpLogs: SparkRawScanner[String] = _
 
   def createSparkScanner[T: ClassTag : TypeTag](scanner: RawScanner[T]): SparkRawScanner[T] = {
     val sparkScanner = new SparkRawScanner(scanner, sc)
@@ -33,6 +34,7 @@ abstract class AbstractSparkTest extends AbstractRawTest with SharedSparkContext
       publicationsSmall = createSparkScanner(TestScanners.publicationsSmall)
       publicationsSmallWithDups = createSparkScanner(TestScanners.publicationsSmallWithDups)
       patients = createSparkScanner(TestScanners.patients)
+      httpLogs = createSparkScanner(TestScanners.httpLogs)
     } catch {
       case ex: Exception => super.afterAll()
     }
