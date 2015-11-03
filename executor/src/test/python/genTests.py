@@ -17,15 +17,15 @@ class %(name)sTest extends Abstract%(testType)sTest {
 }
 """
 
-oqlClassTemplate = """package %(package)s
-
-import org.scalatest.BeforeAndAfterAll
-import raw._
-
-class %(name)sTest extends Abstract%(testType)sTest with LDBDockerContainer with BeforeAndAfterAll {
-%(testMethods)s
-}
-"""
+# oqlClassTemplate = """package %(package)s
+#
+# import org.scalatest.BeforeAndAfterAll
+# import raw._
+#
+# class %(name)sTest extends Abstract%(testType)sTest with LDBDockerContainer with BeforeAndAfterAll {
+# %(testMethods)s
+# }
+# """
 
 templateTestMethod = """
   test("%(name)s") {
@@ -183,14 +183,14 @@ class TestGenerator:
         if i == 0:
             return
 
-        sparkTestsDirectory = os.path.join(generatedDirectory, "spark")
-        code = classTemplate % {
-            "name": name,
-            "package": package + ".generated." + queryLanguage + ".spark",
-            "testMethods": testMethods,
-            "dataset": dataset,
-            "testType": "Spark"}
-        self.writeTestFile(sparkTestsDirectory, name, code)
+        # sparkTestsDirectory = os.path.join(generatedDirectory, "spark")
+        # code = classTemplate % {
+        #     "name": name,
+        #     "package": package + ".generated." + queryLanguage + ".spark",
+        #     "testMethods": testMethods,
+        #     "dataset": dataset,
+        #     "testType": "Spark"}
+        # self.writeTestFile(sparkTestsDirectory, name, code)
 
         scalaTestsDirectory = os.path.join(generatedDirectory, "scala")
         code = classTemplate % {
@@ -222,9 +222,6 @@ class TestGenerator:
                     # if file.startswith("join"):
                     while True:
                         try:
-                            # There are no OQL tests anymore.
-                            # Places scala files in generated.oql.[scala|spark]
-                            # self.processFile(root, file, "oql", oqlClassTemplate)
                             # Places scala files in generated.qrawl.[scala|spark]
                             self.processFile(root, file, "qrawl", qrawlClassTemplate)
                             break
