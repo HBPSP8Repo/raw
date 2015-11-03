@@ -12,7 +12,7 @@ class BlocksDesugarerTest extends PhaseTest {
       TestWorlds.departments)
   }
 
-  test("PatternFunAbs") {
+  ignore("#122 PatternFunAbs") {
     check(
       """\(a, b) -> a + b + 2""",
       """\$0 -> $0._1 + $0._2 + 2""")

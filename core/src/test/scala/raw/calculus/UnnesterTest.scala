@@ -346,7 +346,7 @@ class UnnesterTest extends PhaseTest {
       TestWorlds.things)
   }
 
-  test("publications: count of authors grouped by title and then year") {
+  ignore("#66 publications: count of authors grouped by title and then year") {
     check(
       "select distinct title: A.title, stats: (select year: A.year, N: count(partition) from A in partition group by A.year) from A in authors group by A.title",
       """
