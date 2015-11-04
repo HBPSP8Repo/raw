@@ -56,7 +56,6 @@ trait NodePosition extends Attribution with Analyzer with LazyLogging {
 
   def endPosition(n: CalculusNode): RawPosition = n match {
     case BinaryExp(_, _, e2) => endPosition(e2)
-    case MergeMonoid(_, _, e2) => endPosition(e2)
     case UnaryExp(_, e) => endPosition(e)
     case _ =>
       val begin = beginPosition(n)

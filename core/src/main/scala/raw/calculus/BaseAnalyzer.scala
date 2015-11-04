@@ -1634,43 +1634,43 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         solve(e)
         sameType(n, e)
 
-      case n @ MergeMonoid(m, e1, e2) =>
-        solve(e1)
-        solve(e2)
-        m match {
-          case _: BoolMonoid =>
-            hasType(n, BoolType())
-            hasType(e1, BoolType())
-            hasType(e2, BoolType())
-
-          case _: NumberMonoid =>
-            hasType(n, NumberType())
-            sameType(n, e1)
-            sameType(e1, e2)
-
-          case m1: CollectionMonoid =>
-            hasType(e1, CollectionType(m1, TypeVariable()))
-            sameType(e1, e2)
-            sameType(n, e1)
-        }
-
       case n @ BinaryExp(op, e1, e2) =>
         solve(e1)
         solve(e2)
         op match {
-          case _: EqualityOperator =>
-            hasType(n, BoolType())
-            sameType(e1, e2)
-
-          case _: ComparisonOperator =>
+          case _: Gt | _: Ge | _: Lt | _: Le =>
             hasType(n, BoolType())
             sameType(e2, e1)
             hasType(e1, NumberType())
 
-          case _: ArithmeticOperator =>
-            sameType(n, e1)
+          case _: Eq | _: Neq =>
+            hasType(n, BoolType())
             sameType(e1, e2)
-            hasType(e2, NumberType())
+
+          case _: Plus | _: Sub | _: Mult | _: Div | _: Mod =>
+            hasType(e1, NumberType())
+            sameType(e2, e1)
+            sameType(n, e1)
+
+          case _: And | _: Or =>
+            hasType(n, BoolType())
+            hasType(e1, BoolType())
+            hasType(e2, BoolType())
+
+          case _: Union =>
+            hasType(e1, CollectionType(SetMonoid(), TypeVariable()))
+            sameType(e2, e1)
+            sameType(n, e1)
+
+          case _: BagUnion =>
+            hasType(e1, CollectionType(BagMonoid(), TypeVariable()))
+            sameType(e2, e1)
+            sameType(n, e1)
+
+          case _: Append =>
+            hasType(e1, CollectionType(ListMonoid(), TypeVariable()))
+            sameType(e2, e1)
+            sameType(n, e1)
         }
 
       case n @ InExp(e1, e2) =>

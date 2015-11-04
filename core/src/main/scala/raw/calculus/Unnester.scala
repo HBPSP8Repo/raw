@@ -169,7 +169,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     else if (ps.length == 1)
       ps.head
     else
-      ps.tail.foldLeft(ps.head)((a, b) => MergeMonoid(AndMonoid(), a, b))
+      ps.tail.foldLeft(ps.head)((a, b) => BinaryExp(And(), a, b))
 
   /** Create a record expression from a pattern (used by Nest).
     */

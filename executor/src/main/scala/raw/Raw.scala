@@ -376,9 +376,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Gt => q" ${build(e1)} > ${build(e2)}"
         case _: Le => q" ${build(e1)} <= ${build(e2)}"
         case _: Lt => q" ${build(e1)} < ${build(e2)}"
+        case _: Plus => q"${build(e1)} + ${build(e2)}"
         case _: Sub => q" ${build(e1)} - ${build(e2)}"
+        case _: Mult => q"${build(e1)} * ${build(e2)}"
         case _: Div => q" ${build(e1)} / ${build(e2)}"
         case _: Mod => q" ${build(e1)} % ${build(e2)}"
+        case _: MaxOp => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
+        case _: MinOp => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 < e2) e1 else e2"
+        case _: And => q"${build(e1)} && ${build(e2)}"
+        case _: Or => q"${build(e1)} || ${build(e2)}"
+        case _: Union => q"${build(e1)} ++ ${build(e2)}"
+        case _: BagUnion => q"${build(e1)} ++ ${build(e2)}"
+        case _: Append => q"${build(e1)} ++ ${build(e2)}"
       }
       case FunApp(f, e) =>
         q"""${build(f)}(${build(e)})"""
@@ -391,17 +400,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: SetMonoid => q"Set(${build(e1)}).toIterable"
         case _: BagMonoid => q"List(${build(e1)}).toIterable"
         case _: ListMonoid => q"List(${build(e1)}).toIterable"
-      }
-      case MergeMonoid(m, e1, e2) => m match {
-        case _: SumMonoid => q"${build(e1)} + ${build(e2)}"
-        case _: MaxMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 > e2) e1 else e2"
-        case _: MinMonoid => q"val e1 = ${build(e1)}; val e2 = ${build(e2)}; if (e1 < e2) e1 else e2"
-        case _: MultiplyMonoid => q"${build(e1)} * ${build(e2)}"
-        case _: AndMonoid => q"${build(e1)} && ${build(e2)}"
-        case _: OrMonoid => q"${build(e1)} || ${build(e2)}"
-        case _: SetMonoid => q"${build(e1)} ++ ${build(e2)}"
-        case _: BagMonoid => q"${build(e1)} ++ ${build(e2)}"
-        case _: ListMonoid => q"${build(e1)} ++ ${build(e2)}"
       }
       case UnaryExp(op, e1) => op match {
         case _: Not => q"!${build(e1)}"

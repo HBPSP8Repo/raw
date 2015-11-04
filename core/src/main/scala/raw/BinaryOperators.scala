@@ -4,50 +4,74 @@ package raw
   */
 sealed abstract class BinaryOperator extends RawNode
 
-/** Comparison Operator
-  */
-sealed abstract class ComparisonOperator extends BinaryOperator
-
 /** Greater or equal than
   */
-case class Ge() extends ComparisonOperator
+case class Ge() extends BinaryOperator
 
 /** Greater than
   */
-case class Gt() extends ComparisonOperator
+case class Gt() extends BinaryOperator
 
 /** Less or equal than
   */
-case class Le() extends ComparisonOperator
+case class Le() extends BinaryOperator
 
 /** Less than
   */
-case class Lt() extends ComparisonOperator
-
-/** Equality Operator
-  */
-sealed abstract class EqualityOperator extends ComparisonOperator
+case class Lt() extends BinaryOperator
 
 /** Equals
   */
-case class Eq() extends EqualityOperator
+case class Eq() extends BinaryOperator
 
 /** Not equals
   */
-case class Neq() extends EqualityOperator
+case class Neq() extends BinaryOperator
 
-/** Arithmetic Operator
+/** Plus
   */
-sealed abstract class ArithmeticOperator extends BinaryOperator
+case class Plus() extends BinaryOperator
 
 /** Subtraction
   */
-case class Sub() extends ArithmeticOperator
+case class Sub() extends BinaryOperator
+
+/** Multiplication
+  */
+case class Mult() extends BinaryOperator
 
 /** Division
   */
-case class Div() extends ArithmeticOperator
+case class Div() extends BinaryOperator
 
 /** Modulo
  */
-case class Mod() extends ArithmeticOperator
+case class Mod() extends BinaryOperator
+
+/** And
+  */
+case class And() extends BinaryOperator
+
+/** Or
+  */
+case class Or() extends BinaryOperator
+
+/** Max
+  */
+case class MaxOp() extends BinaryOperator
+
+/** Min
+  */
+case class MinOp() extends BinaryOperator
+
+/** Union
+  */
+case class Union() extends BinaryOperator
+
+/** BagUnion
+  */
+case class BagUnion() extends BinaryOperator
+
+/** Append
+  */
+case class Append() extends BinaryOperator

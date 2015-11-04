@@ -50,7 +50,6 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
         case (x1: Nest, x2: Nest) => x1.m == x2.m && recurse(x1.k, x2.k) && recurse(x1.e, x2.e) && recurse(x1.p, x2.p) && recurse(x1.child.e, x2.child.e)
         case (x1: Reduce, x2: Reduce) => x1.m == x2.m && recurse(x1.child.e, x2.child.e)
         case (x1: Filter, x2: Filter) => recurse(x1.p, x2.p) && recurse(x1.child.e, x2.child.e)
-        case (x1: MergeMonoid, x2: MergeMonoid) => x1.m == x2.m && recurse(x1.e1, x2.e1) && recurse(x1.e2, x1.e2)
         case (x1: BinaryExp, x2: BinaryExp) => x1.op == x2.op && recurse(x1.e1, x2.e1) && recurse(x1.e2, x1.e2)
         case (x1: UnaryExp, x2: UnaryExp) => x1.op == x2.op && recurse(x1.e, x2.e)
         case (x1: RecordProj, x2: RecordProj) => x1.idn == x2.idn && recurse(x1.e, x2.e)
@@ -72,14 +71,14 @@ class Optimizer(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
 
   private def makeEquiPred(p: Exp): Option[BinaryExp] = {
     val r = p match {
-      case MergeMonoid(AndMonoid(), e1, e2) => (makeEquiPred(e1), makeEquiPred(e2)) match {
+      case BinaryExp(_: And, e1, e2) => (makeEquiPred(e1), makeEquiPred(e2)) match {
         case (Some(p1), Some(p2)) => (p1, p2) match {
           case (x1@BinaryExp(Eq(), e11, e12), x2@BinaryExp(Eq(), e21, e22)) =>
             Some(BinaryExp(Eq(), RecordCons(Seq(AttrCons("_1", e11), AttrCons("_2", e21))), RecordCons(Seq(AttrCons("_1", e12), AttrCons("_2", e22)))))
           case (x1, x2) => Some(BinaryExp(Eq(), x1, x2))
         }
       }
-      case b @ BinaryExp(Eq(), e1, e2) => Some(b)
+      case b @ BinaryExp(_: Eq, e1, e2) => Some(b)
       case _ => None
     }
     if (r.isDefined) logger.debug(s"makeEquiPred(${CalculusPrettyPrinter(p)}) => ${CalculusPrettyPrinter(r.get)}") else logger.debug(s"makeEquiPred(${CalculusPrettyPrinter(p)}) => None")

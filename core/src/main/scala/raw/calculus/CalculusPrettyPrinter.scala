@@ -69,7 +69,6 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case ZeroCollectionMonoid(m)        => collection(m, empty)
         case ConsCollectionMonoid(m, e)     => collection(m, apply(e))
         case MultiCons(m, es)               => collection(m, group(lsep(es.map(apply), ",")))
-        case MergeMonoid(m, e1, e2)         => apply(e1) <+> merge(m) <+> apply(e2)
         case Comp(m, qs, e)                 => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
         case UnaryExp(op: (Not), e)         => unaryOp(op) <+> apply(e)
         case UnaryExp(op: (Neg), e)         => unaryOp(op) <+> apply(e)

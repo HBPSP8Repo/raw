@@ -120,7 +120,7 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
           case ft @ FunType(t1, t2) =>
             makeNullable(te, Seq(t2), Seq(ft, t2, tipe(v)))
         }
-        case MergeMonoid(_, e1, e2)              => (tipe(e1), tipe(e2)) match {
+        case BinaryExp(_, e1, e2)              => (tipe(e1), tipe(e2)) match {
           case (t1, t2) => makeNullable(te, Seq(t1, t2), Seq(t1, t2))
         }
         case Comp(m: CollectionMonoid, qs, proj) =>
@@ -218,7 +218,6 @@ class SemanticAnalyzer(tree: Calculus.Calculus, world: World, queryString: Strin
           }
         }
 
-        case BinaryExp(_, e1, e2)    => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case InExp(e1, e2)           => makeNullable(te, Seq(), Seq(tipe(e1), tipe(e2)))
         case UnaryExp(_, e1)         => makeNullable(te, Seq(), Seq(tipe(e1)))
         case ExpBlock(_, e1)         =>

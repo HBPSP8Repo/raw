@@ -24,21 +24,16 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: Gt  => ">"
     case _: Le  => "<="
     case _: Lt  => "<"
+    case _: Plus => "+"
     case _: Sub => "-"
+    case _: Mult => "*"
     case _: Div => "/"
     case _: Mod => "%"
-  }
-
-  def merge(m: Monoid): Doc = m match {
-    case _: MaxMonoid      => "max"
-    case _: MinMonoid      => "max"
-    case _: MultiplyMonoid => "*"
-    case _: SumMonoid      => "+"
-    case _: AndMonoid      => "and"
-    case _: OrMonoid       => "or"
-    case _: BagMonoid      => "bag_union"
-    case _: SetMonoid      => "union"
-    case _: ListMonoid     => "append"
+    case _: And => "and"
+    case _: Or => "or"
+    case _: BagUnion => "bag_union"
+    case _: Union => "union"
+    case _: Append => "append"
   }
 
   def shortMonoid(m: Monoid): Doc = m match {

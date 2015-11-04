@@ -147,31 +147,30 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     })
 
   lazy val mergeExp: PackratParser[Exp] =
-    positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
+    positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val monoidMerge: PackratParser[Monoid] =
+  lazy val monoidMerge: PackratParser[BinaryOperator] =
     positioned(
-      kwUnion ^^^ SetMonoid() |
-      kwBagUnion ^^^ BagMonoid() |
-      kwAppend ^^^ ListMonoid() |
-      kwMax ^^^ MaxMonoid())
+      kwUnion ^^^ Union() |
+      kwBagUnion ^^^ BagUnion() |
+      kwAppend ^^^ Append())
 
   lazy val orExp: PackratParser[Exp] =
-  positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
+  positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val or: PackratParser[OrMonoid] =
-    positioned(kwOr ^^^ OrMonoid())
+  lazy val or: PackratParser[BinaryOperator] =
+    positioned(kwOr ^^^ Or())
 
   lazy val andExp: PackratParser[Exp] =
-    positioned(comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } }))
+    positioned(comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val and: PackratParser[AndMonoid] =
-    positioned(kwAnd ^^^ AndMonoid())
+  lazy val and: PackratParser[BinaryOperator] =
+    positioned(kwAnd ^^^ And())
 
   lazy val comparisonExp: PackratParser[Exp] =
     positioned(inExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val comparisonOp: PackratParser[ComparisonOperator] =
+  lazy val comparisonOp: PackratParser[BinaryOperator] =
     positioned(
       "=" ^^^ Eq() |
       "<>" ^^^ Neq() |
@@ -197,22 +196,22 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val termExp: PackratParser[Exp] =
     positioned(productExp * (
-      sum ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
+      sum ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } } |
       sub ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val sum: PackratParser[SumMonoid] =
-    positioned("+" ^^^ SumMonoid())
+  lazy val sum: PackratParser[Plus] =
+    positioned("+" ^^^ Plus())
 
   lazy val sub: PackratParser[Sub] =
     positioned("-" ^^^ Sub())
 
   lazy val productExp: PackratParser[Exp] =
     positioned(funAppExp * (
-      mult ^^ { case op => { (e1: Exp, e2: Exp) => MergeMonoid(op, e1, e2) } } |
+      mult ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } } |
       div ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
 
-  lazy val mult: PackratParser[MultiplyMonoid] =
-    positioned("*" ^^^ MultiplyMonoid())
+  lazy val mult: PackratParser[Mult] =
+    positioned("*" ^^^ Mult())
 
   lazy val div: PackratParser[Div] =
     positioned("/" ^^^ Div())

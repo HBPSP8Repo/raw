@@ -21,8 +21,8 @@ class Canonizer extends PipelinedTransformer {
   }
 
   private def flattenPreds(p: Exp): Seq[Exp] = p match {
-    case MergeMonoid(_: AndMonoid, e1, e2) => flattenPreds(e1) ++ flattenPreds(e2)
-    case _                                 => Seq(p)
+    case BinaryExp(_: And, e1, e2) => flattenPreds(e1) ++ flattenPreds(e2)
+    case _                         => Seq(p)
   }
 
 }

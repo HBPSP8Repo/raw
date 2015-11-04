@@ -86,7 +86,17 @@ class Normalizer extends PipelinedTransformer {
       logger.debug(s"Applying normalizer rule 4")
       val c1 = Comp(deepclone(m), q ++ Seq(e1, Gen(p, e2)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(UnaryExp(Not(), deepclone(e1)), Gen(deepclone(p), e3)) ++ s.map(deepclone), deepclone(e))
-      MergeMonoid(m, c1, rewriteInternalIdns(c2))
+      val op = m match {
+        case _: AndMonoid => And()
+        case _: OrMonoid => Or()
+        case _: MaxMonoid => MaxOp()
+        case _: MinMonoid => MinOp()
+        case _: MultiplyMonoid => Mult()
+        case _: SumMonoid => Plus()
+        case _: SetMonoid => Union()
+        case _: BagMonoid => BagUnion()
+      }
+      BinaryExp(op, c1, rewriteInternalIdns(c2))
   }
 
   /** Rule 5
@@ -126,15 +136,26 @@ class Normalizer extends PipelinedTransformer {
     */
 
   private object Rule7 {
-    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, _: MergeMonoid) => g})
+    def unapply(qs: Seq[Qual]) = splitWith[Qual, Gen](qs, { case g @ Gen(_, BinaryExp(_: Union | _: BagUnion | _: Append, _, _)) => g})
   }
 
   private lazy val rule7 = rule[Exp] {
-    case Comp(m, Rule7(q, Gen(p, MergeMonoid(_, e1, e2)), s), e) if commutative(m).head || q.isEmpty =>
+    case Comp(m, Rule7(q, Gen(p, BinaryExp(_, e1, e2)), s), e) if commutative(m).head || q.isEmpty =>
       logger.debug(s"Applying normalizer rule 7")
       val c1 = Comp(deepclone(m), q ++ Seq(Gen(p, e1)) ++ s, e)
       val c2 = Comp(deepclone(m), q.map(deepclone) ++ Seq(Gen(deepclone(p), e2)) ++ s.map(deepclone), deepclone(e))
-      MergeMonoid(m, c1, rewriteInternalIdns(c2))
+      // TODO: Refactor this w/ same code above!
+      val op = m match {
+        case _: AndMonoid => And()
+        case _: OrMonoid => Or()
+        case _: MaxMonoid => MaxOp()
+        case _: MinMonoid => MinOp()
+        case _: MultiplyMonoid => Mult()
+        case _: SumMonoid => Plus()
+        case _: SetMonoid => Union()
+        case _: BagMonoid => BagUnion()
+      }
+      BinaryExp(op, c1, rewriteInternalIdns(c2))
   }
 
   /** Rule 8

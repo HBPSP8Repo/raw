@@ -53,7 +53,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
               AttrCons(s"_${idx + 1}", IdnExp(IdnUse(idn)))})
 
     if (ns.where.isDefined)
-      Select(ns.from, false, None, nproj, Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+      Select(ns.from, false, None, nproj, Some(BinaryExp(And(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
     else
       Select(ns.from, false, None, nproj, Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
   }
@@ -62,7 +62,7 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
     val ns = rewriteInternalIdns(s)
 
     if (ns.where.isDefined)
-      Select(ns.from, false, None, Star(), Some(MergeMonoid(AndMonoid(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
+      Select(ns.from, false, None, Star(), Some(BinaryExp(And(), ns.where.get, BinaryExp(Eq(), deepclone(s.group.get), ns.group.get))), None, None)
     else
       Select(ns.from, false, None, Star(), Some(BinaryExp(Eq(), deepclone(s.group.get), ns.group.get)), None, None)
   }

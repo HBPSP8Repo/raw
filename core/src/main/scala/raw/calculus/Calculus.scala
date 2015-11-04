@@ -105,10 +105,6 @@ object Calculus {
     */
   case class ConsCollectionMonoid(m: CollectionMonoid, e: Exp) extends Exp
 
-  /** Merge Monoid
-    */
-  case class MergeMonoid(m: Monoid, e1: Exp, e2: Exp) extends Exp
-
   /** Comprehension
     */
   case class Comp(m: Monoid, qs: Seq[Qual], e: Exp) extends Exp
