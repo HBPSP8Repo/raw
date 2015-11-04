@@ -30,7 +30,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   import org.kiama.rewriting.Rewriter._
   import Calculus._
   import SymbolTable._
-  import Constraint._
+//  import Constraint._
   import World.TypesVarMap
 
   /** Decorators on the tree.
@@ -69,7 +69,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
   /** Type the root of the program.
     */
-  lazy val solution = solve(constraints(tree.root))
+  lazy val solution = solve(tree.root)
 
   /** Return the base type of an expression, i.e. without the nullable flag.
     */
@@ -413,7 +413,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind
-        solve(constraints(e))
+        solve(e)
         val t = expType(e)
         val expected = patternType(p)
         if (!unify(t, expected)) {
@@ -734,17 +734,11 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case ZeroCollectionMonoid(_: BagMonoid) => CollectionType(BagMonoid(), TypeVariable())
     case ZeroCollectionMonoid(_: ListMonoid) => CollectionType(ListMonoid(), TypeVariable())
     case ZeroCollectionMonoid(_: SetMonoid) => CollectionType(SetMonoid(), TypeVariable())
-    case MultiCons(_: BagMonoid, Nil)       => CollectionType(BagMonoid(), TypeVariable())
-    case MultiCons(_: ListMonoid, Nil)      => CollectionType(ListMonoid(), TypeVariable())
-    case MultiCons(_: SetMonoid, Nil)       => CollectionType(SetMonoid(), TypeVariable())
 
     // Rule 10
     case ConsCollectionMonoid(_: BagMonoid, e1) => CollectionType(BagMonoid(), expType(e1))
     case ConsCollectionMonoid(_: ListMonoid, e1) => CollectionType(ListMonoid(), expType(e1))
     case ConsCollectionMonoid(_: SetMonoid, e1) => CollectionType(SetMonoid(), expType(e1))
-    case MultiCons(_: BagMonoid, e1 :: Nil)     => CollectionType(BagMonoid(), expType(e1))
-    case MultiCons(_: ListMonoid, e1 :: Nil)    => CollectionType(ListMonoid(), expType(e1))
-    case MultiCons(_: SetMonoid, e1 :: Nil)     => CollectionType(SetMonoid(), expType(e1))
 
     // Unary expressions
     case UnaryExp(_: Not, _)     => BoolType()
@@ -754,6 +748,14 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case UnaryExp(_: ToString, _) => StringType()
 
     // Sugar expressions
+
+    case MultiCons(_: BagMonoid, Nil)       => CollectionType(BagMonoid(), TypeVariable())
+    case MultiCons(_: ListMonoid, Nil)      => CollectionType(ListMonoid(), TypeVariable())
+    case MultiCons(_: SetMonoid, Nil)       => CollectionType(SetMonoid(), TypeVariable())
+    case MultiCons(_: BagMonoid, es)     => CollectionType(BagMonoid(), expType(es.head))
+    case MultiCons(_: ListMonoid, es)    => CollectionType(ListMonoid(), expType(es.head))
+    case MultiCons(_: SetMonoid, es)     => CollectionType(SetMonoid(), expType(es.head))
+
     case _: Count => IntType()
     case _: Exists => BoolType()
 
@@ -1253,232 +1255,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       aux
   }
 
-  /** Type Checker constraint solver.
-    * Solves a sequence of AND constraints.
-    */
-  private def solve(cs: Seq[Constraint]): Boolean = {
-
-    def solver(c: Constraint): Boolean = c match {
-      case SameType(e1, e2, desc)     =>
-        val t1 = expType(e1)
-        val t2 = expType(e2)
-        val r = unify(t1, t2)
-        if (!r) {
-          tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(parserPosition(e1)), Some(parserPosition(e2)))
-        }
-        r
-      case HasType(e, expected, desc) =>
-        val t = expType(e)
-        val r = unify(t, expected)
-        if (!r) {
-          tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(parserPosition(e)))
-        }
-        r
-
-      case MaxOfMonoids(n, gs) =>
-        val fromTypes = gs.map {
-          case Gen(_, e) =>
-            val te = expType(e)
-            find(te) match {
-              case tf: CollectionType => tf
-              case _                  => return true
-            }
-        }
-
-        val t = expType(n)
-        val m = n match {
-          case Comp(pm: PrimitiveMonoid, _, _) => pm
-          // TODO: AlgebraNode is too general for reduce
-          case (_: AlgebraNode | Comp(_: CollectionMonoid, _, _) | _: Select) =>
-            find(t) match {
-              case CollectionType(cm, _) => cm
-              case _: NothingType => return true
-            }
-        }
-
-        for (minType <- fromTypes) {
-          val minM = minType.m
-          val nv = MonoidVariable()
-          addMonoidOrder(nv, m)
-          val r = unifyMonoids(minM, nv)
-          if (!r) {
-            // TODO: Fix error message: should have m and nm?
-            tipeErrors += IncompatibleMonoids(m, walk(minType), Some(parserPosition(n)))
-            return false
-          }
-        }
-        return true
-
-      case PartitionHasType(p) =>
-        partitionEntity(p) match {
-          case PartitionEntity(s, t) =>
-            val t1 = selectPartitionType(s)
-            val r = unify(t, t1)
-            if (!r) {
-              tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"), Some(parserPosition(p)))
-              false
-            }
-            r
-          case _ =>
-            tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
-            false
-        }
-
-      case StarHasType(s) =>
-        starEntity(s) match {
-          case StarEntity(e, t) =>
-            e match {
-              case s1: Select =>
-                val t1 = find(selectStarType(s1))
-                val r = unify(t, t1)
-                if (!r) {
-                  tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"), Some(parserPosition(s)))
-                  false
-                }
-                r
-              case c: Comp =>
-                // TODO: ...
-                ???
-            }
-          case _                =>
-            tipeErrors += UnknownStar(s, Some(parserPosition(s)))
-            false
-        }
-
-      case BoundByType(b @ Bind(p, e)) =>
-        tipeBind(b) match {
-          case Some(_: FreeSymbols) => true
-          case _ => false
-        }
-
-      case IdnIsDefined(idnExp @ IdnExp(idn)) =>
-
-        def getType(nt: Type): Boolean = {
-          val t1 = nt match {
-            case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
-              if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
-                t
-              else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
-            case t => t
-          }
-
-          val t = expType(idnExp)
-          val r = unify(t, t1)
-          if (!r) {
-            // The same decl has been used with two different types.
-            // TODO: Can we have a more precise error messages? Set the None to a better message!
-            tipeErrors += UnexpectedType(walk(t), walk(t1), Some("same declaration used with two different types"), Some(parserPosition(idnExp)))
-          }
-          r
-        }
-
-        entity(idn) match {
-          case _: UnknownEntity =>
-            // Identifier is unknown
-
-            lookupAttributeEntity(idnExp) match {
-              case GenAttributeEntity(att, _, _) =>
-                // We found the attribute identifier in a generator
-                getType(att.tipe)
-              case IntoAttributeEntity(att, _, _) =>
-                // We found the attribute identifier in a Into
-                getType(att.tipe)
-              case _: UnknownEntity  =>
-                // We didn't found the attribute identifier
-                tipeErrors += UnknownDecl(idn, Some(parserPosition(idn)))
-                false
-              case _: MultipleEntity =>
-                // We found the attribute identifier more than once
-                tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
-                false
-            }
-          case _: MultipleEntity =>
-            // Error already reported earlier when processing IdnDef
-            false
-          case _ =>
-            // We found an entity for the identifier.
-            // However, we must still check it is not ambiguous so we look up in the anonymous chain as well.
-            lookupAttributeEntity(idnExp) match {
-              case _: UnknownEntity =>
-                // All good
-                getType(idnType(idn))
-              case (_: GenAttributeEntity | _: IntoAttributeEntity | _: MultipleEntity) =>
-                // We found the same identifier used by the user and being anonymous as well!
-                tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
-                false
-            }
-        }
-
-      case GenPatternHasType(g) =>
-        val t = expType(g.e)
-        find(t) match {
-          case CollectionType(_, innerType) =>
-            val expected = patternType(g.p.get)
-            val r = unify(innerType, expected)
-            if (!r) {
-              tipeErrors += PatternMismatch(g.p.get, walk(innerType), Some(parserPosition(g.p.get)))
-              return false
-            }
-            r
-        }
-
-      case FunAppType(funApp @ FunApp(f, e)) =>
-        val t = expType(f)
-        find(t) match {
-          case FunType(expected, output) =>
-            val t1 = expType(e)
-
-            def makeUpPattern(t: Type): Type = {
-              def recurse(t: Type): Type = find(t) match {
-                case RecordType(Attributes(atts)) => PatternType(atts.map { att => PatternAttrType(makeUpPattern(find(att.tipe))) })
-                case _                            => t
-              }
-              recurse(t)
-            }
-
-            // what do we unify the input parameter type with?
-            // if expected is identified as a pattern and e is a record, then try to unify against the pattern version of e
-            //                                        and e is not a record, then leave it as is and try. I guess it will fail.
-            // if expected is a typevariable, we don't know what it is. If e is a record, then expected should be a pattern with the same
-            // shape, therefore we unify against that record. If e is not a record, then we'll unify against whatever it is, it will just
-            // work.
-            val eType = expected match {
-              case _: PatternType => makeUpPattern(t1) // if f takes a pattern, turn the input parameter type into a pattern
-              case _: TypeVariable => makeUpPattern(t1)
-              case _ => find(t1)
-            }
-            //
-            //            val eType = makeUpPattern(t1)
-            logger.debug("trying1")
-            val r = unify(eType, expected)
-            if (!r) {
-              tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(parserPosition(e)), Some(parserPosition(f)))
-              return false
-            }
-
-            val tf = expType(funApp)
-            val r1 = unify(output, tf)
-
-            if (!r1) {
-              tipeErrors += IncompatibleTypes(walk(output), walk(tf), Some(parserPosition(e)), Some(parserPosition(f)))
-              return false
-            }
-            r1
-        }
-
-    }
-
-    cs match {
-      case c :: rest =>
-        if (solver(c))
-          solve(rest)
-        else
-          false
-      case _         => true
-    }
-
-  }
-
   /** Given a type, returns a new type that replaces type variables as much as possible, given the map m.
     * This is the type representing the group of types.
     */
@@ -1579,410 +1355,591 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case _ => NothingType()
   }
 
-  /** Constraints of a node.
-    * Each entry represents the constraints (aka. the facts) that a given node adds to the overall type checker.
-    */
-  // TODO: Decide what goes in expType, what doesn't. Whatever we decide, make it coherent. Could be to put everything but consts in constraint?
-  // TODO: Or could be to put things that are constant - ie. depend on primitive types or expTypes only - on the expTYpe directy. The adv of the latter is that if
-  // TODO: likely puts much less load in the constraint solver because there's less constraints.
-  // TODO: With Ben, we sort of agree that we should re-order constraints so that the stuff that provides more information goes first.
-  // TODO: Typically this means HasType(e, IntType()) goes before a SameType(n, e). We believe this may impact the precision of error reporting.
-  def constraint(n: RawNode): Seq[Constraint] = {
-    import Constraint._
+  def solve(n: RawNode): Unit = {
+
+    def sameType(e1: Exp, e2: Exp, desc: Option[String] = None) = {
+      val t1 = expType(e1)
+      val t2 = expType(e2)
+      val r = unify(t1, t2)
+      if (!r) {
+        tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(parserPosition(e1)), Some(parserPosition(e2)))
+      }
+    }
+
+    def hasType(e: Exp, expected: Type, desc: Option[String] = None) = {
+      val t = expType(e)
+      val r = unify(t, expected)
+      if (!r) {
+        tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(parserPosition(e)))
+      }
+    }
+
+    def genPatternHasType(g: Gen) = {
+      val t = expType(g.e)
+      find(t) match {
+        case CollectionType(_, innerType) =>
+          val expected = patternType(g.p.get)
+          val r = unify(innerType, expected)
+          if (!r) {
+            tipeErrors += PatternMismatch(g.p.get, walk(innerType), Some(parserPosition(g.p.get)))
+          }
+      }
+    }
+
+    def maxOfMonoids(n: Exp, gs: Seq[Gen]): Unit = {
+      val fromTypes = gs.map {
+        case Gen(_, e) =>
+          val te = expType(e)
+          find(te) match {
+            case tf: CollectionType => tf
+            case _ => return
+          }
+      }
+
+      val t = expType(n)
+      val m = n match {
+        case Comp(pm: PrimitiveMonoid, _, _) => pm
+        // TODO: AlgebraNode is too general for reduce
+        case (_: AlgebraNode | Comp(_: CollectionMonoid, _, _) | _: Select) =>
+          find(t) match {
+            case CollectionType(cm, _) => cm
+            case _: NothingType => return
+          }
+      }
+
+      for (minType <- fromTypes) {
+        val minM = minType.m
+        val nv = MonoidVariable()
+        addMonoidOrder(nv, m)
+        val r = unifyMonoids(minM, nv)
+        if (!r) {
+          // TODO: Fix error message: should have m and nm?
+          tipeErrors += IncompatibleMonoids(m, walk(minType), Some(parserPosition(n)))
+        }
+      }
+    }
+
+    def boundByType(b: Bind) = tipeBind(b)
+
+    def idnIsDefined(idnExp: IdnExp) = {
+
+      def getType(nt: Type): Boolean = {
+        val t1 = nt match {
+          case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
+            if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
+              t
+            else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
+          case t => t
+        }
+
+        val t = expType(idnExp)
+        val r = unify(t, t1)
+        if (!r) {
+          // The same decl has been used with two different types.
+          // TODO: Can we have a more precise error messages? Set the None to a better message!
+          tipeErrors += UnexpectedType(walk(t), walk(t1), Some("same declaration used with two different types"), Some(parserPosition(idnExp)))
+        }
+        r
+      }
+
+      val idn = idnExp.idn
+
+      entity(idn) match {
+        case _: UnknownEntity =>
+          // Identifier is unknown
+
+          lookupAttributeEntity(idnExp) match {
+            case GenAttributeEntity(att, _, _) =>
+              // We found the attribute identifier in a generator
+              getType(att.tipe)
+            case IntoAttributeEntity(att, _, _) =>
+              // We found the attribute identifier in a Into
+              getType(att.tipe)
+            case _: UnknownEntity =>
+              // We didn't found the attribute identifier
+              tipeErrors += UnknownDecl(idn, Some(parserPosition(idn)))
+              false
+            case _: MultipleEntity =>
+              // We found the attribute identifier more than once
+              tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
+              false
+          }
+        case _: MultipleEntity =>
+          // Error already reported earlier when processing IdnDef
+          false
+        case _ =>
+          // We found an entity for the identifier.
+          // However, we must still check it is not ambiguous so we look up in the anonymous chain as well.
+          lookupAttributeEntity(idnExp) match {
+            case _: UnknownEntity =>
+              // All good
+              getType(idnType(idn))
+            case (_: GenAttributeEntity | _: IntoAttributeEntity | _: MultipleEntity) =>
+              // We found the same identifier used by the user and being anonymous as well!
+              tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
+              false
+          }
+      }
+    }
+
+    def funAppType(funApp: FunApp) = {
+      val f = funApp.f
+      val e = funApp.e
+      val t = expType(f)
+      find(t) match {
+        case FunType(expected, output) =>
+          val t1 = expType(e)
+
+          def makeUpPattern(t: Type): Type = {
+            def recurse(t: Type): Type = find(t) match {
+              case RecordType(Attributes(atts)) => PatternType(atts.map { att => PatternAttrType(makeUpPattern(find(att.tipe))) })
+              case _ => t
+            }
+            recurse(t)
+          }
+
+          // what do we unify the input parameter type with?
+          // if expected is identified as a pattern and e is a record, then try to unify against the pattern version of e
+          //                                        and e is not a record, then leave it as is and try. I guess it will fail.
+          // if expected is a typevariable, we don't know what it is. If e is a record, then expected should be a pattern with the same
+          // shape, therefore we unify against that record. If e is not a record, then we'll unify against whatever it is, it will just
+          // work.
+          val eType = expected match {
+            case _: PatternType => makeUpPattern(t1) // if f takes a pattern, turn the input parameter type into a pattern
+            case _: TypeVariable => makeUpPattern(t1)
+            case _ => find(t1)
+          }
+          //
+          //            val eType = makeUpPattern(t1)
+          val r = unify(eType, expected)
+          if (!r) {
+            tipeErrors += IncompatibleTypes(walk(t1), walk(expected), Some(parserPosition(e)), Some(parserPosition(f)))
+          }
+
+          val tf = expType(funApp)
+          val r1 = unify(output, tf)
+
+          if (!r1) {
+            tipeErrors += IncompatibleTypes(walk(output), walk(tf), Some(parserPosition(e)), Some(parserPosition(f)))
+          }
+      }
+    }
+
+    def partitionHasType(p: Partition) = {
+      partitionEntity(p) match {
+        case PartitionEntity(s, t) =>
+          val t1 = selectPartitionType(s)
+          val r = unify(t, t1)
+          if (!r) {
+            tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"), Some(parserPosition(p)))
+          }
+        case _ =>
+          tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
+      }
+    }
+
+    def starHasType(s: Star) = {
+      starEntity(s) match {
+        case StarEntity(e, t) =>
+          e match {
+            case s1: Select =>
+              val t1 = find(selectStarType(s1))
+              val r = unify(t, t1)
+              if (!r) {
+                tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"), Some(parserPosition(s)))
+              }
+            case c: Comp =>
+              // TODO: ...
+              ???
+          }
+        case _ =>
+          tipeErrors += UnknownStar(s, Some(parserPosition(s)))
+      }
+    }
 
     n match {
 
-      case p: Partition =>
-        Seq(
-          PartitionHasType(p))
+      case Gen(None, e) =>
+        solve(e)
+        hasType(e, CollectionType(MonoidVariable(), TypeVariable()))
 
-      case s: Star =>
-        Seq(
-          StarHasType(s))
+      case g @ Gen(Some(p), e) =>
+        solve(e)
+        hasType(e, CollectionType(MonoidVariable(), TypeVariable()))
+        genPatternHasType(g)
 
-      case n: IdnExp =>
-        Seq(
-          IdnIsDefined(n))
+      case b: Bind =>
+        boundByType(b)
 
-      // Select
-      case n@Select(froms, d, g, proj, w, o, h) =>
+      case c @ Comp(m, qs, e) =>
+        for (q <- qs) {
+          solve(q)
+        }
+        solve(e)
+        m match {
+          case _: NumberMonoid =>
+            val gs = qs.collect { case g: Gen => g }
+            hasType(e, NumberType())
+            sameType(c, e)
+            maxOfMonoids(c, gs)
+
+          case _: BoolMonoid =>
+            val gs = qs.collect { case g: Gen => g }
+            hasType(e, BoolType())
+            sameType(c, e)
+            maxOfMonoids(c, gs)
+
+          case m: CollectionMonoid =>
+            val gs = qs.collect { case g: Gen => g }
+            hasType(c, CollectionType(m, expType(e)))
+            maxOfMonoids(c, gs)
+        }
+
+      case s @ Select(froms, distinct, g, proj, w, o, h) =>
+        for (f <- froms) {
+          solve(f)
+        }
+        if (g.isDefined) {
+          solve(g.get)
+        }
+        solve(proj)
+        if (w.isDefined) {
+          solve(w.get)
+        }
+        if (o.isDefined) {
+          solve(o.get)
+        }
+        if (h.isDefined) {
+          solve(h.get)
+        }
         val m =
           if (o.isDefined)
             ListMonoid()
-          else if (d)
+          else if (distinct)
             SetMonoid()
           else
             MonoidVariable()
 
-        Seq(
-          HasType(n, CollectionType(m, expType(proj))),
-          MaxOfMonoids(n, froms))
+        hasType(s, CollectionType(m, expType(proj)))
+        maxOfMonoids(s, froms)
 
-      // Rule 4
-      case n@RecordProj(e, idn) =>
-        Seq(
-          HasType(e, RecordType(AttributesVariable(Set(AttrType(idn, expType(n)))))))
+      case f @ FunAbs(p, e) =>
+        solve(e)
+        hasType(f, FunType(patternType(p), expType(e)))
 
-      // Rule 6
-      case n@IfThenElse(e1, e2, e3) =>
-        Seq(
-          HasType(e1, BoolType(), Some("if condition must be a boolean")),
-          SameType(e2, e3, Some("then and else must be of the same type")),
-          SameType(n, e2))
+      case n @ ExpBlock(binds, e) =>
+        for (b <- binds) {
+          solve(b)
+        }
+        solve(e)
+        sameType(n, e)
 
-      case n @ FunAbs(p, e) =>
-        Seq(
-          HasType(n, FunType(patternType(p), expType(e))))
+      case n @ MergeMonoid(m, e1, e2) =>
+        solve(e1)
+        solve(e2)
+        m match {
+          case _: BoolMonoid =>
+            hasType(n, BoolType())
+            hasType(e1, BoolType())
+            hasType(e2, BoolType())
 
-      // Rule 8
+          case _: NumberMonoid =>
+            hasType(n, NumberType())
+            sameType(n, e1)
+            sameType(e1, e2)
+
+          case m1: CollectionMonoid =>
+            hasType(e1, CollectionType(m1, TypeVariable()))
+            sameType(e1, e2)
+            sameType(n, e1)
+        }
+
+      case n @ BinaryExp(op, e1, e2) =>
+        solve(e1)
+        solve(e2)
+        op match {
+          case _: EqualityOperator =>
+            hasType(n, BoolType())
+            sameType(e1, e2)
+
+          case _: ComparisonOperator =>
+            hasType(n, BoolType())
+            sameType(e2, e1)
+            hasType(e1, NumberType())
+
+          case _: ArithmeticOperator =>
+            sameType(n, e1)
+            sameType(e1, e2)
+            hasType(e2, NumberType())
+        }
+
+      case n @ InExp(e1, e2) =>
+        solve(e1)
+        solve(e2)
+        val inner = TypeVariable()
+        hasType(e2, CollectionType(MonoidVariable(), inner))
+        hasType(e1, inner)
+        hasType(n, BoolType())
+
+      case n @ UnaryExp(op, e) =>
+        solve(e)
+        op match {
+          case _: Not =>
+            sameType(n, e)
+            hasType(e, BoolType())
+
+          case _: Neg =>
+            sameType(n, e)
+            hasType(e, NumberType())
+
+          case _: ToBag =>
+            val inner = TypeVariable()
+            hasType(e, CollectionType(MonoidVariable(), inner))
+            hasType(n, CollectionType(BagMonoid(), inner))
+
+          case _: ToList =>
+            val inner = TypeVariable()
+            hasType(e, CollectionType(MonoidVariable(), inner))
+            hasType(n, CollectionType(ListMonoid(), inner))
+
+          case _: ToSet =>
+            val inner = TypeVariable()
+            hasType(e, CollectionType(MonoidVariable(), inner))
+            hasType(n, CollectionType(SetMonoid(), inner))
+
+          case _: ToInt =>
+            hasType(n, IntType())
+
+        }
+
+      case n: IdnExp =>
+        idnIsDefined(n)
+
+      case n @ RecordProj(e, idn) =>
+        solve(e)
+        hasType(e, RecordType(AttributesVariable(Set(AttrType(idn, expType(n))))))
+
+      case RecordCons(atts) =>
+        for (att <- atts) {
+          solve(att.e)
+        }
+
       case n @ FunApp(f, e) =>
-        Seq(
-          HasType(f, FunType(TypeVariable(), expType(n))),
-          FunAppType(n))
-      //          HasType(f, FunType(expType(e), expType(n))))
+        solve(f)
+        solve(e)
+        hasType(f, FunType(TypeVariable(), expType(n)))
+        funAppType(n)
+        //hasType(f, FunType(expType(e), expType(n))))
 
-      // Rule 11
-      case n@MergeMonoid(_: BoolMonoid, e1, e2) =>
-        Seq(
-          HasType(n, BoolType()),
-          HasType(e1, BoolType()),
-          HasType(e2, BoolType()))
+      case _: ZeroCollectionMonoid =>
 
-      case n@MergeMonoid(_: NumberMonoid, e1, e2) =>
-        Seq(
-          HasType(n, NumberType()),
-          SameType(n, e1),
-          SameType(e1, e2))
+      case ConsCollectionMonoid(_, e) =>
+        solve(e)
 
-      // Rule 12
-      case n@MergeMonoid(m: CollectionMonoid, e1, e2) =>
-        Seq(
-          HasType(e1, CollectionType(m, TypeVariable())),
-          SameType(e1, e2),
-          SameType(n, e1))
+      case MultiCons(m, es) =>
+        for (e <- es) {
+          solve(e)
+        }
 
-      // Rule 13
-      case n@Comp(_: NumberMonoid, qs, e) =>
-        val gs = qs.collect { case g: Gen => g }
-        Seq(
-          HasType(e, NumberType()),
-          SameType(n, e),
-          MaxOfMonoids(n, gs))
+        if (es.length > 1) {
+          val thead = expType(es.head)
+          for (e <- es.tail) {
+            hasType(e, thead)
+          }
+        }
 
-      case n@Comp(_: BoolMonoid, qs, e) =>
-        val gs = qs.collect { case g: Gen => g }
-        Seq(
-          HasType(e, BoolType()),
-          SameType(n, e),
-          MaxOfMonoids(n, gs))
+      case n @ IfThenElse(e1, e2, e3) =>
+        solve(e1)
+        solve(e2)
+        solve(e3)
+        hasType(e1, BoolType(), Some("if condition must be a boolean"))
+        sameType(e2, e3, Some("then and else must be of the same type"))
+        sameType(n, e2)
 
-      // Rule 14
-      case n@Comp(m: CollectionMonoid, qs, e1) =>
-        val gs = qs.collect { case g: Gen => g }
-        Seq(
-          HasType(n, CollectionType(m, expType(e1))),
-          MaxOfMonoids(n, gs))
+      case p: Partition =>
+        partitionHasType(p)
 
-      // Binary Expression
-      case n@BinaryExp(_: EqualityOperator, e1, e2) =>
-        Seq(
-          HasType(n, BoolType()),
-          SameType(e1, e2))
+      case s: Star =>
+        starHasType(s)
 
-      case n@BinaryExp(_: ComparisonOperator, e1, e2) =>
-        Seq(
-          HasType(n, BoolType()),
-          SameType(e2, e1),
-          HasType(e1, NumberType()))
+      case n @ Reduce(m, g, e) =>
+        solve(g)
+        solve(e)
+        m match {
+          case m1: CollectionMonoid =>
+            hasType(n, CollectionType(m1, expType(e)))
 
-      case n@BinaryExp(_: ArithmeticOperator, e1, e2) =>
-        Seq(
-          SameType(n, e1),
-          SameType(e1, e2),
-          HasType(e2, NumberType()))
+          case _: NumberMonoid =>
+            hasType(e, NumberType())
+            sameType(n, e)
 
-      // Binary Expression
-      case n@InExp(e1, e2) =>
-        val inner = TypeVariable()
-        Seq(
-          HasType(e2, CollectionType(MonoidVariable(), inner)),
-          HasType(e1, inner),
-          HasType(n, BoolType()))
+          case _: BoolMonoid =>
+            hasType(e, BoolType())
+            hasType(n, BoolType())
+        }
 
-      // Unary Expression type
+      case n @ Filter(g, p) =>
+        solve(g)
+        solve(p)
+        sameType(n, g.e)
+        hasType(p, BoolType())
 
-      case n@UnaryExp(_: Not, e) =>
-        Seq(
-          SameType(n, e),
-          HasType(e, BoolType()))
+      case n @ Nest(m, g, k, p, e) =>
+        solve(g)
+        solve(k)
+        solve(e)
+        solve(p)
+        m match {
+          case rm: CollectionMonoid =>
+            val m = MonoidVariable()
+            hasType(g.e, CollectionType(m, TypeVariable()))
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e))))))))
 
-      case n@UnaryExp(_: Neg, e) =>
-        Seq(
-          SameType(n, e),
-          HasType(e, NumberType()))
+          case rm: NumberMonoid =>
+            val m = MonoidVariable()
+            val nt = NumberType()
+            hasType(g.e, CollectionType(m, TypeVariable()))
+            hasType(e, nt)
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", nt))))))
 
-      case n@UnaryExp(_: ToBag, e) =>
-        val inner = TypeVariable()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), inner)),
-          HasType(n, CollectionType(BagMonoid(), inner)))
+          case rm: BoolMonoid =>
+            val m = MonoidVariable()
+            val bt = BoolType()
+            hasType(g.e, CollectionType(m, TypeVariable()))
+            hasType(e, bt)
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", bt))))))
+        }
 
-      case n@UnaryExp(_: ToList, e) =>
-        val inner = TypeVariable()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), inner)),
-          HasType(n, CollectionType(ListMonoid(), inner)))
+      case n @ Nest2(m, g, k, p, e) =>
+        solve(g)
+        solve(k)
+        solve(e)
+        solve(p)
+        m match {
+          case rm: CollectionMonoid =>
+            val m = MonoidVariable()
+            val inner = TypeVariable()
+            hasType(g.e, CollectionType(m, inner))
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e))))))))
 
-      case n@UnaryExp(_: ToSet, e) =>
-        val inner = TypeVariable()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), inner)),
-          HasType(n, CollectionType(SetMonoid(), inner)))
+          case rm: NumberMonoid =>
+            val m = MonoidVariable()
+            val nt = NumberType()
+            val inner = TypeVariable()
+            hasType(g.e, CollectionType(m, inner))
+            hasType(e, nt)
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", nt))))))
 
-      // Expression block type
-      case n@ExpBlock(_, e) =>
-        Seq(
-          SameType(n, e))
-
-      // Into
-      case Into(e1, _) =>
-        Seq(
-          HasType(e1, RecordType(AttributesVariable(Set()))))
-
-      // ParseAs
-      case ParseAs(e, _, _) =>
-        Seq(
-          HasType(e, StringType()))
-
-      // ToEpoch
-      case ToEpoch(e, _) =>
-        Seq(
-          HasType(e, StringType()))
-
-      // Declarations
-
-      case Gen(None, e) =>
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
-
-      case g @ Gen(Some(p), e) =>
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), TypeVariable())),
-          GenPatternHasType(g))
-
-      case b: Bind =>
-        Seq(
-          BoundByType(b))
-
-      // Operators
-
-      case n@Reduce(m: CollectionMonoid, g, e) =>
-        Seq(
-          HasType(n, CollectionType(m, expType(e))))
-
-      case n@Reduce(m: NumberMonoid, g, e) =>
-        Seq(
-          HasType(e, NumberType()),
-          SameType(n, e))
-
-      case n@Reduce(m: BoolMonoid, g, e) =>
-        Seq(
-          HasType(e, BoolType()),
-          HasType(n, BoolType()))
-
-      case n@Filter(g, p) =>
-        Seq(
-          SameType(n, g.e),
-          HasType(p, BoolType()))
-
-      case n@Nest(rm: CollectionMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, TypeVariable())),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e)))))))))
-
-      case n@Nest(rm: NumberMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val nt = NumberType()
-        Seq(
-          HasType(g.e, CollectionType(m, TypeVariable())),
-          HasType(e, nt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", nt)))))))
-
-      case n@Nest(rm: BoolMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val bt = BoolType()
-        Seq(
-          HasType(g.e, CollectionType(m, TypeVariable())),
-          HasType(e, bt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", bt)))))))
-
-      case n@Nest2(rm: CollectionMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val inner = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, inner)),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e)))))))))
-
-      case n@Nest2(rm: NumberMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val nt = NumberType()
-        val inner = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, inner)),
-          HasType(e, nt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", nt)))))))
-
-      case n@Nest2(rm: BoolMonoid, g, k, p, e) =>
-        val m = MonoidVariable()
-        val bt = BoolType()
-        val inner = TypeVariable()
-        Seq(
-          HasType(g.e, CollectionType(m, inner)),
-          HasType(e, bt),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", bt)))))))
-
+          case rm: BoolMonoid =>
+            val m = MonoidVariable()
+            val bt = BoolType()
+            val inner = TypeVariable()
+            hasType(g.e, CollectionType(m, inner))
+            hasType(e, bt)
+            hasType(p, BoolType())
+            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", bt))))))
+        }
 
       case n @ Join(g1, g2, p) =>
+        solve(g1)
+        solve(g2)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        Seq(
-          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
-          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2)))))),
-          MaxOfMonoids(n, Seq(g1, g2)))
+        hasType(g1.e, CollectionType(MonoidVariable(), t1))
+        hasType(g2.e, CollectionType(MonoidVariable(), t2))
+        hasType(p, BoolType())
+        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
+        maxOfMonoids(n, Seq(g1, g2))
 
       case n @ OuterJoin(g1, g2, p) =>
+        solve(g1)
+        solve(g2)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        Seq(
-          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
-          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2)))))),
-          MaxOfMonoids(n, Seq(g1, g2)))
+        hasType(g1.e, CollectionType(MonoidVariable(), t1))
+        hasType(g2.e, CollectionType(MonoidVariable(), t2))
+        hasType(p, BoolType())
+        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
+        maxOfMonoids(n, Seq(g1, g2))
 
       case n @ Unnest(g1, g2, p) =>
+        solve(g1)
+        solve(g2)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        Seq(
-          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
-          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2)))))),
-          MaxOfMonoids(n, Seq(g1, g2)))
+        hasType(g1.e, CollectionType(MonoidVariable(), t1))
+        hasType(g2.e, CollectionType(MonoidVariable(), t2))
+        hasType(p, BoolType())
+        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
+        maxOfMonoids(n, Seq(g1, g2))
 
       case n @ OuterUnnest(g1, g2, p) =>
+        solve(g1)
+        solve(g2)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
-        Seq(
-          HasType(g1.e, CollectionType(MonoidVariable(), t1)),
-          HasType(g2.e, CollectionType(MonoidVariable(), t2)),
-          HasType(p, BoolType()),
-          HasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2)))))),
-          MaxOfMonoids(n, Seq(g1, g2)))
-
-      // Sugar nodes
+        hasType(g1.e, CollectionType(MonoidVariable(), t1))
+        hasType(g2.e, CollectionType(MonoidVariable(), t2))
+        hasType(p, BoolType())
+        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
+        maxOfMonoids(n, Seq(g1, g2))
 
       case n @ Sum(e) =>
+        solve(e)
         val mv = MonoidVariable()
         addMonoidOrder(mv, SumMonoid())
         val tn = NumberType()
-        Seq(
-          HasType(e, CollectionType(mv, tn)),
-          HasType(n, tn))
+        hasType(e, CollectionType(mv, tn))
+        hasType(n, tn)
 
       case n @ Max(e) =>
+        solve(e)
         val tn = NumberType()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), tn)),
-          HasType(n, tn))
+        hasType(e, CollectionType(MonoidVariable(), tn))
+        hasType(n, tn)
 
       case n @ Min(e) =>
+        solve(e)
         val tn = NumberType()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), tn)),
-          HasType(n, tn))
+        hasType(e, CollectionType(MonoidVariable(), tn))
+        hasType(n, tn)
 
       case n @ Avg(e) =>
+        solve(e)
         val tn = NumberType()
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), tn)),
-          HasType(n, tn))
+        hasType(e, CollectionType(MonoidVariable(), tn))
+        hasType(n, tn)
 
       case n @ Count(e) =>
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
+        solve(e)
+        hasType(e, CollectionType(MonoidVariable(), TypeVariable()))
 
       case n @ Exists(e) =>
-        Seq(
-          HasType(e, CollectionType(MonoidVariable(), TypeVariable())))
+        solve(e)
+        hasType(e, CollectionType(MonoidVariable(), TypeVariable()))
 
-      case n @ MultiCons(m, head :: tail) if tail.nonEmpty =>
-        val thead = expType(head)
-        tail.map { case e => HasType(e, thead) } :+ HasType(n, CollectionType(m, thead))
+      case n @ Into(e1, e2) =>
+        solve(e1)
+        solve(e2)
+        hasType(e1, RecordType(AttributesVariable(Set())))
 
-      case _ =>
-        Seq()
+      case n @ ParseAs(e, r, _) =>
+        solve(e)
+        solve(r)
+        hasType(e, StringType())
+
+      case n @ ToEpoch(e, _) =>
+        solve(e)
+        hasType(e, StringType())
+
+      case _: Const =>
+
     }
-  }
-
-  /** Collects the constraints of an expression.
-    * The constraints are returned in an "ordered sequence", i.e. the child constraints are collected before the current node's constraints.
-    */
-  // TODO: Move constraint(n) to top-level and apply it always at the end
-  // TODO: It seems to Miguel that this is all just a simple top down collect except the case of Bind in a Comp or ExpBlock
-  // TODO: So perhaps this can be refactored to make that case evident and all others be just a kiama collect, adding ourselves (node n) last.
-  lazy val constraints: Exp => Seq[Constraint] = attr {
-    case n @ Comp(_, qs, e) => qs.flatMap{ case e: Exp => constraints(e) case g @ Gen(_, e1) => constraints(e1) ++ constraint(g) case b @ Bind(_, e1) => constraint(b) } ++ constraints(e) ++ constraint(n)
-    case n @ Select(from, _, g, proj, w, o, h) =>
-      val fc = from.flatMap { case it @ Gen(_, e) => constraints(e) ++ constraint(it) }
-      val gc = if (g.isDefined) constraints(g.get) else Nil
-      val wc = if (w.isDefined) constraints(w.get) else Nil
-      val oc = if (o.isDefined) constraints(o.get) else Nil
-      val hc = if (h.isDefined) constraints(h.get) else Nil
-      fc ++ gc ++ constraints(proj) ++ wc ++ oc ++ hc ++ constraint(n)
-    case n @ FunAbs(_, e) => constraints(e) ++ constraint(n)
-    case n @ ExpBlock(binds, e) => binds.toList.flatMap{ case b @ Bind(_, e1) => constraint(b)} ++ constraints(e) ++ constraint(n)
-    case n @ MergeMonoid(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
-    case n @ BinaryExp(_, e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
-    case n @ InExp(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
-    case n @ UnaryExp(_, e) => constraints(e) ++ constraint(n)
-    case n: IdnExp => constraint(n)
-    case n @ RecordProj(e, _) => constraints(e) ++ constraint(n)
-    case n: Const => constraint(n)
-    case n @ RecordCons(atts) => atts.flatMap { case att => constraints(att.e) } ++ constraint(n)
-    case n @ FunApp(f, e) => constraints(f) ++ constraints(e) ++ constraint(n)
-    case n @ ZeroCollectionMonoid(_) => constraint(n)
-    case n @ ConsCollectionMonoid(_, e) => constraints(e) ++ constraint(n)
-    case n @ MultiCons(_, es) => es.flatMap(constraints) ++ constraint(n)
-    case n @ IfThenElse(e1, e2, e3) => constraints(e1) ++ constraints(e2) ++ constraints(e3) ++ constraint(n)
-    case n: Partition => constraint(n)
-    case n: Star => constraint(n)
-    case n @ Reduce(m, g, e) => constraints(g.e) ++ constraint(g) ++ constraints(e) ++ constraint(n)
-    case n @ Filter(g, p) => constraints(g.e) ++ constraint(g) ++ constraints(p) ++ constraint(n)
-    case n @ Nest(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
-    case n @ Nest2(m, g, k, p, e) => constraints(g.e) ++ constraint(g) ++ constraints(k) ++ constraints(e) ++ constraints(p) ++ constraint(n)
-    case n @ Join(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
-    case n @ OuterJoin(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
-    case n @ Unnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
-    case n @ OuterUnnest(g1, g2, p) => constraints(g1.e) ++ constraint(g1) ++ constraints(g2.e) ++ constraint(g2) ++ constraints(p) ++ constraint(n)
-    case n @ Sum(e) => constraints(e) ++ constraint(n)
-    case n @ Max(e) => constraints(e) ++ constraint(n)
-    case n @ Min(e) => constraints(e) ++ constraint(n)
-    case n @ Avg(e) => constraints(e) ++ constraint(n)
-    case n @ Count(e) => constraints(e) ++ constraint(n)
-    case n @ Exists(e) => constraints(e) ++ constraint(n)
-    case n @ Into(e1, e2) => constraints(e1) ++ constraints(e2) ++ constraint(n)
-    case n @ ParseAs(e, r, _) => constraints(e) ++ constraints(r) ++ constraint(n)
-    case n @ ToEpoch(e, _) => constraints(e) ++ constraint(n)
   }
 
   /** For debugging.
