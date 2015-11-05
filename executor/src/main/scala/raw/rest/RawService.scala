@@ -160,11 +160,11 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def getUser(httpRequest: HttpRequest): String = {
-    //    logger.info("Headers: " + httpRequest.headers.mkString("\n"))
+    logger.info("Headers: " + httpRequest.headers.mkString("\n"))
     val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
     auth match {
       case None => //TODO: raise a 401.
-        throw new ClientErrorException("Request not authenticated.", null, StatusCodes.Unauthorized)
+        throw new ClientErrorException("Request not authenticated, no Authorization header found.", null, StatusCodes.Unauthorized)
 
       case Some(auth) => auth.credentials match {
         case BasicHttpCredentials(user, pass) =>
