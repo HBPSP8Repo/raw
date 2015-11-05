@@ -18,6 +18,8 @@ import raw.spark._
 import raw.storage.{LocalStorageBackend, StorageBackend, StorageManager}
 import spray.can.Http
 import spray.can.Http.Bound
+import spray.http.{StatusCodes, StatusCode}
+import spray.http.StatusCodes.ClientError
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -38,8 +40,9 @@ object DefaultJsonMapper extends StrictLogging {
 
 /* Generic exception, which the request handler code can raise to send a 400 response to the client.
 * This exception will be caught by the exception handler below and transformed in a 400 response*/
-class ClientErrorException(msg: String, cause: Throwable) extends Exception(msg, cause) {
+class ClientErrorException(msg: String, cause: Throwable, val statusCode: ClientError = StatusCodes.BadRequest) extends Exception(msg, cause) {
   def this(msg: String) = this(msg, null)
+
   def this(cause: Throwable) = this(cause.getMessage, cause)
 }
 
@@ -50,15 +53,11 @@ object RawRestServer {
 
   final val port = 54321
 
-  case class QueryRequest(query: String, token: String)
+  case class QueryRequest(query: String)
 
   val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
 
-  case class SchemaRequest(module: String, token: String)
-
-  val schemaRequestReader = mapper.readerFor(classOf[SchemaRequest])
-
-  case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String, token: String)
+  case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String)
 
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
 
@@ -136,4 +135,3 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     system.shutdown()
   }
 }
-

@@ -2,15 +2,30 @@ package raw.executor
 
 import java.io.IOException
 import java.nio.file.Path
+import java.util.Base64
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
+import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import raw.rest.RawRestServer.{ExceptionResponse, QueryRequest, RegisterFileRequest}
-import raw.rest.{ClientErrorException, DefaultJsonMapper, RawRestServer}
+import raw.rest.{DefaultJsonMapper, RawRestServer}
 import raw.{ParserError, SemanticErrors}
+
+
+object DropboxAuthUsers {
+  final val TestUserJoe = new DropboxCredentials("123456789-Joe_Test_Doe")
+  final val TestUserJane = new DropboxCredentials("987654321-Jane_Test_Dane")
+  final val TestUserNonexisting = new DropboxCredentials("000000-Elvis")
+}
+
+object BasicAuthUsers {
+  final val TestUserJoe = new BasicCredentials("123456789-Joe_Test_Doe", "1234")
+  final val TestUserJane = new BasicCredentials("987654321-Jane_Test_Dane", "1234")
+  final val TestUserNonexisting = new BasicCredentials("000000-Elvis", "1234")
+}
+
 
 /* Classes representing the responses sent by the rest server and the corresponding Jackson deserializers */
 object RawServiceClientProxy {
@@ -45,8 +60,26 @@ object RawServiceClientProxy {
 
   val exceptionResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[ExceptionResponse])
 }
-  
+
 class ClientErrorWrapperException(exceptionResponse: ExceptionResponse) extends Exception(exceptionResponse.toString)
+
+trait RawCredentials {
+  def configureRequest(request: HttpUriRequest): Unit
+}
+
+case class DropboxCredentials(token: String) extends RawCredentials {
+  override def configureRequest(request: HttpUriRequest): Unit = {
+    request.setHeader("Authorization", "Bearer " + token)
+  }
+}
+
+case class BasicCredentials(user: String, pass: String) extends RawCredentials {
+  override def configureRequest(request: HttpUriRequest): Unit = {
+    val encoding = Base64.getEncoder.encodeToString(s"$user:$pass".getBytes())
+    request.setHeader("Authorization", "Basic " + encoding)
+  }
+}
+
 
 class RawServiceClientProxy extends StrictLogging {
 
@@ -54,9 +87,11 @@ class RawServiceClientProxy extends StrictLogging {
 
   val httpClient = HttpClients.createDefault()
 
-  def query(query: String, user: String): String = {
+  def query(query: String, credentials: RawCredentials): String = {
     val queryPost = new HttpPost("http://localhost:54321/query")
-    val queryRequest = new QueryRequest(query, user)
+    credentials.configureRequest(queryPost)
+    //    addBasicAuthHeader(queryPost, user, "doesnotmatter")
+    val queryRequest = new QueryRequest(query)
     val reqBody = DefaultJsonMapper.mapper.writeValueAsString(queryRequest)
     queryPost.setEntity(new StringEntity(reqBody))
     val responseBody = executeRequest(queryPost)
@@ -66,19 +101,19 @@ class RawServiceClientProxy extends StrictLogging {
     DefaultJsonMapper.mapper.writeValueAsString(response.output)
   }
 
-  def registerLocalFile(user: String, file: Path): String = {
+  def registerLocalFile(credentials: RawCredentials, file: Path): String = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
     assert(i > 0, s"Cannot recognize type of input file: $file.")
     val fileType = filename.substring(i + 1)
     val schema = filename.substring(0, i)
-    registerFile("file", file.toString, filename, schema, fileType, user)
+    registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerLocalFile(user: String, file: Path, schema:String): String = {
+  def registerLocalFile(credentials: RawCredentials, file: Path, schema: String): String = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
-    val fileType = if (i>0) {
+    val fileType = if (i > 0) {
       val extension = filename.substring(i + 1)
       logger.info(s"File type derived from extension: $extension.")
       extension
@@ -86,29 +121,31 @@ class RawServiceClientProxy extends StrictLogging {
       logger.info(s"No extension detected in file $file. Assuming text file.")
       "text"
     }
-    registerFile("file", file.toString, filename, schema, fileType, user)
+    registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, token: String): String = {
-    val req = new RegisterFileRequest(protocol, url, filename, name, `type`, token)
+  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, credentials: RawCredentials): String = {
+    val req = new RegisterFileRequest(protocol, url, filename, name, `type`)
     val registerPost = new HttpPost("http://localhost:54321/register-file")
+    credentials.configureRequest(registerPost)
+    //    addBasicAuthHeader(registerPost, user, "doesnotmatter")
     registerPost.setEntity(new StringEntity(DefaultJsonMapper.mapper.writeValueAsString(req)))
     val responseBody = executeRequest(registerPost)
     val response = registerFileResponseReader.readValue[RegisterFileResponse](responseBody)
     response.name
   }
 
-  def getSchemas(user: String): Set[String] = {
-    val schemasPost = new HttpPost("http://localhost:54321/schemas")
-    val req = new RawRestServer.SchemaRequest("unnused", user)
-    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(req)
-    schemasPost.setEntity(new StringEntity(reqBody))
+  def getSchemas(credentials: RawCredentials): Set[String] = {
+    val schemasPost = new HttpGet("http://localhost:54321/schemas")
+    //    addBasicAuthHeader(schemasPost, user, "doesnotmatter")
+    credentials.configureRequest(schemasPost)
     val responseBody = executeRequest(schemasPost)
     val response = schemasResponseReader.readValue[SchemasResponse](responseBody)
     val asSet = response.schemas.toSet
     assert(asSet.size == response.schemas.size, "Response contains duplicated elements: " + response.schemas)
     asSet
   }
+
 
   private[this] def executeRequest(request: HttpUriRequest): String = {
     logger.info("Sending request: " + request)

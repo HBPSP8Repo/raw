@@ -53,19 +53,19 @@ trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging with Inf
     restServer.stop()
   }
 
-  def schemasTest(user: String, expected: Set[String]): Unit = {
-    val actual = clientProxy.getSchemas(user)
+  def schemasTest(credentials: RawCredentials, expected: Set[String]): Unit = {
+    val actual = clientProxy.getSchemas(credentials)
     assert(actual === expected)
   }
 
-  def testQuery(user: String, query: String, expected: String): Unit = {
-    val actual = clientProxy.query(query, user)
+  def testQuery(credentials: RawCredentials, query: String, expected: String): Unit = {
+    val actual = clientProxy.query(query, credentials)
     assert(actual === expected)
   }
 
-  def testQueryFails(user: String, query: String, expectedErrorClass: Class[_]): Unit = {
+  def testQueryFails(credentials: RawCredentials, query: String, expectedErrorClass: Class[_]): Unit = {
     try {
-      val actual = clientProxy.query(query, user)
+      val actual = clientProxy.query(query, credentials)
       fail(s"Query should have failed. Instead succeeded with result:\n$actual")
     } catch {
       case ex: CompilationException =>
@@ -75,11 +75,11 @@ trait RawRestServerContext extends BeforeAndAfterAll with StrictLogging with Inf
     }
   }
 
-  def testQueryFailsWithSemanticError(user: String, query: String): Unit = {
-    testQueryFails(user, query, classOf[SemanticErrors])
+  def testQueryFailsWithSemanticError(credentials: RawCredentials, query: String): Unit = {
+    testQueryFails(credentials, query, classOf[SemanticErrors])
   }
 
-  def testQueryFailsWithParserError(user: String, query: String): Unit = {
-    testQueryFails(user, query, classOf[ParserError])
+  def testQueryFailsWithParserError(credentials: RawCredentials, query: String): Unit = {
+    testQueryFails(credentials, query, classOf[ParserError])
   }
 }

@@ -1,9 +1,9 @@
 package raw.rest
 
 import java.io.{PrintWriter, StringWriter}
-import java.nio.file.{DirectoryNotEmptyException, Files}
+import java.nio.file.Files
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
@@ -11,7 +11,7 @@ import raw._
 import raw.executor.{CompilationException, InferrerShellExecutor, RawServer}
 import raw.rest.RawRestServer._
 import spray.can.Http
-import spray.http.HttpHeaders.{`Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
+import spray.http.HttpHeaders.{Authorization, `Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
 import spray.http._
 
 import scala.concurrent.duration._
@@ -47,7 +47,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     } catch {
       case e: ClientErrorException =>
         logger.warn(s"Request to $uri failed", e)
-        HttpResponse(StatusCodes.BadRequest, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
+        HttpResponse(e.statusCode, HttpEntity(ContentTypes.`application/json`, createJsonResponse(e)))
 
       case e: CompilationException =>
         logger.warn(s"Request to $uri failed: ${e.queryError}")
@@ -90,7 +90,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     case r@HttpRequest(POST, Uri.Path("/register-file"), _, _, _) =>
       complete(sender, processRequest(r, doRegisterFile))
 
-    case r@HttpRequest(POST, Uri.Path("/schemas"), _, _, _) =>
+    case r@HttpRequest(GET, Uri.Path("/schemas"), _, _, _) =>
       complete(sender, processRequest(r, doSchemas))
 
     case r@HttpRequest(_, _, _, _, _) =>
@@ -114,12 +114,35 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     mapper.writeValueAsString(response)
   }
 
+  private[this] def getUser(httpRequest: HttpRequest): String = {
+    //    logger.info("Headers: " + httpRequest.headers.mkString("\n"))
+    val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
+    auth match {
+      case None => //TODO: raise a 401.
+        throw new ClientErrorException("Request not authenticated.", null, StatusCodes.Unauthorized)
+
+      case Some(auth) => auth.credentials match {
+        case BasicHttpCredentials(user, pass) =>
+          logger.info(s"Basic auth detected. Using user from header: $user")
+          user
+
+        case auth@OAuth2BearerToken(token) =>
+          logger.info(s"OAuth2 auth detected: $auth")
+          dropboxClient.getUserName(token)
+
+        case auth@GenericHttpCredentials(scheme, token, params) =>
+          logger.info(s"GenericHttpCredentials: $auth")
+          throw new ClientErrorException(s"Unsupported authentication mechanism: $auth", null, StatusCodes.Unauthorized)
+      }
+    }
+  }
+
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
-    val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
+    val request = queryRequestReader.readValue[QueryRequest] (httpRequest.entity.asString)
     logger.info(s"[Query] $request")
     // TODO: Send query language in request
     val queryLanguage = QueryLanguages("qrawl")
-    val rawUser = dropboxClient.getUserName(request.token)
+    val rawUser = getUser(httpRequest)
     val query = request.query
     val result = rawServer.doQuery(queryLanguage, query, rawUser)
     val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
@@ -129,9 +152,8 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
-    val request: SchemaRequest = schemaRequestReader.readValue[SchemaRequest](httpRequest.entity.asString)
-    logger.info(s"[ListSchemas] $request")
-    val rawUser = dropboxClient.getUserName(request.token)
+    logger.info(s"[ListSchemas]")
+    val rawUser = getUser(httpRequest)
     logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
     val response = Map("success" -> true, "schemas" -> schemas)
@@ -139,14 +161,15 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
-    val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
+    val request = registerRequestReader.readValue[RegisterFileRequest] (httpRequest.entity.asString)
     logger.info(s"[RegisterFile] $request")
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
     dropboxClient.downloadFile(request.url, localFile)
     InferrerShellExecutor.inferSchema(localFile, request.`type`, request.name)
+    val rawUser = getUser(httpRequest)
     // Register the schema
-    rawServer.registerSchema(request.name, stagingDirectory, dropboxClient.getUserName(request.token))
+    rawServer.registerSchema(request.name, stagingDirectory, rawUser)
     val response = Map("success" -> true, "name" -> request.name)
     // Do not delete the staging directory if there is a failure (exception). Leave it for debugging
     try {
