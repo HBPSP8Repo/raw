@@ -9,8 +9,8 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
-import raw.rest.RawRestServer.{ExceptionResponse, QueryRequest, RegisterFileRequest}
-import raw.rest.{DefaultJsonMapper, RawRestServer}
+import raw.rest.DefaultJsonMapper
+import raw.rest.RawService.{ExceptionResponse, QueryRequest, RegisterFileRequest}
 import raw.{ParserError, SemanticErrors}
 
 

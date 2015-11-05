@@ -5,19 +5,64 @@ import java.nio.file.Files
 
 import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import raw._
 import raw.executor.{CompilationException, InferrerShellExecutor, RawServer}
-import raw.rest.RawRestServer._
+import raw.rest.RawService.{RegisterFileRequest, QueryRequest, ExceptionResponse, CompilationErrorResponse}
 import spray.can.Http
 import spray.http.HttpHeaders.{Authorization, `Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
+import spray.http.StatusCodes.ClientError
 import spray.http._
 
 import scala.concurrent.duration._
 
+/* Object mapper used to read/write any JSON received/sent by the rest server */
+object DefaultJsonMapper extends StrictLogging {
+  val mapper = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.configure(SerializationFeature.INDENT_OUTPUT, true)
+    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+    om.setSerializationInclusion(Include.ALWAYS)
+    om
+  }
+}
+
+/* Generic exception, which the request handler code can raise to send a 400 response to the client.
+* This exception will be caught by the exception handler below and transformed in a 400 response*/
+class ClientErrorException(msg: String, cause: Throwable, val statusCode: ClientError = StatusCodes.BadRequest) extends Exception(msg, cause) {
+  def this(msg: String) = this(msg, null)
+
+  def this(cause: Throwable) = this(cause.getMessage, cause)
+}
+
+object RawService {
+
+  import DefaultJsonMapper._
+
+  // Scala representation of the JSON requests. Used by Jackson to convert between scala object and JSON
+  case class QueryRequest(query: String)
+
+  case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String)
+
+  // Response sent when there is an error processing a query
+  case class CompilationErrorResponse(errorType: String, error: QueryError)
+
+  // Response sent when the handler code raises an exception
+  case class ExceptionResponse(exceptionType: String, message: String, stackTrace: String)
+
+  // Deserializers
+  val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
+  val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
+}
+
 class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
 
+  import RawService._
   import DefaultJsonMapper._
   import HttpMethods._
 
