@@ -30,7 +30,9 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   import org.kiama.rewriting.Rewriter._
   import Calculus._
   import SymbolTable._
-//  import Constraint._
+
+  //  import Constraint._
+
   import World.TypesVarMap
 
   /** Decorators on the tree.
@@ -69,7 +71,20 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
   /** Type the root of the program.
     */
-  lazy val solution = solve(tree.root)
+  lazy val solution = {
+    logger.debug("ONCE!!!!"); solve(tree.root); printTypedTree()
+  } //; logger.debug("TWICE!!!!!"); solve(tree.root); printTypedTree() }
+
+  //  OK
+  //
+  //  REALLY NEED TO EVALUATE THE 'inner e' WITH THE POLYMORPHIC TYPE VARIABLES
+  //  everytime i instantiate the type scheme
+  //  i again re-solve the constraints of the
+  //  NO..
+  //  2nd pass
+  //  how?
+  //    how to ... well., evaluate the body with the type vars?
+
 
   /** Return the base type of an expression, i.e. without the nullable flag.
     */
@@ -106,16 +121,16 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       case _: IntervalType => IntervalType()
       case _: RegexType => RegexType()
       case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
-      case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}))
-      case RecordType(AttributesVariable(atts, sym)) => RecordType(AttributesVariable(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1))}, sym))
+      case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1)) }))
+      case RecordType(AttributesVariable(atts, sym)) => RecordType(AttributesVariable(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1)) }, sym))
       case RecordType(ConcatAttributes(sym)) => RecordType(ConcatAttributes(sym))
-      case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1))})
+      case PatternType(atts) => PatternType(atts.map { case PatternAttrType(t1) => PatternAttrType(cloneType(t1)) })
       case CollectionType(m, inner) => CollectionType(m, cloneType(inner))
       case NumberType(sym) => NumberType(sym)
       case PrimitiveType(sym) => PrimitiveType(sym)
       case TypeVariable(sym) => TypeVariable(sym)
       case UserType(sym) => UserType(sym)
-      case TypeScheme(t1, typeSyms, monoidSyms, attSyms) => TypeScheme(cloneType(t1), typeSyms, monoidSyms, attSyms)
+      case TypeScheme(t1, freeSyms) => TypeScheme(cloneType(t1), freeSyms)
       case _: AnyType => AnyType()
       case _: NothingType => NothingType()
     }
@@ -152,12 +167,12 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   /** The entity of an identifier.
     */
   lazy val entity: IdnNode => Entity = attr {
-    case n @ IdnDef(idn) =>
+    case n@IdnDef(idn) =>
       if (isDefinedInScope(env.in(n), idn))
         MultipleEntity()
       else
         VariableEntity(n, TypeVariable())
-    case n @ IdnUse(idn) =>
+    case n@IdnUse(idn) =>
       lookup(env.in(n), idn, lookupDataSource(idn))
   }
 
@@ -175,9 +190,9 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case b: ExpBlock => enter(in(b))
 
     // TODO: Refactor if Algebra node, open scope
-    case r: Reduce    => enter(in(r))
-    case f: Filter    => enter(in(f))
-    case j: Join      => enter(in(j))
+    case r: Reduce => enter(in(r))
+    case f: Filter => enter(in(f))
+    case j: Join => enter(in(j))
     case o: OuterJoin => enter(in(o))
     case o: OuterUnnest => enter(in(o))
     case n: Nest => enter(in(n))
@@ -202,24 +217,24 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case b: ExpBlock => leave(out(b))
 
     // TODO: Refactor if Algebra node, open scope
-    case s: Select    => leave(out(s))
-    case r: Reduce    => leave(out(r))
-    case f: Filter    => leave(out(f))
-    case j: Join      => leave(out(j))
+    case s: Select => leave(out(s))
+    case r: Reduce => leave(out(r))
+    case f: Filter => leave(out(f))
+    case j: Join => leave(out(j))
     case o: OuterJoin => leave(out(o))
     case o: OuterUnnest => leave(out(o))
-    case n: Nest  => leave(out(n))
+    case n: Nest => leave(out(n))
     case n: Nest2 => leave(out(n))
 
     // The `out` environment of a function abstraction must remove the scope that was inserted.
     case f: FunAbs => leave(out(f))
 
     // A new variable was defined in the current scope.
-    case n @ IdnDef(i) => define(out(n), i, entity(n))
+    case n@IdnDef(i) => define(out(n), i, entity(n))
 
     // The `out` environment of a bind or generator is the environment after the assignment.
     case Bind(p, _) => env(p)
-    case g @ Gen(None, _) => env.in(g)
+    case g@Gen(None, _) => env.in(g)
     case Gen(Some(p), _) => env(p)
 
     // Expressions cannot define new variables, so their `out` environment is always the same as their `in`
@@ -237,14 +252,14 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
   private def aliasEnvIn(in: RawNode => Environment): RawNode ==> Environment = {
     case n if tree.isRoot(n) => rootenv()
-    case c: Comp             => enter(in(c))
-    case b: ExpBlock         => enter(in(b))
-    case s: Select           => enter(in(s))
-    case f: FunAbs           => enter(in(f))
+    case c: Comp => enter(in(c))
+    case b: ExpBlock => enter(in(b))
+    case s: Select => enter(in(s))
+    case f: FunAbs => enter(in(f))
     case a: LogicalAlgebraNode => enter(in(a))
 
     // Into node puts all attributes of the lhs (which should be a record) into the scope of the rhs
-    case tree.parent.pair(e: Exp, i @ Into(e1, e2)) if e eq e2 =>
+    case tree.parent.pair(e: Exp, i@Into(e1, e2)) if e eq e2 =>
       var nenv = enter(in(e))
 
       def attEntity(env: Environment, att: AttrType, idx: Int) = {
@@ -276,14 +291,14 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
   }
 
   private def aliasEnvOut(out: RawNode => Environment): RawNode ==> Environment = {
-    case c: Comp     => leave(out(c))
+    case c: Comp => leave(out(c))
     case b: ExpBlock => leave(out(b))
-    case s: Select   => leave(out(s))
-    case f: FunAbs   => leave(out(f))
+    case s: Select => leave(out(s))
+    case f: FunAbs => leave(out(f))
     case a: LogicalAlgebraNode => leave(out(a))
     case tree.parent.pair(e: Exp, Into(_, e2)) if e eq e2 =>
       leave(out(e))
-    case g @ Gen(None, e) =>
+    case g@Gen(None, e) =>
       def attEntity(env: Environment, att: AttrType, idx: Int) = {
         if (isDefinedInScope(env, att.idn))
           MultipleEntity()
@@ -316,7 +331,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         case _ =>
           aliasEnv.in(g)
       }
-    case n                => aliasEnv.in(n)
+    case n => aliasEnv.in(n)
   }
 
   /** Chain for looking up the partition keyword.
@@ -390,15 +405,13 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
   //////
 
-  // TODO: Move this to the Types.scala and have it used inside the TypeScheme definition for uniformity!
-  case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol])
-
   /** Type the rhs of a Bind declaration.
     * If successful, returns a list of free type symbols and free monoid symbols (for polymorphism).
     */
-  private lazy val tipeBind: Bind => Option[FreeSymbols] = attr {
-    case Bind(p, e) =>
+  private lazy val bindFreeSymbols: Bind => Option[FreeSymbols] = attr {
+    case b =>
       def aux: Option[FreeSymbols] = {
+
         // TODO: If the unresolved TypeVariables come from UserType/Source, don't include them as free variables.
         //       Instead, leave them unresolved, unless we want a strategy that resolves them based on usage?
 
@@ -413,11 +426,11 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         val prevRecAttRoots = recAttsVarMap.getRoots
 
         // Type the rhs body of the Bind
-        solve(e)
-        val t = expType(e)
-        val expected = patternType(p)
+        solve(b.e)
+        val t = expType(b.e)
+        val expected = patternType(b.p)
         if (!unify(t, expected)) {
-          tipeErrors += PatternMismatch(p, walk(t), Some(parserPosition(p)))
+          tipeErrors += PatternMismatch(b.p, walk(t), Some(parserPosition(b.p)))
           return None
         }
 
@@ -522,7 +535,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
                 cdef.slotsSet.flatMap { case slots => slots.flatMap { case ConcatSlot(_, t1) => getVariableTypes(t1, occursCheck + t)}}
           }
 
-        //        case RecordType(recAtts)          => recAtts.atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
         case PatternType(atts)            => atts.flatMap { case att => getVariableTypes(att.tipe, occursCheck + t) }.toSet
         case CollectionType(_, innerType) => getVariableTypes(innerType, occursCheck + t)
         case FunType(p, e)                => getVariableTypes(p, occursCheck + t) ++ getVariableTypes(e, occursCheck + t)
@@ -603,24 +615,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       getDecl(p)
   }
 
-  /** Return the type of an entity.
-    * Supports let-polymorphism.
-    */
-  private lazy val entityType: Entity => Type = attr {
-    case VariableEntity(idn, t) =>
-      decl(idn) match {
-        case Some(b: Bind) => tipeBind(b) match {
-          case Some(FreeSymbols(typeSyms, monoidSyms, attSyms)) =>
-            TypeScheme(t, typeSyms, monoidSyms, attSyms)
-          case None => NothingType()
-        }
-        case _             => t
-      }
-    case DataSourceEntity(sym)  => world.sources(sym.idn)
-    case _: UnknownEntity       => NothingType()
-    case _: MultipleEntity      => NothingType()
-  }
-
   /** Instantiate a new type from a type scheme.
     * Used for let-polymorphism.
     * This method is only called if there are type variables, monoid variables or attribute variables.
@@ -628,7 +622,12 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     * Note that variable types/monoids whose symbols are not in typeSyms/monoidSyms are not reconstructed and the same
     * object is used to allow unification to proceed unaffected.
     */
-  private def instantiateTypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) = {
+  private def instantiateTypeScheme(ts: TypeScheme) = {
+    val t = ts.t
+    val typeSyms = ts.freeSyms.typeSyms
+    val monoidSyms = ts.freeSyms.monoidSyms
+    val attSyms = ts.freeSyms.attSyms
+
     val newSyms = scala.collection.mutable.HashMap[Symbol, Symbol]()
 
     def getNewSym(sym: Symbol): Symbol = {
@@ -699,8 +698,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     recurse(t, Set())
   }
 
-  private def idnType(idn: IdnNode): Type = entityType(entity(idn))
-
   /** The type corresponding to a given pattern.
     */
   private lazy val patternType: Pattern => Type = attr {
@@ -720,7 +717,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
     case s: Star => starType(starEntity(s))
 
-    // Rule 1
+    // Constants
     case _: BoolConst  => BoolType()
     case _: IntConst   => IntType()
     case _: FloatConst => FloatType()
@@ -765,7 +762,58 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
     case ParseAs(_, r, _) => regexType(r)
     case _: ToEpoch => IntType()
 
-    case n => TypeVariable()
+      //
+    case idnExp @ IdnExp(idnUse) =>
+
+      def getType(t: Type): Type = t match {
+        case ts @ TypeScheme(t1, freeSyms) =>
+          if (freeSyms.isEmpty)
+            t1
+          else
+            instantiateTypeScheme(ts)
+        case _ => t
+      }
+
+      entity(idnUse) match {
+        case VariableEntity(idnDef, t) =>
+          // Found a user-defined variable
+          decl(idnDef) match {
+            case Some(b: Bind) =>
+              // If the declaration is a Bind, need to build the type scheme
+              val freeSyms = bindFreeSymbols(b)
+              if (freeSyms.isDefined) {
+                getType(TypeScheme(t, freeSyms.get))
+              } else {
+                NothingType()
+              }
+            case _             => t
+          }
+        case DataSourceEntity(sym) =>
+          world.sources(sym.idn)
+        case _: UnknownEntity =>
+          // Identifier is unknown
+          lookupAttributeEntity(idnExp) match {
+            case GenAttributeEntity(att, _, _) =>
+              // We found the attribute identifier in a generator
+              getType(att.tipe)
+            case IntoAttributeEntity(att, _, _) =>
+              // We found the attribute identifier in a Into
+              getType(att.tipe)
+            case _: UnknownEntity =>
+              // We didn't found the attribute identifier
+              tipeErrors += UnknownDecl(idnUse, Some(parserPosition(idnUse)))
+              NothingType()
+            case _: MultipleEntity =>
+              // We found the attribute identifier more than once
+              tipeErrors += AmbiguousIdn(idnUse, Some(parserPosition(idnUse)))
+              NothingType()
+          }
+        case _: MultipleEntity =>
+          // Error already reported earlier when processing IdnDef
+          NothingType()
+      }
+
+    case _ => TypeVariable()
   }
 
   ////
@@ -1357,6 +1405,11 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
   def solve(n: RawNode): Unit = {
 
+    n match {
+      case e: Exp => logger.debug(s"Solving ${CalculusPrettyPrinter(e)}")
+      case _ =>
+    }
+
     def sameType(e1: Exp, e2: Exp, desc: Option[String] = None) = {
       val t1 = expType(e1)
       val t2 = expType(e2)
@@ -1383,6 +1436,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
           if (!r) {
             tipeErrors += PatternMismatch(g.p.get, walk(innerType), Some(parserPosition(g.p.get)))
           }
+        case _: NothingType =>
+          // Propagating some other error silently
       }
     }
 
@@ -1416,69 +1471,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
           // TODO: Fix error message: should have m and nm?
           tipeErrors += IncompatibleMonoids(m, walk(minType), Some(parserPosition(n)))
         }
-      }
-    }
-
-    def boundByType(b: Bind) = tipeBind(b)
-
-    def idnIsDefined(idnExp: IdnExp) = {
-
-      def getType(nt: Type): Boolean = {
-        val t1 = nt match {
-          case TypeScheme(t, typeSyms, monoidSyms, attSyms) =>
-            if (typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty)
-              t
-            else instantiateTypeScheme(t, typeSyms, monoidSyms, attSyms)
-          case t => t
-        }
-
-        val t = expType(idnExp)
-        val r = unify(t, t1)
-        if (!r) {
-          // The same decl has been used with two different types.
-          // TODO: Can we have a more precise error messages? Set the None to a better message!
-          tipeErrors += UnexpectedType(walk(t), walk(t1), Some("same declaration used with two different types"), Some(parserPosition(idnExp)))
-        }
-        r
-      }
-
-      val idn = idnExp.idn
-
-      entity(idn) match {
-        case _: UnknownEntity =>
-          // Identifier is unknown
-
-          lookupAttributeEntity(idnExp) match {
-            case GenAttributeEntity(att, _, _) =>
-              // We found the attribute identifier in a generator
-              getType(att.tipe)
-            case IntoAttributeEntity(att, _, _) =>
-              // We found the attribute identifier in a Into
-              getType(att.tipe)
-            case _: UnknownEntity =>
-              // We didn't found the attribute identifier
-              tipeErrors += UnknownDecl(idn, Some(parserPosition(idn)))
-              false
-            case _: MultipleEntity =>
-              // We found the attribute identifier more than once
-              tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
-              false
-          }
-        case _: MultipleEntity =>
-          // Error already reported earlier when processing IdnDef
-          false
-        case _ =>
-          // We found an entity for the identifier.
-          // However, we must still check it is not ambiguous so we look up in the anonymous chain as well.
-          lookupAttributeEntity(idnExp) match {
-            case _: UnknownEntity =>
-              // All good
-              getType(idnType(idn))
-            case (_: GenAttributeEntity | _: IntoAttributeEntity | _: MultipleEntity) =>
-              // We found the same identifier used by the user and being anonymous as well!
-              tipeErrors += AmbiguousIdn(idn, Some(parserPosition(idn)))
-              false
-          }
       }
     }
 
@@ -1569,7 +1561,13 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         genPatternHasType(g)
 
       case b: Bind =>
-        boundByType(b)
+
+        // TODO
+        // this needs to change because i need to call solve in here!
+
+
+
+        bindFreeSymbols(b)
 
       case c @ Comp(m, qs, e) =>
         for (q <- qs) {
@@ -1647,6 +1645,19 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
             hasType(n, BoolType())
             sameType(e1, e2)
 
+//          case _: Plus =>
+//            val te1 = find(expType(e1))
+//            val te2 = find(expType(e2))
+//            (te1, te2) match {
+//              case (_: IntType, _: IntType) => hasType(n, IntType())
+//              case (_: IntType, _: FloatType) => hasType(n, FloatType())
+//              case (_: FloatType, _: IntType) => hasType(n, FloatType())
+//              case (_: FloatType, _: FloatType) => hasType(n, FloatType())
+//              case (_: StringType, _: StringType) => hasType(n, FloatType())
+//              case _ =>
+//            }
+//
+//          case _: Sub | _: Mult | _: Div | _: Mod =>
           case _: Plus | _: Sub | _: Mult | _: Div | _: Mod =>
             hasType(e1, NumberType())
             sameType(e2, e1)
@@ -1712,8 +1723,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
         }
 
-      case n: IdnExp =>
-        idnIsDefined(n)
+      case n @ IdnExp(idnUse) =>
 
       case n @ RecordProj(e, idn) =>
         solve(e)
@@ -1728,6 +1738,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         solve(f)
         solve(e)
         hasType(f, FunType(TypeVariable(), expType(n)))
+
+        // TODO!!!!
         funAppType(n)
         //hasType(f, FunType(expType(e), expType(n))))
 
@@ -1938,7 +1950,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
         hasType(e, StringType())
 
       case _: Const =>
-
     }
   }
 

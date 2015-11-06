@@ -2267,4 +2267,16 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("_2", StringType()))))))
   }
 
+  test("fooo1234") {
+    success(
+      """
+        |{
+        |  a := \(x,y) -> x + y;
+        |  a(1.,2.)
+        |}
+       """.stripMargin,
+      TestWorlds.empty,
+      IntType())
+  }
+
 }

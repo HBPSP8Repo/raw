@@ -151,4 +151,9 @@ case class TypeVariable(sym: Symbol = SymbolTable.next()) extends VariableType
 /** Type Scheme
   * TODO: Describe.
   */
-case class TypeScheme(t: Type, typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) extends Type
+case class FreeSymbols(typeSyms: Set[Symbol], monoidSyms: Set[Symbol], attSyms: Set[Symbol]) {
+  def isEmpty = typeSyms.isEmpty && monoidSyms.isEmpty && attSyms.isEmpty
+  def nonEmpty = !isEmpty
+}
+
+case class TypeScheme(t: Type, freeSyms: FreeSymbols) extends Type

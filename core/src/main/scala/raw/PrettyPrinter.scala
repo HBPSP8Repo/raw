@@ -90,12 +90,12 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: NothingType                       => "nothing"
     case _: RegexType                         => "regex"
     case UserType(sym)                        => sym.idn
-    case TypeScheme(t1, typeSyms, monoidSyms, attSyms) =>
+    case TypeScheme(t1, freeSyms) =>
       "type_scheme" <>
         parens(tipe(t1)) <>
-        parens(group(nest(lsep(typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
-        parens(group(nest(lsep(monoidSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
-        parens(group(nest(lsep(attSyms.map { case sym => text(sym.idn) }.to, comma))))
+        parens(group(nest(lsep(freeSyms.typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
+        parens(group(nest(lsep(freeSyms.monoidSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
+        parens(group(nest(lsep(freeSyms.attSyms.map { case sym => text(sym.idn) }.to, comma))))
     case PrimitiveType(sym)                   => "primitive" <> parens(sym.idn)
     case NumberType(sym)                      => "number" <> parens(sym.idn)
     case TypeVariable(sym)                    => sym.idn
