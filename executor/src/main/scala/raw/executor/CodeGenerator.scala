@@ -91,8 +91,12 @@ object CodeGenerator extends StrictLogging {
 
   def query(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
     val query = queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
-    val result = query.computeResult
-    convertToJson(result)
+    val result = query.iterator
+    try {
+      convertToJson(result)
+    } finally {
+      result.close()
+    }
   }
 
   def loadScanner(name: String, schema: RawSchema, sc: SparkContext = null): RawScanner[_] = {

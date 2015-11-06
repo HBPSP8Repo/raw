@@ -3,7 +3,9 @@ package raw.executor
 import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang3.ClassUtils
 import raw.QueryLanguages.QueryLanguage
+import raw.RawQueryIterator
 import raw.storage._
 
 class RawServer(storageDir: Path, storageBackend: StorageBackend) extends StrictLogging {
