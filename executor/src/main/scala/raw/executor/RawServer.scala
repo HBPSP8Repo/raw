@@ -3,9 +3,8 @@ package raw.executor
 import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.lang3.ClassUtils
 import raw.QueryLanguages.QueryLanguage
-import raw.RawQueryIterator
+import raw.RawQuery
 import raw.storage._
 
 class RawServer(storageDir: Path, storageBackend: StorageBackend) extends StrictLogging {
@@ -18,6 +17,13 @@ class RawServer(storageDir: Path, storageBackend: StorageBackend) extends Strict
 
   def registerSchema(schemaName: String, stagingDirectory: Path, user: String): Unit = {
     storageManager.registerSchema(schemaName, stagingDirectory, user)
+  }
+
+  def doQueryStart(queryLanguage: QueryLanguage, query: String, rawUser: String): RawQuery = {
+    val schemas: Seq[String] = storageManager.listUserSchemas(rawUser)
+    logger.info("Found schemas: " + schemas.mkString(", "))
+    val scanners: Seq[RawScanner[_]] = schemas.map(name => storageManager.getScanner(rawUser, name))
+    CodeGenerator.compileQuery(queryLanguage, query, scanners)
   }
 
   def doQuery(queryLanguage: QueryLanguage, query: String, rawUser: String): Any = {

@@ -10,7 +10,7 @@ import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import raw.rest.DefaultJsonMapper
-import raw.rest.RawService.{ExceptionResponse, QueryRequest, RegisterFileRequest}
+import raw.rest.RawService._
 import raw.{ParserError, SemanticErrors}
 
 
@@ -39,16 +39,17 @@ object RawServiceClientProxy {
   val registerFileResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[RegisterFileResponse])
 
   /**
-   *
-   * @param success
-   * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
-   *               Jackson can deserialize it.
-   * @param execution_time
-   * @param compile_time
-   */
+    *
+    * @param success
+    * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
+    *               Jackson can deserialize it.
+    * @param execution_time
+    * @param compile_time
+    */
   case class QueryResponse(success: String, output: AnyRef, execution_time: Long, compile_time: Long)
 
   val queryResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryResponse])
+  val queryBlockResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryBlockResponse])
 
   case class ParseErrorResponse(errorType: String, error: ParserError)
 
@@ -87,18 +88,33 @@ class RawServiceClientProxy extends StrictLogging {
 
   val httpClient = HttpClients.createDefault()
 
-  def query(query: String, credentials: RawCredentials): String = {
-    val queryPost = new HttpPost("http://localhost:54321/query")
+  def doQuery(url: String, payload: AnyRef, credentials: RawCredentials): String = {
+    val queryPost = new HttpPost(url)
     credentials.configureRequest(queryPost)
-    //    addBasicAuthHeader(queryPost, user, "doesnotmatter")
-    val queryRequest = new QueryRequest(query)
-    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(queryRequest)
+    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(payload)
     queryPost.setEntity(new StringEntity(reqBody))
-    val responseBody = executeRequest(queryPost)
+    executeRequest(queryPost)
+  }
+
+  def query(query: String, credentials: RawCredentials): String = {
+    val queryRequest = new QueryRequest(query)
+    val responseBody = doQuery("http://localhost:54321/query", queryRequest, credentials)
     val response = queryResponseReader.readValue[QueryResponse](responseBody)
     // response.output is deserialized as AnyRef. This will be an Array, Map or String.
     // Convert it back to String for checking in the tests.
     DefaultJsonMapper.mapper.writeValueAsString(response.output)
+  }
+
+  def queryStart(query: String, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryRequest(query)
+    val responseBody = doQuery("http://localhost:54321/query-start", queryRequest, credentials)
+    queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
+  }
+
+  def queryNext(token: String, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryNextRequest(token)
+    val responseBody = doQuery("http://localhost:54321/query-next", queryRequest, credentials)
+    queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
   }
 
   def registerLocalFile(credentials: RawCredentials, file: Path): String = {
@@ -158,7 +174,7 @@ class RawServiceClientProxy extends StrictLogging {
       // Deserialize as generic map to obtain the class of the error object, so that after we can deserialize
       // it as an instance of that class. We need to provide to Jackson the exact subtype of QueryError, providing
       // the base abstract class is not enough
-      val map = DefaultJsonMapper.mapper.readValue[Map[String,Object]](body, classOf[Map[String,Object]])
+      val map = DefaultJsonMapper.mapper.readValue[Map[String, Object]](body, classOf[Map[String, Object]])
       logger.info(s"Result: $map")
 
       // A client error status may indicate:

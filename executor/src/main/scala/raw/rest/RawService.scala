@@ -2,6 +2,7 @@ package raw.rest
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.Files
+import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
@@ -11,13 +12,13 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import raw._
-import raw.executor.{CompilationException, InferrerShellExecutor, RawServer}
-import raw.rest.RawService.{RegisterFileRequest, QueryRequest, ExceptionResponse, CompilationErrorResponse}
+import raw.executor._
 import spray.can.Http
 import spray.http.HttpHeaders.{Authorization, `Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
 import spray.http.StatusCodes.ClientError
 import spray.http._
 
+import scala.collection.mutable
 import scala.concurrent.duration._
 
 /* Object mapper used to read/write any JSON received/sent by the rest server */
@@ -47,6 +48,14 @@ object RawService {
   // Scala representation of the JSON requests. Used by Jackson to convert between scala object and JSON
   case class QueryRequest(query: String)
 
+  case class QueryNextRequest(token: String)
+
+  case class QueryResponse(output: Any, execution_time: Int, compile_time: Int)
+
+  case class QueryBlockResponse(data: Any, start: Int, size: Int, hasMore: Boolean, token: String)
+
+  case class SchemasResponse(schemas: Seq[String])
+
   case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String)
 
   // Response sent when there is an error processing a query
@@ -55,16 +64,21 @@ object RawService {
   // Response sent when the handler code raises an exception
   case class ExceptionResponse(exceptionType: String, message: String, stackTrace: String)
 
+  // Serializers
+  val queryResponseWriter = mapper.writerFor(classOf[QueryResponse])
+  val queryBlockResponseWriter = mapper.writerFor(classOf[QueryBlockResponse])
+
   // Deserializers
   val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
+  val queryNextRequestReader = mapper.readerFor(classOf[QueryNextRequest])
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
 }
 
 class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
 
-  import RawService._
   import DefaultJsonMapper._
   import HttpMethods._
+  import RawService._
 
   implicit val timeout: Timeout = 1.second
   // for the actor 'asks' // ExecutionContext for the futures and scheduler
@@ -132,6 +146,13 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     case r@HttpRequest(POST, Uri.Path("/query"), _, _, _) =>
       complete(sender, processRequest(r, doQuery))
 
+    // Pagination
+    case r@HttpRequest(POST, Uri.Path("/query-start"), _, _, _) =>
+      complete(sender, processRequest(r, doQueryStart))
+
+    case r@HttpRequest(POST, Uri.Path("/query-next"), _, _, _) =>
+      complete(sender, processRequest(r, doQueryNext))
+
     case r@HttpRequest(POST, Uri.Path("/register-file"), _, _, _) =>
       complete(sender, processRequest(r, doRegisterFile))
 
@@ -182,18 +203,99 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     }
   }
 
+  final val PAGINATION_BLOCK_SIZE = 10
+  private[this] val queryCache = new mutable.HashMap[String, OpenQuery]()
+
+  private class OpenQuery(val token: String, val query: String, val rawQuery: RawQuery,
+                          val iterator: RawQueryIterator) {
+    var position: Int = 0
+
+    def hasNext: Boolean = {
+      val b = iterator.hasNext
+      if (!b) {
+        iterator.close()
+      }
+      b
+    }
+
+    def next(): List[Any] = {
+      if (position == -1) {
+        throw new ClientErrorException("Iterator already closed")
+      }
+      if (!hasNext) {
+        throw new ClientErrorException("No more elements available")
+      }
+      val nextBlock: List[Any] = iterator.take(PAGINATION_BLOCK_SIZE).toList
+      position += nextBlock.length
+      nextBlock
+    }
+
+    def close() = {
+      queryCache.remove(token)
+      iterator.close()
+      position = -1
+    }
+  }
+
+
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
-    val request = queryRequestReader.readValue[QueryRequest] (httpRequest.entity.asString)
+    val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
     logger.info(s"[Query] $request")
     // TODO: Send query language in request
     val queryLanguage = QueryLanguages("qrawl")
     val rawUser = getUser(httpRequest)
     val query = request.query
     val result = rawServer.doQuery(queryLanguage, query, rawUser)
-    val response = Map("success" -> true, "output" -> result, "execution_time" -> 0, "compile_time" -> 0)
-    val serializedResponse = mapper.writeValueAsString(response)
+    val response = QueryResponse(result, 0, 0)
+    val serializedResponse = queryResponseWriter.writeValueAsString(response)
     logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
+  }
+
+  private[this] def doQueryStart(httpRequest: HttpRequest): HttpResponse = {
+    val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
+    logger.info(s"[Query] $request")
+    val queryLanguage = QueryLanguages("qrawl")
+    val rawUser = getUser(httpRequest)
+    val query = request.query
+    val rawQuery: RawQuery = rawServer.doQueryStart(queryLanguage, query, rawUser)
+
+    val iterator: RawQueryIterator = rawQuery.iterator
+    val token = UUID.randomUUID().toString
+    val openQuery = new OpenQuery(token, query, rawQuery, iterator)
+    val response = if (!openQuery.hasNext) {
+      // No results.
+      QueryBlockResponse(null, 0, 0, false, null)
+    } else {
+      queryCache.put(token, openQuery)
+      nextQueryBlock(token)
+    }
+    val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
+    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
+  }
+
+  private[this] def doQueryNext(httpRequest: HttpRequest): HttpResponse = {
+    val request = queryNextRequestReader.readValue[QueryNextRequest](httpRequest.entity.asString)
+    logger.info(s"[QueryNext] $request")
+    val response = nextQueryBlock(request.token)
+    val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
+    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
+  }
+
+  private[this] def nextQueryBlock(token: String): QueryBlockResponse = {
+    queryCache.get(token) match {
+      case Some(openQuery) =>
+        val start = openQuery.position
+        val nextBlock = openQuery.next()
+        val hasNext = openQuery.hasNext
+        // Do not send token if there are no more results
+        val nextToken = if (hasNext) token else null
+        QueryBlockResponse(nextBlock, start, nextBlock.size, hasNext, nextToken)
+
+      case None => throw new ClientErrorException(s"Cannot find a query for token $token")
+    }
   }
 
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
@@ -201,12 +303,12 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     val rawUser = getUser(httpRequest)
     logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
-    val response = Map("success" -> true, "schemas" -> schemas)
-    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, mapper.writeValueAsString(response)))
+    val response = mapper.writeValueAsString(SchemasResponse(schemas))
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, response))
   }
 
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
-    val request = registerRequestReader.readValue[RegisterFileRequest] (httpRequest.entity.asString)
+    val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
     logger.info(s"[RegisterFile] $request")
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
@@ -215,7 +317,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     val rawUser = getUser(httpRequest)
     // Register the schema
     rawServer.registerSchema(request.name, stagingDirectory, rawUser)
-    val response = Map("success" -> true, "name" -> request.name)
+    val response = Map("name" -> request.name)
     // Do not delete the staging directory if there is a failure (exception). Leave it for debugging
     try {
       FileUtils.deleteDirectory(stagingDirectory.toFile)
