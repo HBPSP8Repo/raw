@@ -117,8 +117,8 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
       case _: IntType => IntType()
       case _: FloatType => FloatType()
       case _: StringType => StringType()
-      case _: DateTimeType => DateTimeType()
-      case _: IntervalType => IntervalType()
+      case DateTimeType(tz) => DateTimeType(tz)
+      case IntervalType(tz) => IntervalType(tz)
       case _: RegexType => RegexType()
       case FunType(t1, t2) => FunType(cloneType(t1), cloneType(t2))
       case RecordType(Attributes(atts)) => RecordType(Attributes(atts.map { case AttrType(idn, t1) => AttrType(idn, cloneType(t1)) }))
@@ -417,7 +417,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
         // Add all pattern identifier types to the map before processing the rhs
         // This call is repeated multiple times in case of a PatternProd on the lhs of the Bind. This is harmless.
-        //        patternIdnTypes(p).foreach { case pt => typesVarMap.union(pt, pt) }
 
         // Collect all the roots known in the TypesVarMap.
         // This will be used to detect "new variables" created within, and not yet in the TypesVarMap.
@@ -434,12 +433,6 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
           return None
         }
 
-        //        // find all parameter types of inner funabs
-        //
-        //        val lambda_ptypes = collect[Set, Set[Type]] {
-        //          case FunAbs(p, _) => patternIdnTypes(p).toSet
-        //        }
-        //
         //        val to_walk: Set[Type] = lambda_ptypes(e).flatMap(identity)
         //        val typeVars = to_walk.flatMap(getVariableTypes(_))
         //        val monoidVars = to_walk.flatMap(getVariableMonoids(_))
@@ -1723,7 +1716,7 @@ class BaseAnalyzer(val tree: Calculus.Calculus, val world: World, val queryStrin
 
         }
 
-      case n @ IdnExp(idnUse) =>
+      case _: IdnExp =>
 
       case n @ RecordProj(e, idn) =>
         solve(e)

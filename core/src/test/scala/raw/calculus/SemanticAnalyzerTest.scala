@@ -1930,7 +1930,7 @@ class SemanticAnalyzerTest extends CoreTest {
       CollectionType(MonoidVariable(), BoolType()))
   }
 
-  ignore("""#108 resolve a record type from a function pattern""") {
+  test("""#108 resolve a record type from a function pattern""") {
     // f2 below takes three parameters.
     success(
       """{
@@ -1938,11 +1938,39 @@ class SemanticAnalyzerTest extends CoreTest {
         f
       }
       """,
-      TestWorlds.professors_students,
-      FunType(CollectionType(MonoidVariable(), RecordType(Attributes(List(/* todo */)))), CollectionType(MonoidVariable(), BoolType()))
+      TestWorlds.empty,
+      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
       )
   }
 
+  test("""#108.2 resolve a record type from a function pattern""") {
+    // f2 below takes three parameters.
+    success(
+      """{
+        f := \xyz -> { f2 := \(n,t,y) -> y > 10; x := (1,2,3) ; f2(x) }
+        f
+      }
+      """,
+      TestWorlds.empty,
+      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
+    )
+  }
+  test("""#108.3 resolve a record type from a function pattern""") {
+    // f2 below takes three parameters.
+    success(
+      """{
+        f := \f2-> { x := (a:1,b:2,c:3) ; f2(x) }
+        myf := \x -> x.a + x.b + x.c
+        f(myf)
+        f <> (1,2,3) -> f with 3 args
+        f((1,2,3)) -> f with single record
+        check record cons!!!
+      }
+      """,
+      TestWorlds.empty,
+      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
+    )
+  }
   /*
 
 group_by_age(xs) := select x.age, * from x in xs group by x.age
@@ -2271,8 +2299,9 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
     success(
       """
         |{
-        |  a := \(x,y) -> x + y;
-        |  a(1.,2.)
+        |  a := \x -> x + x;
+        |  b := \y -> a(y);
+        |  b(1), b(1.2)
         |}
        """.stripMargin,
       TestWorlds.empty,

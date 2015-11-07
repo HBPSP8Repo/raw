@@ -25,9 +25,6 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwMax = "(?i)max\\b".r
   val kwSum = "(?i)sum\\b".r
   val kwMultiply = "(?i)multiply\\b".r
-  val kwSet = "(?i)set\\b".r
-  val kwBag = "(?i)bag\\b".r
-  val kwList = "(?i)list\\b".r
   val kwNull = "(?i)null\\b".r
   val kwTrue = "(?i)true\\b".r
   val kwFalse = "(?i)false\\b".r
@@ -70,6 +67,18 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwOn = "(?i)on\\b".r
   val kwSome = "(?i)some\\b".r
   val kwNone = "(?i)none\\b".r
+
+  // Types
+  val kwBool = "(?i)bool\\b".r
+  val kwInt = "(?i)int\\b".r
+  val kwFloat = "(?i)float\\b".r
+  val kwString = "(?i)string\\b".r
+  val kwBag = "(?i)bag\\b".r
+  val kwList = "(?i)list\\b".r
+  val kwSet = "(?i)set\\b".r
+  val kwDateTime = "(?i)datetime\\b".r
+  val kwInterval = "(?i)interval\\b".r
+  val kwRegex = "(?i)regex\\b".r
 
   // Convert types
   val kwToBool = "((?i)to_bool|(?i)toBool)\\b".r
@@ -499,6 +508,12 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val starExp: PackratParser[Star] =
     positioned(kwStar ^^^ Star())
+
+  lazy val typeAs: PackratParser[TypeAs] =
+    positioned((exp <~ kwType) ~ (kwAs ~> tipe) ^^ { case e ~ t => TypeAs(e, t)} )
+
+  lazy val tipe: PackratParser[Type] =
+    ???
 
   lazy val idnExp: PackratParser[IdnExp] =
     positioned(idnUse ^^ IdnExp)

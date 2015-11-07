@@ -20,9 +20,23 @@ case class IntType() extends Type
 
 case class FloatType() extends Type
 
-case class DateTimeType() extends Type
+case class DateTimeType(tz: Boolean) extends Type
 
-case class IntervalType() extends Type
+case class DateType() extends Type
+
+case class TimeType(tz: Boolean) extends Type
+
+sealed abstract class IntervalField extends RawNode
+case class Year() extends IntervalField
+case class Month() extends IntervalField
+case class Day() extends IntervalField
+case class Hour() extends IntervalField
+case class Minute() extends IntervalField
+case class Second() extends IntervalField
+
+case class IntervalAttr(field: IntervalField, v: Int) extends RawNode
+
+case class IntervalType(intervals: Seq[IntervalAttr]) extends Type
 
 case class RegexType() extends Type
 

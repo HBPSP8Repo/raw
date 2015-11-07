@@ -254,6 +254,10 @@ object Calculus {
 
   case class ParseAs(e: Exp, r: RegexConst, p: Option[ParseProperties]) extends Exp
 
+  /** TypeAs
+    */
+  case class TypeAs(e: Exp, t: Type) extends Exp
+
   /** ToEpoch
     */
   case class ToEpoch(e: Exp, fmt: String) extends Exp
