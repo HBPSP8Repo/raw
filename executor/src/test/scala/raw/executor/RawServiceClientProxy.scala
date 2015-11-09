@@ -62,7 +62,7 @@ object RawServiceClientProxy {
   val exceptionResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[ExceptionResponse])
 }
 
-class ClientErrorWrapperException(exceptionResponse: ExceptionResponse) extends Exception(exceptionResponse.toString)
+class ClientErrorWrapperException(val exceptionResponse: ExceptionResponse) extends Exception(exceptionResponse.toString)
 
 trait RawCredentials {
   def configureRequest(request: HttpUriRequest): Unit
