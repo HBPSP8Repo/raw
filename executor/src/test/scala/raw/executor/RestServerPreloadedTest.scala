@@ -55,6 +55,10 @@ class RestServerPreloadedTest extends FunSuite with RawRestServerContext with St
     schemasTest(TestUserNonexisting, Set())
   }
 
+  test("query: no results") {
+    testQuery(TestUserJoe, """select * from authors a where a.name = "Elvis" """, """[ ]""")
+  }
+
   test("query: primitive result - count(authors)") {
     testQuery(TestUserJoe, "count(authors)", "50")
   }

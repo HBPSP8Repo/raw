@@ -42,7 +42,7 @@ abstract class RawQuery extends Iterable[Any] with StrictLogging {
     val iter = iterator
     try {
       val list = iter.toList
-      logger.info("Result: " + list + ", class: " + list.head.getClass)
+      // List may be empty
       // TODO: Should treat a result consisting of a single primitive type as a special case and unwrap it or also
       // return it as a an iterator, like the general case?
       if (list.size == 1 && isPrimitive(list.head)) {

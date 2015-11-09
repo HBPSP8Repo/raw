@@ -334,11 +334,11 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
     logger.info(s"[RegisterFile] $request")
+    val rawUser = getUser(httpRequest)
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
     dropboxClient.downloadFile(request.url, localFile)
     InferrerShellExecutor.inferSchema(localFile, request.`type`, request.name)
-    val rawUser = getUser(httpRequest)
     // Register the schema
     rawServer.registerSchema(request.name, stagingDirectory, rawUser)
     val response = Map("name" -> request.name)
