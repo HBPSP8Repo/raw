@@ -9,6 +9,7 @@ import akka.util.Timeout
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import raw._
@@ -41,7 +42,7 @@ class ClientErrorException(msg: String, cause: Throwable, val statusCode: Client
   def this(cause: Throwable) = this(cause.getMessage, cause)
 }
 
-object RawService {
+object RawService extends StrictLogging {
 
   import DefaultJsonMapper._
 
@@ -72,13 +73,22 @@ object RawService {
   val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
   val queryNextRequestReader = mapper.readerFor(classOf[QueryNextRequest])
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
-}
 
-class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
-
-  import DefaultJsonMapper._
-  import HttpMethods._
-  import RawService._
+  // If authentication is disabled, use this as default user name
+  final val DEFAULT_USER = "demo"
+  val authentication: Boolean = {
+    try {
+      val auth: String = ConfigFactory.load().getString("raw.authentication")
+      val res = auth != "disabled"
+      logger.info(s"Authentication config: $auth. Setting to: $res")
+      res
+    } catch {
+      case ex: ConfigException.Missing => {
+        logger.info( s"""No value found for "raw.authentication". Enabling authentication""")
+        true
+      }
+    }
+  }
 
   implicit val timeout: Timeout = 1.second
   // for the actor 'asks' // ExecutionContext for the futures and scheduler
@@ -90,6 +100,13 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
     `Access-Control-Max-Age`(1728000),
     `Access-Control-Allow-Origin`(AllOrigins))
+}
+
+class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
+
+  import DefaultJsonMapper._
+  import HttpMethods._
+  import RawService._
 
   def withCORS(response: HttpResponse): HttpResponse = {
     response.withHeaders(response.headers ++ corsHeaders)
@@ -181,24 +198,32 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def getUser(httpRequest: HttpRequest): String = {
-    logger.info("Headers: " + httpRequest.headers.mkString("\n"))
-    val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
-    auth match {
-      case None => //TODO: raise a 401.
-        throw new ClientErrorException("Request not authenticated, no Authorization header found.", null, StatusCodes.Unauthorized)
+    if (!authentication) {
+      val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
+      if (!auth.isEmpty) {
+        logger.warn("Request contains Authorization header but server has authentication disabled. Is client misconfigured? Will ignore header.")
+      }
+      return DEFAULT_USER
+    } else {
+      logger.info("Headers: " + httpRequest.headers.mkString("\n"))
+      val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
+      auth match {
+        case None => //TODO: raise a 401.
+          throw new ClientErrorException("Request not authenticated, no Authorization header found.", null, StatusCodes.Unauthorized)
 
-      case Some(auth) => auth.credentials match {
-        case BasicHttpCredentials(user, pass) =>
-          logger.info(s"Basic auth detected. Using user from header: $user")
-          user
+        case Some(auth) => auth.credentials match {
+          case BasicHttpCredentials(user, pass) =>
+            logger.info(s"Basic auth detected. Using user from header: $user")
+            user
 
-        case auth@OAuth2BearerToken(token) =>
-          logger.info(s"OAuth2 auth detected: $auth")
-          dropboxClient.getUserName(token)
+          case auth@OAuth2BearerToken(token) =>
+            logger.info(s"OAuth2 auth detected: $auth")
+            dropboxClient.getUserName(token)
 
-        case auth@GenericHttpCredentials(scheme, token, params) =>
-          logger.info(s"GenericHttpCredentials: $auth")
-          throw new ClientErrorException(s"Unsupported authentication mechanism: $auth", null, StatusCodes.Unauthorized)
+          case auth@GenericHttpCredentials(scheme, token, params) =>
+            logger.info(s"GenericHttpCredentials: $auth")
+            throw new ClientErrorException(s"Unsupported authentication mechanism: $auth", null, StatusCodes.Unauthorized)
+        }
       }
     }
   }
@@ -236,7 +261,6 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
       position = -1
     }
   }
-
 
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
     val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
