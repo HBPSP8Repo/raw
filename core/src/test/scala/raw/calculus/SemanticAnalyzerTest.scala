@@ -188,6 +188,11 @@ class SemanticAnalyzerTest extends CoreTest {
           case _: InvalidDateTimeFormatSyntax => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
+      case InvalidNumberOfArguments(nactual, nexpected, _) =>
+        assert(analyzer.errors.exists {
+          case InvalidNumberOfArguments(`nactual`, `nexpected`, _) => true
+          case _ => false
+        }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
       case _ =>
         assert(analyzer.errors.exists {
           case `error` => true
@@ -2114,6 +2119,30 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """.stripMargin,
       TestWorlds.empty,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("_2", StringType()))))))
+  }
+
+  test("bad function call #1") {
+    failure(
+      """
+        |{
+        |  f := \x -> x;
+        |  f(1,2)
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      InvalidNumberOfArguments(2, 1, None))
+  }
+
+  test("bad function call #2") {
+    failure(
+      """
+        |{
+        |  f := \x,y -> x;
+        |  f(1)
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      InvalidNumberOfArguments(1, 2, None))
   }
 
 }
