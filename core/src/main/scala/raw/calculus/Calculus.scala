@@ -65,7 +65,7 @@ object Calculus {
 
   /** Defining occurrence of an identifier
     */
-  case class IdnDef(idn: Idn) extends IdnNode
+  case class IdnDef(idn: Idn, t: Option[Type]) extends IdnNode
 
   /** Use of an identifier
     */
@@ -95,11 +95,11 @@ object Calculus {
 
   /** Function Abstraction
     */
-  case class FunAbs(p: Pattern, e: Exp) extends Exp with Decl
+  case class FunAbs(args: Seq[IdnDef], e: Exp) extends Exp with Decl
 
   /** Function Application
     */
-  case class FunApp(f: Exp, e: Exp) extends Exp
+  case class FunApp(f: Exp, args: Seq[Exp]) extends Exp
 
   /** Zero for Collection Monoid
     */

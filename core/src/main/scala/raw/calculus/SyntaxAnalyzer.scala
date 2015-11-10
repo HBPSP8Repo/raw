@@ -73,6 +73,8 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwInt = "(?i)int\\b".r
   val kwFloat = "(?i)float\\b".r
   val kwString = "(?i)string\\b".r
+  val kwOption = "(?i)option\\b".r
+  val kwRecord = "(?i)record\\b".r
   val kwBag = "(?i)bag\\b".r
   val kwList = "(?i)list\\b".r
   val kwSet = "(?i)set\\b".r
@@ -244,7 +246,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned("/" ^^^ Div())
 
   lazy val funAppExp: PackratParser[Exp] =
-    positioned((parseAsExp <~ "(") ~ (exp <~ ")") ^^ { case e1 ~ e2 => FunApp(e1, e2) }) |
+    positioned((parseAsExp <~ "(") ~ (rep1sep(mergeExp, ",") <~ ")") ^^ { case f ~ args => FunApp(f, args) }) |
     parseAsExp
 
   lazy val parseAsExp: PackratParser[Exp] =
@@ -418,7 +420,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(idnDef ^^ { case idn => PatternIdn(idn) })
 
   lazy val idnDef: PackratParser[IdnDef] =
-    positioned(ident ^^ { case idn => IdnDef(idn) })
+    positioned(
+      ident ~ (":" ~> tipe) ^^ { case idn ~ t => IdnDef(idn, Some(t)) } |
+      ident ^^ { case idn => IdnDef(idn, None)} )
 
   lazy val bind: PackratParser[Bind] =
     positioned((pattern <~ ":=") ~ exp ^^ { case p ~ e => Bind(p, e) })
@@ -438,9 +442,9 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val iterator: PackratParser[Gen] =
     positioned(
-      ident ~ (kwIn ~> mergeExp) ^^ { case i ~ e => Gen(Some(PatternIdn(IdnDef(i))), e)} |
-      mergeExp ~ (kwAs ~> ident) ^^ { case e ~ i => Gen(Some(PatternIdn(IdnDef(i))), e)} |
-      mergeExp ~ ident ^^ { case e ~ i => Gen(Some(PatternIdn(IdnDef(i))), e)} |
+      idnDef ~ (kwIn ~> mergeExp) ^^ { case idn ~ e => Gen(Some(PatternIdn(idn)), e)} |
+      mergeExp ~ (kwAs ~> idnDef) ^^ { case e ~ idn => Gen(Some(PatternIdn(idn)), e)} |
+      mergeExp ~ idnDef ^^ { case e ~ idn => Gen(Some(PatternIdn(idn)), e)} |
       mergeExp ^^ { case e => Gen(None, e)})
 
   lazy val multiCons: PackratParser[MultiCons] =
@@ -488,14 +492,16 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
   lazy val existsExp: PackratParser[Exists] =
     positioned(kwExists ~ ("(" ~> exp <~ ")") ^^ { case op ~ e => Exists(e) })
 
-  lazy val namedFun: PackratParser[Bind] =
-    positioned(patternIdn ~ namedFunAbs ^^ { case idn ~ f => Bind(idn, f) })
-
-  lazy val namedFunAbs: PackratParser[FunAbs] =
-    positioned(pattern ~ (":=" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
+//  lazy val namedFun: PackratParser[Bind] =
+//    positioned(patternIdn ~ namedFunAbs ^^ { case idn ~ f => Bind(idn, f) })
+//
+//  lazy val namedFunAbs: PackratParser[FunAbs] =
+//    positioned(pattern ~ (":=" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
 
   lazy val funAbs: PackratParser[FunAbs] =
-    positioned("\\" ~> pattern ~ ("->" ~> exp) ^^ { case p ~ e => FunAbs(p, e) })
+    positioned(
+      "\\" ~> "(" ~> rep1sep(idnDef, ",") ~ (")" ~> "->" ~> exp) ^^ { case args ~ e => FunAbs(args, e) } |
+      "\\" ~> rep1sep(idnDef, ",") ~ ("->" ~> exp) ^^ { case args ~ e => FunAbs(args, e) })
 
   lazy val partition: PackratParser[Partition] =
     positioned(kwPartition ^^^ Partition())
@@ -510,10 +516,27 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(kwStar ^^^ Star())
 
   lazy val typeAs: PackratParser[TypeAs] =
+  // TODO: IS?
     positioned((exp <~ kwType) ~ (kwAs ~> tipe) ^^ { case e ~ t => TypeAs(e, t)} )
 
   lazy val tipe: PackratParser[Type] =
-    ???
+    positioned(
+      kwBool ^^^ BoolType() |
+      kwInt ^^^ IntType() |
+      kwFloat ^^^ FloatType() |
+      kwString ^^^ StringType() |
+      kwDateTime ^^^ DateTimeType(true) |
+      kwRegex ^^^ RegexType() |
+      kwOption ~ "(" ~> tipe <~ ")" ^^ OptionType |
+      kwRecord ~ "(" ~> rep1sep(attrType, ",") <~ ")" ^^ { case atts => RecordType(Attributes(atts)) } |
+      kwSet ~ "(" ~> tipe <~ ")" ^^ (CollectionType(SetMonoid(), _)) |
+      kwBag ~ "(" ~> tipe <~ ")" ^^ (CollectionType(BagMonoid(), _)) |
+      kwList ~ "(" ~> tipe <~ ")" ^^ (CollectionType(ListMonoid(), _)) |
+      ident ^^ { case idn => UserType(Symbol(idn)) } |
+      failure("illegal type"))
+
+  lazy val attrType: PackratParser[AttrType] =
+    positioned((ident <~ ":") ~ tipe ^^ { case idn ~ t => AttrType(idn, t) })
 
   lazy val idnExp: PackratParser[IdnExp] =
     positioned(idnUse ^^ IdnExp)

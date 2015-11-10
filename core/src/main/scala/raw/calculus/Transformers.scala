@@ -39,7 +39,7 @@ trait Transformer extends LazyLogging {
     */
   protected def rewriteInternalIdns[T <: RawNode](n: T): T = {
     val collectIdnDefs = collect[Seq, Idn] {
-      case IdnDef(idn) =>
+      case IdnDef(idn, _) =>
         assert(idn.contains("$"))
         idn
     }
@@ -51,9 +51,9 @@ trait Transformer extends LazyLogging {
 
     rewrite(
       everywhere(rule[IdnNode] {
-        case IdnDef(idn) if idns.contains(idn) =>
+        case IdnDef(idn, t) if idns.contains(idn) =>
           logger.debug(s"1here with $idn and ${newIdn(idn)}")
-          IdnDef(newIdn(idn))
+          IdnDef(newIdn(idn), t)
         case IdnUse(idn) if idns.contains(idn) =>
           logger.debug(s"2here with $idn and ${newIdn(idn)}")
           IdnUse(newIdn(idn))

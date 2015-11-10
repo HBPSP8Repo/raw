@@ -99,6 +99,15 @@ trait MonoidsGraph extends LazyLogging {
   }
 
   def unifyMonoids(a: Monoid, b: Monoid): Boolean = {
+    // This forces the more precise monoid - the one that is not a variable - to become the root.
+    // Otherwise, we could be unifying a list monoid with a monoid variable (false, false) and have the monoid variable
+    // remain the root.
+    if (a.isInstanceOf[MonoidVariable] && !b.isInstanceOf[MonoidVariable]) {
+      unifyMonoids(b, a)
+    }
+
+    logger.debug(s"a is $a b is $b")
+
     addMonoidProperties(a)
     addMonoidProperties(b)
 

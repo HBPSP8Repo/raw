@@ -11,7 +11,9 @@ case class UnknownDecl(i: Calculus.IdnNode, pos: Option[RawParserPosition] = Non
 
 case class AmbiguousIdn(idn: Calculus.IdnNode, pos: Option[RawParserPosition] = None) extends CalculusError
 
-case class PatternMismatch(pat: Calculus.Pattern, t: Type, pos: Option[RawParserPosition] = None) extends CalculusError
+case class InvalidNumberOfArguments(nactual: Int, nexpected: Int, pos: Option[RawParserPosition] = None) extends CalculusError
+
+case class InvalidArguments(pat: Calculus.Pattern, t: Type, pos: Option[RawParserPosition] = None) extends CalculusError
 
 case class UnknownPartition(p: Calculus.Partition, pos: Option[RawParserPosition] = None) extends CalculusError
 
@@ -29,6 +31,8 @@ case class InvalidRegexSyntax(detail: String, pos: Option[RawParserPosition] = N
 
 case class InvalidDateTimeFormatSyntax(detail: String, pos: Option[RawParserPosition] = None) extends CalculusError
 
+case class InvalidFunction(t: Type, pos: Option[RawParserPosition] = None) extends CalculusError
+
 /** ErrorPrettyPrinter
   */
 object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
@@ -40,16 +44,18 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case MultipleDecl(i, _) => s"${i.idn} is declared more than once"
     case UnknownDecl(i, _) => s"${i.idn} is not declared"
     case AmbiguousIdn(i, _) => s"${i.idn} is ambiguous"
-    case PatternMismatch(pat, t, _) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}}"
+    case InvalidNumberOfArguments(nactual, nexpected, _) => s"expected $nexpected arguments but got $nactual"
+    case InvalidArguments(pat, t, _) => s"pattern $pat does not match expected type ${FriendlierPrettyPrinter(t)}}"
     case UnknownPartition(p, _) => s"partition is not declared as there is no SELECT with GROUP BY"
     case UnknownStar(s, _) => s"* is not declared as there is no SELECT or FOR"
     case IncompatibleMonoids(m, t, _) => s"${PrettyPrinter(m)} cannot be used with ${FriendlierPrettyPrinter(t)}"
     case IncompatibleTypes(t1, t2, _, _) => s"incompatible types: ${FriendlierPrettyPrinter(t1)} and ${FriendlierPrettyPrinter(t2)}"
-    case UnexpectedType(t, _, Some(desc), _) => s"$desc but got ${FriendlierPrettyPrinter(t)}"
+    case UnexpectedType(t, expected, Some(desc), _) => s"expected $desc ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
     case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
     case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
     case InvalidRegexSyntax(detail, _) => s"invalid regular expression: $detail"
     case InvalidDateTimeFormatSyntax(detail, _) => s"invalid date/time format string: $detail"
+    case InvalidFunction(t, _) => s"expected function but got ${FriendlierPrettyPrinter(t)}"
   }
 }
 

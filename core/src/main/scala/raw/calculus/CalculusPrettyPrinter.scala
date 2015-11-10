@@ -56,7 +56,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case FloatConst(v)                  => v
         case StringConst(v)                 => s""""${descapeStr(v)}""""
         case RegexConst(v)                  => s"""r"${descapeStr(v)}""""
-        case IdnDef(idn)                    => idn
+        case IdnDef(idn, Some(t))           => idn <> ":" <> tipe(t)
+        case IdnDef(idn, None)              => idn
         case IdnUse(idn)                    => ident(idn)
         case IdnExp(idn)                    => apply(idn)
         case RecordProj(e, idn)             => apply(e) <> dot <> ident(idn)
@@ -65,7 +66,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case IfThenElse(e1, e2, e3)         => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)
         case BinaryExp(op, e1, e2)          => apply(e1) <+> binaryOp(op) <+> apply(e2)
         case InExp(e1, e2)                  => apply(e1) <+> "in" <+> apply(e2)
-        case FunApp(f, e)                   => apply(f) <> parens(apply(e))
+        case FunApp(f, args)                => apply(f) <> parens(lsep(args.map(apply), comma))
         case ZeroCollectionMonoid(m)        => collection(m, empty)
         case ConsCollectionMonoid(m, e)     => collection(m, apply(e))
         case MultiCons(m, es)               => collection(m, group(lsep(es.map(apply), ",")))
@@ -73,7 +74,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case UnaryExp(op: (Not), e)         => unaryOp(op) <+> apply(e)
         case UnaryExp(op: (Neg), e)         => unaryOp(op) <+> apply(e)
         case UnaryExp(op, e)                => unaryOp(op) <> parens(apply(e))
-        case FunAbs(p, e)                   => "\\" <> apply(p) <+> "->" <+> apply(e)
+        case FunAbs(args, e)                => "\\" <> lsep(args.map(apply), comma) <+> "->" <+> apply(e)
         case Gen(Some(p), e)                => apply(p)  <+> "<-" <+> apply(e)
         case Gen(None, e)                   => "<-" <+> apply(e)
         case Bind(p, e)                     => apply(p) <+> ":=" <+> apply(e)

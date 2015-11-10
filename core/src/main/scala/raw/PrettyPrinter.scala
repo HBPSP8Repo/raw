@@ -75,17 +75,15 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
 
   def collection(m: CollectionMonoid, d: Doc): Doc = monoid(m) <> parens(d)
 
-  def opt(nullable: Boolean) = if (nullable) "?" else ""
-
-  def tipe(t: Type): Doc = opt(t.nullable) <> (t match {
+  def tipe(t: Type): Doc = t match {
     case _: BoolType                          => "bool"
     case _: StringType                        => "string"
     case _: IntType                           => "int"
     case _: FloatType                         => "float"
+    case OptionType(innerType)                => "option" <> parens(tipe(innerType))
     case RecordType(recAtts)                  => "record" <> parens(atts(recAtts))
-    case PatternType(pAtts)                   => "pattern" <> parens(group(lsep(pAtts.map { case att => tipe(att.tipe) }, comma)))
     case CollectionType(m, innerType)         => monoid(m) <> brackets(tipe(innerType))
-    case FunType(p, e)                        => tipe(p) <+> "->" <+> tipe(e)
+    case FunType(ins, out)                    => lsep(ins.map(tipe), comma) <+> "->" <+> tipe(out)
     case _: AnyType                           => "any"
     case _: NothingType                       => "nothing"
     case _: RegexType                         => "regex"
@@ -99,7 +97,7 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case PrimitiveType(sym)                   => "primitive" <> parens(sym.idn)
     case NumberType(sym)                      => "number" <> parens(sym.idn)
     case TypeVariable(sym)                    => sym.idn
-  })
+  }
 
   def show(n: RawNode): Doc = n match {
     case op: UnaryOperator  => unaryOp(op)

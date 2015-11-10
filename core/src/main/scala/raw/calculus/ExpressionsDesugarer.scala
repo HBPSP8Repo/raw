@@ -31,8 +31,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       val x = SymbolTable.next().idn
       val idnExp = IdnExp(IdnUse(xs))
       analyzer.tipe(e) match {
-        case CollectionType(_: SetMonoid, _) => FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), idnExp)), IdnExp(IdnUse(x)))), UnaryExp(ToBag(), e))
-        case _: CollectionType               => FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), idnExp)), IdnExp(IdnUse(x)))), e)
+        case CollectionType(_: SetMonoid, _) => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IdnExp(IdnUse(x)))), Seq(UnaryExp(ToBag(), e)))
+        case _: CollectionType               => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IdnExp(IdnUse(x)))), Seq(e))
       }
   }
 
@@ -42,7 +42,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
     case Max(e) =>
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MaxMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+      FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(MaxMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), Seq(e))
   }
 
   /** De-sugar min
@@ -51,7 +51,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
     case Min(e) =>
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
-      FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(MinMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), e)
+      FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(MinMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), IdnExp(IdnUse(xs)))), IdnExp(IdnUse(x)))), Seq(e))
   }
 
   /** De-sugar count
@@ -62,8 +62,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       val x = SymbolTable.next().idn
       val idnExp = IdnExp(IdnUse(xs))
       analyzer.tipe(e) match {
-        case CollectionType(_: SetMonoid, _) => FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), idnExp)), IntConst("1"))), UnaryExp(ToBag(), e))
-        case _: CollectionType               => FunApp(FunAbs(PatternIdn(IdnDef(xs)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), idnExp)), IntConst("1"))), e)
+        case CollectionType(_: SetMonoid, _) => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IntConst("1"))), Seq(UnaryExp(ToBag(), e)))
+        case _: CollectionType               => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IntConst("1"))), Seq(e))
       }
   }
 
@@ -72,7 +72,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   private lazy val ruleIn = rule[Exp] {
     case s @ InExp(e1, e2) =>
       val x = SymbolTable.next().idn
-      Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
+      Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
   }
 
   /** De-sugar exists
@@ -80,7 +80,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   private lazy val ruleExists = rule[Exp] {
     case Exists(e) =>
       val x = SymbolTable.next().idn
-      Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x))), e)), BoolConst(true))
+      Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), e)), BoolConst(true))
   }
 
   /** De-sugar MultiCons

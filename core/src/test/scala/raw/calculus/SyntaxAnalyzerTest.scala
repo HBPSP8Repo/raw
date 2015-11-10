@@ -215,14 +215,10 @@ class SyntaxAnalyzerTest extends CoreTest {
   }
 
   test("patterns #3") {
-    matches( """\(a, b) -> a + b + 1""")
+    sameAST( """\(a, b) -> a + b + 1""", """\a, b -> a + b + 1""")
   }
 
   test("patterns #4") {
-    matches( """\(a, (b, c)) -> a + b + c + 1""")
-  }
-
-  test("patterns #5") {
     matches(
       """for ((a, b) <- list((1, 2)) ) yield set a + b""",
       """for ((a, b) <- list((_1: 1, _2: 2))) yield set a + b""")
@@ -268,8 +264,8 @@ class SyntaxAnalyzerTest extends CoreTest {
     sameAST( """\(x,y) -> x + y""", """\x,y -> (x + y)""")
   }
 
-  test("f(x,y)") {
-    sameAST("f(x,y)", "f(x: x, y: y)")
+  test("f(x, y)") {
+    matches("f(x, y)")
   }
 
   test("parentheses - sum - none") {

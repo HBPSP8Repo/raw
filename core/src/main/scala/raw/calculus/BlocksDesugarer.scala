@@ -15,28 +15,14 @@ class BlocksDesugarer extends PipelinedTransformer {
 
   private lazy val desugar =
     reduce(
-      rulePatternFunAbs +
       rulePatternGen +
       rulePatternBindExpBlock +
       rulePatternBindComp +
       ruleExpBlocks +
       ruleEmptyExpBlock)
 
-  /** De-sugar pattern function abstractions into expression blocks.
-    * e.g. `\((a,b),c) -> a + b + c` becomes `\x -> { (a,b) := x._1; c := x._2; a + b + c }`
-    */
-
-  private lazy val rulePatternFunAbs = rule[Exp] {
-    case FunAbs(PatternProd(ps), e) =>
-      logger.debug("Applying desugar rulePatternFunAbs")
-      val idn = SymbolTable.next().idn
-      FunAbs(
-        PatternIdn(IdnDef(idn)),
-        ExpBlock(ps.zipWithIndex.map { case (p, idx) => Bind(p, RecordProj(IdnExp(IdnUse(idn)), s"_${idx + 1}")) }, e))
-  }
-
   /** De-sugar pattern generators.
-    * e.g. `for ( ((a,b),c) <- X; ...)` becomes `for (x <- X; ((a,b),c) := x; ...)`
+    * e.g. `for ( ((a,b),c) <- X; ...)` becomes `for ($1 <- X; ((a,b),c) := $1; ...)`
     */
 
   private object RulePatternGen {
@@ -47,7 +33,7 @@ class BlocksDesugarer extends PipelinedTransformer {
     case Comp(m, RulePatternGen(r, Gen(Some(p), u), s), e) =>
       logger.debug("Applying desugar rulePatternGen")
       val idn = SymbolTable.next().idn
-      Comp(m, r ++ Seq(Gen(Some(PatternIdn(IdnDef(idn))), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
+      Comp(m, r ++ Seq(Gen(Some(PatternIdn(IdnDef(idn, None))), u), Bind(p, IdnExp(IdnUse(idn)))) ++ s, e)
   }
 
   /** De-sugar pattern binds inside expression blocks.
@@ -79,7 +65,7 @@ class BlocksDesugarer extends PipelinedTransformer {
     */
 
   private lazy val ruleExpBlocks = rule[ExpBlock] {
-    case in @ ExpBlock(Bind(PatternIdn(IdnDef(x)), u) :: rest, e) =>
+    case in @ ExpBlock(Bind(PatternIdn(IdnDef(x, _)), u) :: rest, e) =>
       logger.debug(s"Applying desugar ruleExpBlocks to ${CalculusPrettyPrinter(in, 200)}")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => deepclone(u)

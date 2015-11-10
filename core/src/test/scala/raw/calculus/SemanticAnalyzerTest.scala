@@ -30,80 +30,72 @@ class SemanticAnalyzerTest extends CoreTest {
     }
   }
 
-  abstract class Check()
+  sealed abstract class Check
   case class MProp(m: Monoid, c: Option[Boolean], i: Option[Boolean]) extends Check
 
   def success(query: String, world: World, expectedType: Type, checks: Set[Check]=Set()) = {
     val analyzer = go(query, world)
-    analyzer.logMonoidsGraph()
-    analyzer.logConcatProperties()
     assert(analyzer.errors.isEmpty)
     val inferredType = analyzer.tipe(analyzer.tree.root)
+    analyzer.logMonoidsGraph()
+    analyzer.logConcatProperties()
     analyzer.errors.foreach{ case err => logger.debug(s"Error: ${ErrorsPrettyPrinter(err)}")}
     analyzer.printTypedTree()
     logger.debug(s"Actual type: ${FriendlierPrettyPrinter(inferredType)}")
     logger.debug(s"Expected type: ${FriendlierPrettyPrinter(expectedType)}")
 
-    def checkStructure(t1: Type, t2: Type, map: Mappings=Mappings()): Mappings = (t1, t2) match {
-      case (t1, t2) if t1 == t2 => Mappings()
-      case (p1: VariableType, p2: VariableType) => {
-        if (map.tMap.contains(p1)) {
-          assert(map.tMap(p1) == p2)
-          Mappings()
-        } else {
-          Mappings(Map(), Map(p1 -> p2))
-        }
-      }
-      case (r1: RecordType, r2: RecordType) =>
-        (r1.recAtts, r2.recAtts) match {
-          case (as1: Attributes, as2: Attributes) =>
-            assert(as1.atts.length == as2.atts.length)
-            as1.atts.zip(as2.atts).map{
-              case (a1,a2) =>
-                assert(a1.idn == a2.idn)
-                checkStructure(a1.tipe, a2.tipe, map)
-            }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
-          case (as1: AttributesVariable, as2: AttributesVariable) =>
-            assert(as1.atts.size == as2.atts.size)
-            as1.atts.map{
-              a1 =>
-                assert(as2.getType(a1.idn).isDefined)
-                checkStructure(a1.tipe, as2.getType(a1.idn).get, map)
-            }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
-          case (as1: ConcatAttributes, as2: ConcatAttributes) =>
-            if (map.tMap.contains(r1)) {
-              assert(map.tMap(r1) == r2)
-              Mappings()
-            } else {
-              Mappings(Map(), Map(r1 -> r2))
-            }
-
-
-        }
-      case (c1: CollectionType, c2: CollectionType) =>
-        ((c1.m, c2.m) match {
-          case (v1: MonoidVariable, v2: MonoidVariable) =>
-            if (map.mMap.contains(c1.m)) {
-              assert(map.mMap(c1.m) == c2.m)
-              Mappings()
-            } else {
-              Mappings(Map(c1.m -> c2.m), Map())
-            }
-          case (x1, x2) if x1 == x2 => Mappings()
-        }) ++ checkStructure(c1.innerType, c2.innerType, map)
-      case (f1: FunType, f2: FunType) =>
-        checkStructure(f1.t1, f2.t1) ++ checkStructure(f1.t2, f2.t2)
-      case (p1: PatternType, p2: PatternType) =>
-        assert(p1.atts.length == p2.atts.length)
-        p1.atts.zip(p2.atts).map{
-          case (a1, a2) => checkStructure(a1.tipe, a2.tipe)
-        }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
-      case (t, u: UserType) => checkStructure(t, analyzer.world.tipes(u.sym))
-      case (u: UserType, t) => checkStructure(analyzer.world.tipes(u.sym), t)
+    def checkStructure(t1: Type, t2: Type, map: Mappings=Mappings()): Mappings =
+      if (t1 == t2)
+        Mappings()
+      else (t1, t2) match {
+        case (p1: VariableType, p2: VariableType) =>
+          if (map.tMap.contains(p1)) {
+            assert(map.tMap(p1) == p2)
+            Mappings()
+          } else {
+            Mappings(Map(), Map(p1 -> p2))
+          }
+        case (r1: RecordType, r2: RecordType) =>
+          (r1.recAtts, r2.recAtts) match {
+            case (as1: Attributes, as2: Attributes) =>
+              assert(as1.atts.length == as2.atts.length)
+              as1.atts.zip(as2.atts).map{
+                case (a1,a2) =>
+                  assert(a1.idn == a2.idn)
+                  checkStructure(a1.tipe, a2.tipe, map)
+              }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
+            case (as1: AttributesVariable, as2: AttributesVariable) =>
+              assert(as1.atts.size == as2.atts.size)
+              as1.atts.map{
+                a1 =>
+                  assert(as2.getType(a1.idn).isDefined)
+                  checkStructure(a1.tipe, as2.getType(a1.idn).get, map)
+              }.foldLeft(Mappings()){case (m1: Mappings, m2: Mappings) => m1 ++ m2}
+            case (as1: ConcatAttributes, as2: ConcatAttributes) =>
+              if (map.tMap.contains(r1)) {
+                assert(map.tMap(r1) == r2)
+                Mappings()
+              } else {
+                Mappings(Map(), Map(r1 -> r2))
+              }
+          }
+        case (c1: CollectionType, c2: CollectionType) =>
+          ((c1.m, c2.m) match {
+            case (v1: MonoidVariable, v2: MonoidVariable) =>
+              if (map.mMap.contains(c1.m)) {
+                assert(map.mMap(c1.m) == c2.m)
+                Mappings()
+              } else {
+                Mappings(Map(c1.m -> c2.m), Map())
+              }
+            case (x1, x2) if x1 == x2 => Mappings()
+          }) ++ checkStructure(c1.innerType, c2.innerType, map)
+        case (f1: FunType, f2: FunType) =>
+          assert(f1.ins.size == f2.ins.size)
+          f1.ins.zip(f2.ins).map { case (a, b) => checkStructure(a, b) }.foldLeft(Mappings())(_ ++ _) ++ checkStructure(f1.out, f2.out)
+        case (t, u: UserType) => checkStructure(t, analyzer.world.tipes(u.sym))
+        case (u: UserType, t) => checkStructure(analyzer.world.tipes(u.sym), t)
     }
-
-
-
 
     val mappings = checkStructure(expectedType, inferredType)
     logger.debug(s"mappings: $mappings")
@@ -130,9 +122,9 @@ class SemanticAnalyzerTest extends CoreTest {
       // Test case helpers: e..g ignore positions
       //
 
-      case PatternMismatch(pat, t, _) =>
+      case InvalidArguments(pat, t, _) =>
         assert(analyzer.errors.exists {
-          case PatternMismatch(`pat`, `t`, _) => true
+          case InvalidArguments(`pat`, `t`, _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
 
@@ -166,9 +158,9 @@ class SemanticAnalyzerTest extends CoreTest {
           case UnknownDecl(IdnUse(`x`), _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
-      case MultipleDecl(IdnDef(x), _) =>
+      case MultipleDecl(IdnDef(x, _), _) =>
         assert(analyzer.errors.exists {
-          case MultipleDecl(IdnDef(`x`), _) => true
+          case MultipleDecl(IdnDef(`x`, _), _) => true
           case _ => false
         }, s"Error '${ErrorsPrettyPrinter(error)}' not contained in errors")
       case _: UnknownPartition =>
@@ -419,36 +411,36 @@ class SemanticAnalyzerTest extends CoreTest {
   }
 
   test("""\a -> a + 2""") {
-    success( """\a -> a + 2""", TestWorlds.empty, FunType(IntType(), IntType()))
+    success( """\a -> a + 2""", TestWorlds.empty, FunType(List(IntType()), IntType()))
   }
 
   test( """\a -> a + a + 2""") {
-    success( """\a -> a + a + 2""", TestWorlds.empty, FunType(IntType(), IntType()))
+    success( """\a -> a + a + 2""", TestWorlds.empty, FunType(List(IntType()), IntType()))
   }
 
   test( """\(a, b) -> a + b + 2""") {
-    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(IntType()), PatternAttrType(IntType()))), IntType()))
+    success( """\(a, b) -> a + b + 2""", TestWorlds.empty, FunType(List(IntType(), IntType()), IntType()))
   }
 
   test( """\a -> a""") {
     val a = TypeVariable()
-    success( """\a -> a""", TestWorlds.empty, FunType(a, a))
+    success( """\a -> a""", TestWorlds.empty, FunType(List(a), a))
   }
 
   test( """\x -> x.age + 2""") {
-    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(RecordType(AttributesVariable(Set(AttrType("age", IntType())))), IntType()))
+    success( """\x -> x.age + 2""", TestWorlds.empty, FunType(List(RecordType(AttributesVariable(Set(AttrType("age", IntType()))))), IntType()))
   }
 
   test( """\(x, y) -> x + y""") {
     val n = NumberType()
-    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(n), PatternAttrType(n))), n))
+    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(List(n, n), n))
   }
 
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {
     var arg = TypeVariable()
     val out = TypeVariable()
-    val f = FunType(arg, out)
-    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(PatternType(List(PatternAttrType(f), PatternAttrType(arg))), out))
+    val f = FunType(List(arg), out)
+    success( """{ recursive := \(f, arg) -> f(arg); recursive } """, TestWorlds.empty, FunType(List(f, arg), out))
   }
 
 //     TODO: If I do yield bag, I think I also constrain on what the input's commutativity and associativity can be!...
@@ -502,7 +494,7 @@ class SemanticAnalyzerTest extends CoreTest {
   }
 
   test("{ a := 1; a := 2; a }") {
-    failure("{ a := 1; a := 2; a }", TestWorlds.empty, MultipleDecl(IdnDef("a")))
+    failure("{ a := 1; a := 2; a }", TestWorlds.empty, MultipleDecl(IdnDef("a", None)))
   }
 
   test("for (a <- blah) yield set a") {
@@ -514,7 +506,7 @@ class SemanticAnalyzerTest extends CoreTest {
   }
 
   test("for (a <- things; a <- things) yield set a") {
-    failure("for (a <- things; a <- things) yield set a", TestWorlds.things, MultipleDecl(IdnDef("a")))
+    failure("for (a <- things; a <- things) yield set a", TestWorlds.things, MultipleDecl(IdnDef("a", None)))
   }
 
   test("if 1 then 1 else 0") {
@@ -570,16 +562,16 @@ class SemanticAnalyzerTest extends CoreTest {
   }
 
   test("""\(x, y) -> x + y + 10""") {
-    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(IntType()), PatternAttrType(IntType()))), IntType()))
+    success("""\(x, y) -> x + y + 10""", TestWorlds.empty, FunType(List(IntType(), IntType()), IntType()))
   }
 
   test("""\(x, y) -> x + y + 10.2""") {
-    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(FloatType()), PatternAttrType(FloatType()))), FloatType()))
+    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(List(FloatType(), FloatType()), FloatType()))
   }
 
   test("""\(x, y) -> { z := x; y + z }""") {
     val n = NumberType()
-    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(n), PatternAttrType(n))), n))
+    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(List(n, n), n))
   }
 
   test("""{ x := { y := 1; z := y; z }; x }""") {
@@ -594,27 +586,24 @@ class SemanticAnalyzerTest extends CoreTest {
       """
         {
         sum1 := (\(x,y) -> for (z <- x) yield sum (y(z)));
-        age := (students, \x -> x.age);
-        v := sum1(age);
+        v := sum1(students, \x -> x.age);
         sum1
         }
 
       """, TestWorlds.professors_students,
-      FunType(PatternType(List(PatternAttrType(CollectionType(m, z)), PatternAttrType(FunType(z, n)))), n),
+      FunType(List(CollectionType(m, z), FunType(List(z), n)), n),
       Set(MProp(m, None, Some(false))))
   }
 
   test("""home-made count applied to wrong type""") {
-    val mv = MonoidVariable()
     failure(
       """
         {
         count1 := \x -> for (z <- x) yield sum 1
         count1(1)
         }
-
       """, TestWorlds.empty,
-      IncompatibleTypes(CollectionType(mv, TypeVariable()), IntType()))
+      IncompatibleTypes(CollectionType(MonoidVariable(), TypeVariable()), IntType()))
   }
 
   test("""let-polymorphism #1""") {
@@ -649,7 +638,7 @@ class SemanticAnalyzerTest extends CoreTest {
       h := if (true) then f else g;
       h
 }
-    """, TestWorlds.empty, FunType(i, i))
+    """, TestWorlds.empty, FunType(List(i), i))
   }
 
   test("""let polymorphism #4""") {
@@ -665,7 +654,7 @@ class SemanticAnalyzerTest extends CoreTest {
         }
 
       """, TestWorlds.empty,
-      FunType(IntType(), BoolType()))
+      FunType(List(IntType()), BoolType()))
   }
 
   test("""let-polymorphism #5""") {
@@ -681,9 +670,9 @@ class SemanticAnalyzerTest extends CoreTest {
         (f, g, if true then f else g)
         }
       """, TestWorlds.empty, RecordType(Attributes(List(
-      AttrType("f", FunType(x, BoolType())),
-      AttrType("g", FunType(rec, age)),
-      AttrType("_3", FunType(rec2, BoolType()))))))
+      AttrType("f", FunType(List(x), BoolType())),
+      AttrType("g", FunType(List(rec), age)),
+      AttrType("_3", FunType(List(rec2), BoolType()))))))
   }
 
   test("""let-polymorphism #6""") {
@@ -700,7 +689,7 @@ class SemanticAnalyzerTest extends CoreTest {
         }
 
       """, TestWorlds.empty,
-      FunType(IntType(), CollectionType(SetMonoid(),IntType())))
+      FunType(List(IntType()), CollectionType(SetMonoid(),IntType())))
   }
 
   test("""let-polymorphism #7""") {
@@ -716,7 +705,7 @@ class SemanticAnalyzerTest extends CoreTest {
         (f, f(1))
       }
       """, TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("f", FunType(n1, FunType(n1, BoolType()))), AttrType("_2", FunType(IntType(), BoolType()))))))
+      RecordType(Attributes(List(AttrType("f", FunType(List(n1), FunType(List(n1), BoolType()))), AttrType("_2", FunType(List(IntType()), BoolType()))))))
   }
 
   test("map") {
@@ -733,13 +722,13 @@ class SemanticAnalyzerTest extends CoreTest {
 
   test("""\(x, y) -> x.age = y""") {
     val y = TypeVariable()
-    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(RecordType(AttributesVariable(Set(AttrType("age", y))))), PatternAttrType(y))), BoolType()))
+    success("""\(x, y) -> x.age = y""", TestWorlds.empty, FunType(List(RecordType(AttributesVariable(Set(AttrType("age", y)))), y), BoolType()))
   }
 
   test("""\(x, y) -> (x, y)""") {
     val x = TypeVariable()
     val y = TypeVariable()
-    success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(PatternType(List(PatternAttrType(x), PatternAttrType(y))), RecordType(Attributes(List(AttrType("x", x), AttrType("y", y))))))
+    success("""\(x, y) -> (x, y)""", TestWorlds.empty, FunType(List(x, y), RecordType(Attributes(List(AttrType("x", x), AttrType("y", y))))))
   }
 
   test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
@@ -748,7 +737,7 @@ class SemanticAnalyzerTest extends CoreTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
       FunType(
-        PatternType(List(PatternAttrType(CollectionType(m, z)), PatternAttrType(FunType(z, yz)))),
+        List(CollectionType(m, z), FunType(List(z), yz)),
         yz),
       Set(MProp(m, None, Some(false))))
   }
@@ -759,7 +748,7 @@ class SemanticAnalyzerTest extends CoreTest {
     val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield max y(z)""", TestWorlds.empty,
       FunType(
-        PatternType(List(PatternAttrType(CollectionType(m, z)), PatternAttrType(FunType(z, yz)))),
+        List(CollectionType(m, z), FunType(List(z), yz)),
         yz),
       Set(MProp(m, None, None)))
   }
@@ -780,7 +769,7 @@ class SemanticAnalyzerTest extends CoreTest {
          fact := \n -> fact1(fact1, n);
          fact
         }
-      """, TestWorlds.empty, FunType(IntType(), IntType()))
+      """, TestWorlds.empty, FunType(List(IntType()), IntType()))
   }
 
   test("recursive lambda #2") {
@@ -792,168 +781,10 @@ class SemanticAnalyzerTest extends CoreTest {
         fact := F(fact1);
         fact
       }
-      """, TestWorlds.empty, FunType(IntType(), IntType())
+      """, TestWorlds.empty, FunType(List(IntType()), IntType())
     )
 
   }
-
-  {
-    val oint = IntType()
-    oint.nullable = true
-    val ob = BoolType()
-    ob.nullable = true
-    val oset = CollectionType(SetMonoid(), BoolType())
-    oset.nullable = true
-    test("LI") {
-      success("LI", TestWorlds.options, CollectionType(ListMonoid(), IntType()))
-    }
-    test("LOI") {
-      success("LOI", TestWorlds.options, CollectionType(ListMonoid(), oint))
-    }
-    test("for (i <- LI) yield set i") {
-      success("for (i <- LI) yield set i", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
-    }
-    test("for (i <- LI) yield set 1+i") {
-      success("for (i <- LI) yield set 1+i", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
-    }
-    test("for (i <- LOI) yield set i") {
-      success("for (i <- LOI) yield set i", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("for (i <- LOI) yield set 1+i") {
-      success("for (i <- LOI) yield set 1+i", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("for (i <-LI; oi <- LOI) yield set oi+i") {
-      success("for (i <-LI; oi <- LOI) yield set oi+i", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("(for (i <- LI) yield set i) union (for (i <- LI) yield set i)") {
-      success("(for (i <- LI) yield set i) union (for (i <- LI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
-    }
-    test("(for (i <- LOI) yield set i) union (for (i <- LOI) yield set i)") {
-      success("(for (i <- LOI) yield set i) union (for (i <- LOI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("(for (i <- LOI) yield set i) union (for (i <- LI) yield set i)") {
-      success("(for (i <- LOI) yield set i) union (for (i <- LI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("(for (i <- LI) yield set i) union (for (i <- LOI) yield set i)") {
-      success("(for (i <- LI) yield set i) union (for (i <- LOI) yield set i)", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("for (i <- LI) yield max i") {
-      success("for (i <- LI) yield max i", TestWorlds.options, IntType())
-    }
-    test("for (i <- LOI) yield max i") {
-      success("for (i <- LOI) yield max i", TestWorlds.options, IntType())
-    }
-    test("for (i <- OLI) yield max i") {
-      success("for (i <- OLI) yield max i", TestWorlds.options, oint)
-    }
-    test("for (i <- OLOI) yield max i") {
-      success("for (i <- OLOI) yield max i", TestWorlds.options, oint)
-    }
-    test("for (i <- LI) yield list i") {
-      success("for (i <- LI) yield list i", TestWorlds.options, CollectionType(ListMonoid(), IntType()))
-    }
-    test("for (i <- LOI) yield list i") {
-      success("for (i <- LOI) yield list i", TestWorlds.options, CollectionType(ListMonoid(), oint))
-    }
-    test("for (i <- OLI) yield list i") {
-      success("for (i <- OLI) yield list i", TestWorlds.options, {
-        val ot = CollectionType(ListMonoid(), IntType()); ot.nullable = true; ot
-      })
-    }
-    test("for (i <- OLOI) yield list i") {
-      success("for (i <- OLOI) yield list i", TestWorlds.options, {
-        val ot = CollectionType(ListMonoid(), oint); ot.nullable = true; ot
-      })
-    }
-    test("{ m := for (i <- LOI) yield max i; for (i <- LI; i < m) yield set i }") {
-      success("{ m := for (i <- LOI) yield max i; for (i <- LI; i < m) yield set i }", TestWorlds.options, CollectionType(SetMonoid(), IntType()))
-    }
-    test("for (i <- LOI; i < 1) yield set i") {
-      success("for (i <- LOI; i < 1) yield set i", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("{ m := for (i <- LOI) yield max i; for (i <- LOI; i < m) yield set i }") {
-      success("{ m := for (i <- LOI) yield max i; for (i <- LOI; i < m) yield set i }", TestWorlds.options, CollectionType(SetMonoid(), oint))
-    }
-    test("for (r <- records) yield set (r.OI > 10)") {
-      success("for (r <- records) yield set (r.OI > 10)", TestWorlds.options, CollectionType(SetMonoid(), ob))
-    }
-    test("for (r <- records) yield set (r.I > 10)") {
-      success("for (r <- records) yield set (r.I > 10)", TestWorlds.options, CollectionType(SetMonoid(), BoolType()))
-    }
-    test("for (i <- OLI) yield set (i > 10)") {
-      success("for (i <- OLI) yield set (i > 10)", TestWorlds.options, oset)
-    }
-    test("""{ f := \x -> x > 10 ; for (i <- LI) yield set f(i) } """) {
-      success("""{ f := \x -> x > 10 ; for (i <- LI) yield set f(i) } """, TestWorlds.options, CollectionType(SetMonoid(), BoolType()))
-    }
-    test("""{ f := \x -> x > 10 ; for (i <- LOI) yield set f(i) } """) {
-      success("""{ f := \x -> x > 10 ; for (i <- LOI) yield set f(i) } """, TestWorlds.options, CollectionType(SetMonoid(), ob))
-    }
-    test("""{ f := \x -> x > 10 ; for (i <- OLI) yield set f(i) } """) {
-      success("""{ f := \x -> x > 10 ; for (i <- OLI) yield set f(i) } """, TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), BoolType()); ot.nullable = true; ot
-      })
-    }
-    test("""{ f := \x -> x > 10 ; for (i <- OLOI) yield set f(i) } """) {
-      success("""{ f := \x -> x > 10 ; for (i <- OLOI) yield set f(i) } """, TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), ob); ot.nullable = true; ot
-      })
-    }
-    test("""for (i <- LI) yield set (\x -> x < i)""") {
-      success("""for (i <- LI) yield set (\x -> x < i)""", TestWorlds.options, CollectionType(SetMonoid(), FunType(IntType(), BoolType())))
-    }
-    test("""for (i <- LOI) yield set (\x -> x < i)""") {
-      success("""for (i <- LOI) yield set (\x -> x < i)""", TestWorlds.options, CollectionType(SetMonoid(), FunType(IntType(), ob)))
-    }
-    test("""for (i <- OLI) yield set (\x -> x < i)""") {
-      success("""for (i <- OLI) yield set (\x -> x < i)""", TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), FunType(IntType(), BoolType())); ot.nullable = true; ot
-      })
-    }
-    test("""for (i <- OLOI) yield set (\x -> x < i)""") {
-      success("""for (i <- OLOI) yield set (\x -> x < i)""", TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), FunType(IntType(), ob)); ot.nullable = true; ot
-      })
-    }
-
-    test("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""") {
-      success("""for (i <- OLOI) yield set (\(x, (y, z)) -> x < i and (y+z) > i)""", TestWorlds.options, {
-        val ot = CollectionType(SetMonoid(), FunType(PatternType(List(PatternAttrType(IntType()),
-          PatternAttrType(PatternType(List(
-            PatternAttrType(IntType()), PatternAttrType(IntType())))))), ob))
-        ot.nullable = true
-        ot
-      })
-    }
-  }
-
-  ignore("options in select") {
-    success("select s from s in LI", TestWorlds.options, CollectionType(BagMonoid(), IntType()))
-    success("select partition from s in LI group by s", TestWorlds.options, CollectionType(BagMonoid(), CollectionType(BagMonoid(), IntType())))
-
-    {
-      // we check the type of "partition" when it comes from an option bag of integers. Itself should be an option bag of integers, wrapped into
-      // an option bag because the select itself inherits the option of its sources.
-      val partitionType = CollectionType(BagMonoid(), IntType());
-      partitionType.nullable = true // because OLI is an option list
-      val selectType = CollectionType(BagMonoid(), partitionType);
-      selectType.nullable = true // because OLI is an option list
-      success("select partition from s in OLI group by s", TestWorlds.options, selectType)
-    }
-  }
-
-  ignore("fancy select with options") {
-      // more fancy. We join a bag of option(int) with an option bag(int).
-      // partition should be an option bag of record with an option int and a non-option int.
-      val optionInt = IntType()
-      optionInt.nullable = true
-      val partitionType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", IntType())))))
-      partitionType.nullable = true // because OLI is an option list
-      // select should be an option bag of ...
-      val selectType = CollectionType(BagMonoid(), RecordType(Attributes(List(AttrType("_1", optionInt), AttrType("_2", partitionType)))));
-      selectType.nullable = true // because OLI is an option list
-      success("select s+r, partition from s in OLI, r in LOI where s = r group by s+r", TestWorlds.options, selectType)
-    }
 
   test("select s from s in students") {
     val m = MonoidVariable()
@@ -1169,7 +1000,7 @@ class SemanticAnalyzerTest extends CoreTest {
         |  a
         |}
       """.stripMargin, TestWorlds.things,
-      FunType(CollectionType(MonoidVariable(), xs),
+      FunType(List(CollectionType(MonoidVariable(), xs)),
               CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("a", IntType()), AttrType("partition", CollectionType(MonoidVariable(), xs))))))))
   }
 
@@ -1216,23 +1047,12 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin, TestWorlds.empty, IntType())
   }
 
-  test("simple function call #2") {
-    success(
-      """
-        |{
-        | a := \(x,y) -> x + y;
-        |
-        | a(i: 1,j: 2)
-        |}
-        |""".stripMargin, TestWorlds.empty, IntType())
-  }
-
   test("extract generator") {
     success("""for ((name, age) <- students) yield set name""", TestWorlds.professors_students, CollectionType(SetMonoid(), StringType()))
   }
 
   test("extract bad generator") {
-    failure("""for ((name, age, foo) <- students) yield set name""", TestWorlds.professors_students, PatternMismatch(PatternProd(List(PatternIdn(IdnDef("name")), PatternIdn(IdnDef("age")), PatternIdn(IdnDef("foo")))), UserType(Symbol("student"))))
+    failure("""for ((name, age, foo) <- students) yield set name""", TestWorlds.professors_students, InvalidArguments(PatternProd(List(PatternIdn(IdnDef("name", None)), PatternIdn(IdnDef("age", None)), PatternIdn(IdnDef("foo", None)))), UserType(Symbol("student"))))
   }
 
   test("cucu simpler") {
@@ -1312,7 +1132,7 @@ class SemanticAnalyzerTest extends CoreTest {
     val mxs = MonoidVariable()
     val mout = MonoidVariable()
     val t = TypeVariable()
-    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(CollectionType(mxs, t), CollectionType(mout, t)))
+    success("""\xs -> select x from x in xs""", TestWorlds.empty, FunType(List(CollectionType(mxs, t)), CollectionType(mout, t)))
   }
 
   test("select x from x in xs (applied to students)") {
@@ -1496,7 +1316,7 @@ class SemanticAnalyzerTest extends CoreTest {
       """\xs -> for (x <- xs) yield list x""",
       TestWorlds.empty,
       FunType(
-        CollectionType(MonoidVariable(), t),
+        List(CollectionType(MonoidVariable(), t)),
         CollectionType(ListMonoid(), t)))
   }
 
@@ -1512,7 +1332,7 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        CollectionType(m, t),
+        List(CollectionType(m, t)),
         CollectionType(ListMonoid(), t)),
       Set(MProp(m, Some(false), Some(false))))
   }
@@ -1532,10 +1352,10 @@ class SemanticAnalyzerTest extends CoreTest {
       TestWorlds.empty,
       RecordType(Attributes(List(
         AttrType("field1", FunType(
-          CollectionType(m1, t1),
+          List(CollectionType(m1, t1)),
           CollectionType(ListMonoid(), t1))),
         AttrType("field2", FunType(
-          CollectionType(m2, t2),
+          List(CollectionType(m2, t2)),
           CollectionType(ListMonoid(), t2)))))), Set(MProp(m1, Some(false), Some(false)), MProp(m2, Some(false), Some(false))))
   }
 
@@ -1550,7 +1370,7 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin,
     TestWorlds.empty,
-    FunType(CollectionType(m, n), n), Set(MProp(m, None, Some(false))))
+    FunType(List(CollectionType(m, n)), n), Set(MProp(m, None, Some(false))))
   }
 
   test("sum over polymorphic comprehension #2") {
@@ -1566,9 +1386,9 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        PatternType(List(
-          PatternAttrType(CollectionType(m1, n)),
-          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        List(
+          CollectionType(m1, n),
+          CollectionType(m2, TypeVariable())),
         n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
@@ -1585,9 +1405,9 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        PatternType(List(
-          PatternAttrType(CollectionType(m1, t)),
-          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        List(
+          CollectionType(m1, t),
+          CollectionType(m2, TypeVariable())),
         CollectionType(BagMonoid(), t)), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
@@ -1605,9 +1425,9 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        PatternType(List(
-          PatternAttrType(CollectionType(m1, n)),
-          PatternAttrType(CollectionType(m2, TypeVariable())))),
+        List(
+          CollectionType(m1, n),
+          CollectionType(m2, TypeVariable())),
         n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
@@ -1623,7 +1443,7 @@ class SemanticAnalyzerTest extends CoreTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        CollectionType(m, n),
+        List(CollectionType(m, n)),
         n), Set(MProp(m, None, Some(false))))
   }
 
@@ -1639,7 +1459,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """\xs -> sum(select x.age from x in students, y in xs)""",
       TestWorlds.professors_students,
-      FunType(CollectionType(m, TypeVariable()), IntType()), Set(MProp(m, None, Some(false))))
+      FunType(List(CollectionType(m, TypeVariable())), IntType()), Set(MProp(m, None, Some(false))))
   }
 
   test("build 2d array and scan it") {
@@ -1668,7 +1488,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """\xs -> sum(xs)""",
       TestWorlds.empty,
-      FunType(CollectionType(mv, n), n))
+      FunType(List(CollectionType(mv, n)), n))
   }
 
   test("""\xs -> sum(xs), xs union xs""") {
@@ -1687,7 +1507,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """\xs,ys -> sum(xs), ys union ys""",
       TestWorlds.empty,
-      FunType(PatternType(List(PatternAttrType(xs), PatternAttrType(ys))), RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", ys))))),
+      FunType(List(xs, ys), RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", ys))))),
       Set(MProp(m, None, Some(false))))
   }
 
@@ -1710,7 +1530,7 @@ class SemanticAnalyzerTest extends CoreTest {
         |
       """.stripMargin,
       TestWorlds.empty,
-      FunType(CollectionType(SetMonoid(), IntType()),
+      FunType(List(CollectionType(SetMonoid(), IntType())),
           RecordType(Attributes(List(AttrType("A", CollectionType(MonoidVariable(), IntType())), AttrType("x", CollectionType(SetMonoid(), IntType()))))))
     )
   }
@@ -1727,7 +1547,7 @@ class SemanticAnalyzerTest extends CoreTest {
         |
       """.stripMargin,
       TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), y), CollectionType(MonoidVariable(), y))
+      FunType(List(CollectionType(MonoidVariable(), y)), CollectionType(MonoidVariable(), y))
     )
   }
 
@@ -1743,7 +1563,7 @@ class SemanticAnalyzerTest extends CoreTest {
       |
     """.stripMargin,
     TestWorlds.empty,
-    FunType(CollectionType(SetMonoid(), IntType()), RecordType(Attributes(List(
+    FunType(List(CollectionType(SetMonoid(), IntType())), RecordType(Attributes(List(
       AttrType("_1", CollectionType(SetMonoid(), IntType())),
       AttrType("A", CollectionType(MonoidVariable(), IntType())),
       AttrType("B", IntType())
@@ -1762,8 +1582,8 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a1", FunType(CollectionType(MonoidVariable(), n1), n1)),
-        AttrType("a2", FunType(CollectionType(MonoidVariable(), n2), n2)),
+        AttrType("a1", FunType(List(CollectionType(MonoidVariable(), n1)), n1)),
+        AttrType("a2", FunType(List(CollectionType(MonoidVariable(), n2)), n2)),
         AttrType("_3", IntType())
       ))))
   }
@@ -1783,9 +1603,9 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin, TestWorlds.empty,
         RecordType(Attributes(List(
-          AttrType("_1", FunType(CollectionType(m1, n1), n1)),
-          AttrType("_2", FunType(CollectionType(m2, n2), n2)),
-          AttrType("_3", FunType(CollectionType(m3, n3), n3))
+          AttrType("_1", FunType(List(CollectionType(m1, n1)), n1)),
+          AttrType("_2", FunType(List(CollectionType(m2, n2)), n2)),
+          AttrType("_3", FunType(List(CollectionType(m3, n3)), n3))
         ))), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false)), MProp(m3, None, Some(false))))
   }
 
@@ -1804,9 +1624,9 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin, TestWorlds.empty,
         RecordType(Attributes(List(
-          AttrType("a1", FunType(TypeVariable(), FunType(CollectionType(m1, n1), n1))),
-          AttrType("a2", FunType(TypeVariable(), FunType(CollectionType(m2, n2), n2))),
-          AttrType("a3", FunType(TypeVariable(), FunType(CollectionType(m3, n3), n3)))
+          AttrType("a1", FunType(List(TypeVariable()), FunType(List(CollectionType(m1, n1)), n1))),
+          AttrType("a2", FunType(List(TypeVariable()), FunType(List(CollectionType(m2, n2)), n2))),
+          AttrType("a3", FunType(List(TypeVariable()), FunType(List(CollectionType(m3, n3)), n3)))
         ))))
   }
 
@@ -1822,9 +1642,9 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a1", CollectionType(ListMonoid(), FunType(n1, n1))),
-        AttrType("a2", CollectionType(ListMonoid(), FunType(n2, n2))),
-        AttrType("a3", CollectionType(ListMonoid(), FunType(n3, n3)))
+        AttrType("a1", CollectionType(ListMonoid(), FunType(List(n1), n1))),
+        AttrType("a2", CollectionType(ListMonoid(), FunType(List(n2), n2))),
+        AttrType("a3", CollectionType(ListMonoid(), FunType(List(n3), n3)))
       ))))
   }
 
@@ -1844,9 +1664,9 @@ class SemanticAnalyzerTest extends CoreTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a", FunType(CollectionType(m1, n1), FunType(CollectionType(m2, n1), n1))),
-        AttrType("_2", FunType(CollectionType(MonoidVariable(), FloatType()), FloatType())),
-        AttrType("_3", FunType(CollectionType(MonoidVariable(), IntType()), IntType())))
+        AttrType("a", FunType(List(CollectionType(m1, n1)), FunType(List(CollectionType(m2, n1)), n1))),
+        AttrType("_2", FunType(List(CollectionType(MonoidVariable(), FloatType())), FloatType())),
+        AttrType("_3", FunType(List(CollectionType(MonoidVariable(), IntType())), IntType())))
       )))
 
   }
@@ -1856,7 +1676,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """\xs -> { a := max(xs); v1: a, v2: a }""",
       TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), n), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
+      FunType(List(CollectionType(MonoidVariable(), n)), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
   }
 
 
@@ -1865,7 +1685,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """{ b := \xs -> { a := max(xs); v1: a, v2: a }; b }""",
       TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), n), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
+      FunType(List(CollectionType(MonoidVariable(), n)), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
   }
 
   test("""\xs, ys -> select x.age, * from x in xs, ys group by x.age""") {
@@ -1876,7 +1696,7 @@ class SemanticAnalyzerTest extends CoreTest {
     success(
       """\xs, ys -> select x.age, * from x in xs, ys group by x.age""",
       TestWorlds.empty,
-      FunType(PatternType(List(PatternAttrType(xs), PatternAttrType(ys))),
+      FunType(List(xs, ys),
               CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("age", age), AttrType("_2", star)))))))
   }
 
@@ -1930,47 +1750,48 @@ class SemanticAnalyzerTest extends CoreTest {
       CollectionType(MonoidVariable(), BoolType()))
   }
 
-  test("""#108 resolve a record type from a function pattern""") {
-    // f2 below takes three parameters.
-    success(
-      """{
-        f := \xyz -> { f2 := \(n,t,y) -> y > 10; select f2(x) from x in xyz }
-        f
-      }
-      """,
-      TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
-      )
-  }
+//  test("""#108 resolve a record type from a function pattern""") {
+//    // f2 below takes three parameters.
+//    success(
+//      """{
+//        f := \xyz -> { f2 := \(n,t,y) -> y > 10; select f2(x) from x in xyz }
+//        f
+//      }
+//      """,
+//      TestWorlds.empty,
+//      FunType(List(CollectionType(MonoidVariable(), RecordType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType()))))), CollectionType(MonoidVariable(), BoolType()))
+//      )
+//  }
 
-  test("""#108.2 resolve a record type from a function pattern""") {
-    // f2 below takes three parameters.
-    success(
-      """{
-        f := \xyz -> { f2 := \(n,t,y) -> y > 10; x := (1,2,3) ; f2(x) }
-        f
-      }
-      """,
-      TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
-    )
-  }
-  test("""#108.3 resolve a record type from a function pattern""") {
-    // f2 below takes three parameters.
-    success(
-      """{
-        f := \f2-> { x := (a:1,b:2,c:3) ; f2(x) }
-        myf := \x -> x.a + x.b + x.c
-        f(myf)
-        f <> (1,2,3) -> f with 3 args
-        f((1,2,3)) -> f with single record
-        check record cons!!!
-      }
-      """,
-      TestWorlds.empty,
-      FunType(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
-    )
-  }
+//  test("""#108.2 resolve a record type from a function pattern""") {
+//    // f2 below takes three parameters.
+//    success(
+//      """{
+//        f := \xyz -> { f2 := \(n,t,y) -> y > 10; x := (1,2,3) ; f2(x) }
+//        f
+//      }
+//      """,
+//      TestWorlds.empty,
+//      FunType(List(CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType(TypeVariable()), AttrType(TypeVariable()), AttrType(BoolType())))))), CollectionType(MonoidVariable(), BoolType()))
+//    )
+//  }
+
+//  test("""#108.3 resolve a record type from a function pattern""") {
+//    // f2 below takes three parameters.
+//    success(
+//      """{
+//        f := \f2-> { x := (a:1,b:2,c:3) ; f2(x) }
+//        myf := \x -> x.a + x.b + x.c
+//        f(myf)
+//        f <> (1,2,3) -> f with 3 args
+//        f((1,2,3)) -> f with single record
+//        check record cons!!!
+//      }
+//      """,
+//      TestWorlds.empty,
+//      FunType(List(CollectionType(MonoidVariable(), PatternType(List(PatternAttrType(TypeVariable()), PatternAttrType(TypeVariable()), PatternAttrType(BoolType())))), CollectionType(MonoidVariable(), BoolType()))
+//    )
+//  }
   /*
 
 group_by_age(xs) := select x.age, * from x in xs group by x.age
@@ -2002,8 +1823,8 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       RecordType(Attributes(List(
         AttrType("group_by_age",
           FunType(
-            PatternType(List(PatternAttrType(CollectionType(MonoidVariable(),RecordType(AttributesVariable(Set(AttrType("age",ageType)))))),
-                             PatternAttrType(CollectionType(MonoidVariable(),TypeVariable())))),
+            List(CollectionType(MonoidVariable(),RecordType(AttributesVariable(Set(AttrType("age",ageType))))),
+                 CollectionType(MonoidVariable(),TypeVariable())),
             CollectionType(MonoidVariable(),
               RecordType(Attributes(List(
                 AttrType("age",ageType),

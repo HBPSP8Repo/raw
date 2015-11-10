@@ -6,9 +6,7 @@ import calculus.{Symbol, SymbolTable}
 
 /** Types
   */
-sealed abstract class Type extends RawNode {
-  var nullable = false
-}
+sealed abstract class Type extends RawNode
 
 /** Primitive Types
   */
@@ -44,7 +42,12 @@ case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType
 
-/**
+/** Option Type
+  */
+
+case class OptionType(t: Type) extends Type
+
+/** Record Type
  *
  */
 
@@ -121,20 +124,13 @@ case class RecordType(recAtts: RecordAttributes) extends Type {
   def getType(idn: String): Option[Type] = recAtts.getType(idn)
 }
 
-/** Pattern Type
-  */
-
-case class PatternAttrType(tipe: Type) extends RawNode
-
-case class PatternType(atts: Seq[PatternAttrType]) extends Type
-
 /** Collection Type
   */
 case class CollectionType(m: CollectionMonoid, innerType: Type) extends Type
 
-/** Function Type `t2` -> `t1`
+/** Function Type
   */
-case class FunType(t1: Type, t2: Type) extends Type
+case class FunType(ins: Seq[Type], out: Type) extends Type
 
 /** Any Type
   * The top type.

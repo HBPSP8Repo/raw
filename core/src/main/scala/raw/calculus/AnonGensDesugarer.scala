@@ -33,7 +33,7 @@ class AnonGensDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with
   }
 
   private lazy val anonGen = rule[Gen] {
-    case g @ Gen(None, e) => Gen(Some(PatternIdn(IdnDef(anonGenSymbol(g).idn))), e)
+    case g @ Gen(None, e) => Gen(Some(PatternIdn(IdnDef(anonGenSymbol(g).idn, None))), e)
   }
 
 }

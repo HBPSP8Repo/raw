@@ -66,7 +66,7 @@ class Unnester extends Attribution with PipelinedTransformer {
       logger.debug(s"Applying unnester rule C11 to ${CalculusPrettyPrinter(n)}")
       val c = getNestedComp(p)
       val v = SymbolTable.next()
-      val pat_v = PatternIdn(IdnDef(v.idn))
+      val pat_v = PatternIdn(IdnDef(v.idn, None))
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val npred = p.map(rewrite(attempt(oncetd(rule[Exp] {
         case `c` => IdnExp(IdnUse(v.idn))
@@ -80,7 +80,7 @@ class Unnester extends Attribution with PipelinedTransformer {
       logger.debug(s"Applying unnester rule C12 to ${CalculusPrettyPrinter(n)}")
       val c = getNestedComp(Seq(f))
       val v = SymbolTable.next()
-      val pat_v = PatternIdn(IdnDef(v.idn))
+      val pat_v = PatternIdn(IdnDef(v.idn, None))
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val nf = rewrite(oncetd(rule[Exp] {
         case `c` => IdnExp(IdnUse(v.idn))
@@ -91,7 +91,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     /** Rule C7: Unnest
       */
 
-    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v))), path: RecordProj) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v, _))), path: RecordProj) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C7 to ${CalculusPrettyPrinter(n)}")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
@@ -100,7 +100,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     /** Rule C4: Scan/Filter
       */
 
-    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v))), x) :: r, p, e), None, None, EmptyTerm) =>
+    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v, _))), x) :: r, p, e), None, None, EmptyTerm) =>
       logger.debug(s"Applying unnester rule C4 to ${CalculusPrettyPrinter(n)}")
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
       recurse(CalculusTerm(CanComp(m, r, pred_not_v, e), None, Some(pat_v), AlgebraTerm(Filter(Gen(Some(pat_v), x), foldPreds(pred_v)))))
@@ -108,7 +108,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     /** Rule C6: Join
       */
 
-    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v))), x) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v, _))), x) :: r, p, e), None, Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C6 to ${CalculusPrettyPrinter(n)}")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val pred_v = p.filter(variables(_) == Set(v))
@@ -126,7 +126,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     /** Rule C10: OuterUnnest
       */
 
-    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v))), path: RecordProj) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v, _))), path: RecordProj) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C10 to ${CalculusPrettyPrinter(n)}")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val (pred_v, pred_not_v) = p.partition(variables(_) == Set(v))
@@ -135,7 +135,7 @@ class Unnester extends Attribution with PipelinedTransformer {
     /** Rule C9: OuterJoin
       */
 
-    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v))), x) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
+    case CalculusTerm(n @ CanComp(m, Gen(Some(pat_v @ PatternIdn(IdnDef(v, _))), x) :: r, p, e), Some(u), Some(w), AlgebraTerm(child)) =>
       logger.debug(s"Applying unnester rule C9 to ${CalculusPrettyPrinter(n)}")
       val pat_w_v = PatternProd(Seq(w, pat_v))
       val pred_v = p.filter(variables(_) == Set(v))
@@ -181,8 +181,8 @@ class Unnester extends Attribution with PipelinedTransformer {
   /** Return the sequence of identifiers used in a pattern.
     */
   lazy val idns: Pattern => Seq[String] = attr {
-    case PatternProd(ps)         => ps.flatMap(idns)
-    case PatternIdn(IdnDef(idn)) => Seq(idn)
+    case PatternProd(ps) => ps.flatMap(idns)
+    case PatternIdn(IdnDef(idn, _)) => Seq(idn)
   }
 //  private def idns(p: Pattern): Seq[String] = p match {
 //    case PatternProd(ps)         => ps.flatMap(idns)
@@ -192,7 +192,7 @@ class Unnester extends Attribution with PipelinedTransformer {
   /** Returns true if the comprehension `c` does not depend on `s` generators.
     */
   private def areIndependent(c: CanComp, s: Seq[Gen]) = {
-    val sVs: Set[String] = s.map { case Gen(Some(PatternIdn(IdnDef(v))), _) => v }.toSet
+    val sVs: Set[String] = s.map { case Gen(Some(PatternIdn(IdnDef(v, _))), _) => v }.toSet
     variables(c).intersect(sVs).isEmpty
   }
 

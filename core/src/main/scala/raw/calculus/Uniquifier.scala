@@ -19,8 +19,8 @@ class Uniquifier(val analyzer: SemanticAnalyzer) extends SemanticTransformer {
   }
 
   private lazy val uniquify = everywhere(rule[IdnNode] {
-    case n @ IdnDef(idn) => rawEntity(n) match {
-      case v: VariableEntity => IdnDef(v.id.idn)
+    case n @ IdnDef(idn, t) => rawEntity(n) match {
+      case v: VariableEntity => IdnDef(v.id.idn, t)
     }
     case n @ IdnUse(idn) => rawEntity(n) match {
       case _: DataSourceEntity => IdnUse(idn)       // For data sources, keep the original identifier use.

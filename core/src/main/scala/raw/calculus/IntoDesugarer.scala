@@ -42,7 +42,7 @@ class IntoDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with Sem
         }))(e2)
 
       ExpBlock(
-        Seq(Bind(PatternIdn(IdnDef(sym.idn)), e1)),
+        Seq(Bind(PatternIdn(IdnDef(sym.idn, None)), e1)),
         ne2
       )
   }

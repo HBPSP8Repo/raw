@@ -44,7 +44,7 @@ class Normalizer extends PipelinedTransformer {
   }
 
   lazy val rule1 = rule[Comp] {
-    case n @ Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x)), u), s), e) =>
+    case n @ Comp(m, Rule1(r, Bind(PatternIdn(IdnDef(x, _)), u), s), e) =>
       logger.debug(s"Applying normalizer rule 1 to ${CalculusPrettyPrinter(n)}")
       val strategy = everywhere(rule[Exp] {
         case IdnExp(IdnUse(`x`)) => rewriteInternalIdns(deepclone(u))
@@ -58,7 +58,7 @@ class Normalizer extends PipelinedTransformer {
     */
 
   private lazy val rule2 = rule[Exp] {
-    case n @ FunApp(FunAbs(PatternIdn(IdnDef(idn)), e1), e2) =>
+    case n @ FunApp(FunAbs(IdnDef(idn, _) :: _, e1), e2 :: _) =>
       logger.debug(s"Applying normalizer rule 2 to ${CalculusPrettyPrinter(n)}")
       rewrite(everywhere(rule[Exp] {
         case IdnExp(IdnUse(`idn`)) => rewriteInternalIdns(deepclone(e2))

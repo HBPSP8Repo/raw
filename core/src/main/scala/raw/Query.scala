@@ -29,7 +29,7 @@ object RawPositionExtractor {
     case MultipleDecl(_, pos) => List(RawPositionExtractor(pos))
     case UnknownDecl(_, pos) => List(RawPositionExtractor(pos))
     case AmbiguousIdn(_, pos) => List(RawPositionExtractor(pos))
-    case PatternMismatch(_, _, pos) => List(RawPositionExtractor(pos))
+    case InvalidArguments(_, _, pos) => List(RawPositionExtractor(pos))
     case UnknownPartition(_, pos) => List(RawPositionExtractor(pos))
     case UnknownStar(_, pos) => List(RawPositionExtractor(pos))
     case IncompatibleMonoids(_, _, pos) => List(RawPositionExtractor(pos))

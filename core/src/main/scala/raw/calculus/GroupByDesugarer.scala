@@ -46,10 +46,10 @@ class GroupByDesugarer(val analyzer: SemanticAnalyzer) extends Attribution with 
         RecordCons(
           ns.from.zip(s.from).zipWithIndex map {
             // The generator had a user-generated identifier (that's why it doesn't start with $; it can be e.g. 's$0')
-            case ((Gen(Some(PatternIdn(IdnDef(idn))), _), Gen(Some(PatternIdn(IdnDef(origIdn))), _)), _) if !origIdn.startsWith("$") =>
+            case ((Gen(Some(PatternIdn(IdnDef(idn, _))), _), Gen(Some(PatternIdn(IdnDef(origIdn, _))), _)), _) if !origIdn.startsWith("$") =>
               // We strip all characters until $ so that from 's$0' we get back 's', which was the original user identifier
               AttrCons(origIdn.takeWhile(_ != '$'), IdnExp(IdnUse(idn)))
-            case ((Gen(Some(PatternIdn(IdnDef(idn))), _), _), idx) =>
+            case ((Gen(Some(PatternIdn(IdnDef(idn, _))), _), _), idx) =>
               AttrCons(s"_${idx + 1}", IdnExp(IdnUse(idn)))})
 
     if (ns.where.isDefined)

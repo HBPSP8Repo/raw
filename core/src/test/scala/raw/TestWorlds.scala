@@ -319,29 +319,6 @@ object TestWorlds {
 
   def empty = new World()
 
-  def options = new World(sources = {
-    val i = IntType()
-    val oi = IntType();
-    oi.nullable = true
-    val li = CollectionType(ListMonoid(), i)
-    val loi = CollectionType(ListMonoid(), oi)
-    val oli = CollectionType(ListMonoid(), i);
-    oli.nullable = true
-    val oloi = CollectionType(ListMonoid(), oi);
-    oloi.nullable = true
-    Map(
-      "LI" -> li,
-      "LOI" -> loi,
-      "OLI" -> oli,
-      "OLOI" -> oloi,
-      "records" ->
-        CollectionType(
-          ListMonoid(),
-          RecordType(Attributes(List(AttrType("OI", oi), AttrType("LOI", loi), AttrType("I", IntType()), AttrType("LI", li)))))
-    )
-  }
-  )
-
   def authors_publications = {
     val tipes = Map(
       Symbol("author") -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("title", StringType()), AttrType("year", IntType())))),

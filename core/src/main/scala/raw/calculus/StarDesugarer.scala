@@ -24,7 +24,7 @@ class StarDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTransformer 
                 case analyzer.ResolvedType(RecordType(Attributes(atts))) =>
                   val idns = atts.map(_.idn)
                   val projs = select.from.flatMap {
-                    case Gen(Some(PatternIdn(IdnDef(idn))), e) =>
+                    case Gen(Some(PatternIdn(IdnDef(idn, _))), e) =>
                       analyzer.tipe(e) match {
                         case analyzer.ResolvedType(CollectionType(_, innerType1)) =>
                           innerType1 match {
