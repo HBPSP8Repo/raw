@@ -603,7 +603,7 @@ class SemanticAnalyzerTest extends CoreTest {
         count1(1)
         }
       """, TestWorlds.empty,
-      IncompatibleTypes(CollectionType(MonoidVariable(), TypeVariable()), IntType()))
+      UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable())))
   }
 
   test("""let-polymorphism #1""") {
@@ -2114,19 +2114,6 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """.stripMargin,
       TestWorlds.empty,
       CollectionType(MonoidVariable(), RecordType(Attributes(List(AttrType("_1", StringType()), AttrType("_2", StringType()))))))
-  }
-
-  test("fooo1234") {
-    success(
-      """
-        |{
-        |  a := \x -> x + x;
-        |  b := \y -> a(y);
-        |  b(1), b(1.2)
-        |}
-       """.stripMargin,
-      TestWorlds.empty,
-      IntType())
   }
 
 }

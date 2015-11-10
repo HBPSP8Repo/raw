@@ -20,11 +20,11 @@ class UniquifierTest extends PhaseTest {
   }
 
   test("""\(a, b) -> a + b""") {
-    check("""\(a, b) -> a + b""", """\(a$0, b$0) -> a$0 + b$0""")
+    check("""\(a, b) -> a + b""", """\a$0, b$0 -> a$0 + b$0""")
   }
 
   test("""\(a, b) -> a + b + 1""") {
-    check("""\(a, b) -> a + b + 1""", """\(a$0, b$0) -> a$0 + b$0 + 1""")
+    check("""\(a, b) -> a + b + 1""", """\a$0, b$0 -> a$0 + b$0 + 1""")
   }
 
 }

@@ -13,6 +13,7 @@ trait NodePosition extends Attribution with Analyzer with LazyLogging {
   def beginPosition(n: CalculusNode): RawPosition = RawPosition(n.pos.line, n.pos.column)
 
   private def stripFromBegin(p: RawPosition): String = {
+    logger.debug(s"Here we are with p $p")
     assert(p.line > 0 && p.column > 0)
     queryString.split("\\n").drop(p.line - 1).mkString("\n").drop(p.column - 1)
   }
