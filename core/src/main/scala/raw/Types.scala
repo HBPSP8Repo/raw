@@ -38,8 +38,9 @@ case class IntervalType(intervals: Seq[IntervalAttr]) extends Type
 
 case class RegexType() extends Type
 
-case class PrimitiveType(sym: Symbol = SymbolTable.next()) extends VariableType
-
+/** Number Type: Int or Float
+  * NumberType is a VariableType.
+  */
 case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 /** Option Type

@@ -109,7 +109,6 @@ object World extends LazyLogging {
       case (_: UserType, _: UserType) => t1 == t2
       case (_: TypeVariable, _: TypeVariable) => t1 == t2
       case (_: NumberType, _: NumberType) => t1 == t2
-      case (_: PrimitiveType, _: PrimitiveType) => t1 == t2
       case _ => t1 eq t2
     }
 

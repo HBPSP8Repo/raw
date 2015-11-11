@@ -2145,4 +2145,17 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       InvalidNumberOfArguments(1, 2, None))
   }
 
+  test("bad function call #3") {
+    failure(
+      """
+        |{
+        |  f := \x,y -> x;
+        |  g := f;
+        |  g(1)
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      InvalidNumberOfArguments(1, 2, None))
+  }
+
 }

@@ -1,5 +1,7 @@
 package raw
 
+import raw.calculus.Calculus.Pattern
+
 /** Base class for calculus/canonical calculus pretty printers.
   */
 abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
@@ -47,10 +49,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: SetMonoid           => "set"
     case _: ListMonoid          => "list"
     case mv: MonoidVariable => mv.sym.idn
-
-    case GenericMonoid(commutative, idempotent) => "generic" <> parens(group(lsep(List(
-      text(if (commutative.isDefined) commutative.get.toString else "?"),
-      text(if (idempotent.isDefined) idempotent.get.toString else "?")), comma)))
   }
 
   def monoid(m: Monoid): Doc = m match {
@@ -94,7 +92,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
         parens(group(nest(lsep(freeSyms.typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
         parens(group(nest(lsep(freeSyms.monoidSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
         parens(group(nest(lsep(freeSyms.attSyms.map { case sym => text(sym.idn) }.to, comma))))
-    case PrimitiveType(sym)                   => "primitive" <> parens(sym.idn)
     case NumberType(sym)                      => "number" <> parens(sym.idn)
     case TypeVariable(sym)                    => sym.idn
   }

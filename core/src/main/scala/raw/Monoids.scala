@@ -44,5 +44,3 @@ case class ListMonoid() extends CollectionMonoid
   * Therefore, the monoid variable represents a monoid that is greater or equal to all the lesserMonoids.
   */
 case class MonoidVariable(sym: Symbol = SymbolTable.next()) extends CollectionMonoid
-
-case class GenericMonoid(commutative: Option[Boolean] = None, idempotent: Option[Boolean] = None) extends CollectionMonoid

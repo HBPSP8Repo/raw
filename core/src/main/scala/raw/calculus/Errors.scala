@@ -101,7 +101,6 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
 //      else
 //        s"record"
     case _: NumberType => "number"
-    case _: PrimitiveType => "primitive (e.g. int, bool, string, float)"
     case _                                            => PrettyPrinter(t)
   }
 

@@ -60,10 +60,15 @@ trait NodePosition extends Attribution with Analyzer with LazyLogging {
     case UnaryExp(_, e) => endPosition(e)
     case _ =>
       val begin = beginPosition(n)
-      val stripQueryString = stripFromBegin(begin)
-      val parser = reverseParser(n)
-      SyntaxAnalyzer.parseSubstring(parser, stripQueryString) match {
-        case SyntaxAnalyzer.Success(_, next) => RawPosition(begin.line + next.pos.line - 1, begin.column + next.pos.column - 1)
+      if (begin.line <= 0 || begin.column <= 0)
+        begin
+      else {
+
+        val stripQueryString = stripFromBegin(begin)
+        val parser = reverseParser(n)
+        SyntaxAnalyzer.parseSubstring(parser, stripQueryString) match {
+          case SyntaxAnalyzer.Success(_, next) => RawPosition(begin.line + next.pos.line - 1, begin.column + next.pos.column - 1)
+        }
       }
   }
 

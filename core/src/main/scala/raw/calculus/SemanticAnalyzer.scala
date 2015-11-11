@@ -485,7 +485,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
         case CollectionType(_, innerType) => getVariableTypes(innerType, occursCheck + t)
         case FunType(ins, out)            => ins.flatMap{ case in => getVariableTypes(in, occursCheck + t) }.toSet ++ getVariableTypes(out, occursCheck + t)
-        case t1: PrimitiveType            => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
         case t1: NumberType               => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
         case t1: TypeVariable             => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
       }
@@ -507,7 +506,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _: IntervalType              => Set()
         case _: RegexType                 => Set()
         case _: UserType       => Set()
-        case _: PrimitiveType  => Set()
         case _: NumberType     => Set()
         case t1: TypeVariable  =>
           if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1)
@@ -619,10 +617,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         t match {
           case t1 @ TypeVariable(sym) if !typeSyms.contains(sym)  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           case t1 @ NumberType(sym) if !typeSyms.contains(sym)    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
-          case t1 @ PrimitiveType(sym) if !typeSyms.contains(sym) => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           case TypeVariable(sym)             => TypeVariable(getNewSym(sym))
           case NumberType(sym)               => NumberType(getNewSym(sym))
-          case PrimitiveType(sym)            => PrimitiveType(getNewSym(sym))
           case _: NothingType                => t
           case _: AnyType                    => t
           case _: IntType                    => t
@@ -652,7 +648,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _ => NothingType()
       }
       unify(t, pt)
-    case PatternProd(ps) => t match {
+    case PatternProd(ps) => find(t) match {
       case ResolvedType(RecordType(Attributes(atts))) =>
         atts.size == ps.size && atts.zip(ps).map{ case (att, p1) => unifyPattern(att.tipe, p1)}.forall(identity)
       case _ =>
@@ -1043,30 +1039,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case (RecordType(a1), RecordType(a2)) =>
         unifyAttributes(a1, a2, occursCheck + ((t1, t2)))
 
-      case (p1: PrimitiveType, p2: PrimitiveType) =>
-        typesVarMap.union(p2, p1)
-        true
-      case (p1: PrimitiveType, _: BoolType)   =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (p1: PrimitiveType, _: IntType)    =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (p1: PrimitiveType, _: FloatType)  =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (p1: PrimitiveType, _: StringType) =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (_: BoolType, _: PrimitiveType)    =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
-      case (_: IntType, _: PrimitiveType)     =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
-      case (_: FloatType, _: PrimitiveType)   =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
-      case (_: StringType, _: PrimitiveType)  =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
-
       case (p1: NumberType, p2: NumberType) =>
         typesVarMap.union(p2, p1)
         true
@@ -1317,7 +1289,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: IntervalType                 => t
           case _: RegexType                    => t
           case _: UserType                     => t
-          case _: PrimitiveType                => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case RecordType(a)                   => RecordType(reconstructAttributes(a, occursCheck + t))
           case CollectionType(m, innerType)    => CollectionType(mFind(m).asInstanceOf[CollectionMonoid], reconstructType(innerType, occursCheck + t))
