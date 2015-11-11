@@ -2,7 +2,6 @@ package raw.rest
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.Files
-import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
@@ -19,7 +18,6 @@ import spray.http.HttpHeaders.{Authorization, `Access-Control-Allow-Headers`, `A
 import spray.http.StatusCodes.ClientError
 import spray.http._
 
-import scala.collection.mutable
 import scala.concurrent.duration._
 
 /* Object mapper used to read/write any JSON received/sent by the rest server */
@@ -49,7 +47,9 @@ object RawService extends StrictLogging {
   // Scala representation of the JSON requests. Used by Jackson to convert between scala object and JSON
   case class QueryRequest(query: String)
 
-  case class QueryNextRequest(token: String)
+  case class QueryStartRequest(query: String, resultsPerPage:Int)
+
+  case class QueryNextRequest(token: String, resultsPerPage:Int)
 
   case class QueryResponse(output: Any, execution_time: Int, compile_time: Int)
 
@@ -71,6 +71,7 @@ object RawService extends StrictLogging {
 
   // Deserializers
   val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
+  val queryStartRequestReader = mapper.readerFor(classOf[QueryStartRequest])
   val queryNextRequestReader = mapper.readerFor(classOf[QueryNextRequest])
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
 
@@ -100,6 +101,8 @@ object RawService extends StrictLogging {
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
     `Access-Control-Max-Age`(1728000),
     `Access-Control-Allow-Origin`(AllOrigins))
+
+  val queryCache = new QueryCache()
 }
 
 class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
@@ -228,40 +231,6 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     }
   }
 
-  final val PAGINATION_BLOCK_SIZE = 10
-  private[this] val queryCache = new mutable.HashMap[String, OpenQuery]()
-
-  private class OpenQuery(val token: String, val query: String, val rawQuery: RawQuery,
-                          val iterator: RawQueryIterator) {
-    var position: Int = 0
-
-    def hasNext: Boolean = {
-      val b = iterator.hasNext
-      if (!b) {
-        iterator.close()
-      }
-      b
-    }
-
-    def next(): List[Any] = {
-      if (position == -1) {
-        throw new ClientErrorException("Iterator already closed")
-      }
-      if (!hasNext) {
-        throw new ClientErrorException("No more elements available")
-      }
-      val nextBlock: List[Any] = iterator.take(PAGINATION_BLOCK_SIZE).toList
-      position += nextBlock.length
-      nextBlock
-    }
-
-    def close() = {
-      queryCache.remove(token)
-      iterator.close()
-      position = -1
-    }
-  }
-
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
     val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
     logger.info(s"[Query] $request")
@@ -277,22 +246,20 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def doQueryStart(httpRequest: HttpRequest): HttpResponse = {
-    val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
+    val request = queryStartRequestReader.readValue[QueryStartRequest](httpRequest.entity.asString)
     logger.info(s"[Query] $request")
     val queryLanguage = QueryLanguages("qrawl")
     val rawUser = getUser(httpRequest)
     val query = request.query
     val rawQuery: RawQuery = rawServer.doQueryStart(queryLanguage, query, rawUser)
 
-    val iterator: RawQueryIterator = rawQuery.iterator
-    val token = UUID.randomUUID().toString
-    val openQuery = new OpenQuery(token, query, rawQuery, iterator)
-    val response = if (!openQuery.hasNext) {
+    val openQuery = queryCache.newOpenQuery(query, rawQuery)
+    val response: QueryBlockResponse = if (!openQuery.hasNext) {
       // No results.
       QueryBlockResponse(null, 0, 0, false, null)
     } else {
-      queryCache.put(token, openQuery)
-      nextQueryBlock(token)
+      queryCache.put(openQuery)
+      nextQueryBlock(openQuery.token, request.resultsPerPage)
     }
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
     logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
@@ -302,17 +269,24 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   private[this] def doQueryNext(httpRequest: HttpRequest): HttpResponse = {
     val request = queryNextRequestReader.readValue[QueryNextRequest](httpRequest.entity.asString)
     logger.info(s"[QueryNext] $request")
-    val response = nextQueryBlock(request.token)
+
+    val response = nextQueryBlock(request.token, request.resultsPerPage)
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
     logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
-  private[this] def nextQueryBlock(token: String): QueryBlockResponse = {
+  private[this] def nextQueryBlock(token: String, resultsPerPage:Int): QueryBlockResponse = {
     queryCache.get(token) match {
       case Some(openQuery) =>
         val start = openQuery.position
-        val nextBlock = openQuery.next()
+        // If the json request does not contain a resultsPerPage field (the field is set to 0 by Jackson),
+        // we use the default value.
+        val nextBlock = if (resultsPerPage == 0) {
+          openQuery.next()
+        } else {
+          openQuery.next(resultsPerPage)
+        }
         val hasNext = openQuery.hasNext
         // Do not send token if there are no more results
         val nextToken = if (hasNext) token else null

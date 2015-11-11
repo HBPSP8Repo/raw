@@ -105,14 +105,14 @@ class RawServiceClientProxy extends StrictLogging {
     DefaultJsonMapper.mapper.writeValueAsString(response.output)
   }
 
-  def queryStart(query: String, credentials: RawCredentials): QueryBlockResponse = {
-    val queryRequest = new QueryRequest(query)
+  def queryStart(query: String, resultsPerPage: Int, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryStartRequest(query, resultsPerPage)
     val responseBody = doQuery("http://localhost:54321/query-start", queryRequest, credentials)
     queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
   }
 
-  def queryNext(token: String, credentials: RawCredentials): QueryBlockResponse = {
-    val queryRequest = new QueryNextRequest(token)
+  def queryNext(token: String, resultsPerPage: Int, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryNextRequest(token, resultsPerPage)
     val responseBody = doQuery("http://localhost:54321/query-next", queryRequest, credentials)
     queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
   }
