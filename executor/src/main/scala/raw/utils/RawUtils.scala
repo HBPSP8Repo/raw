@@ -4,11 +4,14 @@ import java.net.URL
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 import java.util
+import java.util.concurrent.TimeUnit
 import java.util.function.BiPredicate
 
 import com.google.common.io.Resources
+import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
+import raw.rest.RawService._
 
 import scala.collection.JavaConversions
 
