@@ -15,6 +15,7 @@ import scala.collection.mutable
 object TestScanners extends StrictLogging {
   val scanners = new mutable.ListBuffer[RawScanner[_]]()
 
+  logger.info("Creating test scanners")
   val publicationsPath = RawUtils.toPath("data/publications/publications.json")
   val authorsPath = RawUtils.toPath("data/publications/authors.json")
   val authorsSmallPath = RawUtils.toPath("data/publications/authorsSmall.json")
@@ -49,7 +50,7 @@ object TestScanners extends StrictLogging {
     //    val scanner = RawScanner(schema, manifest[T])
     val scanner = RawScanner[T](schema)
     scanners += scanner
-    logger.info("Scanner: " + scanner)
+    logger.info(s"Created: $scanner")
     scanner
   }
 }

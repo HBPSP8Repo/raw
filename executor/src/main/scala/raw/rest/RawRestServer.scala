@@ -2,9 +2,9 @@ package raw.rest
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.io.{IO, Tcp}
-import akka.routing.RoundRobinPool
+import akka.routing.{FromConfig, RoundRobinPool}
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
@@ -71,11 +71,12 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   implicit val system = ActorSystem()
 
   def start(): Future[Bound] = {
-    val handler = system.actorOf(
-      RoundRobinPool(5).props(Props {
-        new RawService(rawServer, dropboxClient)
-      }),
-      name = "handler")
+    // Get the configuration from the config files (reference.conf or application.conf)
+    val props = FromConfig.props(Props {
+      new RawServiceActor(rawServer, dropboxClient)
+    })
+    val handler: ActorRef = system.actorOf(props, "rest-server-handler")
+    logger.info(s"Created actor: ${handler}")
 
     IO(Http).ask(Http.Bind(handler, interface = "0.0.0.0", port = port))(1.second)
       .flatMap {

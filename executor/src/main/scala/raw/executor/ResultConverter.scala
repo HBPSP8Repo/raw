@@ -10,8 +10,7 @@ import com.google.common.collect.ImmutableMultiset
 import com.typesafe.config.{ConfigFactory, Config}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.LoggerFactory
-import raw.rest.DefaultJsonMapper
-import raw.utils.BoundedStringWriter
+import raw.utils.{DefaultJsonMapper, BoundedStringWriter}
 
 import scala.collection.{Bag, JavaConversions}
 

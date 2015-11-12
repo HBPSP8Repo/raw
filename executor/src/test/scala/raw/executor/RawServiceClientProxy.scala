@@ -9,8 +9,8 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
-import raw.rest.DefaultJsonMapper
-import raw.rest.RawService._
+import raw.rest.RawServiceActor._
+import raw.utils.{DefaultJsonMapper, FileTypes}
 import raw.{ParserError, SemanticErrors}
 
 
@@ -133,16 +133,9 @@ class RawServiceClientProxy extends StrictLogging {
   }
 
   def registerLocalFile(credentials: RawCredentials, file: Path, schema: String): String = {
+    logger.info(s"Registering file: $file, $schema")
     val filename = file.getFileName.toString
-    val i = filename.lastIndexOf('.')
-    val fileType = if (i > 0) {
-      val extension = filename.substring(i + 1)
-      logger.info(s"File type derived from extension: $extension.")
-      extension
-    } else {
-      logger.info(s"No extension detected in file $file. Assuming text file.")
-      "text"
-    }
+    val fileType = FileTypes.inferFileType(filename)
     registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 

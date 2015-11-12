@@ -81,7 +81,6 @@ abstract class StorageManager extends StrictLogging {
 
   /** Gets the scanner for the given schema */
   def getScanner(rawUser: String, schemaName: String): RawScanner[_] = {
-    logger.info(s"Getting scanner for $rawUser, $schemaName")
     scanners((rawUser, schemaName))
   }
 

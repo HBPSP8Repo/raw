@@ -145,10 +145,9 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
       descapedStr
     }
 
-    logger.info("Scanners: " + scanners)
+    logger.info("Building query with scanners: " + scanners)
     val queryName = RawCompiler.newClassName()
     val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)
-    logger.info(s"Access paths: $aps")
 
     /* For every top level type argument of the access path, import the containing package. The is, for the following
      * access paths: RDD[raw.Publications], RDD[raw.patients.Patient], generate "import raw._" and "import raw.patients._"
@@ -175,8 +174,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
     val code =
-      s"""
-package raw.query
+      s"""package raw.query
 
 import raw.executor.RawScanner
 import org.apache.spark.rdd.RDD
@@ -187,8 +185,7 @@ $imports
 class $queryName($args) extends RawQuery {
   val ${queryLanguage.name} =
   \"${descapeStr(query)}\"
-}
-"""
+}"""
 
     logger.info(s"Generated code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve(queryName + ".scala")
@@ -222,9 +219,8 @@ class $queryName($args) extends RawQuery {
 
     // Find the constructor.
     val ctorTypeArgs: Seq[Class[_]] = scanners.map(ap => getContainerClass(ap))
-    logger.info("ctorTypeArgs: " + ctorTypeArgs + " " + ctorTypeArgs.toSeq)
+//    logger.info("ctorTypeArgs: " + ctorTypeArgs)
     val ctor = clazz.getConstructor(ctorTypeArgs.toSeq: _*)
-
 
     // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
     val ctorArgs: Seq[Object] = scanners.map(scanner => getAccessPaths(scanner))

@@ -10,7 +10,7 @@ import raw.utils.RawUtils
  * - non-existing file
  * - wrong contents
 */
-class RestServerEmptyStorageTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
+class EmptyStorageTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 
   // Support for CSV files with no header. The columns should be given names like v1, v2...
   test("CSV register && query: students, no file header") {

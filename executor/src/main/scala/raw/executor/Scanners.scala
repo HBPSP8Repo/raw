@@ -2,6 +2,7 @@ package raw.executor
 
 import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
+import java.util
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
@@ -12,7 +13,7 @@ import com.google.common.base.Charsets
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.{LineIterator, IOUtils}
 import org.apache.spark.SparkContext
-import raw.utils.Instrumented
+import raw.utils.{FileTypes, Instrumented}
 
 import scala.collection.immutable.HashMap
 import scala.collection.{AbstractIterator, Iterator, JavaConversions}
@@ -23,16 +24,11 @@ import scala.reflect.runtime.universe._
 
 object RawScanner extends StrictLogging {
   def apply[T: TypeTag : ClassTag : Manifest](schema: RawSchema): RawScanner[T] = {
-    if (schema.fileType == "json") {
-      new JsonRawScanner(schema)
-    } else if (schema.fileType == "csv") {
-      new CsvRawScanner(schema)
-    } else if (schema.fileType == "text") {
-      // T must be string
-      logger.info(s"Type: ${typeTag[T]}")
-      new TextRawScanner(schema).asInstanceOf[RawScanner[T]]
-    } else {
-      throw new IllegalArgumentException("Unsupported file type: " + schema.schemaFile)
+    schema.fileType match {
+      case FileTypes.Json => new JsonRawScanner(schema)
+      case FileTypes.Csv => new CsvRawScanner(schema)
+      case FileTypes.Text => new TextRawScanner(schema).asInstanceOf[RawScanner[T]]
+      case _ => throw new IllegalArgumentException(s"Unsupported file type: ${schema.schemaFile}")
     }
   }
 }
@@ -42,7 +38,7 @@ abstract class RawScanner[T: TypeTag : ClassTag](val schema: RawSchema) extends 
   val ct = classTag[T]
 
   // The default Iterable toString implementation prints the full contents
-  override def toString() = s"${this.getClass}(${schema.toString}, tag:${typeTag[T]})"
+  override def toString() = s"${this.getClass.getName}(${schema.toString}, tag:${typeTag[T]})"
 
   override def iterator: AbstractClosableIterator[T]
 }
@@ -141,7 +137,6 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
       }
       i += 1
     }
-    logger.info(s"Resource: ${schema.name}, Conversion functions: $functions")
     functions
   }
 
@@ -192,7 +187,7 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
   override def iterator: AbstractClosableIterator[T] = {
     val p = schema.dataFile
     val properties = schema.properties
-    logger.info(s"Creating iterator for Json resource: $p. Properties: ${properties}, Manifest: ${manifest[T]}, TyppeTag: ${typeTag[T]}")
+    logger.info(s"Creating iterator for resource: $p. Properties: ${properties}, ${typeTag[T]}")
 
     // TODO: The jsonFactory can generate a parser that manages the input stream if we pass it the file reference instead
     // of the inputstream. Check if this works properly and if so, remove the ClosableIterator mechanism.
@@ -201,7 +196,7 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
     val nt = jp.nextToken()
-    assert(nt == JsonToken.START_OBJECT || nt == JsonToken.START_ARRAY, "Found: " + nt)
+    assert(nt == JsonToken.START_OBJECT || nt == JsonToken.START_ARRAY, s"Found: $nt")
     val iter: Iterator[T] = JavaConversions.asScalaIterator(mapper.readValues[T](jp))
     new ClosableIterator[T](iter, is)
   }

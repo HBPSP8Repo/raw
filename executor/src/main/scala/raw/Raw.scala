@@ -62,12 +62,12 @@ abstract class RawQueryIterator extends Iterator[Any] with StrictLogging {
   private[this] lazy val queryIterator = open()
 
   protected[this] def openScanner[T](scanner: RawScanner[T]): Iterable[T] = {
-    logger.info("Opening iterator: " + scanner)
+//    logger.info("Opening iterator: " + scanner)
     new RawIterable(scanner, openIters).view
   }
 
   protected[this] def openScanner[T](iterable: Iterable[T]): Iterable[T] = {
-    logger.info("Bypassing: " + iterable)
+//    logger.info("Bypassing: " + iterable)
     iterable
   }
 

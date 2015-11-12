@@ -26,7 +26,7 @@ Error conditions:
   - syntax error
   - semantic error
  */
-class RestServerPreloadedTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
+class PreloadedTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 
   import DropboxAuthUsers._
 

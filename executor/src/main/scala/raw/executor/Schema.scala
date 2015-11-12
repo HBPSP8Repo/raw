@@ -1,6 +1,5 @@
 package raw.executor
 
-import java.nio.file.{Path, Files}
 import java.util
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
@@ -8,24 +7,15 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.typesafe.scalalogging.StrictLogging
 import raw._
 import raw.storage.RawResource
+import raw.utils.{FileTypes, RawUtils}
 
 import scala.collection.immutable.Seq
-import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.HashMap
+import scala.collection.{JavaConversions, mutable}
 import scala.xml.{Elem, Node, XML}
 
 case class RawSchema(name: String, schemaFile: RawResource, properties: SchemaProperties, dataFile: RawResource) {
-  def fileType: String = {
-    val filename = dataFile.fileName.toString
-    val i = filename.lastIndexOf('.')
-    if (i < 0) {
-      "text"
-      // TODO: Hack!!!
-      //throw new Exception("Invalid data file, could not determine file type: " + dataFile)
-    } else {
-      filename.substring(i + 1).toLowerCase
-    }
-  }
+  val fileType: String = FileTypes.inferFileType(dataFile.fileName.toString)
 }
 
 class SchemaProperties(schemaProperties: java.util.Map[String, Object]) extends StrictLogging {
@@ -61,16 +51,17 @@ class SchemaProperties(schemaProperties: java.util.Map[String, Object]) extends 
 }
 
 /**
- *
- * @param caseClasses Map from class name to class definition (scala source code)
- * @param typeDeclaration
- */
+  *
+  * @param caseClasses Map from class name to class definition (scala source code)
+  * @param typeDeclaration
+  */
 case class ParsedSchema(caseClasses: Map[String, String], typeDeclaration: String)
 
 object SchemaParser extends StrictLogging {
   // map of unique record names
   val recordNames = scala.collection.mutable.HashMap[RecordType, String]()
   val c = new AtomicInteger(0)
+
   def recordName(r: RecordType) = {
     if (!recordNames.contains(r)) {
       recordNames.put(r, s"__UserRecord${c.getAndIncrement()}")
@@ -80,7 +71,7 @@ object SchemaParser extends StrictLogging {
 
   def apply(schema: RawSchema): ParsedSchema = {
     val asRawType: SchemaAsRawType = XmlToRawType(schema)
-    logger.info("Parsed schema: " + asRawType.caseClasses)
+    logger.debug("Parsed schema: " + asRawType.caseClasses)
     val typeGenerator = new ScalaTypeGenerator(asRawType)
     ParsedSchema(typeGenerator.caseClassesSym.toMap, typeGenerator.typeDeclaration)
   }
@@ -89,7 +80,7 @@ object SchemaParser extends StrictLogging {
     val typeDeclaration: String = buildScalaDeclaration(rawType.typeDeclaration)
     val caseClassesSym = new mutable.HashMap[String, String]()
     defineCaseClasses(rawType.typeDeclaration)
-    logger.info("Case classes: " + caseClassesSym)
+//    logger.debug("Case classes: " + caseClassesSym)
     val caseClassesSource = caseClassesSym.values.mkString("\n")
 
     private[this] def defineCaseClass(r: RecordType): String = {
@@ -194,7 +185,6 @@ object SchemaParser extends StrictLogging {
               case None =>
                 val fields: Seq[Elem] = getChildren(elem)
                 val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
-                logger.info("Attributes: " + attrs)
                 val orderedAttrs = orderFields(name, attrs)
                 val record = RecordType(Attributes(orderedAttrs))
                 records.put(name, record)
@@ -214,7 +204,7 @@ object SchemaParser extends StrictLogging {
           case None => attributes
           case Some(order) => {
             assert(name == rootElementName, "Unexpected field names metadata on nested schema. Processing element: " + name + ", rootelement: " + rootElementName + ", Schema: " + schema)
-            logger.info("Reordering: " + attributes + ", using order: " + order)
+            logger.debug(s"Reordering attributes: $attributes, using order: $order")
             val attMap: Map[String, AttrType] = attributes.map(attr => attr.idn -> attr).toMap
             val orderIter = JavaConversions.asScalaIterator(order.iterator())
             val reordered = orderIter.map(attrName => attMap(attrName)).to[scala.collection.immutable.Seq]

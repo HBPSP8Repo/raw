@@ -13,7 +13,7 @@ object QueryCache extends StrictLogging {
   final val DEFAULT_RESULTS_PER_PAGE = 10
   final val timeout: Long = ConfigFactory.load().getDuration("raw.querycache.timeout", TimeUnit.SECONDS)
   final val maximumSize: Int = ConfigFactory.load().getInt("raw.querycache.maximumSize")
-  logger.info(s" Timeout: $timeout; maximumSize: $maximumSize")
+  logger.info(s"Initializing query cache. Timeout: $timeout; maximumSize: $maximumSize")
 }
 
 /*
@@ -37,7 +37,7 @@ class QueryCache extends StrictLogging {
 
   class OpenConnectionRemovalListener extends RemovalListener[String, OpenQuery] {
     override def onRemoval(removalNotification: RemovalNotification[String, OpenQuery]): Unit = {
-      logger.info(s"Removed query iterator: $removalNotification, Cause: ${removalNotification.getCause}.")
+//      logger.info(s"Removed query iterator: $removalNotification, Cause: ${removalNotification.getCause}.")
       removalNotification.getValue.close()
     }
   }

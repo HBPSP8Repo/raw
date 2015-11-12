@@ -5,14 +5,12 @@ import java.nio.file.Files
 
 import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.typesafe.config.{ConfigException, ConfigFactory}
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import raw._
 import raw.executor._
+import raw.utils.DefaultJsonMapper
 import spray.can.Http
 import spray.http.HttpHeaders.{Authorization, `Access-Control-Allow-Headers`, `Access-Control-Allow-Origin`, `Access-Control-Max-Age`}
 import spray.http.StatusCodes.ClientError
@@ -20,17 +18,7 @@ import spray.http._
 
 import scala.concurrent.duration._
 
-/* Object mapper used to read/write any JSON received/sent by the rest server */
-object DefaultJsonMapper extends StrictLogging {
-  val mapper = {
-    val om = new ObjectMapper()
-    om.registerModule(DefaultScalaModule)
-    om.configure(SerializationFeature.INDENT_OUTPUT, true)
-    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-    om.setSerializationInclusion(Include.ALWAYS)
-    om
-  }
-}
+
 
 /* Generic exception, which the request handler code can raise to send a 400 response to the client.
 * This exception will be caught by the exception handler below and transformed in a 400 response*/
@@ -40,16 +28,16 @@ class ClientErrorException(msg: String, cause: Throwable, val statusCode: Client
   def this(cause: Throwable) = this(cause.getMessage, cause)
 }
 
-object RawService extends StrictLogging {
+object RawServiceActor extends StrictLogging {
 
   import DefaultJsonMapper._
 
   // Scala representation of the JSON requests. Used by Jackson to convert between scala object and JSON
   case class QueryRequest(query: String)
 
-  case class QueryStartRequest(query: String, resultsPerPage:Int)
+  case class QueryStartRequest(query: String, resultsPerPage: Int)
 
-  case class QueryNextRequest(token: String, resultsPerPage:Int)
+  case class QueryNextRequest(token: String, resultsPerPage: Int)
 
   case class QueryCloseRequest(token: String)
 
@@ -79,26 +67,18 @@ object RawService extends StrictLogging {
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
 
   // If authentication is disabled, use this as default user name
-  final val DEFAULT_USER = "demo"
-  val authentication: Boolean = {
-    try {
-      val auth: String = ConfigFactory.load().getString("raw.authentication")
-      val res = auth != "disabled"
-      logger.info(s"Authentication config: $auth. Setting to: $res")
-      res
-    } catch {
-      case ex: ConfigException.Missing => {
-        logger.info( s"""No value found for "raw.authentication". Enabling authentication""")
-        true
-      }
-    }
+  final val DEMO_USER = "demo"
+
+  val demoMode: Boolean = {
+    val key = "raw.demo-mode"
+    val configValue = ConfigFactory.load().getString(key)
+    val enabled = configValue == "enabled"
+    logger.info(s"Demo mode: $enabled. Derived from config property: $key = $configValue.")
+    enabled
   }
 
-  implicit val timeout: Timeout = 1.second
   // for the actor 'asks' // ExecutionContext for the futures and scheduler
-  val queryPath = "/query"
-  val registerPath = "/register-file"
-  val schemasPath = "/schemas"
+  implicit val timeout: Timeout = 1.second
 
   val corsHeaders = List(
     `Access-Control-Allow-Headers`("Origin, X-Requested-With, Content-Type, Accept, Accept-Encoding, Accept-Language, Host, Referer, User-Agent"),
@@ -108,11 +88,11 @@ object RawService extends StrictLogging {
   val queryCache = new QueryCache()
 }
 
-class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
+class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extends Actor with StrictLogging {
 
   import DefaultJsonMapper._
   import HttpMethods._
-  import RawService._
+  import RawServiceActor._
 
   def withCORS(response: HttpResponse): HttpResponse = {
     response.withHeaders(response.headers ++ corsHeaders)
@@ -124,8 +104,13 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
   def processRequest(httpRequest: HttpRequest, f: (HttpRequest) => HttpResponse): HttpResponse = {
     val uri = httpRequest.uri
+    logger.info(s"Received request: $httpRequest")
     try {
-      f(httpRequest)
+      val httpResponse = f(httpRequest)
+      val responseAsString = s"HttpResponse(${httpResponse.status}, ${httpResponse.headers}, ${httpResponse.entity})"
+      val  str = responseAsString.take(200) + {if (responseAsString.length > 200) "..." else ""}
+      logger.info(str)
+      httpResponse
     } catch {
       case e: ClientErrorException =>
         logger.warn(s"Request to $uri failed", e)
@@ -186,7 +171,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
       complete(sender, processRequest(r, doSchemas))
 
     case r@HttpRequest(_, _, _, _, _) =>
-      logger.warn("Unknown request: " + r)
+      logger.warn(s"Unknown request: $r")
       complete(sender, HttpResponse(StatusCodes.BadRequest, HttpEntity(s"Unknown request: $r")))
 
     case r@_ =>
@@ -207,14 +192,15 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def getUser(httpRequest: HttpRequest): String = {
-    if (!authentication) {
+    if (demoMode) {
+      // In demo mode, the server does not except the Authorization header on the request, the UI should not send it.
+      // So raise a warning if it is found, as this may indicate a misconfiguration.
       val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
       if (!auth.isEmpty) {
-        logger.warn("Request contains Authorization header but server has authentication disabled. Is client misconfigured? Will ignore header.")
+        logger.warn("Request contains Authorization header but server is in demo mode. Is client misconfigured? Ignoring header and proceeding.")
       }
-      return DEFAULT_USER
+      return DEMO_USER
     } else {
-      logger.info("Headers: " + httpRequest.headers.mkString("\n"))
       val auth: Option[Authorization] = httpRequest.header[HttpHeaders.Authorization]
       auth match {
         case None => //TODO: raise a 401.
@@ -226,8 +212,9 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
             user
 
           case auth@OAuth2BearerToken(token) =>
-            logger.info(s"OAuth2 auth detected: $auth")
-            dropboxClient.getUserName(token)
+            val user = dropboxClient.getUserName(token)
+            logger.info(s"""OAuth2 auth detected: "$auth". User: $user""")
+            user
 
           case auth@GenericHttpCredentials(scheme, token, params) =>
             logger.info(s"GenericHttpCredentials: $auth")
@@ -239,25 +226,21 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
   private[this] def doQuery(httpRequest: HttpRequest): HttpResponse = {
     val request = queryRequestReader.readValue[QueryRequest](httpRequest.entity.asString)
-    logger.info(s"[Query] $request")
-    // TODO: Send query language in request
-    val queryLanguage = QueryLanguages("qrawl")
     val rawUser = getUser(httpRequest)
     val query = request.query
-    val result = rawServer.doQuery(queryLanguage, query, rawUser)
+    // We only support qrawl, so the first argument can be refactored out. Requires also to cleanup the
+    // RawServer and RawCompiler
+    val result = rawServer.doQuery(QueryLanguages("qrawl"), query, rawUser)
     val response = QueryResponse(result, 0, 0)
     val serializedResponse = queryResponseWriter.writeValueAsString(response)
-    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
   private[this] def doQueryStart(httpRequest: HttpRequest): HttpResponse = {
     val request = queryStartRequestReader.readValue[QueryStartRequest](httpRequest.entity.asString)
-    logger.info(s"[Query] $request")
-    val queryLanguage = QueryLanguages("qrawl")
     val rawUser = getUser(httpRequest)
     val query = request.query
-    val rawQuery: RawQuery = rawServer.doQueryStart(queryLanguage, query, rawUser)
+    val rawQuery: RawQuery = rawServer.doQueryStart(QueryLanguages("qrawl"), query, rawUser)
 
     val openQuery = queryCache.newOpenQuery(query, rawQuery)
     val response: QueryBlockResponse = if (!openQuery.hasNext) {
@@ -268,28 +251,23 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
       nextQueryBlock(openQuery.token, request.resultsPerPage)
     }
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
-    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
   private[this] def doQueryNext(httpRequest: HttpRequest): HttpResponse = {
     val request = queryNextRequestReader.readValue[QueryNextRequest](httpRequest.entity.asString)
-    logger.info(s"[QueryNext] $request")
-
     val response = nextQueryBlock(request.token, request.resultsPerPage)
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
-    logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
   private[this] def doQueryClose(httpRequest: HttpRequest): HttpResponse = {
     val request = queryCloseRequestReader.readValue[QueryCloseRequest](httpRequest.entity.asString)
-    logger.info(s"$request")
     queryCache.close(request.token)
     HttpResponse()
   }
 
-  private[this] def nextQueryBlock(token: String, resultsPerPage:Int): QueryBlockResponse = {
+  private[this] def nextQueryBlock(token: String, resultsPerPage: Int): QueryBlockResponse = {
     queryCache.get(token) match {
       case Some(openQuery) =>
         val start = openQuery.position
@@ -310,9 +288,7 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
   }
 
   private[this] def doSchemas(httpRequest: HttpRequest): HttpResponse = {
-    logger.info(s"[ListSchemas]")
     val rawUser = getUser(httpRequest)
-    logger.info(s"Returning schemas for $rawUser")
     val schemas: Seq[String] = rawServer.getSchemas(rawUser)
     val response = mapper.writeValueAsString(SchemasResponse(schemas))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, response))
@@ -320,7 +296,6 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
   private[this] def doRegisterFile(httpRequest: HttpRequest): HttpResponse = {
     val request = registerRequestReader.readValue[RegisterFileRequest](httpRequest.entity.asString)
-    logger.info(s"[RegisterFile] $request")
     val rawUser = getUser(httpRequest)
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)

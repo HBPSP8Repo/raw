@@ -4,8 +4,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.TestScanners
 import raw.executor.DropboxAuthUsers._
-import raw.rest.DefaultJsonMapper
-import raw.rest.RawService.QueryBlockResponse
+import raw.rest.RawServiceActor.QueryBlockResponse
+import raw.utils.DefaultJsonMapper
 
 import scala.collection.mutable.ListBuffer
 
@@ -13,7 +13,7 @@ import scala.collection.mutable.ListBuffer
 Tests:
 - Client does not iterate to end of results: server must clean resources after timeout.
  */
-class RestServerPaginationTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
+class PaginationTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 
   override def beforeAll() = {
     super.beforeAll()

@@ -26,7 +26,7 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
   private[this] final val TMP_DIR_NAME = "tmp"
 
   {
-    logger.info("Storing data files at: " + storagePath)
+    logger.info(s"Storing data files in: $storagePath")
     // Create directory if it does not exist
     RawUtils.createDirectory(storagePath)
   }
@@ -55,7 +55,7 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
 
     val schema = loadSchemaFromStorage(rawUser, schemaName)
     val scanner = CodeGenerator.loadScanner(schemaName, schema)
-    logger.info("Created scanner: " + scanner)
+    logger.info(s"Created scanner: $scanner")
     scanners.put((rawUser, schemaName), scanner)
   }
 
@@ -70,14 +70,6 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
     val directories = RawUtils.listSubdirectories(userDataDir)
     directories.filter(p => !p.getFileName.toString.equals(TMP_DIR_NAME)).map(dir => dir.getFileName.toString).toList
   }
-
-  //
-  //  def extractFilename(uri: URI): String = {
-  //    val s = uri.getPath
-  //    val startIndex = s.lastIndexOf("/") + 1
-  //    s.substring(startIndex)
-  //  }
-
 
   private[this] def getUserStorageDir(user: String): Path = {
     val userDataDir = storagePath.resolve(user)
@@ -112,5 +104,4 @@ class LocalStorageManager(val storagePath: Path = StorageManager.defaultDataDir)
 
     RawSchema(schemaName, new RawLocalFile(schemaDir.resolve("schema.xml")), new SchemaProperties(userData), new RawLocalFile(list.head))
   }
-
 }
