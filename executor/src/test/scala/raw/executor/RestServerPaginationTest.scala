@@ -57,6 +57,15 @@ class RestServerPaginationTest extends FunSuite with RawRestServerContext with S
     testPagination("select a.name from authors a", 13, 50)
   }
 
+  test("close query") {
+    var block: QueryBlockResponse = clientProxy.queryStart("""select * from authors a""", 10, DropboxAuthUsers.TestUserJoe)
+    clientProxy.queryClose(block.token, DropboxAuthUsers.TestUserJoe)
+    val ex = intercept[ClientErrorWrapperException] {
+      clientProxy.queryNext(block.token, 10, DropboxAuthUsers.TestUserJoe)
+    }
+    logger.info(s"Exception: $ex")
+  }
+
   test("no results") {
     var block: QueryBlockResponse = clientProxy.queryStart( """select * from authors a where a.name = "Joe Doe"  """, 10, DropboxAuthUsers.TestUserJoe)
     assert(block.data == null, s"block")
@@ -79,17 +88,11 @@ class RestServerPaginationTest extends FunSuite with RawRestServerContext with S
 
 
   test("invalid resultsPerPage") {
-    try {
+    val ex = intercept[ClientErrorWrapperException] {
       var block: QueryBlockResponse = clientProxy.queryStart( """select a.name from authors a""", -10, DropboxAuthUsers.TestUserJoe)
-      fail("Should have failed with exception. Instead call succeeded. Response: " + block)
-    } catch {
-      case ex: ClientErrorWrapperException => {
-        assert(ex.exceptionResponse.exceptionType === "raw.rest.ClientErrorException")
-      }
-      case ex: Throwable => fail("Unexpected exception: " + ex)
     }
+    logger.info(s"Exception: $ex")
   }
-
 
   test("iterate past the end") {
     // This query returns 16 results, so it should be in two pages.
@@ -98,16 +101,10 @@ class RestServerPaginationTest extends FunSuite with RawRestServerContext with S
     assert(block.hasMore, s"block")
     // Second page, 6 results
     block = clientProxy.queryNext(token, 10, DropboxAuthUsers.TestUserJoe)
-    try {
-      // This call will fail
+    val ex = intercept[ClientErrorWrapperException] {
       block = clientProxy.queryNext(token, 10, DropboxAuthUsers.TestUserJoe)
-      fail("Should have failed with exception. Instead call succeeded. Response: " + block)
-    } catch {
-      case ex: ClientErrorWrapperException => {
-        assert(ex.exceptionResponse.exceptionType === "raw.rest.ClientErrorException")
-      }
-      case ex: Throwable => fail("Unexpected exception: " + ex)
     }
+    logger.info(s"Exception: $ex")
   }
 
   test("single primitive result") {

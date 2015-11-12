@@ -63,6 +63,15 @@ class QueryCache extends StrictLogging {
     Option(queryCache.getIfPresent(token))
   }
 
+  def close(token: String) = {
+    get(token) match {
+      case Some(openQuery) => openQuery.close()
+      case None => {
+        logger.warn(s"Ignoring request to close a non-existing query iterator: $token")
+      }
+    }
+  }
+
   class OpenQuery(val token: String, val query: String, val rawQuery: RawQuery,
                   val iterator: RawQueryIterator) {
     // -1 indicates query is closed.
@@ -81,7 +90,7 @@ class QueryCache extends StrictLogging {
 
     def next(resultsPerPage: Int = DEFAULT_RESULTS_PER_PAGE): List[Any] = {
       if (resultsPerPage <= 0) {
-        throw new ClientErrorException(s"""Invalid argument, "resultsPerPage" must be positive. Was: $resultsPerPage""")
+        throw new ClientErrorException( s"""Invalid argument, "resultsPerPage" must be positive. Was: $resultsPerPage""")
       }
       if (_position == -1) {
         throw new ClientErrorException("Iterator closed")
@@ -106,5 +115,6 @@ class QueryCache extends StrictLogging {
       s"token: $token, position: ${_position}, query: $query"
     }
   }
+
 }
 

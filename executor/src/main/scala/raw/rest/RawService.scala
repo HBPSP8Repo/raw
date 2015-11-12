@@ -51,6 +51,8 @@ object RawService extends StrictLogging {
 
   case class QueryNextRequest(token: String, resultsPerPage:Int)
 
+  case class QueryCloseRequest(token: String)
+
   case class QueryResponse(output: Any, execution_time: Int, compile_time: Int)
 
   case class QueryBlockResponse(data: Any, start: Int, size: Int, hasMore: Boolean, token: String)
@@ -73,6 +75,7 @@ object RawService extends StrictLogging {
   val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
   val queryStartRequestReader = mapper.readerFor(classOf[QueryStartRequest])
   val queryNextRequestReader = mapper.readerFor(classOf[QueryNextRequest])
+  val queryCloseRequestReader = mapper.readerFor(classOf[QueryCloseRequest])
   val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
 
   // If authentication is disabled, use this as default user name
@@ -172,6 +175,9 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
 
     case r@HttpRequest(POST, Uri.Path("/query-next"), _, _, _) =>
       complete(sender, processRequest(r, doQueryNext))
+
+    case r@HttpRequest(POST, Uri.Path("/query-close"), _, _, _) =>
+      complete(sender, processRequest(r, doQueryClose))
 
     case r@HttpRequest(POST, Uri.Path("/register-file"), _, _, _) =>
       complete(sender, processRequest(r, doRegisterFile))
@@ -274,6 +280,13 @@ class RawService(rawServer: RawServer, dropboxClient: DropboxClient) extends Act
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
     logger.info("Query succeeded. Returning result: " + serializedResponse.take(200))
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
+  }
+
+  private[this] def doQueryClose(httpRequest: HttpRequest): HttpResponse = {
+    val request = queryCloseRequestReader.readValue[QueryCloseRequest](httpRequest.entity.asString)
+    logger.info(s"$request")
+    queryCache.close(request.token)
+    HttpResponse()
   }
 
   private[this] def nextQueryBlock(token: String, resultsPerPage:Int): QueryBlockResponse = {

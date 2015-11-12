@@ -117,6 +117,12 @@ class RawServiceClientProxy extends StrictLogging {
     queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
   }
 
+  def queryClose(token: String, credentials: RawCredentials): Unit = {
+    val queryRequest = new QueryCloseRequest(token)
+    val responseBody: String = doQuery("http://localhost:54321/query-close", queryRequest, credentials)
+    logger.info(s"Response: $responseBody")
+  }
+
   def registerLocalFile(credentials: RawCredentials, file: Path): String = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
@@ -175,7 +181,7 @@ class RawServiceClientProxy extends StrictLogging {
       // it as an instance of that class. We need to provide to Jackson the exact subtype of QueryError, providing
       // the base abstract class is not enough
       val map = DefaultJsonMapper.mapper.readValue[Map[String, Object]](body, classOf[Map[String, Object]])
-      logger.info(s"Result: $map")
+      logger.debug(s"Result: $map")
 
       // A client error status may indicate:
       // 1. Malformed request: invalid URL on register-request, non existing file, bad file
