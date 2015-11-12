@@ -45,7 +45,6 @@ case class NumberType(sym: Symbol = SymbolTable.next()) extends VariableType
 
 /** Option Type
   */
-
 case class OptionType(t: Type) extends Type
 
 /** Record Type

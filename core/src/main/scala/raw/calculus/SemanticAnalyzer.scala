@@ -71,13 +71,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   /** Type the root of the program.
     */
-  lazy val solution = solve(tree.root)
-
+  private var typed = false
+  
+  private def typeTree() = {
+    if (!typed) {
+      solve(tree.root)
+      typed = true
+    }
+  }
+  
   /** Return the type of an expression.
     */
   lazy val tipe: Exp => Type = attr {
     e => {
-      solution
+      typeTree()
       walk(expType(e))
     }
   }
@@ -103,7 +110,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
   // TODO: Add check that the *root* type (and only the root type) does not contain ANY type variables, or we can't generate code for it
   // TODO: And certainly no NothingType as well...
   lazy val errors: Seq[RawError] = {
-    solution // Must attempt to type the entire program to collect all errors
+    // Must attempt to type the entire program to collect all errors
+    typeTree()
+    
     dateTimeFormatErrors ++ regexErrors ++ badEntities ++ tipeErrors
   }
 
@@ -710,7 +719,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case ParseAs(_, r, _) => regexType(r)
     case _: ToEpoch => IntType()
 
-      //
     case idnExp @ IdnExp(idnUse) =>
 
       def getType(t: Type): Type = t match {
@@ -1289,6 +1297,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: IntervalType                 => t
           case _: RegexType                    => t
           case _: UserType                     => t
+          case OptionType(inner)               => OptionType(reconstructType(inner, occursCheck + t))
           case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case RecordType(a)                   => RecordType(reconstructAttributes(a, occursCheck + t))
           case CollectionType(m, innerType)    => CollectionType(mFind(m).asInstanceOf[CollectionMonoid], reconstructType(innerType, occursCheck + t))

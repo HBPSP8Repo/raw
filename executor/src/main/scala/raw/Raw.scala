@@ -222,21 +222,21 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     classesMap.getOrElse(toCanonicalForm(r), s"Tuple$n")
   }
 
-  def buildScalaType(t: raw.Type, world: World, analyzer: SemanticAnalyzer): String = {
-    val baseType = t match {
-      case _: BoolType => "scala.Boolean"
-      case _: StringType => "String"
-      case _: IntType => "scala.Int"
-      case _: FloatType => "scala.Float"
-      case FunType(t1, t2) => s"${buildScalaType(t1, world, analyzer)} => ${buildScalaType(t2, world, analyzer)}"
-      case r @ RecordType(Attributes(atts)) =>
-        // Return the case class name if it exists; otherwise, it is a Tuple
-        classesMap.getOrElse(
-          toCanonicalForm(r),
-          atts
-            .map(att => s"(${buildScalaType(att.tipe, world, analyzer)})")
-            .mkString("(", ", ", ")"))
-      case CollectionType(_: CollectionMonoid, innerType) => s"scala.collection.Iterable[${buildScalaType(innerType, world, analyzer)}]"
+  def buildScalaType(t: raw.Type, world: World, analyzer: SemanticAnalyzer): String = t match {
+    case _: BoolType => "scala.Boolean"
+    case _: StringType => "String"
+    case _: IntType => "scala.Int"
+    case _: FloatType => "scala.Float"
+    case OptionType(t1) => s"Option[${buildScalaType(t1, world, analyzer)}"
+    case FunType(t1, t2) => s"${buildScalaType(t1, world, analyzer)} => ${buildScalaType(t2, world, analyzer)}"
+    case r @ RecordType(Attributes(atts)) =>
+      // Return the case class name if it exists; otherwise, it is a Tuple
+      classesMap.getOrElse(
+        toCanonicalForm(r),
+        atts
+          .map(att => s"(${buildScalaType(att.tipe, world, analyzer)})")
+          .mkString("(", ", ", ")"))
+    case CollectionType(_: CollectionMonoid, innerType) => s"scala.collection.Iterable[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: BagMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: ListMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
 //      case CollectionType(_: SetMonoid, innerType) => s"Set[${buildScalaType(innerType, world, analyzer)}]"
@@ -245,16 +245,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 //          case _: SetMonoid => s"Set[${buildScalaType(innerType, world, analyzer)}]"
 //          case _ => s"List[${buildScalaType(innerType, world, analyzer)}]"
 //        }
-      case UserType(idn) => buildScalaType(world.tipes(idn), world, analyzer)
-      case _: AnyType => "Any"
-      case _: NothingType => "Nothing"
-      case _: VariableType => throw new UnsupportedOperationException(s"type variables not supported")
-    }
-    //    logger.info(s"Type: $tt")
-    if (t.nullable)
-      s"Option[$baseType]"
-    else
-      baseType
+    case UserType(idn) => buildScalaType(world.tipes(idn), world, analyzer)
+    case _: AnyType => "Any"
+    case _: NothingType => "Nothing"
+    case _: VariableType => throw new UnsupportedOperationException(s"type variables not supported")
   }
 
   /** Collect all record types in the tree.

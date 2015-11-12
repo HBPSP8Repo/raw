@@ -390,6 +390,14 @@ class UnnesterTest extends PhaseTest {
       ignoreRootTypeComparison = true)
   }
 
+  test("group by list of lists") {
+    check(
+    """
+      |select x, count(*) from x in list(list(1,2,3),list(1,2,3),list(4,5,6)) group by x
+    """.stripMargin,
+    """""",
+    TestWorlds.empty)
+  }
 
   //  ignore("edge bundling chuv diagnossis") {
 //        val query = """
