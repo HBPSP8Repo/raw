@@ -8,6 +8,7 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
+import raw.QueryLanguages.QueryLanguage
 import raw._
 import raw.executor._
 import raw.utils.DefaultJsonMapper
@@ -41,7 +42,7 @@ object RawServiceActor extends StrictLogging {
 
   case class QueryCloseRequest(token: String)
 
-  case class QueryResponse(output: Any, execution_time: Int, compile_time: Int)
+  case class QueryResponse(output: Any, compile_time: Long, execution_time: Long)
 
   case class QueryBlockResponse(data: Any, start: Int, size: Int, hasMore: Boolean, token: String)
 
@@ -230,8 +231,9 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
     val query = request.query
     // We only support qrawl, so the first argument can be refactored out. Requires also to cleanup the
     // RawServer and RawCompiler
-    val result = rawServer.doQuery(QueryLanguages("qrawl"), query, rawUser)
-    val response = QueryResponse(result, 0, 0)
+    val compiledQuery = rawServer.doQuery(QueryLanguages("qrawl"), query, rawUser)
+    val result = compiledQuery.computeResult
+    val response = QueryResponse(result, compiledQuery.compilationTime, compiledQuery.executionTime)
     val serializedResponse = queryResponseWriter.writeValueAsString(response)
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }

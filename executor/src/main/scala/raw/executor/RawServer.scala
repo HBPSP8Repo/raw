@@ -20,19 +20,14 @@ class RawServer(storageDir: Path, storageBackend: StorageBackend) extends Strict
   }
 
   def doQueryStart(queryLanguage: QueryLanguage, query: String, rawUser: String): RawQuery = {
-    _doQuery(queryLanguage, query, rawUser)
-  }
-
-  def doQuery(queryLanguage: QueryLanguage, query: String, rawUser: String): Any = {
-    val compiledQuery = _doQuery(queryLanguage, query, rawUser)
-    compiledQuery.computeResult
+    doQuery(queryLanguage, query, rawUser)
   }
 
   def getSchemas(user: String): Seq[String] = {
     storageManager.listUserSchemas(user)
   }
 
-  private[this] def _doQuery(queryLanguage: QueryLanguage, query: String, rawUser: String): RawQuery = {
+  def doQuery(queryLanguage: QueryLanguage, query: String, rawUser: String): RawQuery = {
     // If the query string is too big (threshold somewhere between 13K and 96K), the compilation will fail with
     // an IllegalArgumentException: null. The query plans received from the parsing server include large quantities
     // of whitespace which are used for indentation. We remove them as a workaround to the limit of the string size.
