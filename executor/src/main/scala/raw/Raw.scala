@@ -364,6 +364,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     val code = scala.collection.mutable.Set[String]()
     for ((name, r) <- toBuild) {
+      logger.debug(s"name $name and r is ${PrettyPrinter(r)}")
+
       val args = r.recAtts.atts.map(att => s"${att.idn}: ${buildScalaType(att.tipe, world, analyzer)}").mkString(", ")
       logger.info(s"Build case class: $r.atts => $args")
       code += s"case class $name($args)"
@@ -520,22 +522,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     def patternType(p: Pattern) =
       buildScalaType(analyzer.patternType1(p), world, analyzer)
 
-    /** Get the nullable identifiers from a pattern.
-      * Used by the Nest to filter out Option[...]
+    /** Get the identifiers from a pattern.
       */
-    def patternNullable(p: Pattern): Seq[Tree] = {
-      def recurse(p: Pattern, t: raw.Type): Seq[Option[Tree]] = p match {
+    def patternIdns(p: Pattern, exclude: Set[Idn]): Seq[Tree] = {
+      def recurse(p: Pattern): Seq[Tree] = p match {
         case PatternProd(ps) =>
-          val t1 = t.asInstanceOf[RecordType]
-          ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
-        //        TODO only take the nullable idn
-        case PatternIdn(idn: IdnDef) =>
-          Seq(Some(q"${Ident(TermName(idnName(idn)))}"))
+          ps.flatMap(recurse)
+        case PatternIdn(idnDef @ IdnDef(idn, _)) if !exclude.contains(idn) =>
+          Seq(q"${Ident(TermName(idnName(idnDef)))}")
         case _ =>
-          Seq(None)
+          Seq()
       }
-
-      recurse(p, analyzer.patternType1(p)).flatten
+      recurse(p)
     }
 
     /** Return the identifiers, optionally de-nullable.
@@ -601,8 +599,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     /** Build nullable filter.
       */
-    def nullableFilter(p: Pattern): Tree = {
-      val nullables = patternNullable(p)
+    def nullableFilter(p: Pattern, exclude: Set[Idn] = Set()): Tree = {
+      val nullables = patternIdns(p, exclude)
       if (nullables.isEmpty)
         q"true"
       else if (nullables.size == 1)
@@ -610,28 +608,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       else {
         // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
         val optOuts = nullables.map { n => q"$n != null" }
-        optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
-      }
-    }
-
-    /** Build nullable condition.
-      */
-    def nullableCond(e: Exp, p: Pattern): Tree = {
-      def collectNullableIdns(p: Pattern): Seq[Tree] = p match {
-        //      TODO only take nullables
-        case PatternIdn(idnDef) => Seq(q"${Ident(TermName(idnName(idnDef)))}")
-        case PatternProd(ps) => ps.flatMap(collectNullableIdns)
-        case _               => Seq()
-      }
-
-      val idns = collectNullableIdns(p)
-      if (idns.isEmpty)
-        q"true"
-      else if (idns.size == 1)
-        q"${idns.head} != null"
-      else {
-        // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
-        val optOuts = idns.map { n => q"$n != null" }
         optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
       }
     }
@@ -715,16 +691,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(child)}
           .flatMap($childArg => {
             ..${idnVals("child", patChild)}
-            if (!${nullableCond(pred, patChild)}) {
+            if (!${nullableFilter(patChild)}) {
               scala.collection.Iterable( $rt(child, null) )
             } else {
               ..${idnVals("child", patChild)}
               val matches =
                 ${build(path)}
                   .toIterable
-                  .filter($pathArg => {
-                    ..${idnVals("path", patPath)}
-                    ${nullableFilter(patPath)} })
                   .filter($pathArg => {
                     ..${idnVals("path", patPath)}
                     ${build(pred)} })
@@ -782,15 +755,12 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         ${build(childLeft)}
           .flatMap($leftArg => {
             ..${idnVals("left", patLeft)}
-            if (!${nullableCond(p, patLeft)}) {
+            if (!${nullableFilter(patLeft)}) {
               scala.collection.Iterable( $rt(left, null) )
             } else {
               ..${idnVals("left", patLeft)}
               val matches =
                 rightCode
-                  .filter($rightArg => {
-                    ..${idnVals("right", patRight)}
-                    ${nullableFilter(patRight)} })
                   .filter($rightArg => {
                     ..${idnVals("right", patRight)}
                     ${build(p)} })
@@ -832,6 +802,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val endType = $endType
         res
         """
+
+      // TODO: Replace all three Nest impl by a single one.
+      // TODO: Same for Nest2
 
       /** Scala Nest2
         */
@@ -890,7 +863,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._2
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
-                  ${nullableFilter(pat)} })
+                  ${nullableFilter(pat, exclude=analyzer.idnsInExp(k))} })
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
                   ${build(p)} })
@@ -960,7 +933,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._2
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
-                  ${nullableFilter(pat)} })
+                  ${nullableFilter(pat, exclude=analyzer.idnsInExp(k))} })
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
                   ${build(p)} })
@@ -1031,7 +1004,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._2
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
-                  ${nullableFilter(pat)} })
+                  ${nullableFilter(pat, exclude=analyzer.idnsInExp(k))} })
                 .filter($childArg => {
                   ..${idnVals("child", pat)}
                   ${build(p)} })

@@ -3,6 +3,9 @@ package raw.executor
 import raw.calculus.Calculus._
 import raw.calculus.{SemanticAnalyzer, SymbolTable, Symbol}
 import raw.{CollectionType, RecordType, Type, World}
+import org.kiama.rewriting.Rewriter._
+
+import scala.util.parsing.input.Position
 
 /** Enhances the logical tree with physical level attributes (e.g. whether the scan origin is Scala or Spark).
   */
@@ -58,6 +61,16 @@ class PhysicalAnalyzer(tree: Calculus, world: World, queryString: String, val is
         case Some(Bind(p, e))      => findType(p, tipe(e)).get
         case Some(Gen(Some(p), e)) => findType(p, tipe(e).asInstanceOf[CollectionType].innerType).get
       }
+  }
+
+  /** The identifiers used in an expression.
+    */
+  lazy val idnsInExp: Exp => Set[Idn] = attr {
+    case e =>
+      val collectIdns = collect[List, Idn] {
+        case IdnUse(idn) => idn
+      }
+      collectIdns(e).to
   }
 
 }

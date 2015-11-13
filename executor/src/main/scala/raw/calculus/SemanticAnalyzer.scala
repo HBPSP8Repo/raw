@@ -243,13 +243,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val nt = find(t)
       nt match {
         case ResolvedType(RecordType(Attributes(atts))) =>
-          logger.debug("bang1")
+//          logger.debug("bang1")
           for ((att, idx) <- atts.zipWithIndex) {
-            logger.debug(s"added idn ${att.idn}")
+//            logger.debug(s"added idn ${att.idn}")
             nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
           }
         case ResolvedType(RecordType(c: ConcatAttributes)) =>
-          logger.debug("bang2")
+//          logger.debug("bang2")
           val props = getConcatProperties(c)
           for ((att, idx) <- props.atts.zipWithIndex) {
             nenv = define(nenv, att.idn, attEntity(nenv, att, idx))
@@ -1332,10 +1332,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     // TODO: Whenever we add something to tipeErrors, we should also unify the thing that failed with NothingType
     // TODO: if we ever want silent error propagation.
 
-    n match {
-      case e: Exp => logger.debug(s"Solving ${CalculusPrettyPrinter(e)}")
-      case _ =>
-    }
+//    n match {
+//      case e: Exp => logger.debug(s"Solving ${CalculusPrettyPrinter(e)}")
+//      case _ =>
+//    }
 
     def sameType(e1: Exp, e2: Exp, desc: Option[String] = None) = {
       val t1 = expType(e1)
@@ -1499,7 +1499,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case m: CollectionMonoid =>
             val gs = qs.collect { case g: Gen => g }
             hasType(c, CollectionType(m, expType(e)))
-            logger.debug(s"c $c has type ${CollectionType(m, expType(e))}")
+//            logger.debug(s"c $c has type ${CollectionType(m, expType(e))}")
             maxOfMonoids(c, gs)
         }
 
@@ -1770,6 +1770,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ Join(g1, g2, p) =>
         solve(g1)
         solve(g2)
+        solve(p)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         hasType(g1.e, CollectionType(MonoidVariable(), t1))
@@ -1781,6 +1782,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ OuterJoin(g1, g2, p) =>
         solve(g1)
         solve(g2)
+        solve(p)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         hasType(g1.e, CollectionType(MonoidVariable(), t1))
@@ -1792,6 +1794,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ Unnest(g1, g2, p) =>
         solve(g1)
         solve(g2)
+        solve(p)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         hasType(g1.e, CollectionType(MonoidVariable(), t1))
@@ -1803,6 +1806,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ OuterUnnest(g1, g2, p) =>
         solve(g1)
         solve(g2)
+        solve(p)
         val t1 = TypeVariable()
         val t2 = TypeVariable()
         hasType(g1.e, CollectionType(MonoidVariable(), t1))

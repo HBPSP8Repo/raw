@@ -105,8 +105,6 @@ trait MonoidsGraph extends LazyLogging {
       unifyMonoids(b, a)
     }
 
-    logger.debug(s"a is $a b is $b")
-
     addMonoidProperties(a)
     addMonoidProperties(b)
 
