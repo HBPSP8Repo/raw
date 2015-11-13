@@ -1,7 +1,8 @@
-package raw
+package raw.executor
 
-import raw.calculus._
-import Calculus._
+import raw.calculus.Calculus._
+import raw.calculus.{SemanticAnalyzer, SymbolTable, Symbol}
+import raw.{CollectionType, RecordType, Type, World}
 
 /** Enhances the logical tree with physical level attributes (e.g. whether the scan origin is Scala or Spark).
   */

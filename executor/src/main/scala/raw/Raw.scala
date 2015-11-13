@@ -6,8 +6,8 @@ import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.lang3.ClassUtils
 import org.slf4j.LoggerFactory
-import raw.calculus._
-import raw.executor.{AbstractClosableIterator, RawScanner}
+import raw.executor.{PhysicalAnalyzer, AbstractClosableIterator, RawScanner}
+import calculus._
 
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.Seq
@@ -229,34 +229,34 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
 
     val rawType = t match {
       case TypeRef(_, sym, Nil) if isInt(sym.fullName) =>
-        raw.IntType()
+        IntType()
       case TypeRef(_, sym, Nil) if isAny(sym.fullName) =>
-        raw.TypeVariable()
+        TypeVariable()
       case TypeRef(_, sym, Nil) if isString(sym.fullName) =>
-        raw.StringType()
+        StringType()
       case TypeRef(_, sym, t1 :: Nil) if isSet(sym.fullName) =>
-        raw.CollectionType(SetMonoid(), inferType(t1).rawType)
+        CollectionType(SetMonoid(), inferType(t1).rawType)
       case TypeRef(_, sym, t1 :: Nil) if isList(sym.fullName) =>
-        raw.CollectionType(ListMonoid(), inferType(t1).rawType)
+        CollectionType(ListMonoid(), inferType(t1).rawType)
       case TypeRef(_, sym, t1 :: Nil) if isBag(sym.fullName) =>
-        raw.CollectionType(BagMonoid(), inferType(t1).rawType)
+        CollectionType(BagMonoid(), inferType(t1).rawType)
       case TypeRef(_, sym, ts) if sym.fullName.startsWith("scala.Tuple") =>
         val regex = """scala\.Tuple(\d+)""".r
         sym.fullName match {
           case regex(n) =>
-            val r = raw.RecordType(Attributes(List.tabulate(n.toInt) { case i => raw.AttrType(s"_${i + 1}", inferType(ts(i)).rawType) }))
+            val r = RecordType(Attributes(List.tabulate(n.toInt) { case i => AttrType(s"_${i + 1}", inferType(ts(i)).rawType) }))
             addToClassesMap(r, sym.fullName)
             r
         }
       case t @ TypeRef(_, sym, Nil) =>
         val ctor = t.decl(termNames.CONSTRUCTOR).asMethod
-        val r = raw.RecordType(Attributes(ctor.paramLists.head.map { case sym1 => raw.AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }))
+        val r = RecordType(Attributes(ctor.paramLists.head.map { case sym1 => AttrType(sym1.name.toString, inferType(sym1.typeSignature).rawType) }))
         addToClassesMap(r, sym.fullName)
         r
       case TypeRef(_, sym, t1 :: t2 :: Nil) if sym.fullName.startsWith("scala.Function") =>
         val regex = """scala\.Function(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.FunType(Seq(inferType(t1).rawType), inferType(t2).rawType)
+          case regex(n) => FunType(Seq(inferType(t1).rawType), inferType(t2).rawType)
         }
       case TypeRef(pre, sym, args) =>
         bail(s"Unsupported TypeRef($pre, $sym, $args)")

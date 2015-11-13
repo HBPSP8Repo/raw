@@ -10,7 +10,6 @@ import com.google.common.base.Stopwatch
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
-import raw.QueryLanguages.QueryLanguage
 import raw._
 import raw.executor._
 import raw.utils.DefaultJsonMapper

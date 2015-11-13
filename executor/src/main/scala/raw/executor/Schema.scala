@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.typesafe.scalalogging.StrictLogging
 import raw._
 import raw.storage.RawResource
-import raw.utils.{FileTypes, RawUtils}
+import raw.utils.FileTypes
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.HashMap
@@ -118,7 +118,7 @@ object SchemaParser extends StrictLogging {
       }).mkString(", ")
     }
 
-    private[this] def defineCaseClasses(t: raw.Type): Unit = {
+    private[this] def defineCaseClasses(t: Type): Unit = {
       t match {
         case r@RecordType(atts) => defineCaseClass(r)
         case CollectionType(BagMonoid(), innerType) => defineCaseClasses(innerType)
@@ -128,7 +128,7 @@ object SchemaParser extends StrictLogging {
       }
     }
 
-    private[this] def buildScalaDeclaration(t: raw.Type): String = {
+    private[this] def buildScalaDeclaration(t: Type): String = {
       val code: String = t match {
         case _: BoolType => "Boolean"
         case _: StringType => "String"
@@ -149,7 +149,7 @@ object SchemaParser extends StrictLogging {
     }
   }
 
-  case class SchemaAsRawType(caseClasses: Map[String, RecordType], typeDeclaration: raw.Type)
+  case class SchemaAsRawType(caseClasses: Map[String, RecordType], typeDeclaration: Type)
 
   private object XmlToRawType {
     def apply(schema: RawSchema): SchemaAsRawType = {
@@ -166,10 +166,10 @@ object SchemaParser extends StrictLogging {
 
     private[this] class RecursionWrapper(root: Elem, schema: RawSchema) {
       val records = new HashMap[String, RecordType]()
-      val rawType: raw.Type = toRawType(root)
+      val rawType: Type = toRawType(root)
       var rootElementName: String = null
 
-      private[this] def toRawType(elem: Elem): raw.Type = {
+      private[this] def toRawType(elem: Elem): Type = {
         elem.label match {
           case "list" =>
             val innerType: Elem = getSingleChild(elem)

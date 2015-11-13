@@ -34,7 +34,6 @@ lazy val commonDeps = Seq(
 )
 
 lazy val root = project.in(file("."))
-  .aggregate(executor, core)
   .dependsOn(executor)
   .settings(buildSettings)
   .settings(libraryDependencies ++= commonDeps)
@@ -43,7 +42,6 @@ val startDocker = taskKey[String]("Starts the docker container")
 val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
-  dependsOn(core).
   //  http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
   enablePlugins(JavaAppPackaging, DockerPlugin).
   settings(
@@ -106,7 +104,9 @@ lazy val executor = (project in file("executor")).
           juniversalchardet
         )
         ++ sprayDeps
-        ++ apacheCommonsDeps,
+        ++ apacheCommonsDeps
+        ++ Seq(parserCombinators)
+        ++ kiamaDependencies,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.
@@ -172,10 +172,4 @@ java -Draw.inferrer.path=%s -classpath "%s" %s "$@"
       out.setExecutable(true)
       out
     }
-  )
-
-lazy val core = (project in file("core")).
-  settings(buildSettings).
-  settings(
-    libraryDependencies ++= commonDeps ++ Seq(parserCombinators) ++ kiamaDependencies
   )

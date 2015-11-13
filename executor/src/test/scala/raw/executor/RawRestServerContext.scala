@@ -1,13 +1,13 @@
 package raw.executor
 
-import java.nio.file.{Paths, Path}
+import java.nio.file.{Path, Paths}
 
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{Suite, BeforeAndAfterAll}
-import raw.{ParserError, SemanticErrors}
-import raw.rest.{RealDropboxClient, RawRestServer}
+import org.scalatest.{BeforeAndAfterAll, Suite}
+import raw.rest.RawRestServer
 import raw.spark.DefaultSparkConfiguration
 import raw.utils.RawUtils
+import raw.{ParserError, SemanticErrors}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
