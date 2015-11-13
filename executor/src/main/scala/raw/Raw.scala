@@ -607,7 +607,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val code = q"""
         ${build(child)}.filter($childArg => {
-          ..${idnVals("child", pat, false)}
+          ..${idnVals("child", pat)}
           ${build(pred)} })
         """
         q"""
@@ -629,11 +629,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           q"""
         ${build(child)}
           .flatMap($childArg => {
-            ..${idnVals("child", patChild, false)}
+            ..${idnVals("child", patChild)}
               ${build(path)}
                 .toIterable
                 .filter($pathArg => {
-                  ..${idnVals("path", patPath, false)}
+                  ..${idnVals("path", patPath)}
                   ${build(pred)} })
                 .map($pathArg => {
                   $rt(child, path) })})
@@ -657,19 +657,19 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           q"""
         ${build(child)}
           .flatMap($childArg => {
-            ..${idnVals("child", patChild, false)}
+            ..${idnVals("child", patChild)}
             if (!${nullableCond(pred, patChild)}) {
               scala.collection.Iterable( $rt(child, null) )
             } else {
-              ..${idnVals("child", patChild, true)}
+              ..${idnVals("child", patChild)}
               val matches =
                 ${build(path)}
                   .toIterable
                   .filter($pathArg => {
-                    ..${idnVals("path", patPath, false)}
+                    ..${idnVals("path", patPath)}
                     ${nullableFilter(patPath)} })
                   .filter($pathArg => {
-                    ..${idnVals("path", patPath, true)}
+                    ..${idnVals("path", patPath)}
                     ${build(pred)} })
               if (matches.isEmpty)
                 scala.collection.Iterable( $rt(child, null) )
@@ -696,10 +696,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightCode = ${build(childRight)}.toList.toIterable
         ${build(childLeft)}
           .flatMap($leftArg => {
-            ..${idnVals("left", patLeft, false)}
+            ..${idnVals("left", patLeft)}
             rightCode
               .filter($rightArg => {
-                ..${idnVals("right", patRight, false)}
+                ..${idnVals("right", patRight)}
                 ${build(p)} })
               .map($rightArg => {
                 $rt(left, right) })})
@@ -724,18 +724,18 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val rightCode = ${build(childRight)}.toList.toIterable
         ${build(childLeft)}
           .flatMap($leftArg => {
-            ..${idnVals("left", patLeft, false)}
+            ..${idnVals("left", patLeft)}
             if (!${nullableCond(p, patLeft)}) {
               scala.collection.Iterable( $rt(left, null) )
             } else {
-              ..${idnVals("left", patLeft, true)}
+              ..${idnVals("left", patLeft)}
               val matches =
                 rightCode
                   .filter($rightArg => {
-                    ..${idnVals("right", patRight, false)}
+                    ..${idnVals("right", patRight)}
                     ${nullableFilter(patRight)} })
                   .filter($rightArg => {
-                    ..${idnVals("right", patRight, true)}
+                    ..${idnVals("right", patRight)}
                     ${build(p)} })
               if (matches.isEmpty)
                 scala.collection.Iterable( $rt(left, null) )
@@ -757,7 +757,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val childArg = c.parse(s"child: ${patternType(pat)}")
         val projected = q"""
         ${build(child)}.map($childArg => {
-          ..${idnVals("child", pat, false)}
+          ..${idnVals("child", pat)}
           ${build(e)} })
         """
         val code = m match {
@@ -788,7 +788,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""{
         val $keys1 = ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} })
 
          val $keys2 =
@@ -797,13 +797,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .fold(${zero(m)})(${fold(m)}) ))
         keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
@@ -825,20 +825,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .fold(${zero(m)})(${fold(m)}) ))
         """
@@ -859,7 +859,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""{
         val keys1 = ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} })
 
          val keys2 =
@@ -868,13 +868,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toSet.toIterable ))
         keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
@@ -895,20 +895,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toSet.toIterable ))
         """
@@ -929,7 +929,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""{
         val keys1 = ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} })
 
          val keys2 =
@@ -938,13 +938,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toList.toIterable ))
         keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
@@ -966,20 +966,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toList.toIterable ))
         """
@@ -1002,7 +1002,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""{
         val $keys1 = ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} })
 
          val $keys2 =
@@ -1011,13 +1011,13 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toList.sortBy(x => x.toString).toIterable ))
         keys1.toIterable.flatMap{case (k, items) => val r = keys2(k) ; items.map{x => $rt(x, r)}}
@@ -1040,20 +1040,20 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val code = q"""
         ${build(child)}
           .groupBy($childArg => {
-            ..${idnVals("child", pat, false)}
+            ..${idnVals("child", pat)}
             ${build(k)} }).toIterable
           .map($groupedArg =>
             $rt(
               arg._1,
               arg._2
                 .filter($childArg => {
-                  ..${idnVals("child", pat, false)}
+                  ..${idnVals("child", pat)}
                   ${nullableFilter(pat)} })
                 .filter($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(p)} })
                 .map($childArg => {
-                  ..${idnVals("child", pat, true)}
+                  ..${idnVals("child", pat)}
                   ${build(e)} })
                 .toList.sortBy(x => x.toString).toIterable ))
         """
