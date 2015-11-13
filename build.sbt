@@ -34,6 +34,7 @@ lazy val commonDeps = Seq(
 )
 
 lazy val root = project.in(file("."))
+  .aggregate(executor)
   .dependsOn(executor)
   .settings(buildSettings)
   .settings(libraryDependencies ++= commonDeps)
