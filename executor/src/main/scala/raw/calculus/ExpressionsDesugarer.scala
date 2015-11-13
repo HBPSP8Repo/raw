@@ -15,7 +15,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   def transform = desugar
 
   private lazy val desugar =
-    reduce(
+    manytd(
       ruleSum +
       ruleMax +
       ruleMin +
@@ -62,6 +62,8 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
       val xs = SymbolTable.next().idn
       val x = SymbolTable.next().idn
       val idnExp = IdnExp(IdnUse(xs))
+      logger.debug(s"we are at $e and type is ${analyzer.tipe(e)}")
+      analyzer.printTypedTree()
       analyzer.tipe(e) match {
         case CollectionType(_: SetMonoid, _) => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IntConst("1"))), Seq(UnaryExp(ToBag(), e)))
         case _: CollectionType               => FunApp(FunAbs(Seq(IdnDef(xs, None)), Comp(SumMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), idnExp)), IntConst("1"))), Seq(e))

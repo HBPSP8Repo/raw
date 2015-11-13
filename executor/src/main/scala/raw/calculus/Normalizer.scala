@@ -16,7 +16,16 @@ class Normalizer extends PipelinedTransformer {
   private lazy val normalize =
     doloop(
       reduce(rule1),
-      oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10 + ruleEmptyQualifiers))
+      oncetd(rule2 + rule3 + rule4 + rule5 + rule6 + rule7 + rule8 + rule9 + rule10 + ruleEmptyQualifiers + rulePredicateOnlyInQualifier))
+
+  private def zeroMonoid(m: Monoid) = m match {
+    case _: MaxMonoid        => IntConst("0")
+    case _: MultiplyMonoid   => IntConst("1")
+    case _: SumMonoid        => IntConst("0")
+    case _: AndMonoid        => BoolConst(true)
+    case _: OrMonoid         => BoolConst(false)
+    case m: CollectionMonoid => ZeroCollectionMonoid(m)
+  }
 
   private def commutative(m: Monoid): Option[Boolean] = m match {
     case _: PrimitiveMonoid => Some(true)
@@ -110,14 +119,7 @@ class Normalizer extends PipelinedTransformer {
   private lazy val rule5 = rule[Exp] {
     case Comp(m, Rule5(q, Gen(_, ze: ZeroCollectionMonoid), s), e) =>
       logger.debug(s"Applying normalizer rule 5")
-      m match {
-        case _: MaxMonoid        => IntConst("0")
-        case _: MultiplyMonoid   => IntConst("1")
-        case _: SumMonoid        => IntConst("0")
-        case _: AndMonoid        => BoolConst(true)
-        case _: OrMonoid         => BoolConst(false)
-        case m: CollectionMonoid => ZeroCollectionMonoid(m)
-      }
+      zeroMonoid(m)
   }
 
   /** Rule 6
@@ -196,15 +198,37 @@ class Normalizer extends PipelinedTransformer {
       Comp(m, s ++ r, e)
   }
 
-  /** Comprehension with empty qualifiers
+  /** Comprehension with empty qualifiers.
+    * It is replaced by the unit.
     *
-    * `for () yield bag 1`
-    *   becomes
-    * `bag(1)`
+    * e.g.
+    *   `for () yield bag 1`
+    *     becomes
+    *   `bag(1)`
+    *
+    *   `for () yield sum 1`
+    *     becomes
+    *   `1`
+    *   Mote: 1 is the unit of sum, not 0!
+    *
+    *   This is generated in the following sequence:
+    *     `for (x <- Set(4)) yield set x`
+    *     `for (x := 4) yield set x`
+    *     `for () yield set 4`
+    *     `Set(4)`
     */
 
   private lazy val ruleEmptyQualifiers = rule[Exp] {
     case Comp(m: CollectionMonoid, Nil, e) => ConsCollectionMonoid(m, e)
+    case Comp(m: PrimitiveMonoid, Nil, e) => e
   }
+
+
+  /** Comprehension with predicates only in the qualifier.
+    */
+    private lazy val rulePredicateOnlyInQualifier = rule[Exp] {
+      case Comp(m, (p: Exp) :: Nil, e) =>
+        IfThenElse(p, Comp(m, Nil, e), zeroMonoid(m))
+    }
 
 }
