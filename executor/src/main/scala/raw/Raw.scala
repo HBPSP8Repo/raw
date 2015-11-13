@@ -420,7 +420,11 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         val className = classesMap.getOrElse(toCanonicalForm(t), "")
         val vals = atts
           .map(att => build(att.e))
-        if (className.isEmpty) q"(..$vals)" else q"${Ident(TermName(className))}(..$vals)"
+        if (className.isEmpty)
+          q"(..$vals)"
+        else {
+          q"${c.parse(className)}(..$vals)"
+        }
       case IfThenElse(e1, e2, e3) =>
         q"if (${build(e1)}) ${build(e2)} else ${build(e3)}"
       case BinaryExp(op, e1, e2) => op match {
