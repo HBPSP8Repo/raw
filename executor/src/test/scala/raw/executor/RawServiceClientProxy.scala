@@ -38,16 +38,6 @@ object RawServiceClientProxy {
 
   val registerFileResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[RegisterFileResponse])
 
-  /**
-    *
-    * @param success
-    * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
-    *               Jackson can deserialize it.
-    * @param execution_time
-    * @param compile_time
-    */
-  case class QueryResponse(success: String, output: AnyRef, execution_time: Long, compile_time: Long)
-
   val queryResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryResponse])
   val queryBlockResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryBlockResponse])
 
