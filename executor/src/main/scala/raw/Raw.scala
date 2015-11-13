@@ -199,7 +199,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case TypeRef(_, sym, t1 :: t2 :: Nil) if sym.fullName.startsWith("scala.Function") =>
         val regex = """scala\.Function(\d+)""".r
         sym.fullName match {
-          case regex(n) => raw.FunType(inferType(t1).rawType, inferType(t2).rawType)
+          case regex(n) => raw.FunType(Seq(inferType(t1).rawType), inferType(t2).rawType)
         }
       case TypeRef(pre, sym, args) =>
         bail(s"Unsupported TypeRef($pre, $sym, $args)")
@@ -228,7 +228,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     case _: IntType => "scala.Int"
     case _: FloatType => "scala.Float"
     case OptionType(t1) => s"Option[${buildScalaType(t1, world, analyzer)}"
-    case FunType(t1, t2) => s"${buildScalaType(t1, world, analyzer)} => ${buildScalaType(t2, world, analyzer)}"
+    case FunType(t1, t2) =>
+      val args = t1.map{arg => s"${buildScalaType(arg, world, analyzer)}"}
+      s"${args.mkString("(", ",", ")")} => ${buildScalaType(t2, world, analyzer)}"
     case r @ RecordType(Attributes(atts)) =>
       // Return the case class name if it exists; otherwise, it is a Tuple
       classesMap.getOrElse(
@@ -237,14 +239,14 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .map(att => s"(${buildScalaType(att.tipe, world, analyzer)})")
           .mkString("(", ", ", ")"))
     case CollectionType(_: CollectionMonoid, innerType) => s"scala.collection.Iterable[${buildScalaType(innerType, world, analyzer)}]"
-//      case CollectionType(_: BagMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
-//      case CollectionType(_: ListMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
-//      case CollectionType(_: SetMonoid, innerType) => s"Set[${buildScalaType(innerType, world, analyzer)}]"
-//      case CollectionType(m: MonoidVariable, innerType) =>
-//        analyzer.looksLikeMonoid(m) match {
-//          case _: SetMonoid => s"Set[${buildScalaType(innerType, world, analyzer)}]"
-//          case _ => s"List[${buildScalaType(innerType, world, analyzer)}]"
-//        }
+    //      case CollectionType(_: BagMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
+    //      case CollectionType(_: ListMonoid, innerType) => s"List[${buildScalaType(innerType, world, analyzer)}]"
+    //      case CollectionType(_: SetMonoid, innerType) => s"Set[${buildScalaType(innerType, world, analyzer)}]"
+    //      case CollectionType(m: MonoidVariable, innerType) =>
+    //        analyzer.looksLikeMonoid(m) match {
+    //          case _: SetMonoid => s"Set[${buildScalaType(innerType, world, analyzer)}]"
+    //          case _ => s"List[${buildScalaType(innerType, world, analyzer)}]"
+    //        }
     case UserType(idn) => buildScalaType(world.tipes(idn), world, analyzer)
     case _: AnyType => "Any"
     case _: NothingType => "Nothing"
@@ -384,7 +386,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case _: Append => q"${build(e1)} ++ ${build(e2)}"
       }
       case FunApp(f, e) =>
-        q"""${build(f)}(${build(e)})"""
+        q"""${build(f)}(..${e.map(build)})"""
       case ZeroCollectionMonoid(m) => m match {
         case _: SetMonoid => q"Set().toIterable"
         case _: BagMonoid => q"List().toIterable"
@@ -419,7 +421,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           ${build(e1)}
         }
         """
-        // TODO: Implement remaining ParseAs strategies
+      // TODO: Implement remaining ParseAs strategies
       case a @ ParseAs(e1, r, _) =>
         val regex = analyzer.scalaRegex(r).get
         val hack = s"regex||||${r.value}||||"
@@ -469,7 +471,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
         case PatternProd(ps) =>
           val t1 = t.asInstanceOf[RecordType]
           ps.zip(t1.recAtts.atts).flatMap { case (p1, att) => recurse(p1, att.tipe) }
-        case PatternIdn(idn: IdnDef) if t.nullable =>
+        //        TODO only take the nullable idn
+        case PatternIdn(idn: IdnDef) =>
           Seq(Some(q"${Ident(TermName(idnName(idn)))}"))
         case _ =>
           Seq(None)
@@ -484,7 +487,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       * val age = child._2.get
       * Used by the Nest to handle Option[...]
       */
-    def idnVals(parent: String, p: Pattern, denulled: Boolean): Seq[Tree] = {
+    def idnVals(parent: String, p: Pattern): Seq[Tree] = {
       def projIdx(idxs: Seq[Int]): String =
         if (idxs.isEmpty)
           parent
@@ -496,10 +499,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           val t1 = t.asInstanceOf[RecordType]
           ps.zip(t1.recAtts.atts).zipWithIndex.flatMap { case ((p1, att), idx) => recurse(p1, att.tipe, idxs :+ idx) }
         case PatternIdn(idn) =>
-          if (denulled && t.nullable)
-            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}.get")
-          else
-            Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
+          Seq(q"val ${TermName(idnName(idn))} = ${c.parse(projIdx(idxs))}")
       }
 
       recurse(p, analyzer.patternType1(p), Seq())
@@ -514,7 +514,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MultiplyMonoid => q"1"
       case _: MaxMonoid => q"-2147483648"
       case _: MinMonoid => q"2147483647" // TODO
-//      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
+      //      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m has no zero")
     }
 
     /** Merge/Fold of two primitive monoids.
@@ -526,7 +526,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _: MultiplyMonoid => q"((a, b) => a * b)"
       case _: MaxMonoid => q"((a, b) => if (a > b) a else b)"
       case _: MinMonoid => q"((a, b) => if (a < b) a else b)"
-//      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
+      //      case _: MaxMonoid | _: MinMonoid => throw new UnsupportedOperationException(s"$m should be not be computed with fold. Use native support for operation.")
     }
 
     /** Get identifier name
@@ -549,10 +549,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       if (nullables.isEmpty)
         q"true"
       else if (nullables.size == 1)
-        q"${nullables.head}.isDefined"
+        q"${nullables.head} != null"
       else {
         // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
-        val optOuts = nullables.map { n => q"$n.isDefined" }
+        val optOuts = nullables.map { n => q"$n != null" }
         optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
       }
     }
@@ -561,7 +561,8 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       */
     def nullableCond(e: Exp, p: Pattern): Tree = {
       def collectNullableIdns(p: Pattern): Seq[Tree] = p match {
-        case PatternIdn(idnDef) if analyzer.idnDefType(idnDef).nullable => Seq(q"${Ident(TermName(idnName(idnDef)))}")
+        //      TODO only take nullables
+        case PatternIdn(idnDef) => Seq(q"${Ident(TermName(idnName(idnDef)))}")
         case PatternProd(ps) => ps.flatMap(collectNullableIdns)
         case _               => Seq()
       }
@@ -570,10 +571,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       if (idns.isEmpty)
         q"true"
       else if (idns.size == 1)
-        q"${idns.head}.isDefined"
+        q"${idns.head} != null"
       else {
         // TODO is it possible to get rid of the "true" by using optOuts.head? I didn't manage
-        val optOuts = idns.map { n => q"$n.isDefined" }
+        val optOuts = idns.map { n => q"$n != null" }
         optOuts.fold(q"true"){case (a, b) => q"$a && $b"}
       }
     }
@@ -658,7 +659,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($childArg => {
             ..${idnVals("child", patChild, false)}
             if (!${nullableCond(pred, patChild)}) {
-              scala.collection.Iterable( $rt(child, None) )
+              scala.collection.Iterable( $rt(child, null) )
             } else {
               ..${idnVals("child", patChild, true)}
               val matches =
@@ -671,9 +672,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                     ..${idnVals("path", patPath, true)}
                     ${build(pred)} })
               if (matches.isEmpty)
-                scala.collection.Iterable( $rt(child, None) )
+                scala.collection.Iterable( $rt(child, null) )
               else
-                matches.map(pathElement => $rt(child, Some(pathElement))) }})
+                matches.map(pathElement => $rt(child, pathElement)) }})
         """
         q"""
         val start = "************ OuterUnnest (Scala) ************"
@@ -725,7 +726,7 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
           .flatMap($leftArg => {
             ..${idnVals("left", patLeft, false)}
             if (!${nullableCond(p, patLeft)}) {
-              scala.collection.Iterable( $rt(left, None) )
+              scala.collection.Iterable( $rt(left, null) )
             } else {
               ..${idnVals("left", patLeft, true)}
               val matches =
@@ -737,9 +738,9 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
                     ..${idnVals("right", patRight, true)}
                     ${build(p)} })
               if (matches.isEmpty)
-                scala.collection.Iterable( $rt(left, None) )
+                scala.collection.Iterable( $rt(left, null) )
               else
-                matches.map(right => $rt(left, Some(right))) }})
+                matches.map(right => $rt(left, right)) }})
         """
         q"""
         val start = "************ OuterJoin (Scala) ************"

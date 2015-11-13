@@ -89,11 +89,15 @@ object CodeGenerator extends StrictLogging {
     queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
   }
 
-  def query(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
-    val query = queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
-    val result = query.computeResult
-    convertToJson(result)
-  }
+//  def query(queryLanguage: QueryLanguage, logicalPlan: String, queryPaths: Seq[RawScanner[_]]): String = {
+//    val query = queryCompiler.compile(queryLanguage, logicalPlan, queryPaths)
+//    val result = query.iterator
+//    try {
+//      convertToJson(result)
+//    } finally {
+//      result.close()
+//    }
+//  }
 
   def loadScanner(name: String, schema: RawSchema, sc: SparkContext = null): RawScanner[_] = {
     val parsedSchema: ParsedSchema = SchemaParser(schema)
@@ -103,17 +107,9 @@ object CodeGenerator extends StrictLogging {
     val loaderClassName = s"Loader${ai.getAndIncrement()}__${name}"
 
     if (sc == null) {
-      // Scala local executor
-      //      val sourceCode = genScalaLoader(caseClassesSource, loaderClassName, innerType, name)
-      //      val scalaLoader = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[RawScalaLoader]
-      //      val scanner: RawScanner[_] =  scalaLoader.loadRawScanner(schema)
-      //      logger.info("scanner: " + scanner)
-      //      scanner
       val sourceCode = genCaseClasses(caseClassesSource, loaderClassName, innerType)
       val scalaLoader: SchemaTypeFactory = queryCompiler.compileLoader(sourceCode, loaderClassName).asInstanceOf[SchemaTypeFactory]
-      val scanner: RawScanner[_] = scalaLoader.getSchemaInformation.createScanner(schema)
-      logger.info("scanner: " + scanner)
-      scanner
+      scalaLoader.getSchemaInformation.createScanner(schema)
     } else {
       ???
     }
@@ -121,8 +117,7 @@ object CodeGenerator extends StrictLogging {
 
 
   private[this] def genCaseClasses(caseClassesSource: String, loaderClassName: String, innerType: String): String = {
-    s"""
-package raw.query
+    s"""package raw.query
 
 import scala.reflect._
 import scala.reflect.runtime.universe._
@@ -134,28 +129,6 @@ class ${loaderClassName} extends SchemaTypeFactory {
   override def getSchemaInformation: SchemaTypeInformation[_] = {
     new SchemaTypeInformation[$innerType]
   }
-}
-"""
+}"""
   }
-
-  //  private[this] def genScalaLoader(caseClassesSource: String, loaderClassName: String, innerType: String, name: String): String = {
-  //    s"""
-  //package raw.query
-  //
-  //import java.nio.file.Path
-  //import raw.executor._
-  //
-  //${caseClassesSource}
-  //
-  //class ${loaderClassName} extends RawScalaLoader {
-  //  override def loadRawScanner(rawSchema: RawSchema): RawScanner[_] = {
-  //    rawSchema.fileType match {
-  //      case "json" => new JsonRawScanner[$innerType](rawSchema)
-  //      case "csv" => new CsvRawScanner[$innerType](rawSchema)
-  //      case a @ _ => throw new Exception("Unknown file type: " + a)
-  //    }
-  //  }
-  //}
-  //"""
-  //  }
 }

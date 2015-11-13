@@ -11,6 +11,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.QueryLanguages.QueryLanguage
 import raw.executor.{RawScanner, RawClassLoader, RawCompiler, ResultConverter}
+import raw.utils.DefaultJsonMapper
 
 import scala.collection.{mutable, JavaConversions}
 
@@ -21,7 +22,7 @@ abstract class AbstractRawTest
   with RawClassLoader {
 
   import ResultConverter._
-  import raw.rest.DefaultJsonMapper._
+  import DefaultJsonMapper._
 
   var queryCompiler: RawCompiler = _
 

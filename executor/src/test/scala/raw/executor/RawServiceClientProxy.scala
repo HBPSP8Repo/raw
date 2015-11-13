@@ -2,15 +2,30 @@ package raw.executor
 
 import java.io.IOException
 import java.nio.file.Path
+import java.util.Base64
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
+import org.apache.http.client.methods.{HttpGet, HttpPost, HttpUriRequest}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
-import raw.rest.RawRestServer.{ExceptionResponse, QueryRequest, RegisterFileRequest}
-import raw.rest.{ClientErrorException, DefaultJsonMapper, RawRestServer}
+import raw.rest.RawServiceActor._
+import raw.utils.{DefaultJsonMapper, FileTypes}
 import raw.{ParserError, SemanticErrors}
+
+
+object DropboxAuthUsers {
+  final val TestUserJoe = new DropboxCredentials("123456789-Joe_Test_Doe")
+  final val TestUserJane = new DropboxCredentials("987654321-Jane_Test_Dane")
+  final val TestUserNonexisting = new DropboxCredentials("000000-Elvis")
+}
+
+object BasicAuthUsers {
+  final val TestUserJoe = new BasicCredentials("123456789-Joe_Test_Doe", "1234")
+  final val TestUserJane = new BasicCredentials("987654321-Jane_Test_Dane", "1234")
+  final val TestUserNonexisting = new BasicCredentials("000000-Elvis", "1234")
+}
+
 
 /* Classes representing the responses sent by the rest server and the corresponding Jackson deserializers */
 object RawServiceClientProxy {
@@ -24,16 +39,17 @@ object RawServiceClientProxy {
   val registerFileResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[RegisterFileResponse])
 
   /**
-   *
-   * @param success
-   * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
-   *               Jackson can deserialize it.
-   * @param execution_time
-   * @param compile_time
-   */
+    *
+    * @param success
+    * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
+    *               Jackson can deserialize it.
+    * @param execution_time
+    * @param compile_time
+    */
   case class QueryResponse(success: String, output: AnyRef, execution_time: Long, compile_time: Long)
 
   val queryResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryResponse])
+  val queryBlockResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryBlockResponse])
 
   case class ParseErrorResponse(errorType: String, error: ParserError)
 
@@ -45,8 +61,26 @@ object RawServiceClientProxy {
 
   val exceptionResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[ExceptionResponse])
 }
-  
-class ClientErrorWrapperException(exceptionResponse: ExceptionResponse) extends Exception(exceptionResponse.toString)
+
+class ClientErrorWrapperException(val exceptionResponse: ExceptionResponse) extends Exception(exceptionResponse.toString)
+
+trait RawCredentials {
+  def configureRequest(request: HttpUriRequest): Unit
+}
+
+case class DropboxCredentials(token: String) extends RawCredentials {
+  override def configureRequest(request: HttpUriRequest): Unit = {
+    request.setHeader("Authorization", "Bearer " + token)
+  }
+}
+
+case class BasicCredentials(user: String, pass: String) extends RawCredentials {
+  override def configureRequest(request: HttpUriRequest): Unit = {
+    val encoding = Base64.getEncoder.encodeToString(s"$user:$pass".getBytes())
+    request.setHeader("Authorization", "Basic " + encoding)
+  }
+}
+
 
 class RawServiceClientProxy extends StrictLogging {
 
@@ -54,61 +88,79 @@ class RawServiceClientProxy extends StrictLogging {
 
   val httpClient = HttpClients.createDefault()
 
-  def query(query: String, user: String): String = {
-    val queryPost = new HttpPost("http://localhost:54321/query")
-    val queryRequest = new QueryRequest(query, user)
-    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(queryRequest)
+  def doQuery(url: String, payload: AnyRef, credentials: RawCredentials): String = {
+    val queryPost = new HttpPost(url)
+    credentials.configureRequest(queryPost)
+    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(payload)
     queryPost.setEntity(new StringEntity(reqBody))
-    val responseBody = executeRequest(queryPost)
+    executeRequest(queryPost)
+  }
+
+  def query(query: String, credentials: RawCredentials): String = {
+    val queryRequest = new QueryRequest(query)
+    val responseBody = doQuery("http://localhost:54321/query", queryRequest, credentials)
     val response = queryResponseReader.readValue[QueryResponse](responseBody)
     // response.output is deserialized as AnyRef. This will be an Array, Map or String.
     // Convert it back to String for checking in the tests.
     DefaultJsonMapper.mapper.writeValueAsString(response.output)
   }
 
-  def registerLocalFile(user: String, file: Path): String = {
+  def queryStart(query: String, resultsPerPage: Int, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryStartRequest(query, resultsPerPage)
+    val responseBody = doQuery("http://localhost:54321/query-start", queryRequest, credentials)
+    queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
+  }
+
+  def queryNext(token: String, resultsPerPage: Int, credentials: RawCredentials): QueryBlockResponse = {
+    val queryRequest = new QueryNextRequest(token, resultsPerPage)
+    val responseBody = doQuery("http://localhost:54321/query-next", queryRequest, credentials)
+    queryBlockResponseReader.readValue[QueryBlockResponse](responseBody)
+  }
+
+  def queryClose(token: String, credentials: RawCredentials): Unit = {
+    val queryRequest = new QueryCloseRequest(token)
+    val responseBody: String = doQuery("http://localhost:54321/query-close", queryRequest, credentials)
+    logger.info(s"Response: $responseBody")
+  }
+
+  def registerLocalFile(credentials: RawCredentials, file: Path): String = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
     assert(i > 0, s"Cannot recognize type of input file: $file.")
     val fileType = filename.substring(i + 1)
     val schema = filename.substring(0, i)
-    registerFile("file", file.toString, filename, schema, fileType, user)
+    registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerLocalFile(user: String, file: Path, schema:String): String = {
+  def registerLocalFile(credentials: RawCredentials, file: Path, schema: String): String = {
+    logger.info(s"Registering file: $file, $schema")
     val filename = file.getFileName.toString
-    val i = filename.lastIndexOf('.')
-    val fileType = if (i>0) {
-      val extension = filename.substring(i + 1)
-      logger.info(s"File type derived from extension: $extension.")
-      extension
-    } else {
-      logger.info(s"No extension detected in file $file. Assuming text file.")
-      "text"
-    }
-    registerFile("file", file.toString, filename, schema, fileType, user)
+    val fileType = FileTypes.inferFileType(filename)
+    registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, token: String): String = {
-    val req = new RegisterFileRequest(protocol, url, filename, name, `type`, token)
+  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, credentials: RawCredentials): String = {
+    val req = new RegisterFileRequest(protocol, url, filename, name, `type`)
     val registerPost = new HttpPost("http://localhost:54321/register-file")
+    credentials.configureRequest(registerPost)
+    //    addBasicAuthHeader(registerPost, user, "doesnotmatter")
     registerPost.setEntity(new StringEntity(DefaultJsonMapper.mapper.writeValueAsString(req)))
     val responseBody = executeRequest(registerPost)
     val response = registerFileResponseReader.readValue[RegisterFileResponse](responseBody)
     response.name
   }
 
-  def getSchemas(user: String): Set[String] = {
-    val schemasPost = new HttpPost("http://localhost:54321/schemas")
-    val req = new RawRestServer.SchemaRequest("unnused", user)
-    val reqBody = DefaultJsonMapper.mapper.writeValueAsString(req)
-    schemasPost.setEntity(new StringEntity(reqBody))
+  def getSchemas(credentials: RawCredentials): Set[String] = {
+    val schemasPost = new HttpGet("http://localhost:54321/schemas")
+    //    addBasicAuthHeader(schemasPost, user, "doesnotmatter")
+    credentials.configureRequest(schemasPost)
     val responseBody = executeRequest(schemasPost)
     val response = schemasResponseReader.readValue[SchemasResponse](responseBody)
     val asSet = response.schemas.toSet
     assert(asSet.size == response.schemas.size, "Response contains duplicated elements: " + response.schemas)
     asSet
   }
+
 
   private[this] def executeRequest(request: HttpUriRequest): String = {
     logger.info("Sending request: " + request)
@@ -121,8 +173,8 @@ class RawServiceClientProxy extends StrictLogging {
       // Deserialize as generic map to obtain the class of the error object, so that after we can deserialize
       // it as an instance of that class. We need to provide to Jackson the exact subtype of QueryError, providing
       // the base abstract class is not enough
-      val map = DefaultJsonMapper.mapper.readValue[Map[String,Object]](body, classOf[Map[String,Object]])
-      logger.info(s"Result: $map")
+      val map = DefaultJsonMapper.mapper.readValue[Map[String, Object]](body, classOf[Map[String, Object]])
+      logger.debug(s"Result: $map")
 
       // A client error status may indicate:
       // 1. Malformed request: invalid URL on register-request, non existing file, bad file

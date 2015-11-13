@@ -98,8 +98,6 @@ lazy val executor = (project in file("executor")).
           jacksonScala,
           jacksonCsv,
           httpClient,
-          commonsMath,
-          commonsIO,
           scallop,
           metrics,
           multisets,
@@ -107,7 +105,8 @@ lazy val executor = (project in file("executor")).
           awsSDK,
           juniversalchardet
         )
-        ++ sprayDeps,
+        ++ sprayDeps
+        ++ apacheCommonsDeps,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.

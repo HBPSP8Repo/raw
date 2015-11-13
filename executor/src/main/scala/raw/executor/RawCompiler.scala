@@ -2,8 +2,10 @@ package raw.executor
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
 import nl.grons.metrics.scala.Timer
 import org.apache.spark.rdd.RDD
@@ -99,9 +101,9 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
   private[this] val compilerLock = new Object
 
   /**
-   * @return An instance of the query
-   * @throws RuntimeException If compilation fails
-   */
+    * @return An instance of the query
+    * @throws RuntimeException If compilation fails
+    */
   def compileOQL(oql: String, scanners: Seq[RawScanner[_]]): RawQuery = {
     compile(OQL, oql, scanners)
   }
@@ -145,10 +147,9 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
       descapedStr
     }
 
-    logger.info("Scanners: " + scanners)
+    logger.info("Building query with scanners: " + scanners)
     val queryName = RawCompiler.newClassName()
     val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)
-    logger.info(s"Access paths: $aps")
 
     /* For every top level type argument of the access path, import the containing package. The is, for the following
      * access paths: RDD[raw.Publications], RDD[raw.patients.Patient], generate "import raw._" and "import raw.patients._"
@@ -175,8 +176,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
     val code =
-      s"""
-package raw.query
+      s"""package raw.query
 
 import raw.executor.RawScanner
 import org.apache.spark.rdd.RDD
@@ -187,20 +187,18 @@ $imports
 class $queryName($args) extends RawQuery {
   val ${queryLanguage.name} =
   \"${descapeStr(query)}\"
-}
-"""
+}"""
 
     logger.info(s"Generated code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve(queryName + ".scala")
     Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
     logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
 
+    val start = Stopwatch.createStarted()
     compilerLock.synchronized {
-      queryCompileTimer.time {
         // Compile the query
         val run = new compiler.Run()
         run.compile(List(srcFile.toString))
-      }
 
       if (compileReporter.hasWarnings || compileReporter.hasErrors) {
         logger.warn("Errors during compilation:\n " + compileReporter.infos.mkString("\n"))
@@ -214,6 +212,9 @@ class $queryName($args) extends RawQuery {
         }
       }
     }
+    val compilationTime = start.elapsed(TimeUnit.MILLISECONDS)
+    queryCompileTimer.update(compilationTime, TimeUnit.MILLISECONDS)
+    logger.info(s"Compilation time: $compilationTime ms")
 
     // Load the main query class
     val queryClass = s"raw.query.$queryName"
@@ -222,21 +223,21 @@ class $queryName($args) extends RawQuery {
 
     // Find the constructor.
     val ctorTypeArgs: Seq[Class[_]] = scanners.map(ap => getContainerClass(ap))
-    logger.info("ctorTypeArgs: " + ctorTypeArgs + " " + ctorTypeArgs.toSeq)
     val ctor = clazz.getConstructor(ctorTypeArgs.toSeq: _*)
-
 
     // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
     val ctorArgs: Seq[Object] = scanners.map(scanner => getAccessPaths(scanner))
-    ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
+    val rawQuery = ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
+    rawQuery.compilationTime = compilationTime
+    rawQuery
   }
 
   /**
-   *
-   * @param code
-   * @param className Name of the class defined in the source code. Must be unique within the current run of the program
-   * @return
-   */
+    *
+    * @param code
+    * @param className Name of the class defined in the source code. Must be unique within the current run of the program
+    * @return
+    */
   def compileLoader(code: String, className: String): AnyRef = {
     logger.info(s"Loader source code:\n$code")
     val srcFile: Path = sourceOutputDir.resolve(s"$className.scala")

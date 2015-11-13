@@ -26,16 +26,9 @@ Error conditions:
   - syntax error
   - semantic error
  */
-object RestServerPreloadedTest {
-  final val TestUserJoe = "123456789-Joe_Test_Doe"
-  final val TestUserJane = "987654321-Jane_Test_Dane"
-  final val TestUserNonexisting = "000000-Elvis"
-}
+class PreloadedTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 
-
-class RestServerPreloadedTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
-
-  import RestServerPreloadedTest._
+  import DropboxAuthUsers._
 
   override def beforeAll() = {
     super.beforeAll()
@@ -60,6 +53,10 @@ class RestServerPreloadedTest extends FunSuite with RawRestServerContext with St
 
   test("list schemas: no schema") {
     schemasTest(TestUserNonexisting, Set())
+  }
+
+  test("query: no results") {
+    testQuery(TestUserJoe, """select * from authors a where a.name = "Elvis" """, """[ ]""")
   }
 
   test("query: primitive result - count(authors)") {

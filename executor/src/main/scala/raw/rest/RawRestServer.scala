@@ -2,16 +2,12 @@ package raw.rest
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.io.{IO, Tcp}
-import akka.routing.RoundRobinPool
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import akka.routing.{FromConfig, RoundRobinPool}
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
-import raw._
 import raw.executor._
 import raw.rest.RawRestServer._
 import raw.spark._
@@ -23,55 +19,13 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 
-/* Object mapper used to read/write any JSON received/sent by the rest server */
-object DefaultJsonMapper extends StrictLogging {
-  val mapper = {
-    val om = new ObjectMapper()
-    om.registerModule(DefaultScalaModule)
-    om.configure(SerializationFeature.INDENT_OUTPUT, true)
-    //    om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-    om.setSerializationInclusion(Include.ALWAYS)
-    om
-  }
-}
-
-
-/* Generic exception, which the request handler code can raise to send a 400 response to the client.
-* This exception will be caught by the exception handler below and transformed in a 400 response*/
-class ClientErrorException(msg: String, cause: Throwable) extends Exception(msg, cause) {
-  def this(msg: String) = this(msg, null)
-  def this(cause: Throwable) = this(cause.getMessage, cause)
-}
-
-
 object RawRestServer {
-
-  import DefaultJsonMapper._
-
   final val port = 54321
-
-  case class QueryRequest(query: String, token: String)
-
-  val queryRequestReader = mapper.readerFor(classOf[QueryRequest])
-
-  case class SchemaRequest(module: String, token: String)
-
-  val schemaRequestReader = mapper.readerFor(classOf[SchemaRequest])
-
-  case class RegisterFileRequest(protocol: String, url: String, filename: String, name: String, `type`: String, token: String)
-
-  val registerRequestReader = mapper.readerFor(classOf[RegisterFileRequest])
-
-  // Response sent when there is an error processing a query
-  case class CompilationErrorResponse(errorType: String, error: QueryError)
-
-  // Response sent when the handler code raises an exception
-  case class ExceptionResponse(exceptionType: String, message: String, stackTrace: String)
-
 }
 
 
 class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) extends StrictLogging {
+  // Mixin to allow testing with a mock implementation
   dropboxClient: DropboxClient =>
 
   import akka.pattern.ask
@@ -117,11 +71,12 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
   implicit val system = ActorSystem()
 
   def start(): Future[Bound] = {
-    val handler = system.actorOf(
-      RoundRobinPool(5).props(Props {
-        new RawService(rawServer, dropboxClient)
-      }),
-      name = "handler")
+    // Get the configuration from the config files (reference.conf or application.conf)
+    val props = FromConfig.props(Props {
+      new RawServiceActor(rawServer, dropboxClient)
+    })
+    val handler: ActorRef = system.actorOf(props, "rest-server-handler")
+    logger.info(s"Created actor: ${handler}")
 
     IO(Http).ask(Http.Bind(handler, interface = "0.0.0.0", port = port))(1.second)
       .flatMap {
@@ -136,4 +91,3 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     system.shutdown()
   }
 }
-
