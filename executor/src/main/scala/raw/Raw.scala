@@ -1425,11 +1425,10 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
       case _ => exp(e)
     }
 
-    logger.info("Building code.")
     val tree = build(treeExp)
 
     val treeType = analyzer.tipe(treeExp)
-    logger.info(s"TreeType: $treeType")
+    logger.info(s"Result type of query: $treeType")
 
     val collectedTree = tree match {
       case a: AlgebraNode if analyzer.spark(a) => collectSpark(tree, treeType)
@@ -1497,7 +1496,6 @@ class RawImpl(val c: scala.reflect.macros.whitebox.Context) extends StrictLoggin
     //    logger.debug("Typed tree:\n" + showRaw(typ))
     typ match {
       case ClassDef(_, className: TypeName, _, Template(_, _, body: List[Tree])) =>
-        logger.info("Analysing class: " + className)
         var query: Option[String] = None
         var queryLanguage: Option[QueryLanguage] = None
         val accessPaths = new ArrayBuffer[AccessPath]()
