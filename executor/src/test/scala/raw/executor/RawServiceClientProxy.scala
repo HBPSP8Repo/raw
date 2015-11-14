@@ -30,14 +30,7 @@ object BasicAuthUsers {
 /* Classes representing the responses sent by the rest server and the corresponding Jackson deserializers */
 object RawServiceClientProxy {
 
-  case class SchemasResponse(success: String, schemas: List[String])
-
   val schemasResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[SchemasResponse])
-
-  case class RegisterFileResponse(success: String, name: String)
-
-  val registerFileResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[RegisterFileResponse])
-
   val queryResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryResponse])
   val queryBlockResponseReader = DefaultJsonMapper.mapper.readerFor(classOf[QueryBlockResponse])
 
@@ -113,7 +106,7 @@ class RawServiceClientProxy extends StrictLogging {
     logger.info(s"Response: $responseBody")
   }
 
-  def registerLocalFile(credentials: RawCredentials, file: Path): String = {
+  def registerLocalFile(credentials: RawCredentials, file: Path): Unit = {
     val filename = file.getFileName.toString
     val i = filename.lastIndexOf('.')
     assert(i > 0, s"Cannot recognize type of input file: $file.")
@@ -122,22 +115,20 @@ class RawServiceClientProxy extends StrictLogging {
     registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerLocalFile(credentials: RawCredentials, file: Path, schema: String): String = {
+  def registerLocalFile(credentials: RawCredentials, file: Path, schema: String): Unit = {
     logger.info(s"Registering file: $file, $schema")
     val filename = file.getFileName.toString
     val fileType = FileTypes.inferFileType(filename)
     registerFile("file", file.toString, filename, schema, fileType, credentials)
   }
 
-  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, credentials: RawCredentials): String = {
+  def registerFile(protocol: String, url: String, filename: String, name: String, `type`: String, credentials: RawCredentials): Unit = {
     val req = new RegisterFileRequest(protocol, url, filename, name, `type`)
     val registerPost = new HttpPost("http://localhost:54321/register-file")
     credentials.configureRequest(registerPost)
     //    addBasicAuthHeader(registerPost, user, "doesnotmatter")
     registerPost.setEntity(new StringEntity(DefaultJsonMapper.mapper.writeValueAsString(req)))
     val responseBody = executeRequest(registerPost)
-    val response = registerFileResponseReader.readValue[RegisterFileResponse](responseBody)
-    response.name
   }
 
   def getSchemas(credentials: RawCredentials): Set[String] = {
