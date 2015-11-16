@@ -75,3 +75,27 @@ case class BagUnion() extends BinaryOperator
 /** Append
   */
 case class Append() extends BinaryOperator
+
+/** LIKE
+  */
+case class Like() extends BinaryOperator
+
+/** NOT LIKE
+  */
+case class NotLike() extends BinaryOperator
+
+/** IN
+  */
+case class In() extends BinaryOperator
+
+/** NOT IN
+  */
+case class NotIn() extends BinaryOperator
+
+/** IS NULL
+  */
+case class IsNullOp() extends BinaryOperator
+
+/** IS NOT NULL
+  */
+case class IsNotNull() extends BinaryOperator

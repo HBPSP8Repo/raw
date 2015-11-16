@@ -40,7 +40,7 @@ object CalculusPrettyPrinter extends PrettyPrinter {
 
   private def parseProperties(p: ParseProperties) = p match {
     case _: SkipOnFail => "skip" <+> "on" <+> "fail"
-    case _: NoneOnFail => "none" <+> "on" <+> "fail"
+    case _: NullOnFail => "null" <+> "on" <+> "fail"
   }
 
   // TODO: Use same constants as in SyntaxAnalyzer (e.g. kwNull, kwIf, kwAs, etc)

@@ -15,113 +15,125 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
   override val whiteSpace =
     """(//.*\s*|\s+)+""".r
 
-  /** Reserved words
+  /** List of reserved keywords in alphabetic order.
+    * See docs below on reserved keywords groups for more details on how to add a reserved keyword.
     */
-  val kwOr = "(?i)or\\b".r
   val kwAnd = "(?i)and\\b".r
-  val kwNot = "(?i)not\\b".r
-  val kwUnion = "(?i)union\\b".r
-  val kwBagUnion = "((?i)bag_union|(?i)bagUnion)\\b".r
   val kwAppend = "(?i)append\\b".r
-  val kwMax = "(?i)max\\b".r
-  val kwSum = "(?i)sum\\b".r
-  val kwMultiply = "(?i)multiply\\b".r
-  val kwNull = "(?i)null\\b".r
-  val kwTrue = "(?i)true\\b".r
-  val kwFalse = "(?i)false\\b".r
-  val kwFor = "(?i)for\\b".r
-  val kwYield = "(?i)yield\\b".r
-  val kwIf = "(?i)if\\b".r
-  val kwThen = "(?i)then\\b".r
-  val kwElse = "(?i)else\\b".r
-  val kwAvg = "(?i)avg\\b".r
-  val kwCount = "(?i)count\\b".r
-  val kwMin = "(?i)min\\b".r
-  val kwGoTo = "((?i)go_to|(?i)goto|(?i)goTo)\\b".r
-  val kwGetOrElse = "((?i)get_or_else|(?i)getOrElse)\\b".r
-  val kwOrElse = "((?i)or_else|(?i)orElse)\\b".r
-  val kwBreak = "(?i)break\\b".r
-  val kwContinue = "(?i)continue\\b".r
-  val kwSelect = "(?i)select\\b".r
-  val kwDistinct = "(?i)distinct\\b".r
-  val kwFrom = "(?i)from\\b".r
   val kwAs = "(?i)as\\b".r
-  val kwIn = "(?i)in\\b".r
-  val kwExists = "(?i)exists\\b".r
-  val kwWhere = "(?i)where\\b".r
-  val kwGroup = "(?i)group\\b".r
-  val kwOrder = "(?i)order\\b".r
-  val kwBy = "(?i)by\\b".r
-  val kwHaving = "(?i)having\\b".r
-  val kwPartition = "(?i)partition\\b".r
-  val kwTry = "(?i)try\\b".r
-  val kwCatch = "(?i)catch\\b".r
-  val kwExcept = "(?i)except\\b".r
-  val kwNew = "(?i)new\\b".r
-  val kwType = "(?i)type\\b".r
-  val kwAlias = "(?i)alias\\b".r
-  val kwStar = "*"
-  val kwInto = "(?i)into\\b".r
-  val kwParse = "(?i)parse\\b".r
-  val kwSkip = "(?i)skip\\b".r
-  val kwFail = "(?i)fail\\b".r
-  val kwOn = "(?i)on\\b".r
-  val kwSome = "(?i)some\\b".r
-  val kwNone = "(?i)none\\b".r
-
-  // Types
-  val kwBool = "(?i)bool\\b".r
-  val kwInt = "(?i)int\\b".r
-  val kwFloat = "(?i)float\\b".r
-  val kwString = "(?i)string\\b".r
-  val kwOption = "(?i)option\\b".r
-  val kwRecord = "(?i)record\\b".r
+  val kwAvg = "(?i)avg\\b".r
   val kwBag = "(?i)bag\\b".r
-  val kwList = "(?i)list\\b".r
-  val kwSet = "(?i)set\\b".r
+  val kwBagUnion = "((?i)bag_union|(?i)bagUnion)\\b".r
+  val kwBool = "(?i)bool\\b".r
+  val kwBreak = "(?i)break\\b".r
+  val kwBy = "(?i)by\\b".r
+  val kwCatch = "(?i)catch\\b".r
+  val kwContinue = "(?i)continue\\b".r
+  val kwCount = "(?i)count\\b".r
   val kwDateTime = "(?i)datetime\\b".r
+  val kwDistinct = "(?i)distinct\\b".r
+  val kwElse = "(?i)else\\b".r
+  val kwExcept = "(?i)except\\b".r
+  val kwExists = "(?i)exists\\b".r
+  val kwFail = "(?i)fail\\b".r
+  val kwFinally = "(?i)finally\\b".r
+  val kwFor = "(?i)for\\b".r
+  val kwFrom = "(?i)from\\b".r
+  val kwGoTo = "((?i)go_to|(?i)goto|(?i)goTo)\\b".r
+  val kwGroup = "(?i)group\\b".r
+  val kwHaving = "(?i)having\\b".r
+  val kwIf = "(?i)if\\b".r
+  val kwIn = "(?i)in\\b".r
+  val kwInt = "(?i)int\\b".r
   val kwInterval = "(?i)interval\\b".r
-  val kwRegex = "(?i)regex\\b".r
-
-  // Convert types
-  val kwToBool = "((?i)to_bool|(?i)toBool)\\b".r
-  val kwToInt = "((?i)to_int|(?i)toInt)\\b".r
-  val kwToFloat = "((?i)to_float|(?i)toFloat)\\b".r
-  val kwToString = "((?i)to_string|(?i)toString)\\b".r
-  val kwToBag = "((?i)to_bag|(?i)toBag)\\b".r
-  val kwToList = "((?i)to_list|(?i)toList)\\b".r
-  val kwToSet = "((?i)to_set|(?i)toSet)\\b".r
-  val kwToDateTime = "((?i)to_date_time|(?i)toDateTime)\\b".r
-  val kwToDate = "((?i)to_date|(?i)toDate)\\b".r
-  val kwToTime = "((?i)to_time|(?i)toTime)\\b".r
-  val kwToEpoch = "((?i)to_epoch|(?i)toEpoch)\\b".r
-
-  // Built-in functions
+  val kwInto = "(?i)into\\b".r
+  val kwIs = "(?i)is\\b".r
+  val kwLike = "(?i)in\\b".r
+  val kwList = "(?i)list\\b".r
+  val kwFalse = "(?i)false\\b".r
+  val kwFloat = "(?i)float\\b".r
   val kwIsNull = "((?i)is_null|(?i)isNull)\\b".r
+  val kwMax = "(?i)max\\b".r
+  val kwMin = "(?i)min\\b".r
+  val kwMultiply = "(?i)multiply\\b".r
+  val kwNew = "(?i)new\\b".r
+  val kwNot = "(?i)not\\b".r
+  val kwNull = "(?i)null\\b".r
+  val kwOn = "(?i)on\\b".r
+  val kwOption = "(?i)option\\b".r
+  val kwOr = "(?i)or\\b".r
+  val kwOrder = "(?i)order\\b".r
+  val kwPartition = "(?i)partition\\b".r
+  val kwParse = "(?i)parse\\b".r
+  val kwRecord = "(?i)record\\b".r
+  val kwRegex = "(?i)regex\\b".r
+  val kwSelect = "(?i)select\\b".r
+  val kwSet = "(?i)set\\b".r
+  val kwSkip = "(?i)skip\\b".r
+  val kwString = "(?i)string\\b".r
+  val kwSum = "(?i)sum\\b".r
+  val kwThen = "(?i)then\\b".r
+  val kwToBag = "((?i)to_bag|(?i)toBag)\\b".r
+  val kwToBool = "((?i)to_bool|(?i)toBool)\\b".r
+  val kwToEpoch = "((?i)to_epoch|(?i)toEpoch)\\b".r
+  val kwToFloat = "((?i)to_float|(?i)toFloat)\\b".r
+  val kwToList = "((?i)to_list|(?i)toList)\\b".r
+  val kwToInt = "((?i)to_int|(?i)toInt)\\b".r
+  val kwToRegex = "((?i)to_regex|(?i)toRegex)\\b".r
+  val kwToSet = "((?i)to_set|(?i)toSet)\\b".r
+  val kwToString = "((?i)to_string|(?i)toString)\\b".r
+  val kwTrue = "(?i)true\\b".r
+  val kwTry = "(?i)try\\b".r
+  val kwType = "(?i)type\\b".r
+  val kwUnion = "(?i)union\\b".r
+  val kwWhere = "(?i)where\\b".r
+  val kwYield = "(?i)yield\\b".r
 
   // DateTime/Timestamp/Interval keywords
-//  val kwDate = "(?i)date\\b".r
-//  val kwTime = "(?i)time\\b".r
-//  val kwInterval = "(?i)interval\\b".r
-//  val kwTimestamp = "(?i)timestamp\\b".r
-//  val kwWith = "(?i)with\\b".r
-//  val kwWithout = "(?i)without\\b".r
-//  val kwYear = "(?i)year\\b".r
-//  val kwMonth = "(?i)month\\b".r
-//  val kwDay = "(?i)day\\b".r
-//  val kwHour = "(?i)hour\\b".r
-//  val kwMinute = "(?i)minute\\b".r
-//  val kwSecond = "(?i)second\\b".r
-//  val kwTo = "(?i)to\\b".r
+  //  val kwDate = "(?i)date\\b".r
+  //  val kwTime = "(?i)time\\b".r
+  //  val kwInterval = "(?i)interval\\b".r
+  //  val kwTimestamp = "(?i)timestamp\\b".r
+  //  val kwWith = "(?i)with\\b".r
+  //  val kwWithout = "(?i)without\\b".r
+  //  val kwYear = "(?i)year\\b".r
+  //  val kwMonth = "(?i)month\\b".r
+  //  val kwDay = "(?i)day\\b".r
+  //  val kwHour = "(?i)hour\\b".r
+  //  val kwMinute = "(?i)minute\\b".r
+  //  val kwSecond = "(?i)second\\b".r
+  //  val kwTo = "(?i)to\\b".r
 
-  val reserved = kwOr | kwAnd | kwNot | kwUnion | kwBagUnion | kwAppend | kwMax | kwSum | kwMultiply | kwSet |
-    kwBag | kwList | kwNull | kwTrue | kwFalse | kwFor | kwYield | kwIf | kwThen | kwElse | kwToBool | kwToInt |
-    kwToFloat | kwToString | kwToBag | kwToList | kwToSet | kwToDateTime | kwToDate | kwToTime |
-    kwAvg | kwCount | kwMin | kwGoTo | kwGetOrElse | kwOrElse |
-    kwBreak| kwContinue | kwSelect | kwDistinct | kwFrom | kwAs | kwIn | kwWhere | kwGroup | kwOrder | kwBy | kwHaving |
-    kwPartition | kwTry | kwCatch | kwExcept | kwNew | kwType | kwAlias | kwStar | kwInto | kwParse | kwSkip | kwFail |
-    kwOn | kwSome | kwNone
-    //kwDate | kwTime | kwInterval | kwTimestamp | kwWith | kwWithout | kwYear | kwMonth | kwDay | kwHour | kwMinute | kwSecond | kwTo
+  /** Reserved keywords organized by "group".
+    * The reserved keywords are split per "group" instead of all in a "large chunk" so that, in the future, we can adapt
+    * the parser to only "deny" the use of reserved keywords that are truly impossible/conflicting in that particular
+    * parsing context. That is to say: not all reserved keywords need to be denied globally, in all occasions!
+    * That's also the reason a particular keyword may be repeated in more than one group: e.g. kwSum may be used as
+    * a monoid or as a built-in [sugar] function.
+    *
+    * To add a reserved keyword:
+    * 1) Add it first to the set of reserved keywords above, which is sorted in alphabetic order.
+    *    This is not enough however; then you need to:
+    * 2) Go through the list of "reserved keyword groups" defined below and add it also there if it makes sense: again,
+    *    the keywords in each group are sorted in alphabetic order, so pls keep that order!.
+    */
+  val reservedConstants = kwFalse | kwNull | kwTrue
+  val reservedTypes = kwBag | kwBool | kwDateTime | kwFloat | kwInt | kwInterval | kwList | kwOption | kwRecord |
+    kwRegex | kwSet | kwString
+  val reservedMonoids = kwAnd | kwBag | kwList | kwMax | kwMultiply | kwOr | kwSet | kwSum
+  val reservedBinaryOps = kwAnd | kwAppend | kwBagUnion | kwIn | kwIs | kwLike | kwMax | kwMin | kwMultiply | kwNot |
+    kwNull | kwOr | kwUnion
+  val reservedComp = kwFor | kwYield
+  val reservedSelect = kwAs | kwBy | kwDistinct | kwFail | kwFrom | kwGroup | kwHaving | kwInto | kwOn | kwOrder |
+    kwParse | kwPartition | kwSelect | kwSkip | kwWhere
+  val reservedControlFlow = kwElse | kwIf | kwThen
+  val reservedFuture = kwBreak | kwCatch | kwContinue | kwExcept | kwFinally | kwGoTo | kwNew | kwTry | kwType
+  val reservedTypeConv = kwToBag | kwToBool | kwToEpoch | kwToFloat | kwToInt | kwToList | kwToSet | kwToString |
+    kwToRegex
+  val reservedBuiltIn = kwAvg | kwCount | kwExists | kwIsNull | kwMin
+
+  val reserved = reservedConstants | reservedTypes | reservedMonoids | reservedBinaryOps | reservedComp |
+    reservedSelect | reservedControlFlow | reservedFuture | reservedTypeConv | reservedBuiltIn
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
@@ -180,7 +192,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     })
 
   lazy val mergeExp: PackratParser[Exp] =
-    positioned(orExp * (monoidMerge ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+    positioned(orExp * (monoidMerge ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val monoidMerge: PackratParser[BinaryOperator] =
     positioned(
@@ -189,19 +201,19 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwAppend ^^^ Append())
 
   lazy val orExp: PackratParser[Exp] =
-  positioned(andExp * (or ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+  positioned(andExp * (or ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val or: PackratParser[BinaryOperator] =
     positioned(kwOr ^^^ Or())
 
   lazy val andExp: PackratParser[Exp] =
-    positioned(comparisonExp * (and ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+    positioned(comparisonExp * (and ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val and: PackratParser[BinaryOperator] =
     positioned(kwAnd ^^^ And())
 
   lazy val comparisonExp: PackratParser[Exp] =
-    positioned(inExp * (comparisonOp ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+    positioned(inExp * (comparisonOp ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val comparisonOp: PackratParser[BinaryOperator] =
     positioned(
@@ -211,7 +223,13 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
       "<=" ^^^ Le() |
       "<" ^^^ Lt() |
       ">=" ^^^ Ge() |
-      ">" ^^^ Gt())
+      ">" ^^^ Gt() |
+      kwLike ^^^ Like() |
+      kwNot ~ kwLike ^^^ NotLike() |
+      kwIn ^^^ In() |
+      kwNot ~ kwIn ^^^ NotIn() |
+      kwIs ~ kwNull ^^^ IsNullOp() |
+      kwIs ~ kwNot ~ kwNull ^^^ IsNotNull() )
 
   lazy val inExp: PackratParser[Exp] =
     positioned(intoExp * (kwIn ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
@@ -229,8 +247,8 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val termExp: PackratParser[Exp] =
     positioned(productExp * (
-      sum ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } } |
-      sub ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+      sum ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } |
+      sub ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val sum: PackratParser[Plus] =
     positioned("+" ^^^ Plus())
@@ -240,8 +258,8 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val productExp: PackratParser[Exp] =
     positioned(funAppExp * (
-      mult ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } } |
-      div ^^ { case op => { (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } }))
+      mult ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) } |
+      div ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val mult: PackratParser[Mult] =
     positioned("*" ^^^ Mult())
@@ -261,13 +279,13 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val parseProperties: PackratParser[ParseProperties] =
     skipOnFail |
-    noneOnFail
+    nullOnFail
 
   lazy val skipOnFail: PackratParser[SkipOnFail] =
     kwSkip ~ kwOn ~ kwFail ^^^ SkipOnFail()
 
-  lazy val noneOnFail: PackratParser[NoneOnFail] =
-    kwNone ~ kwOn ~ kwFail ^^^ NoneOnFail()
+  lazy val nullOnFail: PackratParser[NullOnFail] =
+    kwNull ~ kwOn ~ kwFail ^^^ NullOnFail()
 
   lazy val recordProjExp: PackratParser[Exp] =
     positioned(baseExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
@@ -465,8 +483,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToFloat ^^^ ToFloat() |
       kwToString ^^^ ToString() |
       kwToBag ^^^ ToBag() |
-      kwToList ^^^ ToList() |
-      kwToDateTime ^^^ ToDateTime())
+      kwToList ^^^ ToList())
 
   lazy val isNullFun: PackratParser[IsNull] =
     positioned(kwIsNull ~> ("(" ~> mergeExp) ~ ("," ~> mergeExp <~ ")") ^^ { case e ~ o => IsNull(e, o) })
@@ -521,7 +538,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(kwNot ^^^ Not())
 
   lazy val starExp: PackratParser[Star] =
-    positioned(kwStar ^^^ Star())
+    positioned("*" ^^^ Star())
 
   lazy val typeAs: PackratParser[TypeAs] =
   // TODO: IS?

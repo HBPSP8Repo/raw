@@ -250,7 +250,7 @@ object Calculus {
     */
   sealed abstract class ParseProperties extends RawNode
   case class SkipOnFail() extends ParseProperties
-  case class NoneOnFail() extends ParseProperties
+  case class NullOnFail() extends ParseProperties
 
   case class ParseAs(e: Exp, r: RegexConst, p: Option[ParseProperties]) extends Exp
 
@@ -265,5 +265,15 @@ object Calculus {
   /** IsNull
     */
   case class IsNull(e: Exp, or: Exp) extends Exp
+
+  /** WhereIsNull
+    *
+    */
+
+  // LIKE
+
+  // e NOT LIKE
+
+
 
 }

@@ -14,7 +14,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ToBag      => "to_bag"
     case _: ToList     => "to_list"
     case _: ToSet      => "to_set"
-    case _: ToDateTime => "to_date_time"
   }
 
   def binaryOp(op: BinaryOperator): Doc = op match {
@@ -34,6 +33,12 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: BagUnion => "bag_union"
     case _: Union => "union"
     case _: Append => "append"
+    case _: Like => "like"
+    case _: NotLike => "not" <+> "like"
+    case _: In => "in"
+    case _: NotIn => "not" <+> "in"
+    case _: IsNullOp => "is" <+> "null"
+    case _: IsNotNull => "is" <+> "not" <+> "null"
   }
 
   def shortMonoid(m: Monoid): Doc = m match {
