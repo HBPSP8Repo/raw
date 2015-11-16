@@ -341,4 +341,17 @@ object TestWorlds {
     new World(sources)
   }
 
+  def nullables = {
+    val tipes = Map(
+      Symbol("nullable") -> RecordType(Attributes(List(AttrType("name", StringType()), AttrType("age", OptionType(IntType()))))),
+      Symbol("nullables") -> CollectionType(BagMonoid(), UserType(Symbol("nullable")))
+    )
+
+    val sources = Map(
+      "nullables" -> UserType(Symbol("nullables"))
+    )
+
+    new World(sources, tipes)
+  }
+
 }

@@ -628,4 +628,8 @@ class SyntaxAnalyzerTest extends CalculusTest {
       """.stripMargin)
   }
 
+  test("isNull #1") {
+    matches("isNull(age, 18)")
+  }
+
 }

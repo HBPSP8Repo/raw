@@ -110,7 +110,8 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case Into(e1, e2)                   => apply(e1) <+> "into" <+> apply(e2)
         case ParseAs(e, r, Some(p))                  => show(e, debug) <+> "parse" <+> "as" <+> "r" <> dquote <> r.value <> dquote <+> parseProperties(p)
         case ParseAs(e, r, None)                  => show(e, debug) <+> "parse" <+> "as" <+> "r" <> dquote <> r.value <> dquote
-        case ToEpoch(e, fmt)                  => "to_epoch" <> parens(group(lsep(List(show(e, debug), dquotes(fmt)), comma)))
+        case ToEpoch(e, fmt)                => "to_epoch" <> parens(group(lsep(List(show(e, debug), dquotes(fmt)), comma)))
+        case IsNull(e, or)                  => "isNull" <> parens(group(lsep(List(show(e, debug), show(or, debug)), comma)))
       }
       )
 

@@ -720,6 +720,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case ParseAs(_, r, _) => regexType(r)
     case _: ToEpoch => IntType()
 
+    case IsNull(e, or) => expType(or)
+
     case idnExp @ IdnExp(idnUse) =>
 
       def getType(t: Type): Type = t match {
@@ -1862,6 +1864,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       case n @ ToEpoch(e, _) =>
         solve(e)
         hasType(e, StringType())
+
+      case n @ IsNull(e, or) =>
+        solve(e)
+        solve(or)
+        val t = TypeVariable()
+        hasType(e, OptionType(t))
+        hasType(or, t)
 
       case _: Const =>
     }

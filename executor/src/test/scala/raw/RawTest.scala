@@ -47,11 +47,11 @@ class RawTest extends FunSuite with LazyLogging {
     logger.debug(s"A $A")
     logger.debug(s"E $E")
 
-    val rr = DebugSyntaxAnalyzer(expected) match {
-      case Right(ast) => ast
-      case Left(err) => throw new RuntimeException(s"Expected test result could not be parsed: $err")
-    }
-    logger.debug(s"Result is parsing is ${CalculusPrettyPrinter(rr)}")
+//    val rr = DebugSyntaxAnalyzer(expected) match {
+//      case Right(ast) => ast
+//      case Left(err) => throw new RuntimeException(s"Expected test result could not be parsed: $err")
+//    }
+//    logger.debug(s"Result is parsing is ${CalculusPrettyPrinter(rr)}")
 
     // TODO: ok; now there's a debug parser: implement a nice compare function
     //       then can parenthesize the pretty printers

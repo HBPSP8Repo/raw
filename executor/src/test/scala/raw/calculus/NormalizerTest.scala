@@ -111,10 +111,10 @@ class NormalizerTest extends PhaseTest {
   }
 
   test("rule6") {
-    // Rule 6 + Rule 1
+    // Rule 6 + Rule 1 + new rules
     check(
       """for (t <- list(1); t > 1) yield list t""",
-      """for (1 > 1) yield list 1""",
+      """if 1 > 1 then list(1) else list()""",
       TestWorlds.things)
   }
 

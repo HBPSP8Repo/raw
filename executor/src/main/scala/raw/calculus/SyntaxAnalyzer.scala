@@ -96,6 +96,9 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwToTime = "((?i)to_time|(?i)toTime)\\b".r
   val kwToEpoch = "((?i)to_epoch|(?i)toEpoch)\\b".r
 
+  // Built-in functions
+  val kwIsNull = "((?i)is_null|(?i)isNull)\\b".r
+
   // DateTime/Timestamp/Interval keywords
 //  val kwDate = "(?i)date\\b".r
 //  val kwTime = "(?i)time\\b".r
@@ -294,6 +297,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     select |
     multiCons |
     unaryFun |
+    isNullFun |
     toEpochFun |
     sugarFun |
     notExp |
@@ -315,7 +319,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     regexConst
 
   lazy val nullConst: PackratParser[Null] =
-    positioned("null" ^^^ Null())
+    positioned(kwNull ^^^ Null())
 
   lazy val boolConst: PackratParser[BoolConst] =
     positioned(
@@ -464,8 +468,11 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwToList ^^^ ToList() |
       kwToDateTime ^^^ ToDateTime())
 
+  lazy val isNullFun: PackratParser[IsNull] =
+    positioned(kwIsNull ~> ("(" ~> mergeExp) ~ ("," ~> mergeExp <~ ")") ^^ { case e ~ o => IsNull(e, o) })
+
   lazy val toEpochFun: PackratParser[ToEpoch] =
-    positioned(kwToEpoch ~ ("(" ~> mergeExp) ~ ("," ~> stringLit <~ ")") ^^ { case op ~ e ~ fmt => ToEpoch(e, fmt.drop(1).dropRight(1)) })
+    positioned(kwToEpoch ~> ("(" ~> mergeExp) ~ ("," ~> stringLit <~ ")") ^^ { case e ~ fmt => ToEpoch(e, fmt.drop(1).dropRight(1)) })
 
   lazy val sugarFun: PackratParser[Sugar] =
     sumExp |

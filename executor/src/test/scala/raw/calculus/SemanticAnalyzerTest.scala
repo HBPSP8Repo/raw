@@ -2487,4 +2487,18 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       IncompatibleTypes(StringType(), IntType(), None, None))
   }
 
+  test("isNull #1") {
+    success(
+      "select isNull(age, 0) from nullables",
+      TestWorlds.nullables,
+      CollectionType(MonoidVariable(), IntType()))
+  }
+
+  test("isNull #2") {
+    failure(
+      """select isNull(age, "foo") from nullables""",
+      TestWorlds.nullables,
+      UnexpectedType(StringType(), IntType()))
+  }
+
 }

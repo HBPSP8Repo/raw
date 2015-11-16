@@ -262,4 +262,8 @@ object Calculus {
     */
   case class ToEpoch(e: Exp, fmt: String) extends Exp
 
+  /** IsNull
+    */
+  case class IsNull(e: Exp, or: Exp) extends Exp
+
 }
