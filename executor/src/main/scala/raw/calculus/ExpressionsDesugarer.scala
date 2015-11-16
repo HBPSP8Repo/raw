@@ -73,7 +73,7 @@ class ExpressionsDesugarer(val analyzer: SemanticAnalyzer) extends SemanticTrans
   /** De-sugar in
     */
   private lazy val ruleIn = rule[Exp] {
-    case s @ InExp(e1, e2) =>
+    case s @ BinaryExp(_: In, e1, e2) =>
       val x = SymbolTable.next().idn
       Comp(OrMonoid(), Seq(Gen(Some(PatternIdn(IdnDef(x, None))), e2)), BinaryExp(Eq(), IdnExp(IdnUse(x)), e1))
   }

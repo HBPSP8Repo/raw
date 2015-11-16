@@ -66,14 +66,15 @@ object CalculusPrettyPrinter extends PrettyPrinter {
         case RecordCons(atts)               => parens(group(nest(lsep(atts.map(apply), comma))))
         case IfThenElse(e1, e2, e3)         => "if" <+> apply(e1) <+> "then" <+> apply(e2) <+> "else" <+> apply(e3)
         case BinaryExp(op, e1, e2)          => apply(e1) <+> binaryOp(op) <+> apply(e2)
-        case InExp(e1, e2)                  => apply(e1) <+> "in" <+> apply(e2)
         case FunApp(f, args)                => apply(f) <> parens(lsep(args.map(apply), comma))
         case ZeroCollectionMonoid(m)        => collection(m, empty)
         case ConsCollectionMonoid(m, e)     => collection(m, apply(e))
         case MultiCons(m, es)               => collection(m, group(lsep(es.map(apply), ",")))
         case Comp(m, qs, e)                 => "for" <+> parens(group(nest(lsep(qs.map(apply), ";")))) <+> "yield" <+> monoid(m) <+> apply(e)
-        case UnaryExp(op: (Not), e)         => unaryOp(op) <+> apply(e)
-        case UnaryExp(op: (Neg), e)         => unaryOp(op) <+> apply(e)
+        case UnaryExp(op @ (_ : Not | _: Neg), e) =>
+          unaryOp(op) <+> apply(e)
+        case UnaryExp(op @ (_: IsNullOp | _: IsNotNull), e) =>
+          apply(e) <+> unaryOp(op)
         case UnaryExp(op, e)                => unaryOp(op) <> parens(apply(e))
         case FunAbs(args, e)                => "\\" <> lsep(args.map(apply), comma) <+> "->" <+> apply(e)
         case Gen(Some(p), e)                => apply(p)  <+> "<-" <+> apply(e)

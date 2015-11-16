@@ -31,7 +31,6 @@ trait NodePosition extends Attribution with Analyzer with LazyLogging {
     case _: RecordProj => SyntaxAnalyzer.recordProjExp
     case _: RecordCons => SyntaxAnalyzer.recordCons
     case _: IfThenElse => SyntaxAnalyzer.ifThenElse
-    case _: InExp => SyntaxAnalyzer.inExp
     case _: FunApp => SyntaxAnalyzer.funAppExp
     case _: MultiCons => SyntaxAnalyzer.multiCons
     case _: Comp => SyntaxAnalyzer.comp

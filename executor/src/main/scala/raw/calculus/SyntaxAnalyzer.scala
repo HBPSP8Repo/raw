@@ -48,7 +48,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
   val kwInterval = "(?i)interval\\b".r
   val kwInto = "(?i)into\\b".r
   val kwIs = "(?i)is\\b".r
-  val kwLike = "(?i)in\\b".r
+  val kwLike = "(?i)like\\b".r
   val kwList = "(?i)list\\b".r
   val kwFalse = "(?i)false\\b".r
   val kwFloat = "(?i)float\\b".r
@@ -121,8 +121,8 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
   val reservedTypes = kwBag | kwBool | kwDateTime | kwFloat | kwInt | kwInterval | kwList | kwOption | kwRecord |
     kwRegex | kwSet | kwString
   val reservedMonoids = kwAnd | kwBag | kwList | kwMax | kwMultiply | kwOr | kwSet | kwSum
-  val reservedBinaryOps = kwAnd | kwAppend | kwBagUnion | kwIn | kwIs | kwLike | kwMax | kwMin | kwMultiply | kwNot |
-    kwNull | kwOr | kwUnion
+  val reservedBinaryOps = kwAnd | kwAppend | kwBagUnion | kwIn | kwLike | kwMax | kwMin | kwMultiply | kwNot |
+    kwOr | kwUnion
   val reservedComp = kwFor | kwYield
   val reservedSelect = kwAs | kwBy | kwDistinct | kwFail | kwFrom | kwGroup | kwHaving | kwInto | kwOn | kwOrder |
     kwParse | kwPartition | kwSelect | kwSkip | kwWhere
@@ -130,7 +130,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
   val reservedFuture = kwBreak | kwCatch | kwContinue | kwExcept | kwFinally | kwGoTo | kwNew | kwTry | kwType
   val reservedTypeConv = kwToBag | kwToBool | kwToEpoch | kwToFloat | kwToInt | kwToList | kwToSet | kwToString |
     kwToRegex
-  val reservedBuiltIn = kwAvg | kwCount | kwExists | kwIsNull | kwMin
+  val reservedBuiltIn = kwAvg | kwCount | kwExists | kwIs | kwIsNull | kwMin | kwNot | kwNull
 
   val reserved = reservedConstants | reservedTypes | reservedMonoids | reservedBinaryOps | reservedComp |
     reservedSelect | reservedControlFlow | reservedFuture | reservedTypeConv | reservedBuiltIn
@@ -213,7 +213,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     positioned(kwAnd ^^^ And())
 
   lazy val comparisonExp: PackratParser[Exp] =
-    positioned(inExp * (comparisonOp ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
+    positioned(intoExp * (comparisonOp ^^ { case op => (e1: Exp, e2: Exp) => BinaryExp(op, e1, e2) }))
 
   lazy val comparisonOp: PackratParser[BinaryOperator] =
     positioned(
@@ -227,12 +227,7 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
       kwLike ^^^ Like() |
       kwNot ~ kwLike ^^^ NotLike() |
       kwIn ^^^ In() |
-      kwNot ~ kwIn ^^^ NotIn() |
-      kwIs ~ kwNull ^^^ IsNullOp() |
-      kwIs ~ kwNot ~ kwNull ^^^ IsNotNull() )
-
-  lazy val inExp: PackratParser[Exp] =
-    positioned(intoExp * (kwIn ^^^ { (e1: Exp, e2: Exp) => InExp(e1, e2) }))
+      kwNot ~ kwIn ^^^ NotIn())
 
   lazy val intoExp: PackratParser[Exp] =
     positioned(plusMinusExp * (kwInto ^^^ { (e1: Exp, e2: Exp) => Into(e1, e2) }))
@@ -288,14 +283,14 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
     kwNull ~ kwOn ~ kwFail ^^^ NullOnFail()
 
   lazy val recordProjExp: PackratParser[Exp] =
-    positioned(baseExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
+    positioned(isNullExp ~ ("." ~> repsep(attrName, ".")) ^^ { case e ~ idns =>
       def fold(e: Exp, idns: Seq[Idn]): Exp = idns match {
         case head :: Nil => RecordProj(e, idns.head)
         case head :: tail => fold(RecordProj(e, idns.head), idns.tail)
       }
       fold(e, idns)
       }) |
-    baseExp
+    isNullExp
 
   lazy val attrName: PackratParser[String] =
     escapedIdent |
@@ -306,6 +301,18 @@ trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val ident: PackratParser[String] =
      not(reserved) ~> """[_a-zA-Z]\w*""".r
+
+  lazy val isNullExp: PackratParser[Exp] =
+    positioned(
+      baseExp ~ isNullOp ^^ { case e ~ op => UnaryExp(op, e)} |
+      baseExp ~ isNotNullOp ^^ { case e ~ op => UnaryExp(op, e)}) |
+    baseExp
+
+  lazy val isNullOp: PackratParser[IsNullOp] =
+    positioned(kwIs ~ kwNull ^^^ IsNullOp())
+
+  lazy val isNotNullOp: PackratParser[IsNotNull] =
+    positioned(kwIs ~ kwNot ~ kwNull ^^^ IsNotNull())
 
   lazy val baseExp: PackratParser[Exp] =
     expBlock |

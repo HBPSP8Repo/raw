@@ -632,4 +632,16 @@ class SyntaxAnalyzerTest extends CalculusTest {
     matches("isNull(age, 18)")
   }
 
+  test("x is null") {
+    matches("x is null")
+  }
+
+  test("x is not null") {
+    matches("x is not null")
+  }
+
+  test("not x is null") {
+    sameAST("not x is null", "not (x is null)")
+  }
+  
 }

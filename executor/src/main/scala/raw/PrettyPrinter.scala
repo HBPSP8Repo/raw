@@ -4,7 +4,7 @@ package raw
   */
 abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
 
-  def unaryOp(op: UnaryOperator) = op match {
+  def unaryOp(op: UnaryOperator): Doc = op match {
     case _: Not        => "not"
     case _: Neg        => "-"
     case _: ToBool     => "to_bool"
@@ -14,6 +14,8 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: ToBag      => "to_bag"
     case _: ToList     => "to_list"
     case _: ToSet      => "to_set"
+    case _: IsNullOp   => "is" <+> "null"
+    case _: IsNotNull  => "is" <+> "not" <+> "null"
   }
 
   def binaryOp(op: BinaryOperator): Doc = op match {
@@ -37,8 +39,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
     case _: NotLike => "not" <+> "like"
     case _: In => "in"
     case _: NotIn => "not" <+> "in"
-    case _: IsNullOp => "is" <+> "null"
-    case _: IsNotNull => "is" <+> "not" <+> "null"
   }
 
   def shortMonoid(m: Monoid): Doc = m match {

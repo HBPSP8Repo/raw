@@ -91,11 +91,3 @@ case class In() extends BinaryOperator
 /** NOT IN
   */
 case class NotIn() extends BinaryOperator
-
-/** IS NULL
-  */
-case class IsNullOp() extends BinaryOperator
-
-/** IS NOT NULL
-  */
-case class IsNotNull() extends BinaryOperator

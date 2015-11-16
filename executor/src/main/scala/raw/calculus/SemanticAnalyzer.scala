@@ -1594,15 +1594,20 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             hasType(e1, CollectionType(ListMonoid(), TypeVariable()))
             sameType(e2, e1)
             sameType(n, e1)
-        }
 
-      case n @ InExp(e1, e2) =>
-        solve(e1)
-        solve(e2)
-        val inner = TypeVariable()
-        hasType(e2, CollectionType(MonoidVariable(), inner))
-        hasType(e1, inner)
-        hasType(n, BoolType())
+          case _: In | _: NotIn =>
+            val inner = TypeVariable()
+            hasType(e2, CollectionType(MonoidVariable(), inner))
+            hasType(e1, inner)
+            hasType(n, BoolType())
+
+          case _: Like | _: NotLike =>
+            // TODO: If e2 is a regex, accept it; in that case, doesn't have to be the same type as e1; otherwise, must be same type or enforce it to be regex?
+            hasType(e1, StringType())
+            sameType(e2, e1)
+            hasType(n, BoolType())
+
+        }
 
       case n @ UnaryExp(op, e) =>
         solve(e)
@@ -1633,6 +1638,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: ToInt =>
             hasType(n, IntType())
 
+          case _: IsNullOp | _: IsNotNull =>
+            hasType(e, OptionType(TypeVariable()))
+            hasType(n, BoolType())
+            
         }
 
       case i: IdnExp =>

@@ -44,3 +44,11 @@ case class ToList() extends UnaryOperator
 /** Convert to set
   */
 case class ToSet() extends UnaryOperator
+
+/** IS NULL
+  */
+case class IsNullOp() extends UnaryOperator
+
+/** IS NOT NULL
+  */
+case class IsNotNull() extends UnaryOperator
