@@ -1,327 +1,5 @@
-package raw.calculus
-
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw._
-import raw.calculus.AmbiguousIdn
-import raw.calculus.AmbiguousIdn
-import raw.calculus.AmbiguousIdn
-import raw.calculus.Calculus
-import raw.calculus.Calculus
-import raw.calculus.Calculus
-import raw.calculus.CalculusError
-import raw.calculus.CalculusPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.FriendlierPrettyPrinter
-import raw.calculus.FriendlierPrettyPrinter
-import raw.calculus.IllegalStar
-import raw.calculus.IllegalStar
-import raw.calculus.IllegalStar
-import raw.calculus.IllegalStar
-import raw.calculus.IncompatibleMonoids
-import raw.calculus.IncompatibleMonoids
-import raw.calculus.IncompatibleMonoids
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.IncompatibleTypes
-import raw.calculus.InvalidArguments
-import raw.calculus.InvalidDateTimeFormatSyntax
-import raw.calculus.InvalidDateTimeFormatSyntax
-import raw.calculus.InvalidDateTimeFormatSyntax
-import raw.calculus.InvalidNumberOfArguments
-import raw.calculus.InvalidNumberOfArguments
-import raw.calculus.InvalidNumberOfArguments
-import raw.calculus.InvalidRegexSyntax
-import raw.calculus.InvalidRegexSyntax
-import raw.calculus.InvalidRegexSyntax
-import raw.calculus.InvalidRegexSyntax
-import raw.calculus.MultipleDecl
-import raw.calculus.MultipleDecl
-import raw.calculus.SemanticAnalyzer
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnexpectedType
-import raw.calculus.UnknownDecl
-import raw.calculus.UnknownDecl
-import raw.calculus.UnknownDecl
-import raw.calculus.UnknownDecl
-import raw.calculus.UnknownDecl
-import raw.calculus.UnknownPartition
-import raw.calculus.UnknownPartition
-import raw.calculus.UnknownPartition
-import raw.calculus.UnknownPartition
+package raw
+package calculus
 
 class SemanticAnalyzerTest extends CalculusTest {
 
@@ -462,7 +140,7 @@ class SemanticAnalyzerTest extends CalculusTest {
       // Ignore text description and position
       case UnexpectedType(t, expected, _, _) =>
         assert(analyzer.errors.exists {
-          case x@UnexpectedType(t1, expected1, _, _) if typesEq(t, t1) && typesEq(expected, expected1) =>
+          case x@UnexpectedType(t1, expected1, _, _) if typesEq(t, t1) && expected.zip(expected1).map{ case (a, b) => typesEq(a, b) }.forall(identity) =>
 
             logger.debug(s"begin at ${x.pos.get.begin}; end at ${x.pos.get.end}; string is $query")
 
@@ -837,7 +515,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("if 1 then 1 else 0") {
-    failure("if 1 then 1 else 0", TestWorlds.empty, UnexpectedType(IntType(), BoolType()))
+    failure("if 1 then 1 else 0", TestWorlds.empty, UnexpectedType(IntType(), Set(BoolType())))
   }
 
   test("if true then 1 else 1.") {
@@ -930,7 +608,7 @@ class SemanticAnalyzerTest extends CalculusTest {
         count1(1)
         }
       """, TestWorlds.empty,
-      UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable())))
+      UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), TypeVariable()))))
   }
 
   test("""let-polymorphism #1""") {
@@ -1197,7 +875,7 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("sum(1)") {
     // TODO: failure should also check monoid properties
-    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
   }
 
   test("max(list(1))") {
@@ -1209,7 +887,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("max(1)") {
-    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
   }
 
   test("min(list(1))") {
@@ -1221,7 +899,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("min(1)") {
-    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
   }
 
   test("avg(list(1))") {
@@ -1233,7 +911,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("avg(1)") {
-    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), NumberType())))
+    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
   }
 
   test("count(list(1))") {
@@ -1249,7 +927,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("""count(1)""") {
-    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), CollectionType(MonoidVariable(), TypeVariable())))
+    failure("count(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), TypeVariable()))))
   }
 
   test("to_bag(list(1))") {
@@ -1269,7 +947,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("1 in list(true)") {
-    failure("1 in list(true)", TestWorlds.empty, UnexpectedType(IntType(), BoolType()))
+    failure("1 in list(true)", TestWorlds.empty, UnexpectedType(IntType(), Set(BoolType())))
   }
 
   test("\\x -> x in list(1)") {
@@ -1822,7 +1500,7 @@ class SemanticAnalyzerTest extends CalculusTest {
     failure(
       """\xs -> sum(xs), xs union xs""",
       TestWorlds.empty,
-      UnexpectedType(CollectionType(MonoidVariable(), NumberType()), CollectionType(SetMonoid(), TypeVariable())))
+      UnexpectedType(CollectionType(MonoidVariable(), NumberType()), Set(CollectionType(SetMonoid(), TypeVariable()))))
   }
 
   test("""\xs,ys -> sum(xs), ys union ys""") {
@@ -2335,7 +2013,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
     failure(
       """select a.missing_field from authors a""",
       TestWorlds.publications,
-      UnexpectedType(UserType(_root_.raw.calculus.Symbol("Author")), RecordType(AttributesVariable(Set(AttrType("missing_field", TypeVariable()))))))
+      UnexpectedType(UserType(_root_.raw.calculus.Symbol("Author")), Set(RecordType(AttributesVariable(Set(AttrType("missing_field", TypeVariable())))))))
   }
 
   test("field does not exist - issue #4 2") {
@@ -2498,7 +2176,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
     failure(
       """select isNull(age, "foo") from nullables""",
       TestWorlds.nullables,
-      UnexpectedType(StringType(), IntType()))
+      UnexpectedType(StringType(), Set(IntType())))
   }
 
   test("select age from students where age not in list(18)") {

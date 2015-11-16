@@ -2,7 +2,6 @@ package raw
 
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.FunSuite
-import raw.calculus.{CalculusPrettyPrinter, DebugSyntaxAnalyzer}
 
 class RawTest extends FunSuite with LazyLogging {
 

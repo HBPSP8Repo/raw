@@ -1,19 +1,5 @@
-package raw.calculus
-
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.World
-import raw.calculus.Calculus
-import raw.calculus.CalculusPrettyPrinter
-import raw.calculus.CalculusPrettyPrinter
-import raw.calculus.CalculusPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.ErrorsPrettyPrinter
-import raw.calculus.FriendlierPrettyPrinter
-import raw.calculus.FriendlierPrettyPrinter
-import raw.calculus.Phases
-import raw.calculus.SemanticAnalyzer
-import raw.calculus.SemanticAnalyzer
+package raw
+package calculus
 
 abstract class PhaseTest extends CalculusTest {
 

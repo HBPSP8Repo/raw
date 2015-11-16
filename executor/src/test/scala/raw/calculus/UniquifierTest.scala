@@ -1,7 +1,5 @@
-package raw.calculus
-
-import raw.TestWorlds
-import raw.TestWorlds
+package raw
+package calculus
 
 class UniquifierTest extends PhaseTest {
 

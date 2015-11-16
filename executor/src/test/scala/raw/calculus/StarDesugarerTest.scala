@@ -1,15 +1,5 @@
-package raw.calculus
-
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
-import raw.TestWorlds
+package raw
+package calculus
 
 class StarDesugarerTest extends PhaseTest {
 

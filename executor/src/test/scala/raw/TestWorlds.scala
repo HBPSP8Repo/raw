@@ -1,6 +1,6 @@
 package raw
 
-import raw.calculus.Symbol
+import calculus.Symbol
 
 object TestWorlds {
 

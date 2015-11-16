@@ -1,4 +1,5 @@
-package raw.calculus
+package raw
+package calculus
 
 class SyntaxAnalyzerTest extends CalculusTest {
 
@@ -643,5 +644,5 @@ class SyntaxAnalyzerTest extends CalculusTest {
   test("not x is null") {
     sameAST("not x is null", "not (x is null)")
   }
-  
+
 }

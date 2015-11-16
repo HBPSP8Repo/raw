@@ -23,7 +23,7 @@ case class IncompatibleMonoids(m: Monoid, t: Type, pos: Option[RawParserPosition
 
 case class IncompatibleTypes(t1: Type, t2: Type, pos1: Option[RawParserPosition] = None, pos2: Option[RawParserPosition] = None) extends CalculusError
 
-case class UnexpectedType(t: Type, expected: Type, desc: Option[String] = None, pos: Option[RawParserPosition] = None) extends CalculusError
+case class UnexpectedType(t: Type, expected: Set[Type], desc: Option[String] = None, pos: Option[RawParserPosition] = None) extends CalculusError
 
 case class IllegalStar(s: Calculus.Select, pos: Option[RawParserPosition] = None) extends CalculusError
 
@@ -50,8 +50,8 @@ object ErrorsPrettyPrinter extends org.kiama.output.PrettyPrinter {
     case UnknownStar(s, _) => s"* is not declared as there is no SELECT or FOR"
     case IncompatibleMonoids(m, t, _) => s"${PrettyPrinter(m)} cannot be used with ${FriendlierPrettyPrinter(t)}"
     case IncompatibleTypes(t1, t2, _, _) => s"incompatible types: ${FriendlierPrettyPrinter(t1)} and ${FriendlierPrettyPrinter(t2)}"
-    case UnexpectedType(t, expected, Some(desc), _) => s"expected $desc ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
-    case UnexpectedType(t, expected, None, _) => s"expected ${FriendlierPrettyPrinter(expected)} but got ${FriendlierPrettyPrinter(t)}"
+    case UnexpectedType(t, expected, Some(desc), _) => s"expected $desc ${expected.map(FriendlierPrettyPrinter(_)).mkString(", ")} but got ${FriendlierPrettyPrinter(t)}"
+    case UnexpectedType(t, expected, None, _) => s"expected ${expected.map(FriendlierPrettyPrinter(_)).mkString(", ")} but got ${FriendlierPrettyPrinter(t)}"
     case IllegalStar(s, _) => s"cannot use * together with other attributes in a projection without GROUP BY"
     case InvalidRegexSyntax(detail, _) => s"invalid regular expression: $detail"
     case InvalidDateTimeFormatSyntax(detail, _) => s"invalid date/time format string: $detail"

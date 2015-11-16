@@ -1,8 +1,8 @@
-package raw.calculus
+package raw
+package calculus
 
 import org.kiama.rewriting.Cloner._
-import raw.calculus.Calculus._
-import raw.{TestWorlds, World}
+import Calculus._
 
 class OptimizerTest extends PhaseTest {
 

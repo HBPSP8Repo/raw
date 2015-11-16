@@ -1352,7 +1352,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val t = expType(e)
       val r = unify(t, expected)
       if (!r) {
-        tipeErrors += UnexpectedType(walk(t), walk(expected), desc, Some(parserPosition(e)))
+        tipeErrors += UnexpectedType(walk(t), Set(walk(expected)), desc, Some(parserPosition(e)))
       }
     }
 
@@ -1418,7 +1418,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           for (((in, arg), idx) <- ins.zip(args).zipWithIndex) {
             var targ = expType(arg)
             if (!unify(in, targ)) {
-              tipeErrors += UnexpectedType(walk(targ), walk(in), Some(s"argument in position $idx of type"), Some(parserPosition(arg)))
+              tipeErrors += UnexpectedType(walk(targ), Set(walk(in)), Some(s"argument in position $idx of type"), Some(parserPosition(arg)))
               // TODO: Review all "return" above since it should change it all to NothingType. See TODO above.
               return
             }
@@ -1427,7 +1427,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           // Unify the type of FunApp itself with the output of the FunType
           val tfunApp = expType(funApp)
           if (!unify(tfunApp, out)) {
-            tipeErrors += UnexpectedType(walk(out), walk(tfunApp), Some("unexpected output"), Some(parserPosition(f)))
+            tipeErrors += UnexpectedType(walk(out), Set(walk(tfunApp)), Some("unexpected output"), Some(parserPosition(f)))
           }
         case _ =>
           tipeErrors += InvalidFunction(walk(t), Some(parserPosition(f)))
@@ -1440,7 +1440,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val t1 = selectPartitionType(s)
           val r = unify(t, t1)
           if (!r) {
-            tipeErrors += UnexpectedType(t, t1, Some("Unexpected partition type"), Some(parserPosition(p)))
+            tipeErrors += UnexpectedType(t, Set(t1), Some("Unexpected partition type"), Some(parserPosition(p)))
           }
         case _ =>
           tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
@@ -1455,7 +1455,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
               val t1 = find(selectStarType(s1))
               val r = unify(t, t1)
               if (!r) {
-                tipeErrors += UnexpectedType(t, t1, Some("Unexpected star type"), Some(parserPosition(s)))
+                tipeErrors += UnexpectedType(t, Set(t1), Some("Unexpected star type"), Some(parserPosition(s)))
               }
             case c: Comp =>
               // TODO: ...
@@ -1604,6 +1604,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: Like | _: NotLike =>
             // TODO: If e2 is a regex, accept it; in that case, doesn't have to be the same type as e1; otherwise, must be same type or enforce it to be regex?
             hasType(e1, StringType())
+            tipe(e2) match {
+              case _: StringType | _: RegexType =>
+//              case _ => tipeErrors += UnexpectedType()
+            }
+
             sameType(e2, e1)
             hasType(n, BoolType())
 
@@ -1641,7 +1646,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: IsNullOp | _: IsNotNull =>
             hasType(e, OptionType(TypeVariable()))
             hasType(n, BoolType())
-            
+
         }
 
       case i: IdnExp =>
