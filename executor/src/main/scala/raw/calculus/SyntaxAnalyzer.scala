@@ -6,7 +6,7 @@ import scala.util.parsing.input.{CharSequenceReader, Positional}
 
 /** Parser for monoid comprehensions.
   */
-object SyntaxAnalyzer extends RegexParsers with PackratParsers {
+trait BaseSyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   import Calculus._
 
@@ -122,7 +122,7 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   /** Make an AST by running the parser, reporting errors if the parse fails.
     */
-  def apply(query: String): Either[SyntaxAnalyzer.NoSuccess, Exp] = parseAll(exp, query) match {
+  def apply(query: String): Either[NoSuccess, Exp] = parseAll(exp, query) match {
     case Success(ast, _) => Right(ast)
     case error: NoSuccess => Left(error)
   }
@@ -544,5 +544,19 @@ object SyntaxAnalyzer extends RegexParsers with PackratParsers {
 
   lazy val idnUse: PackratParser[IdnUse] =
     positioned(ident ^^ IdnUse)
+
+}
+
+/** The default syntax analyzer.
+ */
+object SyntaxAnalyzer extends BaseSyntaxAnalyzer
+
+/** A syntax analyzer that parsers identifiers such as $1.
+  * It is used by test cases, to parse "expected results".
+  */
+object DebugSyntaxAnalyzer extends BaseSyntaxAnalyzer {
+
+  override lazy val ident: PackratParser[String] =
+    not(reserved) ~> """[_a-zA-Z0-9$]+""".r
 
 }

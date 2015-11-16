@@ -1,6 +1,6 @@
 package raw.calculus
 
-class SyntaxAnalyzerTest extends CoreTest {
+class SyntaxAnalyzerTest extends CalculusTest {
 
   def matches(q: String, expected: String): Unit = {
     matches(q, Some(expected))

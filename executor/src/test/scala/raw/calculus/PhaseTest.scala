@@ -15,7 +15,7 @@ import raw.calculus.Phases
 import raw.calculus.SemanticAnalyzer
 import raw.calculus.SemanticAnalyzer
 
-abstract class PhaseTest extends CoreTest {
+abstract class PhaseTest extends CalculusTest {
 
   /** The phase to test.
     */
@@ -59,7 +59,7 @@ abstract class PhaseTest extends CoreTest {
     if (!ignoreRootTypeComparison) {
       assert(compare(troot, troot1), "Different root types found!")
     } else if (!compare(troot, troot1)) {
-      logger.warn(s"Different root types found but I was asked to ignore it (likely loss of precision in cloned monoid variables?)")
+      logger.warn(s"Different root types found but asked to ignore: likely due to loss of precision in cloned monoid variables?")
     }
 
     CalculusPrettyPrinter(t1.root, 200)

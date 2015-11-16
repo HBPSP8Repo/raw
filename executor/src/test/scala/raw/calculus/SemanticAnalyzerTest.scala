@@ -323,7 +323,7 @@ import raw.calculus.UnknownPartition
 import raw.calculus.UnknownPartition
 import raw.calculus.UnknownPartition
 
-class SemanticAnalyzerTest extends CoreTest {
+class SemanticAnalyzerTest extends CalculusTest {
 
   import raw.calculus.Calculus._
 
@@ -2478,6 +2478,13 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       """.stripMargin,
       TestWorlds.empty,
       InvalidNumberOfArguments(1, 2, None))
+  }
+
+  test("incompatible argument type") {
+    failure(
+      """\x: string -> x + 1""",
+      TestWorlds.empty,
+      IncompatibleTypes(StringType(), IntType(), None, None))
   }
 
 }

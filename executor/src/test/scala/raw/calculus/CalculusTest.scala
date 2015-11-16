@@ -2,7 +2,7 @@ package raw.calculus
 
 import raw.RawTest
 
-class CoreTest extends RawTest {
+class CalculusTest extends RawTest {
 
   def parse(q: String): Calculus.Exp = {
     SyntaxAnalyzer(q) match {
