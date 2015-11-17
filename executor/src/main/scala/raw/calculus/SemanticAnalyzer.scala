@@ -1602,16 +1602,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             hasType(n, BoolType())
 
           case _: Like | _: NotLike =>
-            // TODO: If e2 is a regex, accept it; in that case, doesn't have to be the same type as e1; otherwise, must be same type or enforce it to be regex?
             hasType(e1, StringType())
-            tipe(e2) match {
+            val t2 = expType(e2)
+            find(t2) match {
               case _: StringType | _: RegexType =>
-//              case _ => tipeErrors += UnexpectedType()
+                hasType(n, BoolType())
+              case _ =>
+                tipeErrors += UnexpectedType(walk(t2), Set(StringType(), RegexType()), None, Some(parserPosition(e2)))
+                hasType(n, NothingType())
             }
-
-            sameType(e2, e1)
-            hasType(n, BoolType())
-
         }
 
       case n @ UnaryExp(op, e) =>

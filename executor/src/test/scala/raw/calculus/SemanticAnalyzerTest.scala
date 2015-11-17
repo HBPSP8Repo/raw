@@ -2200,4 +2200,49 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       CollectionType(MonoidVariable(), StringType()))
   }
 
+  test("like #1") {
+    success(
+      """ "abc" like "abc" """,
+      TestWorlds.empty,
+      BoolType())
+  }
+
+  test("like #2") {
+    success(
+      """ "abc" like r"(\\w+)" """,
+      TestWorlds.empty,
+      BoolType())
+  }
+
+  test("like #3") {
+    failure(
+      """ "abc" like 1 """,
+      TestWorlds.empty,
+      UnexpectedType(IntType(), Set(StringType(), RegexType())))
+  }
+
+  test("like #4") {
+    success(
+      """
+        |{
+        |  x := r"(\\w+)";
+        | "abc" like x
+        |}""".stripMargin,
+      TestWorlds.empty,
+      BoolType())
+  }
+
+  test("like #5") {
+    success(
+      """\x: string -> "abc" like x""",
+      TestWorlds.empty,
+      FunType(List(StringType()), BoolType()))
+  }
+
+  test("like #6") {
+    failure(
+      """\x -> "abc" like x""",
+      TestWorlds.empty,
+      UnexpectedType(TypeVariable(), Set(StringType(), RegexType())))
+  }
 }
