@@ -2234,7 +2234,7 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
 
   test("like #5") {
     success(
-      """\x: string -> "abc" like x""",
+        """\x: string -> "abc" like x""",
       TestWorlds.empty,
       FunType(List(StringType()), BoolType()))
   }
