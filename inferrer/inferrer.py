@@ -14,11 +14,13 @@ if __name__ == '__main__':
                       help="Data file whose schema is to be interred")
     argp.add_argument("--file_type", "-t", required=True, dest='file_type', help="File type")
     argp.add_argument("--schema-name", "-n", required=True, dest='schema_name', help="Schema name")
+    argp.add_argument("--output-path", "-o", required=True, dest='output_path', help="Output path")
 
     args = argp.parse_args()
     file = args.file_path
     type = args.file_type
     name = args.schema_name
+    basedir = args.output_path
 
     logging.info("Inferring schema %s", args)
     #TODO: move this loop to the inferrer module
@@ -36,7 +38,7 @@ if __name__ == '__main__':
             logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
             n_objs = 2*n_objs
 
-    basedir = os.path.dirname(file)
+    # basedir = os.path.dirname(file)
     serialized_schema = schema_serializer.serialize(schema)
 
 

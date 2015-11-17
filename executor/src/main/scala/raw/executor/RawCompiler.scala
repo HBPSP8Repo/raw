@@ -170,7 +170,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
       .map(scanner => {
         val containerName = getContainerClass(scanner).getSimpleName
         val containerTypeParameter = scanner.tt.tpe.finalResultType
-        s"${scanner.schema.name}: ${containerName}[${containerTypeParameter}]"
+        s"${scanner.source.name}: ${containerName}[${containerTypeParameter}]"
       })
       .mkString(", ")
     //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")

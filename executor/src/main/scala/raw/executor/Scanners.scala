@@ -2,18 +2,16 @@ package raw.executor
 
 import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
-import java.util
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import com.fasterxml.jackson.databind.{MappingIterator, ObjectMapper}
 import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvParser, CsvSchema}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.google.common.base.Charsets
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.io.{LineIterator, IOUtils}
 import org.apache.spark.SparkContext
-import raw.utils.{FileTypes, Instrumented}
+import raw.mdcatalog._
+import raw.utils.Instrumented
 
 import scala.collection.immutable.HashMap
 import scala.collection.{AbstractIterator, Iterator, JavaConversions}
@@ -23,27 +21,31 @@ import scala.reflect.runtime.universe._
 
 
 object RawScanner extends StrictLogging {
-  def apply[T: TypeTag : ClassTag : Manifest](schema: RawSchema): RawScanner[T] = {
-    schema.fileType match {
-      case FileTypes.Json => new JsonRawScanner(schema)
-      case FileTypes.Csv => new CsvRawScanner(schema)
-      case FileTypes.Text => new TextRawScanner(schema).asInstanceOf[RawScanner[T]]
-      case _ => throw new IllegalArgumentException(s"Unsupported file type: ${schema.schemaFile}")
+  def apply[T: TypeTag : ClassTag : Manifest](dataSource: DataSource): RawScanner[T] = {
+    val accessPath: SequentialAccessPath = dataSource.accessPaths.head.asInstanceOf[SequentialAccessPath]
+    accessPath.format match {
+      case JSON() => new JsonRawScanner(dataSource)
+      case CSV(properties) => new CsvRawScanner(dataSource, properties)
+      case Text() => new TextRawScanner(dataSource).asInstanceOf[RawScanner[T]]
+      case _ => throw new IllegalArgumentException(s"Unsupported file type for datasource: ${dataSource}")
     }
   }
 }
 
-abstract class RawScanner[T: TypeTag : ClassTag](val schema: RawSchema) extends Iterable[T] {
+abstract class RawScanner[T: TypeTag : ClassTag](val source: DataSource) extends Iterable[T] {
   val tt = typeTag[T]
   val ct = classTag[T]
+  // TODO: Select the best one
+  val ap: SequentialAccessPath = source.accessPaths.head.asInstanceOf[SequentialAccessPath]
 
   // The default Iterable toString implementation prints the full contents
-  override def toString() = s"${this.getClass.getName}(${schema.toString}, tag:${typeTag[T]})"
+  override def toString() = s"${this.getClass.getName}(${ap.toString}, tag:${typeTag[T]})"
 
   override def iterator: AbstractClosableIterator[T]
 }
 
-class SparkRawScanner[T: TypeTag : ClassTag](scanner: RawScanner[T], sc: SparkContext) extends RawScanner[T](scanner.schema) with StrictLogging {
+class SparkRawScanner[T: TypeTag : ClassTag](scanner: RawScanner[T], sc: SparkContext)
+  extends RawScanner[T](scanner.source) with StrictLogging {
   override def iterator: AbstractClosableIterator[T] = scanner.iterator
 
   def toRDD() = {
@@ -90,29 +92,18 @@ object CsvRawScanner {
   }
 }
 
-class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with Instrumented with StrictLogging {
+class CsvRawScanner[T: ClassTag : TypeTag : Manifest](source: DataSource, properties: CsvDataSourceProperties)
+  extends RawScanner[T](source) with Instrumented with StrictLogging {
 
   import CsvRawScanner._
 
   val tag = typeTag[T]
 
   private[this] val csvSchema =
-    if (schema.properties == null)
-      CsvSchema.emptySchema()
-    else
-      CsvSchema.emptySchema()
-        .withSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
-        .withColumnSeparator(schema.properties.delimiter().getOrElse(','))
-  //  private[this] val csvSchema = {
-  //  Name:String, year:Int, office:String, department:String
-  //    CsvSchema.builder()
-  //      .addColumn("Name")
-  //      .addColumn("year", CsvSchema.ColumnType.NUMBER)
-  //      .addColumn("office")
-  //      .addColumn("department")
-  //      .setSkipFirstDataRow(schema.properties.hasHeader().getOrElse(false))
-  //      .build()
-  //  }
+    CsvSchema.emptySchema()
+      .withSkipFirstDataRow(properties.hasHeader.getOrElse(false))
+      .withColumnSeparator(properties.delimiter.getOrElse(','))
+
   private[this] val ctor = {
     val m = manifest[T]
     val ctors = m.runtimeClass.getConstructors
@@ -141,10 +132,9 @@ class CsvRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends
   }
 
   override def iterator: AbstractClosableIterator[T] = {
-    val p = schema.dataFile
-    logger.info(s"Creating iterator for CSV resource: $p")
+    logger.info(s"Creating iterator for CSV resource: ${ap.location}")
 
-    val is: Reader = new InputStreamReader(schema.dataFile.openInputStream(), StandardCharsets.UTF_8)
+    val is: Reader = new InputStreamReader(ap.location.openInputStream(), StandardCharsets.UTF_8)
     val iter = csvMapper
       .readerFor(classOf[Array[String]])
       .`with`(csvSchema)
@@ -177,7 +167,8 @@ object JsonRawScanner {
   mapper.registerModule(DefaultScalaModule)
 }
 
-class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extends RawScanner[T](schema) with StrictLogging with Iterable[T] {
+class JsonRawScanner[T: ClassTag : TypeTag : Manifest](dataSource: DataSource)
+  extends RawScanner[T](dataSource) with StrictLogging with Iterable[T] {
 
   import JsonRawScanner._
 
@@ -185,13 +176,12 @@ class JsonRawScanner[T: ClassTag : TypeTag : Manifest](schema: RawSchema) extend
 
   /* http://www.ngdata.com/parsing-a-large-json-file-efficiently-and-easily/ */
   override def iterator: AbstractClosableIterator[T] = {
-    val p = schema.dataFile
-    val properties = schema.properties
-    logger.info(s"Creating iterator for resource: $p. Properties: ${properties}, ${typeTag[T]}")
-
+    // TODO: Select best access path if multiple available
+    //    val ap: SequentialAccessPath = source.accessPaths.head.asInstanceOf[SequentialAccessPath]
+    logger.info(s"Creating iterator for resource: ${ap.location}, ${typeTag[T]}")
     // TODO: The jsonFactory can generate a parser that manages the input stream if we pass it the file reference instead
     // of the inputstream. Check if this works properly and if so, remove the ClosableIterator mechanism.
-    val is: InputStream = schema.dataFile.openInputStream()
+    val is: InputStream = ap.location.openInputStream()
     val jp = jsonFactory.createParser(is)
 
     assert(jp.nextToken() == JsonToken.START_ARRAY)
@@ -250,12 +240,10 @@ object TextRawScanner extends StrictLogging {
   }
 }
 
-class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with StrictLogging with Iterable[String] {
+class TextRawScanner(dataSource: DataSource) extends RawScanner[String](dataSource) with StrictLogging with Iterable[String] {
   override def iterator: AbstractClosableIterator[String] = {
-    val p = schema.dataFile
-    val properties = schema.properties
-    logger.info(s"Creating iterator for text resource: $p. Properties: ${properties}")
-    val is = new BufferedInputStream(schema.dataFile.openInputStream(), 1024)
+    logger.info(s"Creating iterator for text resource: ${ap.location}.")
+    val is = new BufferedInputStream(ap.location.openInputStream(), 1024)
     val charset = TextRawScanner.detect(is)
     val cs = Charset.forName(charset)
     logger.info(s"Loading file using charset: $cs")
@@ -263,5 +251,3 @@ class TextRawScanner(schema: RawSchema) extends RawScanner[String](schema) with 
     new ClosableIterator(source, is)
   }
 }
-
-

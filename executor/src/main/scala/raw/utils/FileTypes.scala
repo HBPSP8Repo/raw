@@ -1,5 +1,7 @@
 package raw.utils
 
+import java.nio.file.Path
+
 import com.typesafe.scalalogging.StrictLogging
 
 object FileTypes extends StrictLogging {
@@ -7,6 +9,10 @@ object FileTypes extends StrictLogging {
   final val Json = "json"
   final val Csv = "csv"
   final val KnownFileTypes = List(Text, Json, Csv)
+
+  def inferFileType(filename: Path): String = {
+    inferFileType(filename.getFileName.toString)
+  }
 
   def inferFileType(filename: String): String = {
     val i = filename.lastIndexOf('.')

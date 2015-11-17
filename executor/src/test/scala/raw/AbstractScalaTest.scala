@@ -1,12 +1,11 @@
 package raw
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
-import com.google.common.io.Resources
 import com.typesafe.scalalogging.StrictLogging
 import raw.datasets._
-import raw.executor.{RawScanner, RawSchema}
-import raw.storage.RawLocalFile
+import raw.executor.{InferrerConfiguration, RawScanner}
+import raw.mdcatalog.DataSource
 import raw.utils.RawUtils
 
 import scala.collection.mutable
@@ -44,17 +43,19 @@ object TestScanners extends StrictLogging {
       fileName
   }
 
+
   def createScanner[T: Manifest](p: Path): RawScanner[T] = {
     val schemaName = getSchemaName(p)
-    val schema = new RawSchema(schemaName, null, null, new RawLocalFile(p))
+    val dataSource = DataSource.createLocalDataSource(schemaName, p)
+    //    val schema = new RawSchema(schemaName, null, null, new RawLocalFile(p))
     //    val scanner = RawScanner(schema, manifest[T])
-    val scanner = RawScanner[T](schema)
+    val scanner = RawScanner[T](dataSource)
     scanners += scanner
     logger.info(s"Created: $scanner")
     scanner
   }
 }
 
-abstract class AbstractScalaTest extends AbstractRawTest {
+abstract class AbstractScalaTest extends AbstractRawTest with InferrerConfiguration {
   val scanners = TestScanners.scanners
 }
