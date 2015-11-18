@@ -9,8 +9,7 @@ from raw_types import *
 
 
 class JSONInferrer(object):
-    def __init__(self, name, content):
-        self._name = name
+    def __init__(self, content):
         self._json = json.loads(content, object_pairs_hook=OrderedDict)
 
         # This hides the original exception making it harder to debug
@@ -37,7 +36,7 @@ class JSONInferrer(object):
             return rawStringType()
         if isinstance(j, OrderedDict):
             inner_type = OrderedDict((k, self.__infer_type(j[k])) for k in j)
-            return rawRecordType(self._name, inner_type)
+            return rawRecordType(inner_type)
         if isinstance(j, types.ListType):
             inner_type = rawSomeType()
             for item in j:

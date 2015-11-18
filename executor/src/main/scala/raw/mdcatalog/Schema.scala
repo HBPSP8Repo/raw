@@ -33,7 +33,6 @@ object SchemaParser extends StrictLogging {
 
   private[this] class RecursionWrapper(root: Elem, attributeOrder: Option[util.ArrayList[String]]) {
     // The record types found in the schema
-    val records = new HashMap[String, RecordType]()
     val rawType: Type = toRawType(root)
     var rootElementName: String = null
 
@@ -44,20 +43,10 @@ object SchemaParser extends StrictLogging {
           CollectionType(ListMonoid(), toRawType(innerType))
 
         case "record" =>
-          val name: String = getAttributeText(elem, "name")
-          if (rootElementName == null) {
-            rootElementName = name
-          }
-          records.get(name) match {
-            case Some(sym) => sym
-            case None =>
-              val fields: Seq[Elem] = getChildren(elem)
-              val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
-              val orderedAttrs = orderFields(name, attrs)
-              val record = RecordType(Attributes(orderedAttrs))
-              records.put(name, record)
-              record
-          }
+          val fields: Seq[Elem] = getChildren(elem)
+          val attrs: Seq[AttrType] = fields.map(f => parseAttrType(f))
+          val orderedAttrs = orderFields(attrs)
+          RecordType(Attributes(orderedAttrs))
 
         case "int" => IntType()
         case "boolean" => BoolType()
@@ -67,11 +56,10 @@ object SchemaParser extends StrictLogging {
       }
     }
 
-    private[this] def orderFields(name: String, attributes: Seq[AttrType]): Seq[AttrType] = {
+    private[this] def orderFields(attributes: Seq[AttrType]): Seq[AttrType] = {
       attributeOrder match {
         case None => attributes
         case Some(order: util.ArrayList[String]) => {
-          assert(name == rootElementName, "Unexpected field names metadata on nested schema. Processing element: " + name + ", rootelement: " + rootElementName + ", Attributes: " + attributeOrder)
           logger.debug(s"Reordering attributes: $attributes, using order: $order")
           val attMap: Map[String, AttrType] = attributes.map(attr => attr.idn -> attr).toMap
           val orderIter = JavaConversions.asScalaIterator(order.iterator())

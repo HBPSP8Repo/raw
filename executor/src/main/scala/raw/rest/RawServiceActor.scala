@@ -317,7 +317,7 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
     dropboxClient.downloadFile(request.url, localFile)
-    InferrerShellExecutor.inferSchema(localFile, request.`type`, request.name)
+    InferrerShellExecutor.inferSchema(localFile, request.`type`)
     // Register the schema
     rawServer.registerSchema(request.name, stagingDirectory, rawUser)
     val response = Map("name" -> request.name)

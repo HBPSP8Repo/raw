@@ -13,13 +13,11 @@ if __name__ == '__main__':
     argp.add_argument("--file-path", "-f", required=True, dest='file_path',
                       help="Data file whose schema is to be interred")
     argp.add_argument("--file_type", "-t", required=True, dest='file_type', help="File type")
-    argp.add_argument("--schema-name", "-n", required=True, dest='schema_name', help="Schema name")
     argp.add_argument("--output-path", "-o", required=True, dest='output_path', help="Output path")
 
     args = argp.parse_args()
     file = args.file_path
     type = args.file_type
-    name = args.schema_name
     basedir = args.output_path
 
     logging.info("Inferring schema %s", args)
@@ -29,7 +27,7 @@ if __name__ == '__main__':
     while n_objs < n_max:
         try :
             # Infer schema
-            schema, properties = inferrer.from_local(name, file, type, n_objs=n_objs)
+            schema, properties = inferrer.from_local(file, type, n_objs=n_objs)
             logging.info("Schema: %s; Properties: %s" % (schema, properties))
             serialized_schema = schema_serializer.serialize(schema)
             break

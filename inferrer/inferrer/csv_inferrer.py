@@ -6,8 +6,7 @@ from raw_types import *
 
 
 class CSVInferrer(object):
-    def __init__(self, name, content):
-        self._name = name
+    def __init__(self, content):
         self._content = content
 
     def infer_type(self):
@@ -37,7 +36,7 @@ class CSVInferrer(object):
                 else:
                     raise TypeInferenceException(value)
 
-        inferred_type = rawListType(rawRecordType(self._name, ctypes))
+        inferred_type = rawListType(rawRecordType(ctypes))
         properties = dict(has_header=has_header,
                           field_names=field_names,
                           delimiter=dialect.delimiter,

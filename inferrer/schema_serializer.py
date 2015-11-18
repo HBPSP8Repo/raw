@@ -21,7 +21,7 @@ def recurse(rawType):
     elif isinstance(rawType, rawListType):
         return "<list>" + recurse(rawType.desc) + "</list>"
     elif isinstance(rawType, rawRecordType):
-        tmp = "<record name=\"" + rawType.name + "\">"
+        tmp = "<record>"
         for (k, v) in rawType.desc.items():
             tmp += '<field name="%s">' % k
             tmp += recurse(v)
@@ -40,6 +40,6 @@ def serialize(rawType):
 
 if __name__ == '__main__':
     name = "foobarType"
-    schema = rawListType(rawRecordType(name, OrderedDict([('field1', rawIntType()), ('field2', rawStringType())])))
+    schema = rawListType(rawRecordType(OrderedDict([('field1', rawIntType()), ('field2', rawStringType())])))
     print serialize(schema)
 

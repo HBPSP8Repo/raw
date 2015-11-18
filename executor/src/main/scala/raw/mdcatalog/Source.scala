@@ -50,7 +50,7 @@ object DataSource extends StrictLogging {
     val tmpDir = Files.createTempDirectory("schema-inference")
     try {
       val fileType = FileTypes.inferFileType(file)
-      InferrerShellExecutor.inferSchema(file, fileType, schemaName, tmpDir)
+      InferrerShellExecutor.inferSchema(file, fileType, tmpDir)
 
       logger.info(s"Loading schema: $schemaName at directory: $tmpDir")
       val properties = tmpDir.resolve("properties.json")
