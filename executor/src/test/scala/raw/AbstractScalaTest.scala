@@ -3,16 +3,16 @@ package raw
 import java.nio.file.Path
 
 import com.typesafe.scalalogging.StrictLogging
-import raw.datasets._
-import raw.executor.{InferrerConfiguration, RawScanner}
-import raw.mdcatalog.DataSource
+import org.scalatest.BeforeAndAfterAll
+import raw.executor.InferrerConfiguration
+import raw.mdcatalog.{DataSource, MDCatalog}
 import raw.utils.RawUtils
 
 import scala.collection.mutable
 
 
-object TestScanners extends StrictLogging {
-  val scanners = new mutable.ListBuffer[RawScanner[_]]()
+object TestDatasources extends StrictLogging {
+  val datasources = new mutable.ListBuffer[DataSource]()
 
   logger.info("Creating test scanners")
   val publicationsPath = RawUtils.toPath("data/publications/publications.json")
@@ -26,13 +26,13 @@ object TestScanners extends StrictLogging {
   val httpLogsPath = RawUtils.toPath("data/httplogs/NASA_access_log_Aug95_small")
   val httpLogsPathUTF8 = RawUtils.toPath("data/httplogs/NASA_access_log_Aug95_small_utf8")
 
-  val publications: RawScanner[Publication] = createScanner[Publication](publicationsPath)
-  val authors: RawScanner[Author] = createScanner[Author](authorsPath)
-  val authorsSmall: RawScanner[Author] = createScanner[Author](authorsSmallPath)
-  val publicationsSmall: RawScanner[Publication] = createScanner[Publication](publicationsSmallPath)
-  val publicationsSmallWithDups: RawScanner[Publication] = createScanner[Publication](publicationsSmallWithDupsPath)
-  val patients: RawScanner[Patient] = createScanner[Patient](patientsPath)
-  val httpLogs: RawScanner[String] = createScanner[String](httpLogsPath)
+  val publications: DataSource = createDatasource(publicationsPath)
+  val authors: DataSource = createDatasource(authorsPath)
+  val authorsSmall: DataSource = createDatasource(authorsSmallPath)
+  val publicationsSmall: DataSource = createDatasource(publicationsSmallPath)
+  val publicationsSmallWithDups: DataSource = createDatasource(publicationsSmallWithDupsPath)
+  val patients: DataSource = createDatasource(patientsPath)
+  val httpLogs: DataSource = createDatasource(httpLogsPath)
 
   private[this] def getSchemaName(p: Path): String = {
     val fileName = p.getFileName.toString
@@ -44,18 +44,29 @@ object TestScanners extends StrictLogging {
   }
 
 
-  def createScanner[T: Manifest](p: Path): RawScanner[T] = {
+  def createDatasource(p: Path): DataSource = {
     val schemaName = getSchemaName(p)
-    val dataSource = DataSource.createLocalDataSource(schemaName, p)
-    //    val schema = new RawSchema(schemaName, null, null, new RawLocalFile(p))
-    //    val scanner = RawScanner(schema, manifest[T])
-    val scanner = RawScanner[T](dataSource)
-    scanners += scanner
-    logger.info(s"Created: $scanner")
-    scanner
+    val ds = DataSource.createLocalDataSource(schemaName, p)
+    datasources += ds
+    ds
   }
 }
 
-abstract class AbstractScalaTest extends AbstractRawTest with InferrerConfiguration {
-  val scanners = TestScanners.scanners
+abstract class AbstractScalaTest extends AbstractRawTest with InferrerConfiguration with BeforeAndAfterAll {
+  def executeTestQuery(query: String): Any = {
+    queryCompiler.compile(QueryLanguages.Qrawl, query, unitTestUser).computeResult
+  }
+
+  override def beforeAll() {
+    super.beforeAll()
+    try {
+      TestDatasources.datasources.foreach(ds => MDCatalog.register(unitTestUser, ds.name, ds))
+    } catch {
+      case ex: Exception =>
+        super.afterAll()
+        throw ex
+    }
+  }
+
+
 }

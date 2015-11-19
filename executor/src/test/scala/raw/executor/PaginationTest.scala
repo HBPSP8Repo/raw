@@ -2,7 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.TestScanners
+import raw.TestDatasources
 import raw.executor.DropboxAuthUsers._
 import raw.rest.RawServiceActor.QueryBlockResponse
 import raw.utils.DefaultJsonMapper
@@ -17,7 +17,7 @@ class PaginationTest extends FunSuite with RawRestServerContext with StrictLoggi
 
   override def beforeAll() = {
     super.beforeAll()
-    clientProxy.registerLocalFile(TestUserJoe, TestScanners.authorsPath, "authors")
+    clientProxy.registerLocalFile(TestUserJoe, TestDatasources.authorsPath, "authors")
   }
 
   def printBlock(block: QueryBlockResponse) = {

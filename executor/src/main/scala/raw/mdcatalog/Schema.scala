@@ -12,8 +12,6 @@ import scala.collection.immutable.Seq
 import scala.collection.mutable.HashMap
 import scala.xml.{Elem, Node, XML}
 
-case class CsvDataSourceProperties(hasHeader: Option[Boolean], fieldNames: Option[util.ArrayList[String]], delimiter: Option[Char])
-
 object SchemaParser extends StrictLogging {
 
   def apply(path: Path, attributeOrder: Option[util.ArrayList[String]]): raw.Type = {

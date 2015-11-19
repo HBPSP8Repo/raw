@@ -2,7 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.TestScanners
+import raw.TestDatasources
 import raw.utils.RawUtils
 
 /*
@@ -14,28 +14,28 @@ class EmptyStorageTest extends FunSuite with RawRestServerContext with StrictLog
 
   // Support for CSV files with no header. The columns should be given names like v1, v2...
   test("CSV register && query: students, no file header") {
-    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestScanners.studentsNoHeaderPath, "studentsnoheader")
+    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestDatasources.studentsNoHeaderPath, "studentsnoheader")
     val resp: String = clientProxy.query("select s.v1 from studentsnoheader s", DropboxAuthUsers.TestUserJoe)
     assert(resp == """[ "Student1", "Student2", "Student3", "Student4", "Student5", "Student6", "Student7" ]""")
   }
 
   // Same csv file, with headers
   test("CSV register && query: students, with file header") {
-    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestScanners.studentsPath, "studentsheader")
+    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestDatasources.studentsPath, "studentsheader")
     val resp: String = clientProxy.query("select s.Name from studentsheader s", DropboxAuthUsers.TestUserJoe)
     assert(resp == """[ "Student1", "Student2", "Student3", "Student4", "Student5", "Student6", "Student7" ]""")
   }
 
   test("text file") {
-    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestScanners.httpLogsPathUTF8, "httplogs")
+    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestDatasources.httpLogsPathUTF8, "httplogs")
     val resp = clientProxy.query( """select distinct h parse as r"([-.\\w]+).*" from httplogs h""", DropboxAuthUsers.TestUserJoe)
-    assert(resp == """[ "133.43.96.45", "uplherc.upl.com", "in24.inetnebr.com", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov", "ix-esc-ca2-07.ix.netcom.com", "piweba4y.prodigy.com", "slppp6.intermind.net" ]""")
+    assert(resp == """[ "in24.inetnebr.com", "uplherc.upl.com", "ix-esc-ca2-07.ix.netcom.com", "slppp6.intermind.net", "piweba4y.prodigy.com", "133.43.96.45", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov" ]""")
   }
 
   test("text file UTF16") {
-    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestScanners.httpLogsPath, "httplogs")
+    clientProxy.registerLocalFile(DropboxAuthUsers.TestUserJoe, TestDatasources.httpLogsPath, "httplogs")
     val resp = clientProxy.query( """select distinct h parse as r"([-.\\w]+).*" from httplogs h""", DropboxAuthUsers.TestUserJoe)
-    assert(resp == """[ "133.43.96.45", "uplherc.upl.com", "in24.inetnebr.com", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov", "ix-esc-ca2-07.ix.netcom.com", "piweba4y.prodigy.com", "slppp6.intermind.net" ]""")
+    assert(resp == """[ "in24.inetnebr.com", "uplherc.upl.com", "ix-esc-ca2-07.ix.netcom.com", "slppp6.intermind.net", "piweba4y.prodigy.com", "133.43.96.45", "kgtyk4.kj.yamagata-u.ac.jp", "d0ucr6.fnal.gov" ]""")
   }
 
   test("register: malformed url") {

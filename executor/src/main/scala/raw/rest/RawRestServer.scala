@@ -59,7 +59,7 @@ class RawRestServer(executorArg: String, storageDirCmdOption: Option[String]) ex
     case "spark" =>
       logger.info("Using Spark")
       lazy val sc: SparkContext = {
-        Thread.currentThread().setContextClassLoader(CodeGenerator.rawClassloader)
+        Thread.currentThread().setContextClassLoader(rawServer.rawClassloader)
         logger.info("Starting SparkContext with configuration:\n{}", DefaultSparkConfiguration.conf.toDebugString)
         new SparkContext("local[4]", "test", DefaultSparkConfiguration.conf)
       }

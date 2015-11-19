@@ -53,4 +53,8 @@ object Dependencies {
 
   val dropboxSDK = "com.dropbox.core" % "dropbox-core-sdk" % "1.8.1"
   val awsSDK = "com.amazonaws" % "aws-java-sdk" % "1.10.34"
+
+
+  val parquet = "com.twitter" % "parquet-format" % "2.2.0"
+
 }

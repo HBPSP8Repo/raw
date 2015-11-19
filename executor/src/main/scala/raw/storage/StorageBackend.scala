@@ -5,8 +5,8 @@ import java.nio.file.Path
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.StrictLogging
-import raw.executor.{CodeGenerator, RawScanner}
-import raw.mdcatalog.DataSource
+import raw.executor.{RawServer, RawScanner}
+import raw.mdcatalog.{DataSource, MDCatalog}
 import raw.utils.RawUtils
 
 import scala.collection.mutable
@@ -62,9 +62,8 @@ abstract class StorageManager extends StrictLogging {
       logger.info("User: {}, Schemas: {}", user, schemas)
       schemas.foreach(schemaName => {
         val schema = loadSchemaFromStorage(user, schemaName)
-        val scanner = CodeGenerator.loadScanner(schemaName, schema)
-        logger.info("Created scanner: " + scanner)
-        scanners.put((user, schemaName), scanner)
+        val schemaInfo = MDCatalog.register(user, schemaName, schema)
+        logger.info("Created schemaInfo: " + schemaInfo)
       })
     }
     )

@@ -11,7 +11,7 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.util.IOUtils
 import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
-import raw.executor.CodeGenerator
+import raw.executor.RawServer
 import raw.mdcatalog._
 import raw.utils.{FileTypes, RawUtils}
 
@@ -89,9 +89,7 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     files.foreach(f => uploadFile(bucket, prefixWithDirName, f))
     // TODO: Load schema and properties from local files instead of hitting S3, avoids a few additional GETs
     val schema = loadSchemaFromStorage(rawUser, schemaName)
-    val scanner = CodeGenerator.loadScanner(schemaName, schema)
-    logger.info("Created scanner: " + scanner)
-    scanners.put((rawUser, schemaName), scanner)
+    MDCatalog.register(rawUser, schemaName, schema)
   }
 
   override def listUserSchemasFromStorage(user: String): List[String] = {

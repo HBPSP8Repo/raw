@@ -11,6 +11,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import raw.QueryLanguages.QueryLanguage
 import raw.executor.{RawScanner, RawClassLoader, RawCompiler, ResultConverter}
+import raw.mdcatalog.MDCatalog
 import raw.utils.DefaultJsonMapper
 
 import scala.collection.{mutable, JavaConversions}
@@ -24,12 +25,14 @@ abstract class AbstractRawTest
   import ResultConverter._
   import DefaultJsonMapper._
 
+  var unitTestUser: String = "testUser"
   var queryCompiler: RawCompiler = _
 
   override def beforeAll() {
     super.beforeAll()
     try {
       queryCompiler = new RawCompiler(rawClassLoader)
+      MDCatalog.clear()
     } catch {
       case ex: Exception =>
         super.afterAll()
@@ -117,10 +120,10 @@ abstract class AbstractRawTest
   }
 
 
-  def checkAllQueriesEqual(queryLanguage: QueryLanguage, queries: List[String], scanners: Seq[RawScanner[_]]) = {
+  def checkAllQueriesEqual(queryLanguage: QueryLanguage, queries: List[String]) = {
     val results = new mutable.HashMap[String, String]()
     queries.foreach(query => {
-      val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+      val result = queryCompiler.compile(queryLanguage, query, unitTestUser).computeResult
       val jsonNode: JsonNode = convertToJsonNode(result)
       val resultOrdered: String = toStringOrdered(jsonNode)
       results.put(query, resultOrdered)

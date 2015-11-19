@@ -2,7 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.TestScanners
+import raw.TestDatasources
 
 class NoAuthTest extends FunSuite with RawRestServerContext with StrictLogging with BeforeAndAfterAll {
 

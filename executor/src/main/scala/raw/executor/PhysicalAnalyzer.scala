@@ -74,3 +74,5 @@ class PhysicalAnalyzer(tree: Calculus, world: World, queryString: String, val is
   }
 
 }
+
+

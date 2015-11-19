@@ -33,7 +33,7 @@ templateTestMethod = """
     val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val result = executeTestQuery(query)
     val actual = convertToString(result)
 
     val expected = convertExpected(\"\"\"
@@ -50,7 +50,7 @@ templateTestMethodJsonCompareToFile = """
     val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val result = executeTestQuery(query)
     assertJsonEqualsFile(\"%(dataset)s\", \"%(resultfilename)s\", \"%(name)s\", result)
   }
 """
@@ -62,7 +62,7 @@ templateTestMethodCompareMultiple = """
     val queries = List(
         %(queryList)s
     )
-    checkAllQueriesEqual(queryLanguage, queries, scanners)
+    checkAllQueriesEqual(queryLanguage, queries)
   }
 """
 
@@ -72,7 +72,7 @@ templateTestMethodPrintResult = """
     val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val result = executeTestQuery(query)
     writeResult(\"%(dataset)s_%(name)s\", result)
   }
 """
@@ -83,7 +83,7 @@ templateTestMethodJsonCompareToString = """
     val query = \"\"\"
       %(query)s
     \"\"\"
-    val result = queryCompiler.compile(queryLanguage, query, scanners).computeResult
+    val result = executeTestQuery(query)
     val expected = \"\"\"
         %(expectedResults)s
     \"\"\"

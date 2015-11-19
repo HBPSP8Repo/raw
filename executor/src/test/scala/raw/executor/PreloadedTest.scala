@@ -2,7 +2,7 @@ package raw.executor
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import raw.TestScanners
+import raw.TestDatasources
 
 
 /* Tests: The goal is to test the server layer, not the query engine.
@@ -37,10 +37,10 @@ class PreloadedTest extends FunSuite with RawRestServerContext with StrictLoggin
 
   private[this] def loadTestData(): Unit = {
     logger.info("Loading test data")
-    clientProxy.registerLocalFile(TestUserJoe, TestScanners.authorsPath)
-    clientProxy.registerLocalFile(TestUserJoe, TestScanners.publicationsPath)
-    clientProxy.registerLocalFile(TestUserJoe, TestScanners.patientsPath)
-    clientProxy.registerLocalFile(TestUserJane, TestScanners.studentsPath)
+    clientProxy.registerLocalFile(TestUserJoe, TestDatasources.authorsPath)
+    clientProxy.registerLocalFile(TestUserJoe, TestDatasources.publicationsPath)
+    clientProxy.registerLocalFile(TestUserJoe, TestDatasources.patientsPath)
+    clientProxy.registerLocalFile(TestUserJane, TestDatasources.studentsPath)
   }
 
   test("list schemas: three schemas") {

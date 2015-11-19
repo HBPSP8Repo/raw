@@ -44,7 +44,6 @@ object DataSource extends StrictLogging {
   }
 
 
-
   def createLocalDataSource(schemaName: String, file: Path): DataSource = {
     logger.info(s"Inferring schema: $file")
     val tmpDir = Files.createTempDirectory("schema-inference")

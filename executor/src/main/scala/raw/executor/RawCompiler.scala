@@ -94,9 +94,11 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     settings
   }
 
+  // TODO: StoreReporter does not print all compilation messages, the ConsoleReporter is better but
+  // we cannot easily intersect the output like with the store reporter. Check if we can combine them.
   private[this] val compileReporter = new StoreReporter()
 
-  //  private[this] val compiler = new Global(compilerSettings, new ConsoleReporter(compilerSettings))
+//    private[this] val compiler = new Global(compilerSettings, new ConsoleReporter(compilerSettings))
   private[this] val compiler = new Global(compilerSettings, compileReporter)
   private[this] val compilerLock = new Object
 
@@ -104,12 +106,12 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     * @return An instance of the query
     * @throws RuntimeException If compilation fails
     */
-  def compileOQL(oql: String, scanners: Seq[RawScanner[_]]): RawQuery = {
-    compile(OQL, oql, scanners)
+  def compileOQL(oql: String, user:String): RawQuery = {
+    compile(OQL, oql, user)
   }
 
-  def compileLogicalPlan(plan: String, scanners: Seq[RawScanner[_]]): RawQuery = {
-    compile(LogicalPlan, plan, scanners)
+  def compileLogicalPlan(plan: String, user:String): RawQuery = {
+    compile(LogicalPlan, plan, user)
   }
 
 
@@ -120,15 +122,7 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
     }
   }
 
-  private[this] def getAccessPaths(scanner: RawScanner[_]): Object = {
-    scanner match {
-      case x: SparkRawScanner[_] => x.toRDD()
-      case _ => scanner
-    }
-  }
-
-
-  def compile(queryLanguage: QueryLanguage, query: String, scanners: Seq[RawScanner[_]]): RawQuery = {
+  def compile(queryLanguage: QueryLanguage, query: String, user:String): RawQuery = {
     def descapeStr(s: String) = {
       var descapedStr = ""
       for (c <- s) {
@@ -147,33 +141,8 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
       descapedStr
     }
 
-    logger.info("Building query with scanners: " + scanners)
+    logger.info("Building query")
     val queryName = RawCompiler.newClassName()
-    val aps: Seq[String] = scanners.map(scanner => scanner.tt.tpe.typeSymbol.fullName)
-
-    /* For every top level type argument of the access path, import the containing package. The is, for the following
-     * access paths: RDD[raw.Publications], RDD[raw.patients.Patient], generate "import raw._" and "import raw.patients._"
-     *
-     * NOTE: this does not check nested types, that is, if Patient contains references to a Diagnostic instance,
-     * it will only import the package of Patient. Therefore, any nested types should be in the same package as the
-     * top level type. This limitation can be eliminated by using TypeTags instead of ClassTags in the AccessPath class
-     * and by recursively scanning the full type of the access path.
-     */
-    val imports = aps.map(ap => ap.lastIndexOf(".") match {
-      case -1 => throw new RuntimeException(s"Case classes in access paths should not be at top level package: $ap")
-      case i: Int => "import " + ap.substring(0, i + 1) + "_"
-    }).toSet.mkString("\n")
-
-    //    val imports = accessPaths.map(ap => s"import ${ap.tag.toString()}").mkString("\n")
-    //    val args = accessPaths.map(ap => s"${ap.name}: RDD[${ap.tag.runtimeClass.getSimpleName}]").mkString(", ")
-    val args = scanners
-      .map(scanner => {
-        val containerName = getContainerClass(scanner).getSimpleName
-        val containerTypeParameter = scanner.tt.tpe.finalResultType
-        s"${scanner.source.name}: ${containerName}[${containerTypeParameter}]"
-      })
-      .mkString(", ")
-    //    val args = accessPaths.map(ap => s"${ap.name}: ${getContainerClass(ap).getSimpleName}[${ap.tag.tpe.typeSymbol.fullName}]").mkString(", ")
 
     val code =
       s"""package raw.query
@@ -181,10 +150,10 @@ class RawCompiler(val rawClassloader: RawMutableURLClassLoader,
 import raw.executor.RawScanner
 import org.apache.spark.rdd.RDD
 import raw.{rawQueryAnnotation, RawQuery}
-$imports
 
 @rawQueryAnnotation
-class $queryName($args) extends RawQuery {
+class $queryName extends RawQuery {
+  override val user = \"${user}\"
   val ${queryLanguage.name} =
   \"${descapeStr(query)}\"
 }"""
@@ -220,50 +189,14 @@ class $queryName($args) extends RawQuery {
     val queryClass = s"raw.query.$queryName"
     logger.info("Creating new instance of: " + queryClass)
     val clazz = rawClassloader.loadClass(queryClass)
-
-    // Find the constructor.
-    val ctorTypeArgs: Seq[Class[_]] = scanners.map(ap => getContainerClass(ap))
-    val ctor = clazz.getConstructor(ctorTypeArgs.toSeq: _*)
+    val ctor = clazz.getConstructor()
+    val ctorArgs: List[Object] = List.empty
+    val rawQuery = ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
 
     // Create an instance of the query using the container instances (RDDs or List) given in the access paths.
-    val ctorArgs: Seq[Object] = scanners.map(scanner => getAccessPaths(scanner))
-    val rawQuery = ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
+//    val ctorArgs: Seq[Object] = scanners.map(scanner => getAccessPaths(scanner))
+//    val rawQuery = ctor.newInstance(ctorArgs: _*).asInstanceOf[RawQuery]
     rawQuery.compilationTime = compilationTime
     rawQuery
-  }
-
-  /**
-    *
-    * @param code
-    * @param className Name of the class defined in the source code. Must be unique within the current run of the program
-    * @return
-    */
-  def compileLoader(code: String, className: String): AnyRef = {
-    logger.info(s"Loader source code:\n$code")
-    val srcFile: Path = sourceOutputDir.resolve(s"$className.scala")
-    Files.write(srcFile, code.getBytes(StandardCharsets.UTF_8))
-
-    logger.info(s"Compiling source file: ${srcFile.toAbsolutePath}")
-    compilerLock.synchronized {
-      loaderCompileTimer.time {
-        val run = new compiler.Run()
-        run.compile(List(srcFile.toString))
-      }
-      if (compileReporter.hasErrors) {
-        // the reporter keeps the state between runs, so it must be explicitly reset so that errors from previous
-        // compilation runs are not falsely reported in the subsequent runs
-        val message = "Compilation of data loader failed. Compilation messages:\n" + compileReporter.infos.mkString("\n")
-        compileReporter.reset()
-        return throw new RuntimeException(message)
-      }
-    }
-    val queryClass = s"raw.query.${className}"
-    logger.info("Creating new instance of: " + queryClass)
-    val clazz = rawClassloader.loadClass(queryClass)
-
-    val ctor = clazz.getConstructor()
-
-    val ctorArgs: List[Object] = List()
-    ctor.newInstance(ctorArgs: _*).asInstanceOf[AnyRef]
   }
 }
