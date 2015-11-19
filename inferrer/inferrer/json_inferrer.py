@@ -51,15 +51,18 @@ class JSONInferrer(object):
 
         raise TypeInferenceException(json.dumps(j, indent=4))
 
+def as_array(path):
+    with open(path, 'r') as f:
+        s = f.read(500).lstrip() 
+    is_array = s[0] == '['
+    #this is a hack, it will try to check if there is a { inside, if not then it is a atomic type
+    is_atomic = "{" in s
 
 def json_sample(path, n_objs = 10):
     """ Tries to get n_objs objects from a json file
         Returns a json string with sample"""
     # probes file to see if it is an array of objects or not
-    with open(path, 'r') as f:
-        s = f.read(500).lstrip() 
-    is_array = s[0] == '['
-
+    is_array = as_array(path)
     with open(path, 'r') as f:
         if is_array:
             gen = splitfile(f, format="json", startdepth=1)
@@ -71,9 +74,11 @@ def json_sample(path, n_objs = 10):
                 sample = next(gen)
                 objs.append(sample)
             except StopIteration: 
+                print n
                 if (n < 1):
                     raise ValueError("Empty json Array")
                 break
+
     # Do we want to convert this file to an array all the time ?
     # should we return the eof?
     if is_array:
