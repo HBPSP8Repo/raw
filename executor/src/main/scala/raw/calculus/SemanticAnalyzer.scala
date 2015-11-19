@@ -1554,6 +1554,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             hasType(n, NothingType())
         }
       } else {
+        // TODO we should generate an error here saying we expect and collection of int or a collection of float. The unification error during hasType is not
+        // very accurate
         hasType(n, NothingType())
       }
     }

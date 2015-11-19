@@ -100,7 +100,6 @@ object FriendlierPrettyPrinter extends PrettyPrinter {
 //        s"record with $satts"
 //      else
 //        s"record"
-    case _: NumberType => "number"
     case _                                            => PrettyPrinter(t)
   }
 

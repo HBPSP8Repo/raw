@@ -95,7 +95,6 @@ abstract class PrettyPrinter extends org.kiama.output.PrettyPrinter {
         parens(group(nest(lsep(freeSyms.typeSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
         parens(group(nest(lsep(freeSyms.monoidSyms.map { case sym => text(sym.idn) }.to, comma)))) <>
         parens(group(nest(lsep(freeSyms.attSyms.map { case sym => text(sym.idn) }.to, comma))))
-    case NumberType(sym)                      => "number" <> parens(sym.idn)
     case TypeVariable(sym)                    => sym.idn
   }
 

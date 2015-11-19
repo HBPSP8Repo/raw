@@ -320,7 +320,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("{ a:= -unknownvalue; unknownvalue}") {
-    success("{ a:= -unknownvalue; unknownvalue}", TestWorlds.unknown, NumberType())
+    success("{ a:= -unknownvalue; unknownvalue}", TestWorlds.unknown, IntType())
   }
 
   test("{ a:= not unknownvalue; unknownvalue}") {
@@ -437,8 +437,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test( """\(x, y) -> x + y""") {
-    val n = NumberType()
-    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(List(n, n), n))
+    success( """\(x, y) -> x + y""", TestWorlds.empty, FunType(List(IntType(), IntType()), IntType()))
   }
 
   test("""{ recursive := \(f, arg) -> f(arg); recursive } """) {
@@ -459,35 +458,47 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("1 + 1.") {
-    failure("1 + 1.", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
+    failure("1 + 1.", TestWorlds.empty, UnexpectedType(FloatType(), Set(IntType())))
+  }
+
+  test("true + 12") {
+    failure("true + 12", TestWorlds.empty, UnexpectedType(BoolType(), Set(IntType(), FloatType())))
+  }
+
+  test("true + \"bla\"") {
+    failure("true + \"bla\"", TestWorlds.empty, UnexpectedType(BoolType(), Set(IntType(), FloatType())))
+  }
+
+  test("\"bla\" + \"bla\"") {
+    failure("\"bla\" + \"bla\"", TestWorlds.empty, UnexpectedType(StringType(), Set(IntType(), FloatType())))
   }
 
   test("1 - 1.") {
-    failure("1 - 1.", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
+    failure("1 - 1.", TestWorlds.empty, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("1 + true") {
-    failure("1 + true", TestWorlds.empty, IncompatibleTypes(IntType(), BoolType()))
+    failure("1 + true", TestWorlds.empty, UnexpectedType(BoolType(), Set(IntType(), FloatType())))
   }
 
   test("1 - true") {
-    failure("1 - true", TestWorlds.empty, IncompatibleTypes(IntType(), BoolType()))
+    failure("1 - true", TestWorlds.empty, UnexpectedType(BoolType(), Set(IntType(), FloatType())))
   }
 
   test("1 + things") {
-    failure("1 + things", TestWorlds.things, IncompatibleTypes(IntType(), TestWorlds.things.sources("things")))
+    failure("1 + things", TestWorlds.things, UnexpectedType(TestWorlds.things.sources("things"), Set(IntType())))
   }
 
   test("1 - things") {
-    failure("1 - things", TestWorlds.things, IncompatibleTypes(IntType(), TestWorlds.things.sources("things")))
+    failure("1 - things", TestWorlds.things, UnexpectedType(TestWorlds.things.sources("things"), Set(IntType())))
   }
 
   test("for (t <- things; t.a > 10.23) yield and true") {
-    failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, IncompatibleTypes(IntType(), FloatType()))
+    failure("for (t <- things; t.a > 10.23) yield and true", TestWorlds.things, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("for (t <- things; t.a + 1.0 > t.b ) yield set t.a") {
-    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, IncompatibleTypes(IntType(), FloatType()))
+    failure("for (t <- things; t.a + 1.0 > t.b ) yield set t.a", TestWorlds.things, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("a") {
@@ -523,11 +534,11 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("{ a := 1; b := 1; c := 2.; (a + b) + c }") {
-    failure("{ a := 1; b := 1; c := 2.; (a + b) + c }", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
+    failure("{ a := 1; b := 1; c := 2.; (a + b) + c }", TestWorlds.empty, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d) }") {
-    failure("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d) }", TestWorlds.empty, IncompatibleTypes(IntType(), FloatType()))
+    failure("{ a := 1; b := 1.; c := 2; d := 2.; (a + b) + (c + d) }", TestWorlds.empty, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("for (t <- things) yield sum 1") {
@@ -571,12 +582,11 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("""\(x, y) -> x + y + 10.2""") {
-    success("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, FunType(List(FloatType(), FloatType()), FloatType()))
+    failure("""\(x, y) -> x + y + 10.2""", TestWorlds.empty, UnexpectedType(FloatType(), Set(IntType())))
   }
 
   test("""\(x, y) -> { z := x; y + z }""") {
-    val n = NumberType()
-    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(List(n, n), n))
+    success("""\(x, y) -> { z := x; y + z }""", TestWorlds.empty, FunType(List(IntType(), IntType()), IntType()))
   }
 
   test("""{ x := { y := 1; z := y; z }; x }""") {
@@ -586,7 +596,6 @@ class SemanticAnalyzerTest extends CalculusTest {
   test("""let polymorphism - not binding into functions""") {
     val m = MonoidVariable()
     val z = TypeVariable()
-    val n = NumberType()
     success(
       """
         {
@@ -596,7 +605,7 @@ class SemanticAnalyzerTest extends CalculusTest {
         }
 
       """, TestWorlds.professors_students,
-      FunType(List(CollectionType(m, z), FunType(List(z), n)), n),
+      FunType(List(CollectionType(m, z), FunType(List(z), IntType())), IntType()),
       Set(MProp(m, None, Some(false))))
   }
 
@@ -648,7 +657,6 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("""let polymorphism #4""") {
     val z = TypeVariable()
-    val n = NumberType()
     success(
       """
         {
@@ -682,7 +690,6 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("""let-polymorphism #6""") {
     val z = TypeVariable()
-    val n = NumberType()
     success(
       """
         {
@@ -698,7 +705,6 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("""let-polymorphism #7""") {
-    val n1 = NumberType()
     success(
       """
       {
@@ -710,7 +716,7 @@ class SemanticAnalyzerTest extends CalculusTest {
         (f, f(1))
       }
       """, TestWorlds.empty,
-      RecordType(Attributes(List(AttrType("f", FunType(List(n1), FunType(List(n1), BoolType()))), AttrType("_2", FunType(List(IntType()), BoolType()))))))
+      RecordType(Attributes(List(AttrType("f", FunType(List(IntType()), FunType(List(IntType()), BoolType()))), AttrType("_2", FunType(List(IntType()), BoolType()))))))
   }
 
   test("map") {
@@ -739,22 +745,20 @@ class SemanticAnalyzerTest extends CalculusTest {
   test("""\(x,y) -> for (z <- x) yield sum y(z)""") {
     val m = MonoidVariable()
     val z = TypeVariable()
-    val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield sum y(z)""", TestWorlds.empty,
       FunType(
-        List(CollectionType(m, z), FunType(List(z), yz)),
-        yz),
+        List(CollectionType(m, z), FunType(List(z), IntType())),
+        IntType()),
       Set(MProp(m, None, Some(false))))
   }
 
   test("""\(x,y) -> for (z <- x) yield max y(z)""") {
     val m = MonoidVariable()
     val z = TypeVariable()
-    val yz = NumberType()
     success("""\(x,y) -> for (z <- x) yield max y(z)""", TestWorlds.empty,
       FunType(
-        List(CollectionType(m, z), FunType(List(z), yz)),
-        yz),
+        List(CollectionType(m, z), FunType(List(z), IntType())),
+        IntType()),
       Set(MProp(m, None, None)))
   }
 
@@ -875,7 +879,7 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("sum(1)") {
     // TODO: failure should also check monoid properties
-    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
+    failure("sum(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), IntType()), CollectionType(MonoidVariable(), FloatType()))))
   }
 
   test("max(list(1))") {
@@ -887,7 +891,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("max(1)") {
-    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
+    failure("max(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), IntType()), CollectionType(MonoidVariable(), FloatType()))))
   }
 
   test("min(list(1))") {
@@ -899,7 +903,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("min(1)") {
-    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
+    failure("min(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), IntType()), CollectionType(MonoidVariable(), FloatType()))))
   }
 
   test("avg(list(1))") {
@@ -911,7 +915,7 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("avg(1)") {
-    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), NumberType()))))
+    failure("avg(1)", TestWorlds.empty, UnexpectedType(IntType(), Set(CollectionType(MonoidVariable(), IntType()), CollectionType(MonoidVariable(), FloatType()))))
   }
 
   test("count(list(1))") {
@@ -1365,7 +1369,6 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("sum over polymorphic comprehension #1") {
-    val n = NumberType()
     val m = MonoidVariable()
     success(
       """
@@ -1375,11 +1378,10 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin,
     TestWorlds.empty,
-    FunType(List(CollectionType(m, n)), n), Set(MProp(m, None, Some(false))))
+    FunType(List(CollectionType(m, IntType())), IntType()), Set(MProp(m, None, Some(false))))
   }
 
   test("sum over polymorphic comprehension #2") {
-    val n = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
     success(
@@ -1392,9 +1394,9 @@ class SemanticAnalyzerTest extends CalculusTest {
       TestWorlds.empty,
       FunType(
         List(
-          CollectionType(m1, n),
+          CollectionType(m1, IntType()),
           CollectionType(m2, TypeVariable())),
-        n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
+        IntType()), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
   test("bag over polymorphic comprehension") {
@@ -1418,7 +1420,6 @@ class SemanticAnalyzerTest extends CalculusTest {
 
 
   test("sum over polymorphic select") {
-    val n = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
     success(
@@ -1431,13 +1432,30 @@ class SemanticAnalyzerTest extends CalculusTest {
       TestWorlds.empty,
       FunType(
         List(
-          CollectionType(m1, n),
+          CollectionType(m1, IntType()),
           CollectionType(m2, TypeVariable())),
-        n), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
+        IntType()), Set(MProp(m1, None, None), MProp(m2, None, None)))
+  }
+
+  test("sum comprehension over polymorphic select") {
+    val m1 = MonoidVariable()
+    val m2 = MonoidVariable()
+    success(
+      """
+        |{
+        | a := \xs, ys -> for (z <- (select x from x in xs, y in ys)) yield sum z;
+        | a
+        |}
+      """.stripMargin,
+      TestWorlds.empty,
+      FunType(
+        List(
+          CollectionType(m1, IntType()),
+          CollectionType(m2, TypeVariable())),
+        IntType()), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false))))
   }
 
   test("sum over polymorphic select #1") {
-    val n = NumberType()
     val m = MonoidVariable()
     success(
       """
@@ -1448,8 +1466,8 @@ class SemanticAnalyzerTest extends CalculusTest {
       """.stripMargin,
       TestWorlds.empty,
       FunType(
-        List(CollectionType(m, n)),
-        n), Set(MProp(m, None, Some(false))))
+        List(CollectionType(m, IntType())),
+        IntType()), Set(MProp(m, None, None)))
   }
 
   test("select x from x in students, y in professors") {
@@ -1459,10 +1477,10 @@ class SemanticAnalyzerTest extends CalculusTest {
       CollectionType(MonoidVariable(), UserType(_root_.raw.calculus.Symbol("student"))))
   }
 
-  test("""xs -> sum(select x.age from x in students, y in xs)""") {
+  test("""\xs -> for (z <- (select x.age from x in students, y in xs)) yield sum z""") {
     val m = MonoidVariable()
     success(
-      """\xs -> sum(select x.age from x in students, y in xs)""",
+      """\xs -> for (z <- (select x.age from x in students, y in xs)) yield sum z""",
       TestWorlds.professors_students,
       FunType(List(CollectionType(m, TypeVariable())), IntType()), Set(MProp(m, None, Some(false))))
   }
@@ -1489,14 +1507,13 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("""\xs -> sum(xs)""") {
     val mv = MonoidVariable()
-    val n = NumberType()
     success(
       """\xs -> sum(xs)""",
       TestWorlds.empty,
-      FunType(List(CollectionType(mv, n)), n))
+      FunType(List(CollectionType(mv, IntType())), IntType()))
   }
 
-  test("""\xs -> sum(xs), xs union xs""") {
+  test("""\xs -> (for (x <- xs) yield sum x), xs union xs""") {
     failure(
       """\xs -> (for (x <- xs) yield sum x), xs union xs""",
       TestWorlds.empty,
@@ -1505,15 +1522,14 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("""\xs,ys -> sum(xs), ys union ys""") {
     val m = MonoidVariable()
-    val n = NumberType()
     val v = TypeVariable()
-    val xs = CollectionType(m, n)
+    val xs = CollectionType(m, IntType())
     val ys = CollectionType(SetMonoid(), v)
     success(
       """\xs,ys -> sum(xs), ys union ys""",
       TestWorlds.empty,
-      FunType(List(xs, ys), RecordType(Attributes(List(AttrType("_1", n), AttrType("_2", ys))))),
-      Set(MProp(m, None, Some(false))))
+      FunType(List(xs, ys), RecordType(Attributes(List(AttrType("_1", IntType()), AttrType("_2", ys))))),
+      Set(MProp(m, None, None)))
   }
 
   test("select A from authors A") {
@@ -1577,8 +1593,6 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("free variables #1. Check that only the xs inner and monoid are free") {
-    val n1 = NumberType()
-    val n2 = NumberType()
     success(
       """
         |{
@@ -1587,16 +1601,13 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a1", FunType(List(CollectionType(MonoidVariable(), n1)), n1)),
-        AttrType("a2", FunType(List(CollectionType(MonoidVariable(), n2)), n2)),
+        AttrType("a1", FunType(List(CollectionType(MonoidVariable(), IntType())), IntType())),
+        AttrType("a2", FunType(List(CollectionType(MonoidVariable(), IntType())), IntType())),
         AttrType("_3", IntType())
       ))))
   }
 
   test("free variables #2. What should be the output type of a?") {
-    val n1 = NumberType()
-    val n2 = NumberType()
-    val n3 = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
     val m3 = MonoidVariable()
@@ -1608,16 +1619,13 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin, TestWorlds.empty,
         RecordType(Attributes(List(
-          AttrType("_1", FunType(List(CollectionType(m1, n1)), n1)),
-          AttrType("_2", FunType(List(CollectionType(m2, n2)), n2)),
-          AttrType("_3", FunType(List(CollectionType(m3, n3)), n3))
+          AttrType("_1", FunType(List(CollectionType(m1, IntType())), IntType())),
+          AttrType("_2", FunType(List(CollectionType(m2, IntType())), IntType())),
+          AttrType("_3", FunType(List(CollectionType(m3, IntType())), IntType()))
         ))), Set(MProp(m1, None, Some(false)), MProp(m2, None, Some(false)), MProp(m3, None, Some(false))))
   }
 
   test("free variables #3. What should be the output type of a?") {
-    val n1 = NumberType()
-    val n2 = NumberType()
-    val n3 = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
     val m3 = MonoidVariable()
@@ -1629,16 +1637,13 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin, TestWorlds.empty,
         RecordType(Attributes(List(
-          AttrType("a1", FunType(List(TypeVariable()), FunType(List(CollectionType(m1, n1)), n1))),
-          AttrType("a2", FunType(List(TypeVariable()), FunType(List(CollectionType(m2, n2)), n2))),
-          AttrType("a3", FunType(List(TypeVariable()), FunType(List(CollectionType(m3, n3)), n3)))
+          AttrType("a1", FunType(List(TypeVariable()), FunType(List(CollectionType(m1, IntType())), IntType()))),
+          AttrType("a2", FunType(List(TypeVariable()), FunType(List(CollectionType(m2, IntType())), IntType()))),
+          AttrType("a3", FunType(List(TypeVariable()), FunType(List(CollectionType(m3, IntType())), IntType())))
         ))))
   }
 
   test("free variables #4") {
-    val n1 = NumberType()
-    val n2 = NumberType()
-    val n3 = NumberType()
     success(
       """
         |{
@@ -1647,15 +1652,14 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a1", CollectionType(ListMonoid(), FunType(List(n1), n1))),
-        AttrType("a2", CollectionType(ListMonoid(), FunType(List(n2), n2))),
-        AttrType("a3", CollectionType(ListMonoid(), FunType(List(n3), n3)))
+        AttrType("a1", CollectionType(ListMonoid(), FunType(List(IntType()), IntType()))),
+        AttrType("a2", CollectionType(ListMonoid(), FunType(List(IntType()), IntType()))),
+        AttrType("a3", CollectionType(ListMonoid(), FunType(List(IntType()), IntType())))
       ))))
   }
 
 
   ignore("#107 free variables #5 (not too sure of the type)") {
-    val n1 = NumberType()
     val m1 = MonoidVariable()
     val m2 = MonoidVariable()
     success(
@@ -1669,7 +1673,7 @@ class SemanticAnalyzerTest extends CalculusTest {
         |}
       """.stripMargin, TestWorlds.empty,
       RecordType(Attributes(List(
-        AttrType("a", FunType(List(CollectionType(m1, n1)), FunType(List(CollectionType(m2, n1)), n1))),
+        AttrType("a", FunType(List(CollectionType(m1, IntType())), FunType(List(CollectionType(m2, IntType())), IntType()))),
         AttrType("_2", FunType(List(CollectionType(MonoidVariable(), FloatType())), FloatType())),
         AttrType("_3", FunType(List(CollectionType(MonoidVariable(), IntType())), IntType())))
       )))
@@ -1677,20 +1681,18 @@ class SemanticAnalyzerTest extends CalculusTest {
   }
 
   test("""\xs -> { a := max(xs); v1: a, v2: a }""") {
-    val n = NumberType()
     success(
       """\xs -> { a := max(xs); v1: a, v2: a }""",
       TestWorlds.empty,
-      FunType(List(CollectionType(MonoidVariable(), n)), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
+      FunType(List(CollectionType(MonoidVariable(), IntType())), RecordType(Attributes(List(AttrType("v1", IntType()), AttrType("v2", IntType()))))))
   }
 
 
   test("""{ b := \xs -> { a := max(xs); v1: a, v2: a }; b }""") {
-    val n = NumberType()
     success(
       """{ b := \xs -> { a := max(xs); v1: a, v2: a }; b }""",
       TestWorlds.empty,
-      FunType(List(CollectionType(MonoidVariable(), n)), RecordType(Attributes(List(AttrType("v1", n), AttrType("v2", n))))))
+      FunType(List(CollectionType(MonoidVariable(), IntType())), RecordType(Attributes(List(AttrType("v1", IntType()), AttrType("v2", IntType()))))))
   }
 
   test("""\xs, ys -> select x.age, * from x in xs, ys group by x.age""") {
