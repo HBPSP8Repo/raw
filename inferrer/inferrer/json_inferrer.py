@@ -56,13 +56,15 @@ def as_array(path):
         s = f.read(500).lstrip() 
     is_array = s[0] == '['
     #this is a hack, it will try to check if there is a { inside, if not then it is a atomic type
-    is_atomic = "{" in s
+    is_class = "{" in s 
+    return is_array and is_class
 
 def json_sample(path, n_objs = 10):
     """ Tries to get n_objs objects from a json file
         Returns a json string with sample"""
     # probes file to see if it is an array of objects or not
     is_array = as_array(path)
+    print "is array ", is_array
     with open(path, 'r') as f:
         if is_array:
             gen = splitfile(f, format="json", startdepth=1)
