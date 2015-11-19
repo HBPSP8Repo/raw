@@ -1498,9 +1498,9 @@ class SemanticAnalyzerTest extends CalculusTest {
 
   test("""\xs -> sum(xs), xs union xs""") {
     failure(
-      """\xs -> sum(xs), xs union xs""",
+      """\xs -> (for (x <- xs) yield sum x), xs union xs""",
       TestWorlds.empty,
-      UnexpectedType(CollectionType(MonoidVariable(), NumberType()), Set(CollectionType(SetMonoid(), TypeVariable()))))
+      UnexpectedType(CollectionType(MonoidVariable(), IntType()), Set(CollectionType(SetMonoid(), TypeVariable()))))
   }
 
   test("""\xs,ys -> sum(xs), ys union ys""") {
@@ -2245,4 +2245,9 @@ group_by_age(xs) := select x.age, * from x in xs group by x.age
       TestWorlds.empty,
       UnexpectedType(TypeVariable(), Set(StringType(), RegexType())))
   }
+
+  test("\\x -> list(x, true)") {
+    success("\\x -> list(x, true)", TestWorlds.empty, FunType(List(BoolType()), CollectionType(ListMonoid(), BoolType())))
+  }
+
 }

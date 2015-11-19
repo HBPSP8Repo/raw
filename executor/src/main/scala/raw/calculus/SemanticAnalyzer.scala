@@ -64,11 +64,15 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     }
   }
 
-  /** Stores unification errors.
-    * Updated during unification.
+  /** Type errors.
     */
   private val tipeErrors =
     scala.collection.mutable.MutableList[CalculusError]()
+
+  /** Type warnings
+    */
+  private val tipeWarnings =
+    scala.collection.mutable.MutableList[Warning]()
 
   /** Type the root of the program.
     */
@@ -394,10 +398,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         // Type the rhs body of the Bind
         solve(b.e)
         val t = expType(b.e)
-        if (!unifyPattern(t, b.p)) {
+        if (!tipeCompatiblePattern(t, b.p)) {
           tipeErrors += InvalidArguments(b.p, walk(t), Some(parserPosition(b.p)))
+          unifyPatternWithNothing(b.p)
           return None
         }
+
+        unifyPattern(t, b.p)
 
         //        val to_walk: Set[Type] = lambda_ptypes(e).flatMap(identity)
         //        val typeVars = to_walk.flatMap(getVariableTypes(_))
@@ -495,7 +502,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
         case CollectionType(_, innerType) => getVariableTypes(innerType, occursCheck + t)
         case FunType(ins, out)            => ins.flatMap{ case in => getVariableTypes(in, occursCheck + t) }.toSet ++ getVariableTypes(out, occursCheck + t)
-        case t1: NumberType               => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
         case t1: TypeVariable             => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) getVariableTypes(typesVarMap(t1).root, occursCheck + t) else Set(t1)
       }
     }
@@ -516,7 +522,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case _: IntervalType              => Set()
         case _: RegexType                 => Set()
         case _: UserType       => Set()
-        case _: NumberType     => Set()
         case t1: TypeVariable  =>
           if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1)
             getVariableAtts(typesVarMap(t1).root, occursCheck + t)
@@ -626,9 +631,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       else {
         t match {
           case t1 @ TypeVariable(sym) if !typeSyms.contains(sym)  => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
-          case t1 @ NumberType(sym) if !typeSyms.contains(sym)    => if (typesVarMap.contains(t1) && typesVarMap(t1).root != t1) recurse(typesVarMap(t1).root, occursCheck + t) else t1
           case TypeVariable(sym)             => TypeVariable(getNewSym(sym))
-          case NumberType(sym)               => NumberType(getNewSym(sym))
           case _: NothingType                => t
           case _: AnyType                    => t
           case _: IntType                    => t
@@ -649,20 +652,51 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     recurse(t, Set())
   }
 
-  /** Check whether a type is compatible with a pattern.
+  /** Check whether a type is structurally compatible with a pattern.
     */
-  private def unifyPattern(t: Type, p: Pattern): Boolean = p match {
-    case PatternIdn(idn) =>
-      val pt = entity(idn) match {
-        case VariableEntity(_, t1) => t1
-        case _ => NothingType()
-      }
-      unify(t, pt)
+  private def tipeCompatiblePattern(t: Type, p: Pattern): Boolean = p match {
+    case _: PatternIdn => true
     case PatternProd(ps) => find(t) match {
       case ResolvedType(RecordType(Attributes(atts))) =>
-        atts.size == ps.size && atts.zip(ps).map{ case (att, p1) => unifyPattern(att.tipe, p1)}.forall(identity)
+        atts.size == ps.size && atts.zip(ps).map{ case (att, p1) => tipeCompatiblePattern(att.tipe, p1)}.forall(identity)
       case _ =>
         false
+    }
+  }
+
+  /** Unify the pattern identifiers with NothingType.
+    */
+  private def unifyPatternWithNothing(p: Pattern): Unit = p match {
+    case PatternIdn(idn) =>
+      val pt = entity(idn) match {
+        case VariableEntity(_, t1) => unify(t1, NothingType())
+        case _ =>
+      }
+    case PatternProd(ps) =>
+      for (p <- ps) {
+        unifyPatternWithNothing(p)
+      }
+  }
+
+  /** Unify the pattern with a type.
+    * The method assumes the pattern and types are structurally compatible, i.e. `tipeCompatiblePattern` was called.
+    */
+  private def unifyPattern(t: Type, p: Pattern): Unit = p match {
+    case PatternIdn(idn) =>
+      entity(idn) match {
+        case VariableEntity(_, t1) =>
+          val r = unify(t, t1)
+          if (!r) {
+            tipeErrors += UnexpectedType(t1, Set(t), None, Some(parserPosition(p)))
+          }
+        case _ =>
+      }
+    case PatternProd(ps) => find(t) match {
+      case ResolvedType(RecordType(Attributes(atts))) =>
+        assert(atts.size == ps.size)
+        for ((att, p1) <- atts.zip(ps)) {
+          unifyPattern(att.tipe, p1)
+        }
     }
   }
 
@@ -671,9 +705,21 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   private lazy val expType: Exp => Type = attr {
 
-    case p: Partition => partitionType(partitionEntity(p))
+    case p: Partition =>
+      partitionEntity(p) match {
+        case PartitionEntity(_, t) => t
+        case _ =>
+          tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
+          NothingType()
+      }
 
-    case s: Star => starType(starEntity(s))
+    case s: Star =>
+      starEntity(s) match {
+        case StarEntity(_, t) => t
+        case _ =>
+          tipeErrors += UnknownStar(s, Some(parserPosition(s)))
+          NothingType()
+      }
 
     // Constants
     case _: BoolConst  => BoolType()
@@ -695,12 +741,36 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case ConsCollectionMonoid(_: ListMonoid, e1) => CollectionType(ListMonoid(), expType(e1))
     case ConsCollectionMonoid(_: SetMonoid, e1) => CollectionType(SetMonoid(), expType(e1))
 
+    case Comp(_: BoolMonoid, _, _) => BoolType()
+    case Comp(m: CollectionMonoid, _, e) => CollectionType(m, expType(e))
+
+    case Select(_, distinct, _, proj, _, o, _) =>
+      val m =
+        if (o.isDefined)
+          ListMonoid()
+        else if (distinct)
+          SetMonoid()
+        else
+          MonoidVariable()
+      CollectionType(m, expType(proj))
+
+    case FunAbs(args, e) => FunType(argsType(args), expType(e))
+
+    case BinaryExp(_: Gt | _: Ge | _: Lt | _: Le | _: Eq | _: Neq | _: And | _: Or | _: In | _: NotIn | _: Like | _: NotLike, _, _) => BoolType()
+    case BinaryExp(_: Union, _, _) => CollectionType(SetMonoid(), TypeVariable())
+    case BinaryExp(_: BagUnion, _, _) => CollectionType(BagMonoid(), TypeVariable())
+    case BinaryExp(_: Append, _, _) => CollectionType(ListMonoid(), TypeVariable())
+
     // Unary expressions
     case UnaryExp(_: Not, _)     => BoolType()
     case UnaryExp(_: ToBool, _)  => BoolType()
     case UnaryExp(_: ToInt, _)   => IntType()
     case UnaryExp(_: ToFloat, _) => FloatType()
     case UnaryExp(_: ToString, _) => StringType()
+    case UnaryExp(_: ToBag, _)  => CollectionType(BagMonoid(), TypeVariable())
+    case UnaryExp(_: ToList, _)  => CollectionType(ListMonoid(), TypeVariable())
+    case UnaryExp(_: ToSet, _)  => CollectionType(SetMonoid(), TypeVariable())
+    case UnaryExp(_: IsNullOp | _: IsNotNull, _)  => BoolType()
 
     // Sugar expressions
 
@@ -710,6 +780,11 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     case MultiCons(_: BagMonoid, es)     => CollectionType(BagMonoid(), expType(es.head))
     case MultiCons(_: ListMonoid, es)    => CollectionType(ListMonoid(), expType(es.head))
     case MultiCons(_: SetMonoid, es)     => CollectionType(SetMonoid(), expType(es.head))
+
+    case Reduce(_: BoolMonoid, _, _) => BoolType()
+    case Reduce(m: CollectionMonoid, _, e) => CollectionType(m, expType(e))
+
+    case Filter(g, p) => expType(g.e)
 
     case _: Count => IntType()
     case _: Exists => BoolType()
@@ -1022,13 +1097,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     val nt1 = find(t1)
     val nt2 = find(t2)
     (nt1, nt2) match {
-      // TODO: Add NothingType
 
-      case (_: AnyType, t) =>
+      case (v1: TypeVariable, _: NothingType) =>
+        typesVarMap.union(v1, nt2)
         true
-      case (t, _: AnyType) =>
+      case (_: NothingType, v2: TypeVariable) =>
+        unify(v2, nt1, occursCheck + ((t1, t2)))
+      case (_: NothingType, _) =>
+        true
+      case (_, _: NothingType) =>
         true
 
+      case (_: AnyType, _: AnyType) =>
+        true
       case (_: IntType, _: IntType)     =>
         true
       case (_: BoolType, _: BoolType)   =>
@@ -1049,20 +1130,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
       case (RecordType(a1), RecordType(a2)) =>
         unifyAttributes(a1, a2, occursCheck + ((t1, t2)))
-
-      case (p1: NumberType, p2: NumberType) =>
-        typesVarMap.union(p2, p1)
-        true
-      case (p1: NumberType, _: FloatType) =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (p1: NumberType, _: IntType)   =>
-        typesVarMap.union(p1, nt2)
-        true
-      case (_: FloatType, _: NumberType)  =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
-      case (_: IntType, _: NumberType)    =>
-        unify(nt2, nt1, occursCheck + ((t1, t2)))
 
       case (UserType(sym1), UserType(sym2)) if sym1 == sym2 =>
         true
@@ -1301,7 +1368,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           case _: RegexType                    => t
           case _: UserType                     => t
           case OptionType(inner)               => OptionType(reconstructType(inner, occursCheck + t))
-          case _: NumberType                   => if (!typesVarMap.contains(t)) t else reconstructType(pickMostRepresentativeType(typesVarMap(t)), occursCheck + t)
           case RecordType(a)                   => RecordType(reconstructAttributes(a, occursCheck + t))
           case CollectionType(m, innerType)    => CollectionType(mFind(m).asInstanceOf[CollectionMonoid], reconstructType(innerType, occursCheck + t))
           case FunType(ins, out)               => FunType(ins.map(reconstructType(_, occursCheck + t)), reconstructType(out, occursCheck + t))
@@ -1313,16 +1379,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     reconstructType(t, Set())
   }
 
-  def partitionType(p: Entity): Type = p match {
-    case PartitionEntity(_, t) => t
-    case _ => NothingType()
-  }
-
-  def starType(s: Entity): Type = s match {
-    case StarEntity(_, t) => t
-    case _ => NothingType()
-  }
-
   def argsType(args: Seq[IdnDef]): Seq[Type] =
     args.map(idn => entity(idn) match {
       case VariableEntity(_, t) => t
@@ -1331,40 +1387,42 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
   def solve(n: RawNode): Unit = {
 
-    // TODO: Whenever we add something to tipeErrors, we should also unify the thing that failed with NothingType
-    // TODO: if we ever want silent error propagation.
-
 //    n match {
 //      case e: Exp => logger.debug(s"Solving ${CalculusPrettyPrinter(e)}")
 //      case _ =>
 //    }
 
-    def sameType(e1: Exp, e2: Exp, desc: Option[String] = None) = {
+    def sameType(e1: Exp, e2: Exp, desc: Option[String] = None): Boolean = {
       val t1 = expType(e1)
       val t2 = expType(e2)
       val r = unify(t1, t2)
       if (!r) {
         tipeErrors += IncompatibleTypes(walk(t1), walk(t2), Some(parserPosition(e1)), Some(parserPosition(e2)))
       }
+      r
     }
 
-    def hasType(e: Exp, expected: Type, desc: Option[String] = None) = {
+    def hasType(e: Exp, expected: Type, desc: Option[String] = None): Boolean = {
       val t = expType(e)
       val r = unify(t, expected)
       if (!r) {
         tipeErrors += UnexpectedType(walk(t), Set(walk(expected)), desc, Some(parserPosition(e)))
       }
+      r
     }
 
     def genPatternHasType(g: Gen) = {
       val t = expType(g.e)
       find(t) match {
         case CollectionType(_, innerType) =>
-          if (!unifyPattern(innerType, g.p.get)) {
+          if (!tipeCompatiblePattern(innerType, g.p.get)) {
             tipeErrors += InvalidArguments(g.p.get, walk(innerType), Some(parserPosition(g.p.get)))
+            unifyPatternWithNothing(g.p.get)
+          } else {
+            unifyPattern(innerType, g.p.get)
           }
-        case _: NothingType =>
-          // Propagating some other error silently
+        case _ =>
+          unifyPatternWithNothing(g.p.get)
       }
     }
 
@@ -1405,12 +1463,16 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val f = funApp.f
       val args = funApp.args
       val t = expType(f)
+      if (!hasType(f, FunType(args.map(arg => TypeVariable()), expType(funApp)))) {
+        tipeErrors += InvalidFunction(walk(t), Some(parserPosition(f)))
+        hasType(funApp, NothingType())
+        return
+      }
       find(t) match {
         case FunType(ins, out) =>
 
           if (ins.size != args.size) {
             tipeErrors += InvalidNumberOfArguments(args.size, ins.size, Some(parserPosition(funApp)))
-            // TODO: Review all "return" above since it should change it all to NothingType. See TODO above.
             return
           }
 
@@ -1419,18 +1481,13 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             var targ = expType(arg)
             if (!unify(in, targ)) {
               tipeErrors += UnexpectedType(walk(targ), Set(walk(in)), Some(s"argument in position $idx of type"), Some(parserPosition(arg)))
-              // TODO: Review all "return" above since it should change it all to NothingType. See TODO above.
               return
             }
           }
 
           // Unify the type of FunApp itself with the output of the FunType
           val tfunApp = expType(funApp)
-          if (!unify(tfunApp, out)) {
-            tipeErrors += UnexpectedType(walk(out), Set(walk(tfunApp)), Some("unexpected output"), Some(parserPosition(f)))
-          }
-        case _ =>
-          tipeErrors += InvalidFunction(walk(t), Some(parserPosition(f)))
+          assert(unify(tfunApp, out))
       }
     }
 
@@ -1440,10 +1497,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           val t1 = selectPartitionType(s)
           val r = unify(t, t1)
           if (!r) {
-            tipeErrors += UnexpectedType(t, Set(t1), Some("Unexpected partition type"), Some(parserPosition(p)))
+            tipeErrors += UnexpectedType(walk(t), Set(walk(t1)), Some("Unexpected partition type"), Some(parserPosition(p)))
           }
         case _ =>
-          tipeErrors += UnknownPartition(p, Some(parserPosition(p)))
       }
     }
 
@@ -1452,17 +1508,53 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         case StarEntity(e, t) =>
           e match {
             case s1: Select =>
-              val t1 = find(selectStarType(s1))
+              val t1 = selectStarType(s1)
               val r = unify(t, t1)
               if (!r) {
-                tipeErrors += UnexpectedType(t, Set(t1), Some("Unexpected star type"), Some(parserPosition(s)))
+                tipeErrors += UnexpectedType(walk(t), Set(walk(t1)), Some("Unexpected star type"), Some(parserPosition(s)))
               }
-            case c: Comp =>
-              // TODO: ...
-              ???
+//            case c: Comp =>
+//              // TODO: ...
+//              ???
           }
         case _ =>
-          tipeErrors += UnknownStar(s, Some(parserPosition(s)))
+      }
+    }
+
+    def joinHasType(g1: Gen, g2: Gen, p: Exp, n: Exp) = {
+      solve(g1)
+      solve(g2)
+      solve(p)
+      val t1 = TypeVariable()
+      val t2 = TypeVariable()
+      hasType(g1.e, CollectionType(MonoidVariable(), t1))
+      hasType(g2.e, CollectionType(MonoidVariable(), t2))
+      hasType(p, BoolType())
+      hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
+      maxOfMonoids(n, Seq(g1, g2))
+    }
+
+    def numbers(e: Exp, n: Exp) = {
+      solve(e)
+      // expected type of e
+      val mv = MonoidVariable()
+      val tn = TypeVariable()
+      val eType = CollectionType(mv, tn)
+      if (hasType(e, eType)) {
+        // propagate to n
+        val inner = find(tn)
+        inner match {
+          case _: IntType | _: FloatType | _: NothingType => hasType(n, inner)
+          case _: TypeVariable =>
+            unify(tn, IntType())
+            tipeWarnings += ImplicitConversion(walk(expType(e)), walk(eType), Some(parserPosition(e)))
+            hasType(n, IntType())
+          case _ =>
+            tipeErrors += UnexpectedType(walk(expType(e)), Set(CollectionType(mv, IntType()), CollectionType(mv, FloatType())), None, Some(parserPosition(e)))
+            hasType(n, NothingType())
+        }
+      } else {
+        hasType(n, NothingType())
       }
     }
 
@@ -1487,23 +1579,27 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(e)
         m match {
           case _: NumberMonoid =>
-            val gs = qs.collect { case g: Gen => g }
-            hasType(e, NumberType())
-            sameType(c, e)
-            maxOfMonoids(c, gs)
+            val te = expType(e)
+            find(te) match {
+              case _: IntType => hasType(c, IntType())
+              case _: FloatType => hasType(c, FloatType())
+              case _: TypeVariable =>
+                hasType(e, IntType())
+                tipeWarnings += ImplicitConversion(te, IntType(), Some(parserPosition(e)))
+                sameType(c, e)
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te), Set(IntType(), FloatType()), None, Some(parserPosition(e)))
+                hasType(c, NothingType())
+            }
 
           case _: BoolMonoid =>
-            val gs = qs.collect { case g: Gen => g }
             hasType(e, BoolType())
-            sameType(c, e)
-            maxOfMonoids(c, gs)
 
           case m: CollectionMonoid =>
-            val gs = qs.collect { case g: Gen => g }
             hasType(c, CollectionType(m, expType(e)))
-//            logger.debug(s"c $c has type ${CollectionType(m, expType(e))}")
-            maxOfMonoids(c, gs)
         }
+        val gs = qs.collect { case g: Gen => g }
+        maxOfMonoids(c, gs)
 
       case s @ Select(froms, distinct, g, proj, w, o, h) =>
         for (f <- froms) {
@@ -1522,20 +1618,10 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         if (h.isDefined) {
           solve(h.get)
         }
-        val m =
-          if (o.isDefined)
-            ListMonoid()
-          else if (distinct)
-            SetMonoid()
-          else
-            MonoidVariable()
-
-        hasType(s, CollectionType(m, expType(proj)))
         maxOfMonoids(s, froms)
 
-      case f @ FunAbs(args, e) =>
+      case FunAbs(_, e) =>
         solve(e)
-        hasType(f, FunType(argsType(args), expType(e)))
 
       case n @ ExpBlock(binds, e) =>
         for (b <- binds) {
@@ -1549,34 +1635,59 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(e2)
         op match {
           case _: Gt | _: Ge | _: Lt | _: Le =>
-            hasType(n, BoolType())
-            sameType(e2, e1)
-            hasType(e1, NumberType())
+            val te1 = find(expType(e1))
+            val te2 = find(expType(e2))
+            (te1, te2) match {
+              case (_: IntType | _: NothingType, _: IntType | _: NothingType) =>
+              case (_: FloatType | _: NothingType, _: FloatType | _: NothingType) =>
+              case (_: IntType | _: FloatType, _: TypeVariable) =>
+                unify(te1, te2)
+              case (_: TypeVariable, _: IntType | _: FloatType) =>
+                unify(te1, te2)
+              case (_: TypeVariable, _: TypeVariable) =>
+                hasType(e1, IntType())
+                tipeWarnings += ImplicitConversion(te1, IntType(), Some(parserPosition(e1)))
+                hasType(e2, IntType())
+                tipeWarnings += ImplicitConversion(te2, IntType(), Some(parserPosition(e2)))
+              case (_: IntType | _: FloatType, _) =>
+                tipeErrors += UnexpectedType(walk(te2), Set(walk(te1)), None, Some(parserPosition(e2)))
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te1), Set(IntType(), FloatType()), None, Some(parserPosition(e1)))
+            }
 
           case _: Eq | _: Neq =>
-            hasType(n, BoolType())
             sameType(e1, e2)
 
-//          case _: Plus =>
-//            val te1 = find(expType(e1))
-//            val te2 = find(expType(e2))
-//            (te1, te2) match {
-//              case (_: IntType, _: IntType) => hasType(n, IntType())
-//              case (_: IntType, _: FloatType) => hasType(n, FloatType())
-//              case (_: FloatType, _: IntType) => hasType(n, FloatType())
-//              case (_: FloatType, _: FloatType) => hasType(n, FloatType())
-//              case (_: StringType, _: StringType) => hasType(n, FloatType())
-//              case _ =>
-//            }
-//
-//          case _: Sub | _: Mult | _: Div | _: Mod =>
           case _: Plus | _: Sub | _: Mult | _: Div | _: Mod =>
-            hasType(e1, NumberType())
-            sameType(e2, e1)
-            sameType(n, e1)
+            val te1 = find(expType(e1))
+            val te2 = find(expType(e2))
+            (te1, te2) match {
+              case (_: NothingType, _: NothingType) => hasType(n, NothingType())
+              case (_: IntType | _: NothingType, _: IntType | _: NothingType) =>
+                hasType(n, IntType())
+              case (_: FloatType | _: NothingType, _: FloatType | _: NothingType) =>
+                hasType(n, FloatType())
+              case (_: IntType | _: FloatType, _: TypeVariable) =>
+                unify(te1, te2)
+                hasType(n, te1)
+              case (_: TypeVariable, _: IntType | _: FloatType) =>
+                unify(te1, te2)
+                hasType(n, te1)
+              case (_: TypeVariable, _: TypeVariable) =>
+                hasType(e1, IntType())
+                tipeWarnings += ImplicitConversion(te1, IntType(), Some(parserPosition(e1)))
+                hasType(e2, IntType())
+                tipeWarnings += ImplicitConversion(te2, IntType(), Some(parserPosition(e2)))
+                hasType(n, te1)
+              case (_: IntType | _: FloatType, _) =>
+                tipeErrors += UnexpectedType(walk(te2), Set(walk(te1)), None, Some(parserPosition(e2)))
+                hasType(n, NothingType())
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te1), Set(IntType(), FloatType()), None, Some(parserPosition(e1)))
+                hasType(n, NothingType())
+            }
 
           case _: And | _: Or =>
-            hasType(n, BoolType())
             hasType(e1, BoolType())
             hasType(e2, BoolType())
 
@@ -1599,17 +1710,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
             val inner = TypeVariable()
             hasType(e2, CollectionType(MonoidVariable(), inner))
             hasType(e1, inner)
-            hasType(n, BoolType())
 
           case _: Like | _: NotLike =>
             hasType(e1, StringType())
             val t2 = expType(e2)
             find(t2) match {
-              case _: StringType | _: RegexType =>
-                hasType(n, BoolType())
+              case _: StringType | _: RegexType | _: NothingType =>
               case _ =>
                 tipeErrors += UnexpectedType(walk(t2), Set(StringType(), RegexType()), None, Some(parserPosition(e2)))
-                hasType(n, NothingType())
             }
         }
 
@@ -1617,35 +1725,44 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(e)
         op match {
           case _: Not =>
-            sameType(n, e)
             hasType(e, BoolType())
 
           case _: Neg =>
-            sameType(n, e)
-            hasType(e, NumberType())
+            val te = find(expType(e))
+            te match {
+              case _: IntType | _: FloatType | _: NothingType =>
+                hasType(n, te)
+              case _: TypeVariable =>
+                hasType(e, IntType())
+                tipeWarnings += ImplicitConversion(te, IntType(), Some(parserPosition(e)))
+                sameType(n, e)
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te), Set(IntType(), FloatType()), None, Some(parserPosition(e)))
+                hasType(n, NothingType())
+            }
 
           case _: ToBag =>
-            val inner = TypeVariable()
-            hasType(e, CollectionType(MonoidVariable(), inner))
-            hasType(n, CollectionType(BagMonoid(), inner))
+            expType(n) match {
+              case CollectionType(_: BagMonoid, inner) =>
+                hasType(e, CollectionType(MonoidVariable(), inner))
+            }
 
           case _: ToList =>
-            val inner = TypeVariable()
-            hasType(e, CollectionType(MonoidVariable(), inner))
-            hasType(n, CollectionType(ListMonoid(), inner))
+            expType(n) match {
+              case CollectionType(_: ListMonoid, inner) =>
+                hasType(e, CollectionType(MonoidVariable(), inner))
+            }
 
           case _: ToSet =>
-            val inner = TypeVariable()
-            hasType(e, CollectionType(MonoidVariable(), inner))
-            hasType(n, CollectionType(SetMonoid(), inner))
-
-          case _: ToInt =>
-            hasType(n, IntType())
+            expType(n) match {
+              case CollectionType(_: SetMonoid, inner) =>
+                hasType(e, CollectionType(MonoidVariable(), inner))
+            }
 
           case _: IsNullOp | _: IsNotNull =>
             hasType(e, OptionType(TypeVariable()))
-            hasType(n, BoolType())
 
+          case _: ToBool| _: ToInt | _: ToFloat |_: ToString =>
         }
 
       case i: IdnExp =>
@@ -1665,7 +1782,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         for (arg <- args) {
           solve(arg)
         }
-        hasType(f, FunType(args.map(arg => TypeVariable()), expType(n)))
         funAppType(n)
 
       case _: ZeroCollectionMonoid =>
@@ -1691,7 +1807,12 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(e3)
         hasType(e1, BoolType(), Some("if condition must be a boolean"))
         sameType(e2, e3, Some("then and else must be of the same type"))
-        sameType(n, e2)
+        val te2 = find(expType(e2))
+        val te3 = find(expType(e3))
+        (te2, te3) match {
+          case (_: NothingType, _ ) => hasType(n, te3)
+          case _ => hasType(n, te2)
+        }
 
       case p: Partition =>
         partitionHasType(p)
@@ -1703,22 +1824,25 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(g)
         solve(e)
         m match {
-          case m1: CollectionMonoid =>
-            hasType(n, CollectionType(m1, expType(e)))
-
           case _: NumberMonoid =>
-            hasType(e, NumberType())
-            sameType(n, e)
+            val te = find(expType(e))
+            te match {
+              case _: IntType | _: FloatType | _: NothingType =>
+                hasType(n, te)
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te), Set(IntType(), FloatType()), None, Some(parserPosition(e)))
+                hasType(n, NothingType())
+            }
 
           case _: BoolMonoid =>
             hasType(e, BoolType())
-            hasType(n, BoolType())
+
+          case _: CollectionMonoid =>
         }
 
       case n @ Filter(g, p) =>
         solve(g)
         solve(p)
-        sameType(n, g.e)
         hasType(p, BoolType())
 
       case n @ Nest(m, g, k, p, e) =>
@@ -1726,135 +1850,76 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         solve(k)
         solve(e)
         solve(p)
-        m match {
+
+        val nodeMonoid = find(expType(g.e)) match {
+          case CollectionType(m1, _) => m1
+        }
+
+        hasType(p, BoolType())
+
+        val innerType = m match {
           case rm: CollectionMonoid =>
-            val m = MonoidVariable()
-            hasType(g.e, CollectionType(m, TypeVariable()))
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", CollectionType(rm, expType(e))))))))
+            CollectionType(rm, expType(e))
 
           case rm: NumberMonoid =>
             val m = MonoidVariable()
-            val nt = NumberType()
-            hasType(g.e, CollectionType(m, TypeVariable()))
-            hasType(e, nt)
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", nt))))))
+            val te = find(expType(e))
+            te match {
+              case _: IntType | _: FloatType | _: NothingType => te
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te), Set(IntType(), FloatType()), None, Some(parserPosition(e)))
+                NothingType()
+            }
 
           case rm: BoolMonoid =>
-            val m = MonoidVariable()
-            val bt = BoolType()
-            hasType(g.e, CollectionType(m, TypeVariable()))
-            hasType(e, bt)
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", bt))))))
+            hasType(e, BoolType())
+            BoolType()
         }
+
+        hasType(n, CollectionType(nodeMonoid, RecordType(Attributes(Seq(AttrType("_1", expType(k)), AttrType("_2", innerType))))))
 
       case n @ Nest2(m, g, k, p, e) =>
         solve(g)
         solve(k)
         solve(e)
         solve(p)
-        m match {
+
+        val (nodeMonoid, inner) = find(expType(g.e)) match {
+          case CollectionType(m1, inner1) => (m1, inner1)
+        }
+
+        hasType(p, BoolType())
+
+        val innerType = m match {
           case rm: CollectionMonoid =>
-            val m = MonoidVariable()
-            val inner = TypeVariable()
-            hasType(g.e, CollectionType(m, inner))
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", CollectionType(rm, expType(e))))))))
+            CollectionType(rm, expType(e))
 
           case rm: NumberMonoid =>
             val m = MonoidVariable()
-            val nt = NumberType()
-            val inner = TypeVariable()
-            hasType(g.e, CollectionType(m, inner))
-            hasType(e, nt)
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", nt))))))
+            val te = find(expType(e))
+            te match {
+              case _: IntType | _: FloatType | _: NothingType => te
+              case _ =>
+                tipeErrors += UnexpectedType(walk(te), Set(IntType(), FloatType()), None, Some(parserPosition(e)))
+                NothingType()
+            }
 
           case rm: BoolMonoid =>
-            val m = MonoidVariable()
-            val bt = BoolType()
-            val inner = TypeVariable()
-            hasType(g.e, CollectionType(m, inner))
-            hasType(e, bt)
-            hasType(p, BoolType())
-            hasType(n, CollectionType(m, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", bt))))))
+            hasType(e, BoolType())
+            BoolType()
         }
 
-      case n @ Join(g1, g2, p) =>
-        solve(g1)
-        solve(g2)
-        solve(p)
-        val t1 = TypeVariable()
-        val t2 = TypeVariable()
-        hasType(g1.e, CollectionType(MonoidVariable(), t1))
-        hasType(g2.e, CollectionType(MonoidVariable(), t2))
-        hasType(p, BoolType())
-        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
-        maxOfMonoids(n, Seq(g1, g2))
+        hasType(n, CollectionType(nodeMonoid, RecordType(Attributes(Seq(AttrType("_1", inner), AttrType("_2", innerType))))))
 
-      case n @ OuterJoin(g1, g2, p) =>
-        solve(g1)
-        solve(g2)
-        solve(p)
-        val t1 = TypeVariable()
-        val t2 = TypeVariable()
-        hasType(g1.e, CollectionType(MonoidVariable(), t1))
-        hasType(g2.e, CollectionType(MonoidVariable(), t2))
-        hasType(p, BoolType())
-        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
-        maxOfMonoids(n, Seq(g1, g2))
+      case n @ Join(g1, g2, p) => joinHasType(g1, g2, p, n)
+      case n @ OuterJoin(g1, g2, p) => joinHasType(g1, g2, p, n)
+      case n @ Unnest(g1, g2, p) => joinHasType(g1, g2, p, n)
+      case n @ OuterUnnest(g1, g2, p) => joinHasType(g1, g2, p, n)
 
-      case n @ Unnest(g1, g2, p) =>
-        solve(g1)
-        solve(g2)
-        solve(p)
-        val t1 = TypeVariable()
-        val t2 = TypeVariable()
-        hasType(g1.e, CollectionType(MonoidVariable(), t1))
-        hasType(g2.e, CollectionType(MonoidVariable(), t2))
-        hasType(p, BoolType())
-        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
-        maxOfMonoids(n, Seq(g1, g2))
-
-      case n @ OuterUnnest(g1, g2, p) =>
-        solve(g1)
-        solve(g2)
-        solve(p)
-        val t1 = TypeVariable()
-        val t2 = TypeVariable()
-        hasType(g1.e, CollectionType(MonoidVariable(), t1))
-        hasType(g2.e, CollectionType(MonoidVariable(), t2))
-        hasType(p, BoolType())
-        hasType(n, CollectionType(MonoidVariable(), RecordType(Attributes(Seq(AttrType("_1", t1), AttrType("_2", t2))))))
-        maxOfMonoids(n, Seq(g1, g2))
-
-      case n @ Sum(e) =>
-        solve(e)
-        val mv = MonoidVariable()
-        addMonoidOrder(mv, SumMonoid())
-        val tn = NumberType()
-        hasType(e, CollectionType(mv, tn))
-        hasType(n, tn)
-
-      case n @ Max(e) =>
-        solve(e)
-        val tn = NumberType()
-        hasType(e, CollectionType(MonoidVariable(), tn))
-        hasType(n, tn)
-
-      case n @ Min(e) =>
-        solve(e)
-        val tn = NumberType()
-        hasType(e, CollectionType(MonoidVariable(), tn))
-        hasType(n, tn)
-
-      case n @ Avg(e) =>
-        solve(e)
-        val tn = NumberType()
-        hasType(e, CollectionType(MonoidVariable(), tn))
-        hasType(n, tn)
+      case n @ Sum(e) => numbers(e, n)
+      case n @ Max(e) => numbers(e, n)
+      case n @ Min(e) => numbers(e, n)
+      case n @ Avg(e) => numbers(e, n)
 
       case n @ Count(e) =>
         solve(e)

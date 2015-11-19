@@ -38,11 +38,6 @@ case class IntervalType(intervals: Seq[IntervalAttr]) extends Type
 
 case class RegexType() extends Type
 
-/** Number Type: Int or Float
-  * NumberType is a VariableType.
-  */
-case class NumberType(sym: calculus.Symbol = SymbolTable.next()) extends VariableType
-
 /** Option Type
   */
 case class OptionType(t: Type) extends Type
@@ -147,8 +142,9 @@ case class NothingType() extends Type
   */
 case class UserType(sym: calculus.Symbol) extends Type
 
-/** Abstract class representing all types that vary: TypeVariable, NumberType, ...
+/** Abstract class representing all types that vary: TypeVariable, ...
   */
+// TODO: Remove VariableType and use TypeVariable
 
 sealed abstract class VariableType extends Type {
   def sym: calculus.Symbol
