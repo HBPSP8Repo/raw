@@ -1,5 +1,3 @@
-import java.nio.file.{Paths, Files}
-
 import Dependencies._
 import Resolvers._
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
@@ -14,10 +12,12 @@ lazy val buildSettings = Seq(
   organizationHomepage := Some(url("http://dias.epfl.ch/")),
   version := "0.0.0",
   scalaVersion := "2.11.7",
-  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"), // , "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
-  // The flags: "-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8" enable the generation of Java 8 style
-  // lambdas. Spark does not yet work with them.
+  // Generated Java 8 style lambdas. This reduces significantly the number of classes generated (2700 -> 950)
+  // It's an experimental feature so it may not work with some libraries. In particular, it doesn't work with
+  // Sparl 1.3.1. Maybe it is fixed in the latest versions of Spark??
   // https://github.com/scala/make-release-notes/blob/2.11.x/experimental-backend.md
+  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Ydelambdafy:method", "-target:jvm-1.8", "-Ybackend:GenBCode"), // , "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
+//  scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
   //  scalacOptions ++= Seq("-Ybackend:GenBCode", "-Ydelambdafy:method", "-target:jvm-1.8", "-deprecation", "-feature", "-unchecked", "-Ypatmat-exhaust-depth", "off"), //"-Ymacro-debug-lite"), //, "-Ymacro-debug-verbose"
   resolvers := sonatypeResolvers,
   // Use cached resolution of dependencies (Experimental in SBT 0.13.7)
@@ -34,7 +34,7 @@ lazy val commonDeps = Seq(
 )
 
 lazy val root = project.in(file("."))
-  .aggregate(executor, core)
+  .aggregate(executor)
   .dependsOn(executor)
   .settings(buildSettings)
   .settings(libraryDependencies ++= commonDeps)
@@ -43,7 +43,6 @@ val startDocker = taskKey[String]("Starts the docker container")
 val stopDocker = taskKey[Unit]("Stops the docker container")
 
 lazy val executor = (project in file("executor")).
-  dependsOn(core).
   //  http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
   enablePlugins(JavaAppPackaging, DockerPlugin).
   settings(
@@ -103,10 +102,13 @@ lazy val executor = (project in file("executor")).
           multisets,
           dropboxSDK,
           awsSDK,
-          juniversalchardet
+          juniversalchardet,
+          "org.scala-lang.modules" %% "scala-java8-compat" % "0.5.0"
         )
         ++ sprayDeps
-        ++ apacheCommonsDeps,
+        ++ apacheCommonsDeps
+        ++ Seq(parserCombinators)
+        ++ kiamaDependencies,
 
     // Without forking, Spark SQL fails to load a class using reflection if tests are run from the sbt console.
     // UPDATE: Seems to be working now.
@@ -172,10 +174,4 @@ java -Draw.inferrer.path=%s -classpath "%s" %s "$@"
       out.setExecutable(true)
       out
     }
-  )
-
-lazy val core = (project in file("core")).
-  settings(buildSettings).
-  settings(
-    libraryDependencies ++= commonDeps ++ Seq(parserCombinators) ++ kiamaDependencies
   )

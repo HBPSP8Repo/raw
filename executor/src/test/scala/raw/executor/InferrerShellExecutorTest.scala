@@ -12,6 +12,6 @@ class InferrerShellExecutorTest extends FunSuite with StrictLogging with Inferre
   test("Can call inferrer") {
     val fileType = "json"
     val schemaName = "array2d"
-    InferrerShellExecutor.inferSchema(TestScanners.authorsPath, fileType, schemaName)
+    InferrerShellExecutor.inferSchema(TestScanners.authorsPath, fileType)
   }
 }

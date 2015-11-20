@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkContext
 import raw.QueryLanguages.QueryLanguage
 import raw.RawQuery
+import raw.mdcatalog.{CaseClassGenerator, DataSource}
 
 import scala.reflect._
 import scala.reflect.runtime.universe._
@@ -19,12 +20,12 @@ import scala.reflect.runtime.universe._
  * of this class, for instance, the RawScanner.
  *
  * NOTE: for some reason, it is not possible to create a RawScanner outside the scope of this class by giving it
- * explicilty the type arguments kept by this class. The type informaiton is erased and replaced by "_$X"
+ * explicilty the type arguments kept by this class. The type information is erased and replaced by "_$X"
  *
  * @tparam T The top level type of the schema created at runtime.
  */
 class SchemaTypeInformation[T: ClassTag : TypeTag : Manifest] {
-  def createScanner(schema: RawSchema): RawScanner[T] = {
+  def createScanner(schema: DataSource): RawScanner[T] = {
     RawScanner(schema)
   }
 }
@@ -33,24 +34,7 @@ abstract class SchemaTypeFactory {
   def getSchemaInformation: SchemaTypeInformation[_]
 }
 
-/**
- * Interface implemented by classes generated at runtime to load Scala access paths.
- */
-trait RawScalaLoader {
-  def loadRawScanner(rawSchema: RawSchema): RawScanner[_]
-}
-
-// TODO: implement the Spark access path loader
-///**
-// * Interface implemented by classes generated at runtime to load Spark access paths
-// */
-//trait SparkLoader {
-//  def loadAccessPaths(rawSchema: RawSchema, sc: SparkContext): AccessPath[_]
-//}
-
 object CodeGenerator extends StrictLogging {
-
-  import ResultConverter._
 
   val rawClassloader = new RawMutableURLClassLoader(getClass.getClassLoader)
   private[this] val queryCompiler = new RawCompiler(rawClassloader)
@@ -99,8 +83,8 @@ object CodeGenerator extends StrictLogging {
 //    }
 //  }
 
-  def loadScanner(name: String, schema: RawSchema, sc: SparkContext = null): RawScanner[_] = {
-    val parsedSchema: ParsedSchema = SchemaParser(schema)
+  def loadScanner(name: String, schema: DataSource, sc: SparkContext = null): RawScanner[_] = {
+    val parsedSchema = CaseClassGenerator(schema)
 
     val innerType = extractInnerType(parsedSchema.typeDeclaration)
     val caseClassesSource = parsedSchema.caseClasses.values.mkString("\n")

@@ -5,7 +5,8 @@ import java.nio.file.Path
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.StrictLogging
-import raw.executor.{CodeGenerator, SchemaProperties, RawScanner, RawSchema}
+import raw.executor.{CodeGenerator, RawScanner}
+import raw.mdcatalog.DataSource
 import raw.utils.RawUtils
 
 import scala.collection.mutable
@@ -96,7 +97,7 @@ abstract class StorageManager extends StrictLogging {
 
   protected[this] def listUserSchemasFromStorage(user: String): List[String]
 
-  def loadSchemaFromStorage(user: String, schemaName: String): RawSchema
+  def loadSchemaFromStorage(user: String, schemaName: String): DataSource
 
   def registerSchema(schemaName: String, stagingDirectory: Path, rawUser: String)
 }

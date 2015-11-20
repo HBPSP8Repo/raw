@@ -21,11 +21,11 @@ def check_types(rawType):
         # ValueException is unknown, I switched it to ValueError
         raise InferrerException("Unknown type: %s" % rawType)
 
-def from_local(name, path, file_type, n_objs = 10):
+def from_local(path, file_type, n_objs = 10):
     if file_type == 'json':
-        inferrer = JSONInferrer(name, json_sample(path, n_objs))
+        inferrer = JSONInferrer(json_sample(path, n_objs))
     elif file_type == 'csv':
-        inferrer = CSVInferrer(name, csv_sample(path, n_objs))
+        inferrer = CSVInferrer(csv_sample(path, n_objs))
     elif file_type == 'text':
         return (rawListType(rawStringType()), {})
     else:

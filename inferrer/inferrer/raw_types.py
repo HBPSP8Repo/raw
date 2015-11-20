@@ -94,15 +94,11 @@ class rawStringType(rawType):
 class rawRecordType(rawType):
 
     def __str__(self):
-        return self.name + "(" + ", ".join("%s:%s" % x for x in self.desc.items()) + ")"
+        return "rec(" + ", ".join("%s:%s" % x for x in self.desc.items()) + ")"
 
-    def __init__(self, prefix, desc):
-        self._prefix = prefix
-
+    def __init__(self, desc):
         global _uniqueId
         _uniqueId += 1
-
-        self.name = "%s_%d" % (prefix, _uniqueId)
         self.desc = desc
 
     def compatible_with(self, other):
@@ -141,7 +137,7 @@ class rawRecordType(rawType):
                 else:
                     newDict[key] = tipe.max_of(self.desc[key])
             
-            return rawRecordType(self._prefix, newDict)
+            return rawRecordType(newDict)
         else:
             return rawUnknownType()
 

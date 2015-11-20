@@ -2,13 +2,14 @@ package raw.rest
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
+import com.google.common.base.Stopwatch
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
-import raw.QueryLanguages.QueryLanguage
 import raw._
 import raw.executor._
 import raw.utils.DefaultJsonMapper
@@ -18,7 +19,6 @@ import spray.http.StatusCodes.ClientError
 import spray.http._
 
 import scala.concurrent.duration._
-
 
 
 /* Generic exception, which the request handler code can raise to send a 400 response to the client.
@@ -42,9 +42,13 @@ object RawServiceActor extends StrictLogging {
 
   case class QueryCloseRequest(token: String)
 
-  case class QueryResponse(output: Any, compile_time: Long, execution_time: Long)
+  /**
+    * @param output Can be any json data type: String, array or object. Therefore it is declared as AnyRef so that the
+    *               Jackson can deserialize it.
+    */
+  case class QueryResponse(output: Any, compilationTime: Long, executionTime: Long)
 
-  case class QueryBlockResponse(data: Any, start: Int, size: Int, hasMore: Boolean, token: String)
+  case class QueryBlockResponse(data: Any, start: Int, size: Int, hasMore: Boolean, token: String, var compilationTime: Long = -1, var executionTime: Long = -1)
 
   case class SchemasResponse(schemas: Seq[String])
 
@@ -109,7 +113,9 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
     try {
       val httpResponse = f(httpRequest)
       val responseAsString = s"HttpResponse(${httpResponse.status}, ${httpResponse.headers}, ${httpResponse.entity})"
-      val  str = responseAsString.take(200) + {if (responseAsString.length > 200) "..." else ""}
+      val str = responseAsString.take(200) + {
+        if (responseAsString.length > 200) "..." else ""
+      }
       logger.info(str)
       httpResponse
     } catch {
@@ -214,7 +220,7 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
 
           case auth@OAuth2BearerToken(token) =>
             val user = dropboxClient.getUserName(token)
-            logger.info(s"""OAuth2 auth detected: "$auth". User: $user""")
+            logger.info( s"""OAuth2 auth detected: "$auth". User: $user""")
             user
 
           case auth@GenericHttpCredentials(scheme, token, params) =>
@@ -244,6 +250,7 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
     val query = request.query
     val rawQuery: RawQuery = rawServer.doQueryStart(QueryLanguages("qrawl"), query, rawUser)
 
+    val startTime = Stopwatch.createStarted()
     val openQuery = queryCache.newOpenQuery(query, rawQuery)
     val response: QueryBlockResponse = if (!openQuery.hasNext) {
       // No results.
@@ -252,13 +259,21 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
       queryCache.put(openQuery)
       nextQueryBlock(openQuery.token, request.resultsPerPage)
     }
+    val executionTime = startTime.elapsed(TimeUnit.MILLISECONDS)
+    response.compilationTime = rawQuery.compilationTime
+    response.executionTime = executionTime
+    logger.info(s"Execution time, doQueryStart: $executionTime ms")
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
 
   private[this] def doQueryNext(httpRequest: HttpRequest): HttpResponse = {
     val request = queryNextRequestReader.readValue[QueryNextRequest](httpRequest.entity.asString)
+    val startTime = Stopwatch.createStarted()
     val response = nextQueryBlock(request.token, request.resultsPerPage)
+    val executionTime = startTime.elapsed(TimeUnit.MILLISECONDS)
+    response.executionTime = executionTime
+    logger.info(s"Execution time, doQueryNext: $executionTime ms")
     val serializedResponse = queryBlockResponseWriter.writeValueAsString(response)
     HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, serializedResponse))
   }
@@ -302,7 +317,7 @@ class RawServiceActor(rawServer: RawServer, dropboxClient: DropboxClient) extend
     val stagingDirectory = Files.createTempDirectory(rawServer.storageManager.stageDirectory, "raw-stage")
     val localFile = stagingDirectory.resolve(request.name + "." + request.`type`)
     dropboxClient.downloadFile(request.url, localFile)
-    InferrerShellExecutor.inferSchema(localFile, request.`type`, request.name)
+    InferrerShellExecutor.inferSchema(localFile, request.`type`)
     // Register the schema
     rawServer.registerSchema(request.name, stagingDirectory, rawUser)
     val response = Map("name" -> request.name)

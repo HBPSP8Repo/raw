@@ -11,8 +11,9 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.util.IOUtils
 import com.google.common.base.Stopwatch
 import com.typesafe.scalalogging.StrictLogging
-import raw.executor.{CodeGenerator, RawSchema, SchemaProperties}
-import raw.utils.RawUtils
+import raw.executor.CodeGenerator
+import raw.mdcatalog._
+import raw.utils.{FileTypes, RawUtils}
 
 import scala.collection.JavaConversions
 
@@ -63,6 +64,8 @@ object S3StorageManager {
     }
   }
 
+  val s3 = new AmazonS3Client()
+  s3.setRegion(Region.getRegion(Regions.EU_WEST_1))
 }
 
 /* TODO: Currently we are caching in memory the schemas read from S3 at startup. This will not work if there are
@@ -73,9 +76,6 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
 
   import S3StorageManager._
 
-  private[this] val s3 = new AmazonS3Client()
-  s3.setRegion(Region.getRegion(Regions.EU_WEST_1))
-
   logger.info(s"Staging directory: $stageDirectory")
   RawUtils.createDirectory(stageDirectory)
 
@@ -85,7 +85,6 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     assert(Files.isDirectory(stagingDirectory))
     val files = JavaConversions.asScalaIterator(Files.list(stagingDirectory).iterator()).toList
     val prefixWithDirName = rawUser + "/" + schemaName
-    logger.info(s"Uploading: $prefixWithDirName <- $files")
     // TODO: check if it already exists
     files.foreach(f => uploadFile(bucket, prefixWithDirName, f))
     // TODO: Load schema and properties from local files instead of hitting S3, avoids a few additional GETs
@@ -103,11 +102,13 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     listContents("").subdirectories
   }
 
-  override def loadSchemaFromStorage(user: String, schemaName: String): RawSchema = {
+
+  override def loadSchemaFromStorage(user: String, schemaName: String): DataSource = {
     val schemaDir = s"$user/$schemaName/"
     logger.info(s"Loading schema: $schemaName, key: $schemaDir")
     val contents: ScalaObjectListing = listContents(schemaDir)
-    logger.info("Found files: " + contents.files)
+    val summaries = contents.summaries.map(s => s"${s.getKey} (${s.getSize})").mkString(", ")
+    logger.info(s"Found files: $summaries")
 
     val list: List[String] = contents.files.filter(s => s.startsWith(schemaName + "."))
     assert(list.size == 1, s"Expected one data file for schema: $schemaName in key: $schemaDir. Found: $list.")
@@ -118,8 +119,38 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
     // Alternatively, download contents here instead of passing the reference. Only problematic if schemas become large.
     val schemaFileKey = schemaDir + "schema.xml"
     val propertiesString = getObjectAsString(propertiesFileKey)
-    val properties = new SchemaProperties(jsonMapper.readValue(propertiesString, classOf[java.util.Map[String, Object]]))
-    RawSchema(schemaName, new RawS3Object(schemaFileKey, s3), properties, new RawS3Object(dataFileKey, s3))
+
+    val properties: util.Map[String, Object] = jsonMapper.readValue(propertiesString, classOf[java.util.Map[String, Object]])
+    val fileType = FileTypes.inferFileType(schemaFileName)
+    val format = fileType match {
+      case FileTypes.Json => JSON()
+      case FileTypes.Csv => {
+        val schemaProperties = DataSource.newCsvDataSourceProperties(properties)
+        CSV(schemaProperties)
+      }
+      case FileTypes.Text => Text()
+    }
+
+    val attributeOrder = format match {
+      case CSV(schemaProperties) => schemaProperties.fieldNames
+      case _ => None
+    }
+
+    // Get the schema file
+    val schemaS3File = s3.getObject(S3StorageManager.bucket, schemaFileKey)
+    val tipe = SchemaParser(schemaS3File.getObjectContent, attributeOrder)
+
+    // Get the schema file information
+    val location = S3File(dataFileKey)
+    val size: Option[Long] = {
+      // tODO: Or contentLength?
+      val dataS3Object = s3.getObjectMetadata(S3StorageManager.bucket, schemaFileKey)
+      val l = dataS3Object.getInstanceLength
+      logger.info(s"File: ${schemaFileKey}, Instance length: $l")
+      if (l == 0) None else Some(l)
+    }
+    val accessPaths: Set[AccessPath] = Set(SequentialAccessPath(location, format, size))
+    DataSource(schemaName, tipe, accessPaths)
   }
 
   private[this] def listContents(prefix: String): ScalaObjectListing = {
@@ -152,7 +183,7 @@ class S3StorageManager(val stageDirectory: Path) extends StorageManager with Str
 
   private[this] def uploadFile(bucket: String, prefix: String, p: Path) = {
     val keyName = prefix + "/" + p.getFileName
-    logger.info(s"Uploading $p to $keyName")
+    logger.info(s"Uploading $p to $keyName. ${p.toFile.length()} bytes")
     val start = Stopwatch.createStarted()
     s3.putObject(new PutObjectRequest(bucket, keyName, p.toFile))
     logger.info(s"Uploaded file in: ${start.elapsed(TimeUnit.MILLISECONDS)}ms")

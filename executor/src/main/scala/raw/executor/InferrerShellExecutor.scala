@@ -34,8 +34,12 @@ object InferrerShellExecutor extends StrictLogging {
     (exitValue, output.toString)
   }
 
-  def inferSchema(filePath: Path, fileType: String, schemaName: String): Unit = {
-    val cmdLine = s"python ${inferrerPath.toString} -f ${filePath.toString} -t $fileType -n $schemaName"
+  def inferSchema(filePath: Path, fileType: String): Unit = {
+    inferSchema(filePath, fileType, filePath.getParent)
+  }
+
+  def inferSchema(filePath: Path, fileType: String, outputPath: Path): Unit = {
+    val cmdLine = s"python ${inferrerPath.toString} -f ${filePath.toString} -t $fileType -o ${outputPath.toString}"
     logger.info(s"Executing command: $cmdLine")
     val start = Stopwatch.createStarted()
     val (s, output) = runCommand(cmdLine)
