@@ -3,6 +3,7 @@ import types
 import json
 from collections import OrderedDict
 from splitstream import splitfile
+import re
 
 from .common import *
 from raw_types import *
@@ -51,23 +52,17 @@ class JSONInferrer(object):
 
         raise TypeInferenceException(json.dumps(j, indent=4))
 
-def as_array(path):
-    """ Checks if the file is to be treated as an Array or not by the json_sample
-         the splitfile as a problem if the internal type is atomic 
-         so it also checks if the internal type is atomic or a class """
-    with open(path, 'r') as f:
-        s = f.read(500).lstrip() 
-    is_array = s[0] == '['
-    #this is a hack, it will try to check if there is a { inside, if so then it is a class
-    #TODO: try a better way to parse this 
-    is_class = "{" in s 
-    return is_array and is_class
-
 def json_sample(path, n_objs = 10):
     """ Tries to get n_objs objects from a json file
         Returns a json string with sample"""
     # probes file to see if it is an array of objects or not
-    is_array = as_array(path)
+    
+    with open(path, 'r') as f:
+        s = f.read(500).lstrip() 
+    # this matches an array and some class inside
+    # an array and then some atomic types will not be sampled
+    is_array = re.match("^\s*\[\s*\{", s)
+
     with open(path, 'r') as f:
         if is_array:
             gen = splitfile(f, format="json", startdepth=1)
