@@ -58,10 +58,10 @@ def json_sample(path, n_objs = 10):
     # probes file to see if it is an array of objects or not
     
     with open(path, 'r') as f:
-        s = f.read(500).lstrip() 
-    # this matches an array and some class inside
+        s = f.read(500) 
+    # this matches an array and some class inside or sub array
     # an array and then some atomic types will not be sampled
-    is_array = re.match("^\s*\[\s*\{", s)
+    is_array = re.match("^\s*\[\s*[\{\[]", s)
 
     with open(path, 'r') as f:
         if is_array:

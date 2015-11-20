@@ -103,11 +103,11 @@ if __name__ == '__main__':
             for f in filenames:
                 try:
                     filename = os.path.join(dirpath, f)
-                    register_file( filename , user, force= args.force)
+                    register_file( filename , user, force=args.force)
                 except Exception as e:
                     if not args.ignore:
                         raise e
                     else:
                         logging.error("Could not register fie %s: %s " %(filename, e))
     else:
-         register_file( path, user)    
+         register_file( path, user, force= args.force)    
