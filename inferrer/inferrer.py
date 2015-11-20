@@ -15,6 +15,7 @@ if __name__ == '__main__':
 
     args = argp.parse_args()
     file = args.file_path
+    
     type = args.file_type
     basedir = args.output_path
 
