@@ -46,18 +46,19 @@ def register_file(path, user, force=False):
         link= os.path.join(basedir, "%s.%s" %(name,file_type))
         os.symlink(path, link)
                    
-        n_objs = 1
+        n_objs = 100
         n_max = 1000
         while n_objs < n_max:
             try :
                 # Infer schema
-                schema, properties = inferrer.from_local(name, path, file_type, n_objs=n_objs)
+                schema, properties = inferrer.from_local(path, file_type, n_objs=n_objs)
                 logging.debug("Schema: %s; Properties: %s" % (schema, properties))
                 serialized_schema = schema_serializer.serialize(schema)
                 break
             except schema_serializer.SerializerException :
                 logging.debug('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
                 n_objs = 2*n_objs
+                
         logging.debug("Serialized Schema:\n%s" % serialized_schema)
         schemaFile = os.path.join(basedir, "schema.xml")
         logging.debug("Writing schema: " + schemaFile)
