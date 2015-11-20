@@ -384,6 +384,8 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
     */
   private lazy val bindFreeSymbols: Bind => Option[FreeSymbols] = attr {
     case b =>
+      logger.debug(s"we are here $b")
+
       def aux: Option[FreeSymbols] = {
 
         // TODO: If the unresolved TypeVariables come from UserType/Source, don't include them as free variables.
@@ -458,7 +460,9 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
 
         Some(FreeSymbols(freeTypeSyms, freeMonoidSyms, freeAttSyms))
       }
-      aux
+      val r = aux
+      logger.debug(s" result is $r")
+      r
   }
 
   /** Return the sequence of types in a pattern.
@@ -1463,11 +1467,6 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
       val f = funApp.f
       val args = funApp.args
       val t = expType(f)
-      if (!hasType(f, FunType(args.map(arg => TypeVariable()), expType(funApp)))) {
-        tipeErrors += InvalidFunction(walk(t), Some(parserPosition(f)))
-        hasType(funApp, NothingType())
-        return
-      }
       find(t) match {
         case FunType(ins, out) =>
 
@@ -1486,8 +1485,14 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
           }
 
           // Unify the type of FunApp itself with the output of the FunType
-          val tfunApp = expType(funApp)
-          assert(unify(tfunApp, out))
+          assert(hasType(funApp, out))
+        case _: TypeVariable =>
+          hasType(f, FunType(args.map(arg => TypeVariable()), expType(funApp)))
+        case _: NothingType =>
+          hasType(funApp, NothingType())
+        case _ =>
+          tipeErrors += InvalidFunction(walk(t), Some(parserPosition(f)))
+          hasType(funApp, NothingType())
       }
     }
 
@@ -1572,7 +1577,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         genPatternHasType(g)
 
       case b: Bind =>
-        bindFreeSymbols(b)
+//        bindFreeSymbols(b)
 
       case c @ Comp(m, qs, e) =>
         for (q <- qs) {
@@ -1622,13 +1627,19 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
         maxOfMonoids(s, froms)
 
-      case FunAbs(_, e) =>
+      case FunAbs(args, e) =>
+        // TODO: Add args to world
+        for (arg <- args) {
+          entity(arg) match {
+            case VariableEntity(_, t) => typesVarMap.union(t, t)
+          }
+        }
         solve(e)
 
       case n @ ExpBlock(binds, e) =>
-        for (b <- binds) {
-          solve(b)
-        }
+//        for (b <- binds) {
+//          solve(b)
+//        }
         solve(e)
         sameType(n, e)
 
@@ -1768,7 +1779,7 @@ class SemanticAnalyzer(val tree: Calculus.Calculus, val world: World, val queryS
         }
 
       case i: IdnExp =>
-        expType(i)  // Run for side-effects, e.g. collect errors
+//        expType(i)  // Run for side-effects, e.g. collect errors
 
       case n @ RecordProj(e, idn) =>
         solve(e)

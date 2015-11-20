@@ -790,9 +790,7 @@ class SemanticAnalyzerTest extends CalculusTest {
         fact := F(fact1);
         fact
       }
-      """, TestWorlds.empty, FunType(List(IntType()), IntType())
-    )
-
+      """, TestWorlds.empty, FunType(List(IntType()), IntType()))
   }
 
   test("select s from s in students") {
