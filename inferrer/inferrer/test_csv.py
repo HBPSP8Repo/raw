@@ -3,7 +3,7 @@ import csv_inferrer
 from raw_types import *
 
 def test_csv():
-    i = csv_inferrer.CSVInferrer("test_csv", "a,b\n1,2\n")
+    i = csv_inferrer.CSVInferrer( "a,b\n1,2\n")
     tipe, properties = i.infer_type()
     assert(isinstance(tipe, rawListType))
     assert(isinstance(tipe.desc, rawRecordType))

@@ -9,7 +9,7 @@ from json_inferrer import json_sample
 from raw_types import *
 
 def test_json():
-    i = json_inferrer.JSONInferrer("test_json", """[{"a": 1, "b": [1,2,3]}, {"a": 2, "b": [4,5,6]}]""")
+    i = json_inferrer.JSONInferrer( """[{"a": 1, "b": [1,2,3]}, {"a": 2, "b": [4,5,6]}]""")
     tipe, properties = i.infer_type()
     assert(isinstance(tipe, rawListType))
     assert(isinstance(tipe.desc, rawRecordType))
@@ -32,13 +32,29 @@ def createJsonObj():
     return s , json.loads(s)
     
     
-
+def test_json_sample_simple_array():
+    # case array of atomic types
+    a1 = [1,2,3,5,6]
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        f.write(json.dumps(a1))
+    a2 = json.loads(json_sample(f.name, 2))
+    # in this case it will have to get the full array
+    assert a1 == a2
+    
+    a1=[ [1],[2],[3],[5],[6] ]
+    # case array of arrays   
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        f.write(json.dumps(a1))        
+    a2 = json.loads(json_sample(f.name, 2))
+    assert a2 == [[1],[2]]
+            
 def test_json_sample_array():
     random.seed()
     n_objs= 1000
     # creates a temp file with n_objs
     f = tempfile.NamedTemporaryFile(delete=False, suffix='.json')
-    f.write('[\n')
+    #adds some white space before just to be sure
+    f.write('      \n \n              [\n')
     objs =[]
     for n in range(n_objs):
         s , o = createJsonObj()

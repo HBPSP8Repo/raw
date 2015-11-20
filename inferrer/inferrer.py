@@ -6,8 +6,6 @@ import json
 import schema_serializer
 import inferrer
 
-logging.basicConfig(level=logging.INFO)
-
 if __name__ == '__main__':
     argp = ArgumentParser(description="Schema inferrer")
     argp.add_argument("--file-path", "-f", required=True, dest='file_path',
@@ -17,6 +15,7 @@ if __name__ == '__main__':
 
     args = argp.parse_args()
     file = args.file_path
+    
     type = args.file_type
     basedir = args.output_path
 
@@ -33,7 +32,7 @@ if __name__ == '__main__':
             break
         except schema_serializer.SerializerException as e:
             logging.warn("Exception: %s" % e)
-            logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
+            logging.debug('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
             n_objs = 2*n_objs
 
     # basedir = os.path.dirname(file)
@@ -42,12 +41,12 @@ if __name__ == '__main__':
 
     logging.debug("Serialized Schema:\n%s" % serialized_schema)
     schemaFile = os.path.join(basedir, "schema.xml")
-    logging.info("Writing schema: " + schemaFile)
+    logging.debug("Writing schema: " + schemaFile)
     with open(schemaFile, "w") as text_file:
         text_file.write(serialized_schema)
 
     serialized_properties = json.dumps(properties)
     propFile = os.path.join(basedir, "properties.json")
-    logging.info("Writing properties file: " + propFile)
+    logging.debug("Writing properties file: " + propFile)
     with open(propFile, "w") as text_file:
         text_file.write(serialized_properties)
