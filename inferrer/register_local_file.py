@@ -21,13 +21,13 @@ def register_file(path, user, force=False):
     extension = parts[1].lower()
     
     if extension == ".csv":
-        type = 'csv'
+        file_type = 'csv'
     elif extension == ".json":
-        type = 'json'
+        file_type = 'json'
     elif extension == '.log' or \
             extension == '.text' or \
             extension =='.txt':
-        type = 'text'
+        file_type = 'text'
     else:
         logging.warn("not registering unknon file type "+ path)
         return
@@ -43,7 +43,7 @@ def register_file(path, user, force=False):
 
     try:
         # creates a symlink of the file 
-        link= os.path.join(basedir, "%s.%s" %(name,type))
+        link= os.path.join(basedir, "%s.%s" %(name,file_type))
         os.symlink(path, link)
                    
         n_objs = 1
@@ -51,7 +51,7 @@ def register_file(path, user, force=False):
         while n_objs < n_max:
             try :
                 # Infer schema
-                schema, properties = inferrer.from_local(name, path, type, n_objs=n_objs)
+                schema, properties = inferrer.from_local(name, path, file_type, n_objs=n_objs)
                 logging.debug("Schema: %s; Properties: %s" % (schema, properties))
                 serialized_schema = schema_serializer.serialize(schema)
                 break
@@ -106,7 +106,7 @@ if __name__ == '__main__':
                     register_file( filename , user, force=args.force)
                 except Exception as e:
                     if not args.ignore:
-                        raise e
+                        raise
                     else:
                         logging.error("Could not register fie %s: %s " %(filename, e))
     else:
