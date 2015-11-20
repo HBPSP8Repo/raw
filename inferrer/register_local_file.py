@@ -70,7 +70,7 @@ def register_file(path, user, force=False):
         logging.debug("Writing properties file: " + propFile)
         with open(propFile, "w") as text_file:
             text_file.write(serialized_properties)
-        logging.info("registered file %s, name=%s, type=%s" % (path, name, type  ))
+        logging.info("registered file %s, name=%s, type=%s" % (path, name, file_type  ))
     except Exception as e:
         # if something fails deletes the folder
         logging.error("could not register %s, deleting %s" % (path, basedir))
