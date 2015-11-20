@@ -53,7 +53,8 @@ def test_json_sample_array():
     n_objs= 1000
     # creates a temp file with n_objs
     f = tempfile.NamedTemporaryFile(delete=False, suffix='.json')
-    f.write('[\n')
+    #adds some white space before just to be sure
+    f.write('      \n \n              [\n')
     objs =[]
     for n in range(n_objs):
         s , o = createJsonObj()
