@@ -73,7 +73,7 @@ def json_sample(path, n_objs = 10):
                 sample = next(gen)
                 objs.append(sample)
             except StopIteration: 
-                print n
+                print "Sampled %d objs" % n
                 if (n < 1):
                     raise ValueError("Empty json Array")
                 break
