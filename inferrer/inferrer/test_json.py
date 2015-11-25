@@ -29,9 +29,8 @@ def createJsonObj():
 "r_str" : "%s" }}
     """ % (counter , r_int, r_str, r_int/1000.0, r_str)
     counter += 1
-    return s , json.loads(s)
-    
-    
+    return s 
+
 def test_json_sample_simple_array():
     # case array of atomic types
     a1 = [1,2,3,5,6]
@@ -47,8 +46,27 @@ def test_json_sample_simple_array():
         f.write(json.dumps(a1))        
     a2 = json.loads(json_sample(f.name, 2))
     assert a2 == [[1],[2]]
-            
-def test_json_sample_array():
+
+def test_hjson_sample():
+    # case array of atomic types
+    a1 = [1,2,3,5,6]
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        for n in range(10):
+            f.write(json.dumps(a1))
+            f.write('\n')
+    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
+    # in this case it will have to get the full array
+    assert a2 == [a1,a1]
+    
+    a1=[ [1],[2],[3],[5],[6] ]
+    # case array of arrays   
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        for n in range(10):
+            f.write(json.dumps(a1))
+    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
+    assert a2 == [a1,a1]
+
+def test_json_sample():
     random.seed()
     n_objs= 1000
     # creates a temp file with n_objs
@@ -57,17 +75,41 @@ def test_json_sample_array():
     f.write('      \n \n              [\n')
     objs =[]
     for n in range(n_objs):
-        s , o = createJsonObj()
-        objs.append(o)
+        s  = createJsonObj()
+        objs.append(json.loads(s))
         f.write(s)
         if n < n_objs -1:
             f.write(',')
+
     f.write('\n]')
     f.close()
     # compares the sample with the original objs
     print "created temp file %s " % f.name
     n_sample = 100
     s_objs = json.loads(json_sample(f.name, n_sample))
+    assert ( len(s_objs) == n_sample )
+    for n in range(n_sample):
+        for s in objs[n]:
+            assert (objs[n][s] == s_objs[n][s])
+
+def test_hjson_sample():
+    random.seed()
+    n_objs= 1000
+    # creates a temp file with n_objs
+    f = tempfile.NamedTemporaryFile(delete=False, suffix='.json')
+    #adds some white space before just to be sure
+    f.write('      \n \n              \n')
+    objs =[]
+    for n in range(n_objs):
+        s  = createJsonObj()
+        objs.append(json.loads(s))
+        f.write(s)
+
+    f.close()
+    # compares the sample with the original objs
+    print "created temp file %s " % f.name
+    n_sample = 100
+    s_objs = json.loads(json_sample(f.name, n_sample, file_format="hjson"))
     assert ( len(s_objs) == n_sample )
     for n in range(n_sample):
         for s in objs[n]:
