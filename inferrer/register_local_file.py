@@ -50,10 +50,10 @@ def register_file(path, user, force=False):
                 serialized_schema = schema_serializer.serialize(schema)
                 break
             except schema_serializer.SerializerException :
-                logging.debug('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
+                logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
                 n_objs = 2*n_objs
                 
-        logging.debug("Serialized Schema:\n%s" % serialized_schema)
+        logging.info("Serialized Schema:\n%s" % serialized_schema)
         schemaFile = os.path.join(basedir, "schema.xml")
         logging.debug("Writing schema: " + schemaFile)
         with open(schemaFile, "w") as text_file:

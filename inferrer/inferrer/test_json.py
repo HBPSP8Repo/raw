@@ -96,6 +96,7 @@ def test_hjson_sample():
         for s in objs[n]:
             assert (objs[n][s] == s_objs[n][s])
 
+def test_hjson_sample_array():
     # case array of atomic types
     a1 = [1,2,3,5,6]
     with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
