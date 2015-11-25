@@ -10,7 +10,7 @@ from raw_types import *
 
 def test_json():
     i = json_inferrer.JSONInferrer( """[{"a": 1, "b": [1,2,3]}, {"a": 2, "b": [4,5,6]}]""")
-    tipe, properties = i.infer_type()
+    tipe = i.infer_type()
     assert(isinstance(tipe, rawListType))
     assert(isinstance(tipe.desc, rawRecordType))
 
@@ -46,25 +46,6 @@ def test_json_sample_simple_array():
         f.write(json.dumps(a1))        
     a2 = json.loads(json_sample(f.name, 2))
     assert a2 == [[1],[2]]
-
-def test_hjson_sample():
-    # case array of atomic types
-    a1 = [1,2,3,5,6]
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
-        for n in range(10):
-            f.write(json.dumps(a1))
-            f.write('\n')
-    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
-    # in this case it will have to get the full array
-    assert a2 == [a1,a1]
-    
-    a1=[ [1],[2],[3],[5],[6] ]
-    # case array of arrays   
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
-        for n in range(10):
-            f.write(json.dumps(a1))
-    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
-    assert a2 == [a1,a1]
 
 def test_json_sample():
     random.seed()
@@ -114,3 +95,23 @@ def test_hjson_sample():
     for n in range(n_sample):
         for s in objs[n]:
             assert (objs[n][s] == s_objs[n][s])
+
+    # case array of atomic types
+    a1 = [1,2,3,5,6]
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        for n in range(10):
+            f.write(json.dumps(a1))
+            f.write('\n')
+    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
+    # in this case it will have to get the full array
+    assert a2 == [a1,a1]
+    
+    a1=[ [1],[2],[3],[5],[6] ]
+    # case array of arrays   
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as f:
+        for n in range(10):
+            f.write(json.dumps(a1))
+    a2 = json.loads(json_sample(f.name, 2, file_format="hjson"))
+    assert a2 == [a1,a1]
+
+
