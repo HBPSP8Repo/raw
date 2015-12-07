@@ -13,15 +13,8 @@ class JSONInferrer(object):
     def __init__(self, content):
         self._json = json.loads(content, object_pairs_hook=OrderedDict)
 
-        # This hides the original exception making it harder to debug
-
-    #        try:
-    #            self._json = json.loads(content, object_pairs_hook=OrderedDict)
-    #        except Exception as e:
-    #            raise ParseException
-
     def infer_type(self):
-        return self.__infer_type(self._json), None
+        return self.__infer_type(self._json)
 
     def __infer_type(self, j):
         if j is None:
@@ -51,19 +44,19 @@ class JSONInferrer(object):
 
         raise TypeInferenceException(json.dumps(j, indent=4))
 
-def json_sample(path, n_objs = 10):
-    """ Tries to get n_objs objects from a json file
-        Returns a json string with sample"""
-    # probes file to see if it is an array of objects or not
-    
-    with open(path, 'r') as f:
-        s = f.read(500) 
-    # this matches an array and some class inside or sub array
-    # an array and then some atomic types will not be sampled
-    is_array = re.match("^\s*\[\s*[\{\[]", s)
+def json_sample(path, n_objs = 10, file_format="json"):    
+    """ Tries to get n_objs objects from a json or an hjson file
+        Returns json string with sample (array of objects)"""
+    if file_format == "json":
+       # probes file to see if it is an array of objects or not
+        with open(path, 'r') as f:
+            s = f.read(1000) 
+        # this matches an array and some class inside or sub array
+        # an array and then some atomic types will not be sampled
+        is_array = re.match("^\s*\[\s*[\{\[]", s)
 
     with open(path, 'r') as f:
-        if is_array:
+        if file_format == "json" and is_array:
             gen = splitfile(f, format="json", startdepth=1)
         else:
             gen = splitfile(f, format="json")
@@ -72,15 +65,14 @@ def json_sample(path, n_objs = 10):
             try:
                 sample = next(gen)
                 objs.append(sample)
-            except StopIteration: 
-                print n
-                if (n < 1):
-                    raise ValueError("Empty json Array")
+            except StopIteration:
+                if n < 1:
+                    raise ValueError("Empty json Array or could not parse objects")
                 break
 
-    # Do we want to convert this file to an array all the time ?
-    # should we return the eof?
-    if is_array:
-       return "[\n%s\n]" % "\n,".join(objs) 
-    else:
+    if file_format=="json" and not is_array:
         return"\n".join(objs) 
+   #any other case transforms this in an array of objs so that the inferrer can get it
+    else:
+       return "[\n%s\n]" % "\n,".join(objs) 
+

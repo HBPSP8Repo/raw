@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import logging
 from argparse import ArgumentParser
 import os.path
@@ -19,16 +20,9 @@ def register_file(path, user, force=False):
     parts = os.path.splitext(basename)
     name = parts[0]    
     extension = parts[1].lower()
-    
-    if extension == ".csv":
-        file_type = 'csv'
-    elif extension == ".json":
-        file_type = 'json'
-    elif extension == '.log' or \
-            extension == '.text' or \
-            extension =='.txt':
-        file_type = 'text'
-    else:
+    #just removes the dot in the beginning 
+    file_type = extension[1:] if extension[0] == '.' else extension
+    if file_type not in inferrer.supported_types():
         logging.warn("not registering unknon file type "+ path)
         return
 
@@ -52,14 +46,14 @@ def register_file(path, user, force=False):
             try :
                 # Infer schema
                 schema, properties = inferrer.from_local(path, file_type, n_objs=n_objs)
-                logging.debug("Schema: %s; Properties: %s" % (schema, properties))
+                logging.info("Schema: %s; Properties: %s" % (schema, properties))
                 serialized_schema = schema_serializer.serialize(schema)
                 break
             except schema_serializer.SerializerException :
-                logging.debug('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
+                logging.info('Could not infer type with %d, retrying with %d' % (n_objs, 2*n_objs))
                 n_objs = 2*n_objs
                 
-        logging.debug("Serialized Schema:\n%s" % serialized_schema)
+        logging.info("Serialized Schema:\n%s" % serialized_schema)
         schemaFile = os.path.join(basedir, "schema.xml")
         logging.debug("Writing schema: " + schemaFile)
         with open(schemaFile, "w") as text_file:
